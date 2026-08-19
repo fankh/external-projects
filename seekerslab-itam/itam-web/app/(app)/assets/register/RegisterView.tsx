@@ -7,6 +7,7 @@ import type { Asset, AssetCategory, AssetStatus, BizCriticality } from '@/lib/ty
 import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
+import { assetDependenciesFrom } from '@/lib/cmdb-graph'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, reassignAsset, notifyEolUpgrade, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
@@ -141,6 +142,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
+  // CMDB 의존 관계 — 클라이언트에서 대장 스냅샷(props.assets)으로 순수 산출(상위 의존·영향 범위·저하 상위)
+  const selDeps = sel ? assetDependenciesFrom(props.assets, sel.assetNo) : null
+  const modelOf = (no: string) => props.assets.find((a) => a.assetNo === no)?.model ?? ''
 
   // 다중 선택 — 보증 일괄 연장·선택 내보내기 공용. 현재 필터의 모든 행을 선택할 수 있다
   // (보증 연장은 보증 없는 SW·가상자원·폐기 자산을 서버에서 건너뛴다).
@@ -731,6 +735,16 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                         <span className="tnum" style={{ minWidth: 78, textAlign: 'right', color: c.warrantyClaimed ? 'var(--mut)' : undefined }}>{c.warrantyClaimed ? `절감 ${c.amount.toLocaleString()}` : `${c.amount.toLocaleString()}원`}</span>
                       </div>
                     ))}
+                  </dd>
+                </>
+              )}
+              {selDeps && (selDeps.upstream.length > 0 || selDeps.blastRadius.length > 0) && (
+                <>
+                  <dt>의존 관계 (CMDB)</dt>
+                  <dd className="vstack" style={{ gap: 3, alignItems: 'stretch', fontSize: 12 }}>
+                    {selDeps.upstream.length > 0 && <div><span className="mut">상위 의존</span> {selDeps.upstream.map((no) => `${no}(${modelOf(no)})`).join(', ')}</div>}
+                    {selDeps.blastRadius.length > 0 && <div><span className="mut">영향 범위(blast radius)</span> <b>{selDeps.blastRadius.length}대</b> — {selDeps.blastRadius.join(', ')}</div>}
+                    {selDeps.degradedUpstream.length > 0 && <div style={{ color: 'var(--err)' }}>⚠ 저하된 상위 {selDeps.degradedUpstream.join(', ')} — 이 자산 위험</div>}
                   </dd>
                 </>
               )}
