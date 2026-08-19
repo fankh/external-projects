@@ -1923,6 +1923,16 @@ try {
   await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const mssRow = (await p4.locator('tr', { has: p4.locator('td', { hasText: '보안관제(MSS) 유지보수' }) }).first().textContent()) || ''
   ok('유지보수 판정: 소액 집행(0.05%)은 미집행 아닌 정상(반올림 오분류 회귀)', mssRow.includes('정상') && !mssRow.includes('미집행'))
+  // 유지보수 SLA 위반 → 공급사 SLA 이행 독촉(로71) — SLA 편집기는 있으나 준수 감시·조치가 없던 공백. 시드 CT-2025-014(단말 유지보수, SLA 대응 5영업일)가 덮는 AST-2024-000512 의 열린 수리(sentAt 07-18, 시한 초과) → SLA 위반 판정 → 위반 배지·독촉 버튼. 위반 검출·독촉이 없으면 배지/버튼이 안 떠 실패.
+  await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const slaMaintCard = p4.locator('.card', { has: p4.locator('text=유지보수 계약 관리') })
+  const slaRow = (await slaMaintCard.locator('tr', { has: p4.locator('td', { hasText: '임직원 단말 하드웨어 유지보수' }) }).first().textContent()) || ''
+  ok('유지보수 SLA 위반: 대응 시한 초과 열린 수리 배지(위반 자산 열거)', slaRow.includes('SLA 위반') && slaRow.includes('AST-2024-000512'))
+  const slaBtn = p4.locator('button', { hasText: /^SLA 위반 독촉 \(\d+\)$/ })
+  ok('유지보수 SLA 위반: 이행 독촉 버튼 노출(위반 배지 ≥1)', (await slaBtn.count()) > 0 && !/\(0\)/.test(await slaBtn.first().innerText()))
+  await slaBtn.first().click()
+  await p4.waitForTimeout(800)
+  ok('유지보수 SLA 위반: 이행 독촉 발송 성공(주관부서·공급사 · 발송 이력)', ((await p4.textContent('body')) || '').includes('SLA 위반 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
 
   // 발주 이행 독촉(§03 구매 계약 · 신호→조치 채널) — 발주 미이행 위험 판정(발주율 저조·만료 임박)에 조치 채널이 없던 공백을 닫는다. 시드 CT-2023-021 미이행 → 버튼 활성.
   const procBtn = p4.locator('button', { hasText: /^발주 이행 독촉 \(\d+\)$/ })

@@ -120,6 +120,8 @@ export default async function DashboardPage() {
       { label: '유지보수 예산 초과·소진 임박 (재협상·집행 점검)', count: maint.rows.filter((r) => r.status === '예산 초과' || r.status === '소진 임박').length, href: '/inventory/contracts', tone: maint.overBudget > 0 ? 'err' : 'warn' },
       // 유지보수 미집행 — 계약액이 있는데 집행이 전혀 없는 계약(예산 통보의 반대편). 방치하면 계약액 실기·SLA 미이행. 이행 확인·독촉 대상.
       { label: '유지보수 미집행 (이행 확인·독촉)', count: maint.execAlert, href: '/inventory/contracts', tone: 'warn' },
+      // 유지보수 SLA 위반 — 계약이 덮는 자산의 열린 수리가 SLA 대응 시한을 넘김(§03 유지보수 SLA 관리). 방치하면 계약상 서비스 수준 미이행. 공급사 SLA 이행 독촉 대상.
+      { label: '유지보수 SLA 위반 (대응 시한 초과 · 이행 독촉)', count: maint.slaBreachAlert, href: '/inventory/contracts', tone: 'err' },
       // 구매 계약 발주 미이행 — 발주율 저조 + 만료 임박(§03 구매 계약 검수 연계). 방치하면 계약 미소진·예산 실기·정산 지연.
       { label: '구매 계약 발주 미이행 · 만료 임박 (이행 점검)', count: buildProcurement().atRisk.length, href: '/inventory/contracts', tone: 'err' },
       // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.
