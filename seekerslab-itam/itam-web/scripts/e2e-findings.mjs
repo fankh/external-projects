@@ -283,6 +283,13 @@ async function aiPeriodQuery(page) {
   const compId = decodeURIComponent((compHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const compText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(compId)}?format=xlsx`)).body()).toString('utf8')
   ok('리포트 반출: 정보보호 컴플라이언스 증적 xlsx 에 ISMS 통제 5섹션(자산 인벤토리·접근통제·매체 폐기·운영보안·로깅) 실린다', compText.includes('A.8.1 자산 인벤토리 통제') && compText.includes('A.9 접근 통제') && compText.includes('A.8.3 매체 폐기') && compText.includes('A.12 운영 보안') && compText.includes('A.12.4 로깅'))
+  // 라이선스 갱신·트루업 계획 리포트(신규) — 전방 갱신 예측. 자연어 인텐트가 '갱신'으로 신규 종류 매칭(라이선스 컴플라이언스보다 우선), buildSections 가 갱신 예정·트루업 권고·예산 요약 산출.
+  const rRen = await ask('라이선스 갱신 계획 리포트 생성해줘')
+  ok('AI 갱신질의: 라이선스 갱신·트루업 계획 생성 분기(라이선스 컴플라이언스와 구분)', rRen.includes('리포트를 생성했습니다'))
+  const renHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const renId = decodeURIComponent((renHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const renText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(renId)}?format=xlsx`)).body()).toString('utf8')
+  ok('리포트 반출: 라이선스 갱신·트루업 계획 xlsx 에 갱신 예정·트루업 권고·예산 요약 섹션 실린다', renText.includes('갱신 예정') && renText.includes('트루업 권고') && renText.includes('갱신 예산'))
   // 부서별 IT 비용 배분(차지백) 리포트 — 자연어 생성 인텐트가 신규 종류를 매칭하고, buildSections 가 부서별 원가·좌석 비용 섹션을 실제 산출.
   const r4 = await ask('부서별 IT 비용 배분 리포트 생성해줘')
   ok('AI 차지백질의: 부서별 IT 비용 배분 생성 분기', r4.includes('리포트를 생성했습니다'))
