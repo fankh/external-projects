@@ -71,8 +71,8 @@ export async function GET(req: Request) {
     if (merged.length) groups.push({ kind: '폐기·입고', items: merged })
   }
 
-  // 결재 — 사용자는 본인 기안분만
-  const aprs = (isUser ? s.approvals.filter((a) => a.requester === session.name) : s.approvals)
+  // 결재 — 사용자는 본인 기안분 + 우리 부서로 온 소유자 확인 요청(응답 대상). 결재함 화면(page.tsx)의 USER 스코핑과 동일 — 검색만 좁아 사용자가 응답할 건을 못 찾던 공백을 닫는다.
+  const aprs = (isUser ? s.approvals.filter((a) => a.requester === session.name || (a.kind === '소유자 확인' && a.dept === session.dept)) : s.approvals)
     .filter((a) => hit(a.id, a.title, a.requester, a.kind)).slice(0, LIMIT)
     .map((a) => ({ label: `${a.id} · ${a.title}`, sub: `${a.kind} · ${a.requester} · ${a.status}`, href: '/workflow/approvals' }))
   if (aprs.length) groups.push({ kind: '결재', items: aprs })

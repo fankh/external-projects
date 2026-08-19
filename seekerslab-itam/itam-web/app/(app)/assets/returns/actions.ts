@@ -5,6 +5,7 @@ import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, today } from 
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
+import { reclaimLicenseSeats } from '@/lib/license'
 import type { ReturnCondition } from '@/lib/types'
 
 /** 반납 접수 · 상태 점검 — 회수한 실물을 점검해 유휴 풀에 넣을지, 수리·폐기로 뺄지 가른다.
@@ -227,6 +228,9 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
 
   // 수리 완료 후 행선지 — 반납 접수분은 소유자를 비우고 수리에 들어와(유휴 풀 편성·재배치), 장애 신고 등
   // 사용 중 자산이 소유자를 유지한 채 수리에 들어온 경우는 원 소유자에게 반환(사용중 복귀)한다. 소유자 유무로 두 진입점을 구분.
+  // 통보 대상 — 수리 불가는 아래에서 소유자를 비우므로(이탈), 통보 전에 원 소유자·부서를 먼저 확보한다.
+  const priorOwner = asset.owner && asset.owner !== '미지정' && asset.owner !== '-' ? asset.owner : null
+  const priorDept = asset.dept
   const stillOwned = outcome === '수리 완료' && !!asset.owner && asset.owner !== '미지정' && asset.owner !== '-'
   asset.status = outcome === '수리 완료' ? (stillOwned ? '사용중' : '유휴') : '폐기예정'
   const cost = Math.max(0, Math.round(actualCost))
@@ -248,13 +252,21 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   if (outcome === '수리 불가' && !s.disposals.some((d) => d.assetNo === assetNo)) {
     s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `수리 불가 폐기${note.trim() ? ` — ${note.trim()}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
   }
+  // 수리 불가 = 보유자 이탈(폐기 절차 진입) — 소유자 정리·좌석 회수를 반납·회수·폐기 등 다른 이탈 경로와 동일하게 수행한다(유휴⇒미지정 규약·로56 좌석 생애주기).
+  // 장애 신고분은 사용중 자산이 소유자를 유지한 채 수리에 들어오므로, 여기서 비우지 않으면 폐기 결재 반려 시 유휴 자산이 원 소유자에 오귀속되고 회수 안 된 좌석이 떠난 보유자에 물려 SAM 이 샌다.
+  if (outcome === '수리 불가') {
+    asset.owner = '미지정'
+    asset.dept = '자산관리팀'
+    const freed = reclaimLicenseSeats(assetNo, session.name, '수리 불가 폐기')
+    if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (수리 불가 폐기)`, actor: session.name })
+  }
   // 신고자·소유자 통보 — 장애 신고 등 소유자를 유지한 채 수리에 들어온 자산은 결과를 원 소유자에게 알려 루프를 닫는다(반납 접수 통보의 수리판).
   // 반납 접수분은 소유자가 이미 비워져(유휴 풀) 대상이 아니다 — 반납 시점에 이미 반납자에게 결과를 통보했다.
-  const notifyOwner = asset.owner && asset.owner !== '미지정' && asset.owner !== '-' ? asset.owner : null
+  const notifyOwner = priorOwner // 수리 불가는 위에서 소유자를 비웠으므로 사전 확보한 원 소유자로 통보한다
   if (notifyOwner) {
     dispatch({
       channel: '이메일',
-      to: `${notifyOwner} (${asset.dept})`,
+      to: `${notifyOwner} (${priorDept})`,
       subject: outcome === '수리 완료'
         ? `수리 완료 — ${asset.assetNo} ${asset.model} 사용 재개 (반환 완료)`
         : `수리 불가 — ${asset.assetNo} ${asset.model} 폐기 예정, 대체 자산 신청을 안내드립니다`,
