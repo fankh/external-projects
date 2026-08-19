@@ -12,9 +12,9 @@ import { RegisterView } from './RegisterView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string; maint?: string; spof?: string; replace?: string; stale?: string; receipt?: string }> }) {
+export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string; maint?: string; spof?: string; replace?: string; stale?: string; receipt?: string; loanext?: string; loanret?: string }> }) {
   const session = (await getSession())!
-  const { q, sel, cat, status, warranty, dq, os, crit, maint, spof, replace, stale, receipt } = await searchParams
+  const { q, sel, cat, status, warranty, dq, os, crit, maint, spof, replace, stale, receipt, loanext, loanret } = await searchParams
   const s = getStore()
   // 화면·기능 단위 최소권한 — 사용자 권한그룹은 본인 보유 자산만 조회
   const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
@@ -22,6 +22,9 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const receiptPendingCount = scoped.filter((a) => a.receiptPending && a.status === '사용중').length
   // 수령(인수) 미확인 — 불출 배정 후 사용자 인수 확인이 안 된 사용 중 자산(체인 오브 커스터디 공백). 대시보드 큐(?receipt=1)·어시스턴트 링크와 같은 판정.
   const receiptNos = scoped.filter((a) => a.receiptPending && a.status === '사용중').map((a) => a.assetNo)
+  // 대여 셀프서비스 요청 대기 — 대여자가 올린 반환 기한 연장 요청·반납 신청. 대시보드 큐(?loanext=1·?loanret=1)와 같은 판정으로, 큐 건수=목록.
+  const loanExtNos = scoped.filter((a) => a.loanExtendRequest).map((a) => a.assetNo)
+  const loanRetNos = scoped.filter((a) => a.returnRequest).map((a) => a.assetNo)
   // ?sel= 로 특정 자산을 바로 선택 — 상세·구성변경 딥링크. 스코프 밖 자산번호는 무시된다.
   const initialSel = sel && scoped.some((a) => a.assetNo === sel) ? sel : undefined
   // 장기 미실측(유령 자산 후보) — 대장 필터·재물조사 편성이 공유하는 lib/dates 의 isStaleVerify 기준
@@ -70,7 +73,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       )}
       {session.role !== 'USER' && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
       </Card>
     </>
   )
