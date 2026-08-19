@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Icon } from './chrome/Icon'
 
 /** 화면 헤더 — 키커(도메인) + 타이틀 + 설명 */
 export function ScreenHeader(props: { kicker: string; title: string; desc?: string; right?: ReactNode }) {
@@ -52,5 +53,5 @@ export function Chip(props: { tone: 'ok' | 'warn' | 'err' | 'info' | 'neutral'; 
 /** 첨부 표시 — 공통 첨부(refId 기준) 건수. 0이면 렌더하지 않는다. */
 export function Clip({ count, title }: { count: number; title?: string }) {
   if (count <= 0) return null
-  return <span className="clip" title={title}>📎{count}</span>
+  return <span className="clip" title={title}><Icon name="clip" size={12} />{count}</span>
 }

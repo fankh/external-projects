@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       badges={badges}
       channels={channels}
       lastBatch={s.batchRuns[0] ? { job: s.batchRuns[0].job, at: s.batchRuns[0].ranAt } : undefined}
-      brand={{ name: PORTAL.productName, sub: PORTAL.productSub, version: PORTAL.version, customer: PORTAL.customer }}
+      brand={{ name: PORTAL.productName, sub: PORTAL.productSub, version: PORTAL.version, customer: PORTAL.customer, copyright: `© ${new Date().getFullYear()} ${PORTAL.customer}` }}
       userName={session.name}
       dept={session.dept}
       roleLabel={ROLE_LABEL[session.role]}

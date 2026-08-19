@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Fragment } from 'react'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { Icon } from '@/components/chrome/Icon'
 import { ROTATING_DOC_TYPES, WITHDRAWABLE_DOC_TYPES } from '@/lib/approvals'
 import { attachCount } from '@/lib/attachments'
 import { requireMenu } from '@/lib/authz'
@@ -156,7 +157,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
               <dt>첨부</dt>
               <dd>
                 {selectedFiles.length === 0 ? '-' : selectedFiles.map((f) => (
-                  <div key={f.id} className="mono" style={{ fontSize: 11.5 }}>📎 {f.name} <span className="mut">({f.sizeKb.toLocaleString('ko-KR')}KB · {f.uploadedBy})</span></div>
+                  <div key={f.id} className="mono hstack" style={{ fontSize: 11.5, gap: 4 }}><Icon name="clip" size={12} />{f.name} <span className="mut">({f.sizeKb.toLocaleString('ko-KR')}KB · {f.uploadedBy})</span></div>
                 ))}
               </dd>
             </dl>

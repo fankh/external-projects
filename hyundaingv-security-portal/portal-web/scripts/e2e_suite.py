@@ -87,6 +87,12 @@ def login(pg, base, name):
     pg.wait_for_url('**/dashboard')
 
 
+def clip_n(scope):
+    """공통 첨부 뱃지(.clip)의 건수 텍스트 — 없으면 '0'. 뱃지는 SVG 아이콘 + 숫자라 텍스트는 건수만."""
+    loc = scope.locator('.clip')
+    return loc.first.inner_text().strip() if loc.count() else '0'
+
+
 
 def approve_first(pg, base, needle):
     pg.goto(f'{base}/work/approvals', wait_until='networkidle')
@@ -155,12 +161,12 @@ def sc_sr(pg, base, check):
     pg.set_input_files('input[name=file]', str(UPLOAD))
     pg.click('button:has-text("결재 상신")')
     pg.wait_for_url('**/sr/requests**')
-    check('📎1' in pg.locator('tr', has_text='E2E 데이터 추출').inner_text(), '신청 첨부 뱃지')
+    check(clip_n(pg.locator('tr', has_text='E2E 데이터 추출')) == '1', '신청 첨부 뱃지')
 
     login(pg, base, '박정호')
     pg.goto(f'{base}/work/approvals', wait_until='networkidle')
     row = pg.locator('tr', has_text='E2E 데이터 추출')
-    check('📎1' in row.inner_text(), '결재함 첨부 표시')
+    check(clip_n(row) == '1', '결재함 첨부 표시')
     row.locator('input[name=reason]').fill('근거 보완 필요')
     row.locator('button:has-text("반려")').click()
     pg.wait_for_load_state('networkidle')
@@ -198,7 +204,7 @@ def sc_sr(pg, base, check):
     ci_after_assign = pg.locator('.card', has_text='미처리 할일').locator('tr', has_text='CI 배정').count()
     check(ci_after_assign == ci_after_approve - 1, f'SR 처리 할일 생성→assignCi 마감 루프 (CI배정 {ci_after_approve}→{ci_after_assign})')
     pg.goto(f'{base}/sr/manage', wait_until='networkidle')
-    check('📎2' in pg.locator('tr', has_text='E2E 데이터 추출').inner_text(), 'BA 첨부 → SR pk 공유 뱃지(📎2)')
+    check(clip_n(pg.locator('tr', has_text='E2E 데이터 추출')) == '2', 'BA 첨부 → SR pk 공유 뱃지(2건)')
 
     # 결재 없는 CI 직접 접수 (요구사항 25행) — 접수 → 처리중 → 완료(처리 내용) 이력
     pg.goto(f'{base}/sr/ci', wait_until='networkidle')
@@ -343,7 +349,7 @@ def sc_devchain(pg, base, check):
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/work/approvals', wait_until='networkidle')
     inbox_row = pg.locator('tr', has_text='E2E 개발변경 사슬 — 작업계획').first
-    check('📎1' in inbox_row.inner_text(), '변경계획 자동첨부 1건 유지 (회수 재상신 중복 방지)')
+    check(clip_n(inbox_row) == '1', '변경계획 자동첨부 1건 유지 (회수 재상신 중복 방지)')
     inbox_row.locator('button:has-text("승인")').click()
     pg.wait_for_load_state('networkidle')
 
@@ -377,7 +383,7 @@ def sc_settle(pg, base, check):
     login(pg, base, '박정호')
     pg.goto(f'{base}/work/approvals', wait_until='networkidle')
     row = pg.locator('tr', has_text='정산품의-비용').first
-    check('📎1' in row.inner_text(), '정산 증빙 첨부 → 결재함 뱃지')
+    check(clip_n(row) == '1', '정산 증빙 첨부 → 결재함 뱃지')
     row.locator('input[name=reason]').fill('증빙 누락')
     row.locator('button:has-text("반려")').click()
     pg.wait_for_load_state('networkidle')
@@ -767,7 +773,7 @@ def sc_settle_delete_attach(pg, base, check):
     login(pg, base, '박정호')
     pg.goto(f'{base}/work/approvals', wait_until='networkidle')
     arow = pg.locator('tr', has_text='정산품의-비용').first
-    check('ST-2026-0001' in arow.inner_text() and '📎' not in arow.inner_text(),
+    check('ST-2026-0001' in arow.inner_text() and clip_n(arow) == '0',
           '재사용 id 신규 결재에 삭제된 증빙(유령 첨부) 미노출')
 
 
@@ -1209,9 +1215,9 @@ def sc_autoform_upload_defeat(pg, base, check):
     row.locator('button:has-text("결과 상신")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/infra/changes', wait_until='networkidle')
-    txt = pg.locator('tr', has_text='자동양식우회테스트변경').inner_text()
-    check('📎2' in txt,
-          f"양식 접두와 같은 파일명 업로드가 필수 자동양식 생성을 못 막음 (업로드+생성=📎2; 버그면 📎1; 실제 …{txt[-24:]})")
+    _row = pg.locator('tr', has_text='자동양식우회테스트변경')
+    check(clip_n(_row) == '2',
+          f"양식 접두와 같은 파일명 업로드가 필수 자동양식 생성을 못 막음 (업로드+생성=2건; 버그면 1건; 실제 clip={clip_n(_row)})")
 
 
 def sc_remote_departed_ghost(pg, base, check):
@@ -1319,8 +1325,8 @@ def sc_attach_generated_dedup(pg, base, check):
     pg.locator('tr', has_text='크로스데이중복테스트변경').locator('button:has-text("계획 상신")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/infra/changes', wait_until='networkidle')
-    txt = pg.locator('tr', has_text='크로스데이중복테스트변경').inner_text()
-    check('📎1' in txt and '📎2' not in txt, f'교차일 재상신에도 자동첨부 1건 유지 (중복이면 📎2; 실제 …{txt[-40:]})')
+    _row = pg.locator('tr', has_text='크로스데이중복테스트변경')
+    check(clip_n(_row) == '1', f'교차일 재상신에도 자동첨부 1건 유지 (중복이면 2건; 실제 clip={clip_n(_row)})')
 
 
 def sc_search_menu_override(pg, base, check):
@@ -2263,7 +2269,7 @@ def sc_batchref(pg, base, check):
     row = pg.locator('tr', has_text='[장애보고]').first
     check('IR-2026-0001' in row.inner_text(), '1차 상신 묶음 IR-0001')
     # 결재 시트 8번 — 상신 시 엑셀양식(XT)이 자동첨부되어 결재함 뱃지로 보인다
-    check('📎1' in row.inner_text(), '장애보고 엑셀양식 자동첨부 뱃지')
+    check(clip_n(row) == '1', '장애보고 엑셀양식 자동첨부 뱃지')
     row.locator('input[name=reason]').fill('취합 기간 오류')
     row.locator('button:has-text("반려")').click()
     pg.wait_for_load_state('networkidle')

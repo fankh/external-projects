@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import type { Role } from '@/lib/types'
 import { NAV, TITLE_BY_HREF } from './menus'
+import { Icon } from './Icon'
 
 const TABS_KEY = 'ngv-portal-tabs'
 const MAX_TABS = 10
@@ -30,7 +31,7 @@ export function AppShell(props: {
   channels: { on: number; total: number }
   lastBatch?: { job: string; at: string }
   /** 브랜딩 — 고객사 프로필(portal.config.ts)에서 주입, 셸에 하드코딩하지 않는다 */
-  brand: { name: string; sub: string; version: string; customer: string }
+  brand: { name: string; sub: string; version: string; customer: string; copyright: string }
   userName: string
   dept: string
   roleLabel: string
@@ -134,7 +135,7 @@ export function AppShell(props: {
             const n = badgeOf(i.badge)
             return (
               <Link key={i.href} href={i.href} className={pathname.startsWith(i.href) ? 'on' : ''}>
-                <span className="ico">{i.ico}</span>
+                <span className="ico"><Icon name={i.ico} /></span>
                 {i.label}
                 {n > 0 && <span className="bdg">{n}</span>}
               </Link>
@@ -152,7 +153,8 @@ export function AppShell(props: {
             </span>
             <span>{props.lastBatch ? `마지막 배치 ${props.lastBatch.at} (${props.lastBatch.job})` : '배치 이력 없음'}</span>
             <span className="grow" />
-            <span>{props.brand.customer} · {props.brand.name} · {props.brand.version}</span>
+            <span>{props.brand.name} · {props.brand.version}</span>
+            <span className="copyr">{props.brand.copyright}</span>
           </footer>
         </div>
       </div>

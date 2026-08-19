@@ -32,11 +32,10 @@ export default function LoginPage() {
             <div className="wordmark">{PORTAL.productName}</div>
             <div className="sub">{PORTAL.productSub}</div>
           </div>
-          <h1>전사 IT·보안 업무를,<br />하나의 통제 평면에서.</h1>
+          <h1>IT·보안 업무 통합 관리</h1>
           <p>
-            IT 투자·비용, 인프라 운영, 개발 요청(SR), 프로젝트, 그리고 전사 보안
-            컴플라이언스 업무를 단일 포털에서 처리합니다. 모든 업무는 공통 전자결재와
-            메뉴·기능 권한관리 체계 위에서 운영됩니다.
+            IT 투자·비용, 인프라 운영, SR, 프로젝트, 보안 컴플라이언스(ISMS) 업무를 한 포털에서
+            처리합니다. 전 업무는 공통 전자결재와 메뉴·기능 권한관리 위에서 운영됩니다.
           </p>
           <div className="tags">
             <span>IT 투자/비용</span>
@@ -48,9 +47,9 @@ export default function LoginPage() {
           </div>
         </div>
         <div className="foot">
-          <div>Platform<b>On-Premises · Web</b></div>
-          <div>Domains<b>10대 업무 도메인</b></div>
-          <div>Foundation<b>전자결재 · 권한관리</b></div>
+          <div>구성<b>On-Premises · Web</b></div>
+          <div>도메인<b>10대 업무 도메인</b></div>
+          <div>기반<b>전자결재 · 권한관리</b></div>
         </div>
       </aside>
 
