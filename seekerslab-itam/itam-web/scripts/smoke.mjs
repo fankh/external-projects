@@ -294,6 +294,8 @@ try {
   check('대시보드: 수령 미확인 큐 (불출 후 인수 대기 · 자산담당)', dashHtml.includes('수령 미확인') && dashHtml.includes('불출 후 인수 대기'))
   // 정기 점검 대상 — 예방 정비 예정일 도래 자산을 자산담당 큐에 노출(반응형 수리와 별개의 사전 정비)
   check('대시보드: 정기 점검 대상 큐 (예방 정비 도래 · 자산담당)', dashHtml.includes('정기 점검 대상') && dashHtml.includes('예방 정비 도래'))
+  // 영향 집중 자산(CMDB blast radius) 큐 — 장애 시 2대 이상 영향받는 단일 장애점(시드 스위치 640·방화벽 641). 이중화·우선 정비 근거.
+  check('대시보드: 영향 집중 자산(blast radius ≥2 단일 장애점) 큐 (자산담당)', dashHtml.includes('영향 집중 자산') && dashHtml.includes('blast radius'))
   // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다
   check('대시보드: 대장 정합성 미흡 운영 큐 (자산담당) + dq 드릴', dashHtml.includes('대장 정합성 미흡') && dashHtml.includes('dq=1'))
   // 결재 지연 — SLA 초과 대기 결재가 결재 대기 KPI 델타에 노출된다(정체 신호)
