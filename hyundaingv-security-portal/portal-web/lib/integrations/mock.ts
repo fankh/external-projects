@@ -1,7 +1,7 @@
 /** 목업 어댑터 — 데모 환경에서 고객사 시스템을 대체한다.
  *  실서비스 커스터마이징: 이 파일을 고객사 어댑터(REST API·DB 연계 구현)로 교체하고
  *  portal.config.ts 의 adapterId 만 바꾼다. 포털 본체 코드는 변경 없음. */
-import type { ApprovalAdapter, AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter, SecMonAdapter, SecurityEvent } from './types'
+import type { ApprovalAdapter, AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter, SecMonAdapter, SecurityEvent, SsoAdapter } from './types'
 import type { Person } from '@/lib/types'
 
 export const mockMail: MessagingAdapter = {
@@ -23,6 +23,17 @@ export const mockSms: MessagingAdapter = {
 export const mockApproval: ApprovalAdapter = {
   async pushApproval(doc) {
     return { externalId: `KNOX-${doc.docId}` }
+  },
+}
+
+/** SSO(SAML) 목업 — 데모는 로그인 화면의 계정 선택으로 인증한다(실 IdP 없음). loginRedirect 는 데모 IdP URL 을
+ *  돌려주고, verifyResponse 는 실 어설션이 없으므로 throw 한다. 실서비스에서는 samlSso(실 검증)로 교체한다. */
+export const mockSso: SsoAdapter = {
+  loginRedirect(relayState) {
+    return { url: `https://idp.example/sso?SAMLRequest=DEMO&RelayState=${encodeURIComponent(relayState)}` }
+  },
+  async verifyResponse() {
+    throw new Error('SSO 목업 — 데모는 계정 선택 로그인 사용 (실 IdP 어설션 없음)')
   },
 }
 

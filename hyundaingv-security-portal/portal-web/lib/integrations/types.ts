@@ -41,6 +41,21 @@ export interface HrAdapter {
   fetchPeople(): Promise<Person[]>
 }
 
+/** SSO(SAML) 어설션에서 추출한 사용자 신원 — nameId(식별자) + 속성(name·dept·groups 등) */
+export interface SsoAssertion {
+  nameId: string
+  attributes: Record<string, string>
+}
+
+/** 통합인증(SSO/SAML) — SP-initiated 로그인 리다이렉트 생성 + IdP 어설션 검증·신원 추출.
+ *  loginRedirect 는 부작용·네트워크가 없어야 한다(자가진단이 안전하게 호출). verifyResponse 는 서명·조건
+ *  (만료·audience)을 검증하고 실패 시 throw 한다. 참조 구현(saml.ts)은 RSA-SHA256 서명을 node:crypto 로
+ *  검증하며, 실 배포는 XML-DSig(C14N) 전용 라이브러리로 교체한다. */
+export interface SsoAdapter {
+  loginRedirect(relayState: string): { url: string }
+  verifyResponse(samlResponseB64: string): Promise<SsoAssertion>
+}
+
 /** 외부 전자결재(그룹웨어) 상신 대상 — 포털 결재 문서를 그룹웨어 결재함에 등록할 때 넘긴다 */
 export interface ApprovalPushDoc {
   docId: string
@@ -111,6 +126,7 @@ export interface AdapterSet {
   mail?: MessagingAdapter
   sms?: MessagingAdapter
   approval?: ApprovalAdapter
+  sso?: SsoAdapter
   hr?: HrAdapter
   asset?: AssetAdapter
   secdata?: SecdataAdapter

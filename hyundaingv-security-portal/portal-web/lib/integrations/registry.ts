@@ -4,9 +4,10 @@
 import { CHANNELS } from '@/portal.config'
 import { nowStamp } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { mockApproval, mockAsset, mockHr, mockMail, mockSecdata, mockSecmon, mockSms } from './mock'
+import { mockApproval, mockAsset, mockHr, mockMail, mockSecdata, mockSecmon, mockSms, mockSso } from './mock'
 import { restApproval, restAsset, restHr, restMail, restSecdata, restSecmon, restSms } from './rest'
-import type { ApprovalAdapter, AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SecMonAdapter, SendResult } from './types'
+import { samlSso } from './saml'
+import type { ApprovalAdapter, AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SecMonAdapter, SendResult, SsoAdapter } from './types'
 
 /** 어댑터 호출 상한 시간 — 실 고객사 시스템이 응답 없이 매달리면(타임아웃 없는 fetch 등)
  *  포털 요청·스케줄러 틱이 무한 대기한다. 호출을 시간 상한으로 감싸 초과 시 reject 시키고,
@@ -42,6 +43,8 @@ const MESSAGING: Record<string, MessagingAdapter> = {
 const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr, 'rest-hr': restHr, 'hanbit-hr': restHr, 'gov-hr': restHr, 'fin-hr': restHr }
 // 전자결재 — 데모 기본(internal-approval)은 목업(합성 그룹웨어 id), 샘플 고객사는 실 REST 푸시.
 const APPROVAL: Record<string, ApprovalAdapter> = { 'mock-approval': mockApproval, 'internal-approval': mockApproval, 'rest-approval': restApproval, 'fin-approval': restApproval, 'gov-approval': restApproval, 'hanbit-approval': restApproval }
+// SSO(SAML) — 데모 기본은 목업(계정 선택 로그인 유지), 샘플 고객사는 실 SAML 검증(samlSso).
+const SSO: Record<string, SsoAdapter> = { 'mock-sso': mockSso, 'saml-sso': samlSso, 'fin-sso': samlSso, 'gov-sso': samlSso, 'hanbit-sso': samlSso }
 // 데모 기본은 목업 유지(오프라인·결함주입 테스트). 샘플 고객사 프로필의 자산은 실동작 REST 어댑터에 바인딩 —
 // PORTAL_ASSET_API_URL 설정 시 실 자산 API 조회·PORTAL_ASSET_REGISTER_URL 로 등록번호 취득(쓰기 폐쇄 루프).
 const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'rest-asset': restAsset, 'erp-asset': restAsset, 'gov-asset': restAsset, 'fin-asset': restAsset }
@@ -54,11 +57,12 @@ const SECMON: Record<string, SecMonAdapter> = { 'mock-secmon': mockSecmon, 'rest
 
 /** adapterId → 구현 해석 (kind 별) — 자가진단·바인딩 완결성 검사가 쓴다.
  *  활성 상태와 무관하게 '등록되어 있는가'만 본다 (계약 적합성은 별도). */
-export function resolveAdapter(kind: string, adapterId: string): MessagingAdapter | ApprovalAdapter | HrAdapter | AssetAdapter | SecdataAdapter | SecMonAdapter | null {
+export function resolveAdapter(kind: string, adapterId: string): MessagingAdapter | ApprovalAdapter | SsoAdapter | HrAdapter | AssetAdapter | SecdataAdapter | SecMonAdapter | null {
   switch (kind) {
     case 'mail':
     case 'sms': return MESSAGING[adapterId] ?? null
     case 'approval': return APPROVAL[adapterId] ?? null
+    case 'sso': return SSO[adapterId] ?? null
     case 'hr': return HR[adapterId] ?? null
     case 'asset': return ASSET[adapterId] ?? null
     case 'secdata': return SECDATA[adapterId] ?? null
@@ -132,6 +136,13 @@ export function approvalAdapter(): ApprovalAdapter | null {
   const ch = channelOf('groupware-approval')
   if (!ch || !isEnabled('groupware-approval')) return null
   return APPROVAL[ch.adapterId] ?? null
+}
+
+export function ssoAdapter(): SsoAdapter | null {
+  // SSO 로그인 라우트(/api/sso/*)가 쓴다 — 채널 비활성이면 SSO 로그인 미제공(계정 선택 로그인만).
+  const ch = channelOf('groupware-sso')
+  if (!ch || !isEnabled('groupware-sso')) return null
+  return SSO[ch.adapterId] ?? null
 }
 
 export function secdataAdapter(): SecdataAdapter | null {

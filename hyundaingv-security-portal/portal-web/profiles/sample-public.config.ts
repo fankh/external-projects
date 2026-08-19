@@ -23,7 +23,7 @@ export const CHANNELS: ChannelBinding[] = [
   { id: 'groupware-mail', kind: 'mail', name: '전자문서 메일', transport: 'REST API', usage: '안내메일 발송 (전자문서 시스템 연동)', adapterId: 'gov-mail', enabledByDefault: true },
   { id: 'sms-gateway', kind: 'sms', name: '문자(SMS) 발송', transport: 'REST API', usage: '문자 발송 (기관 SMS 게이트웨이)', adapterId: 'gov-sms', enabledByDefault: true },
   { id: 'groupware-approval', kind: 'approval', name: '전자결재', transport: 'REST API', usage: '결재 상신 연동 (그룹웨어 결재함 푸시)', adapterId: 'gov-approval', enabledByDefault: true },
-  { id: 'groupware-sso', kind: 'sso', name: '행정전자서명(GPKI) SSO', transport: 'SAML', usage: 'SSO 인증 — 실구현 예정', adapterId: 'gov-sso', enabledByDefault: true, planned: true },
+  { id: 'groupware-sso', kind: 'sso', name: '행정전자서명(GPKI) SSO', transport: 'SAML', usage: 'SSO 인증 (SAML)', adapterId: 'gov-sso', enabledByDefault: true },
   { id: 'hr-sync', kind: 'hr', name: '인사·근태 시스템', transport: '인터페이스', usage: '사용자 기본정보·근태 (일배치)', adapterId: 'gov-hr', enabledByDefault: true },
   { id: 'asset-api', kind: 'asset', name: '자산관리 시스템', transport: 'REST API', usage: '자산정보 조회 · 자산등록번호 취득', adapterId: 'gov-asset', enabledByDefault: true },
   { id: 'security-db', kind: 'secdata', name: '보안·출력물 관제', transport: 'DB 연계', usage: '출력물 자료 조회 (일배치 이관 — 계약 범위)', adapterId: 'gov-secdata', enabledByDefault: true },
