@@ -215,6 +215,9 @@ try {
   check('자산 대장: 교체 대상(수명예측) 필터 칩 렌더(교체 대상 있을 때)', mgrHtml.includes('교체 대상 '))
   const regReplace = await (await get('/assets/register?replace=1', 'ASSET_MGR')).text()
   check('자산 대장: ?replace=1 교체 대상 필터 활성화(fn03 패널→대장 드릴다운)', regReplace.includes('교체 대상 ') && regReplace.includes('✓ '))
+  // 장기 미실측 URL 필터(?stale=1) — 그동안 클라이언트 토글만 있고 링크 진입점이 없어 대시보드·어시스턴트 '미실측' 링크가 전체 대장으로 떨어졌다. initialStale 로 토글 활성.
+  const regStale = await (await get('/assets/register?stale=1', 'ASSET_MGR')).text()
+  check('자산 대장: ?stale=1 장기 미실측 필터 활성화(어시스턴트 운영리스크 드릴다운)', regStale.includes('장기 미실측 ') && regStale.includes('✓ '))
   // 연관 자산(영향도) — 같은 계약·위치·소유자·모델 공유 자산 수 + 드릴 링크
   check('자산 대장: 상세에 연관 자산(영향도) 섹션 + 드릴 링크', regContractDetail.includes('연관 자산') && regContractDetail.includes('같은 모델'))
   check('자산 대장: 상세에 자산 카드(dossier) 인쇄 링크', regContractDetail.includes('/api/asset-card/') && regContractDetail.includes('자산 카드'))
