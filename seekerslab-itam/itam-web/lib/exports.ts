@@ -204,7 +204,10 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     const rows = s.assets
       .filter((a) => a.status === '대여중')
       .map((a) => {
-        const loanEv = [...a.history].reverse().find((h) => h.kind === '대여' && h.detail.includes('대여 —'))
+        // 최초 대여 이벤트 — kind '대여'는 연장 승인·반려·취소도 재사용하므로 '연장' 든 이벤트를 제외해 최초 대여를 잡는다
+        //  (대여 확인서 loan-agreement 라우트와 동일 규약). 양성매칭('대여 —')만 쓰면 결재 경유 대여('대여 신청 승인 —' 표기)를
+        //  놓쳐 fallback 이 최신 연장 조치일로 흘러 대여일이 틀어진다(감사 대여 대장 오기).
+        const loanEv = [...a.history].reverse().find((h) => h.kind === '대여' && !h.detail.includes('연장'))
           ?? [...a.history].reverse().find((h) => h.kind === '대여')
         const d = a.loanDueDate ? daysUntil(a.loanDueDate) : null
         const state = d === null ? '기한 없음' : d < 0 ? `연체 ${-d}일` : d <= 7 ? `반환 임박 D-${d}` : '정상'
