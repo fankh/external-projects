@@ -107,7 +107,7 @@ export default async function SecurityReviewPage() {
       </div>
 
       {canManage && (
-        <Card title="검토 등록" kicker="New Review">
+        <Card title="검토 등록">
           <form action={addReview} className="hstack">
             <select aria-label="검토 유형" className="select" name="kind">
               {SECURITY_REVIEW_KINDS.map((k) => <option key={k}>{k}</option>)}
@@ -120,7 +120,7 @@ export default async function SecurityReviewPage() {
         </Card>
       )}
 
-      <Card title="검토 목록" kicker="Security Reviews" pad={false}
+      <Card title="검토 목록" pad={false}
         actions={<a className="btn sm" href="/api/export?type=security-reviews">엑셀 다운로드</a>}>
         {rows.length === 0 ? (
           <div className="empty">등록된 보안성 검토가 없습니다.</div>

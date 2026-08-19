@@ -302,12 +302,12 @@ async function main() {
     const r = await get('/finance/invest', 'USER')
     const html = await r.text()
     check(!html.includes('계획 확정'), 'USER /finance/invest 에 확정 버튼 미노출')
-    // 섹션 고유 마커로 검사(화면 desc 문구에도 '계획대비실적' 등이 있어 카드 kicker·표 헤더로 구분)
-    check(!html.includes('계약 체결') && !html.includes('Plan vs Actual') && !html.includes('계약번호') && !html.includes('품의번호'),
+    // 섹션 고유 마커로 검사(화면 desc 문구에도 '계획대비실적' 등이 있어 표 헤더 '기준액'으로 카드 구분)
+    check(!html.includes('계약 체결') && !html.includes('기준액') && !html.includes('계약번호') && !html.includes('품의번호'),
       'USER /finance/invest 재무 리포트(전사집계·실적·계약·정산) 미노출')
     const mgrInvest = await get('/finance/invest', 'DEPT_MGR')
     const mgrHtml = await mgrInvest.text()
-    check(mgrHtml.includes('Plan vs Actual') && !mgrHtml.includes('CT-2026-03'),
+    check(mgrHtml.includes('기준액') && !mgrHtml.includes('CT-2026-03'),
       '관리자는 실적 열람 + 투자 화면에 비용 계약(CT-2026-03) 미노출(kind 필터)')
   }
   {

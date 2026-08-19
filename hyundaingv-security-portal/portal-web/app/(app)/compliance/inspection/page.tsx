@@ -178,7 +178,7 @@ export default async function InspectionPage() {
         <Stat value={overdue.length} label="기한 경과" tone={overdue.length > 0 ? 'err' : undefined} note={`기준월 ${thisMonth}`} />
       </div>
 
-      <Card title="컴플라이언스 추세" kicker="Trend" pad={false}
+      <Card title="컴플라이언스 추세" pad={false}
         actions={<span className="hstack">
           <a className="btn sm" href="/api/export?type=compliance-trend">엑셀 다운로드</a>
           <form action={recordComplianceSnapshot} style={{ display: 'inline' }}>
@@ -256,7 +256,7 @@ export default async function InspectionPage() {
         )}
       </Card>
 
-      <Card title="점검 진행내역" kicker="Progress" pad={false}
+      <Card title="점검 진행내역" pad={false}
         actions={<a className="btn sm" href="/api/export?type=inspection-plans">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
@@ -301,7 +301,7 @@ export default async function InspectionPage() {
       </Card>
 
       <div className="cols c2">
-        <Card title="점검계획 수립" kicker="Plan">
+        <Card title="점검계획 수립">
           {/* 컨트롤 4개를 한 줄에 두면 c2 그리드 반폭에서 카드를 넘쳐 옆 카드 sticky 헤더에 가려진다 — 2행으로 나눈다 */}
           <form action={addPlan} className="vstack" style={{ gap: 7 }}>
             <select aria-label="점검 항목" className="select" name="itemId" required style={{ width: '100%' }}>
@@ -326,7 +326,7 @@ export default async function InspectionPage() {
           </div>
         </Card>
 
-        <Card title="기준관리 — 점검 항목 (Template)" kicker="Criteria" pad={false}
+        <Card title="기준관리 — 점검 항목 (Template)" pad={false}
           actions={<a className="btn sm" href="/api/export?type=inspection-items">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">

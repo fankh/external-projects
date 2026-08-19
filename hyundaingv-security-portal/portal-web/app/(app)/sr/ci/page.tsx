@@ -111,7 +111,7 @@ export default async function SrCiPage() {
         <Stat value={s.ciSrs.filter((c) => c.status === '완료').length} label="직접 접수 완료" />
       </div>
 
-      <Card title="배정 대기 — BA 검토" kicker="Assign" pad={false}>
+      <Card title="배정 대기 — BA 검토" pad={false}>
         {waiting.length === 0 ? (
           <div className="empty">배정 대기 중인 SR이 없습니다.</div>
         ) : (
@@ -147,7 +147,7 @@ export default async function SrCiPage() {
         )}
       </Card>
 
-      <Card title="CI SR 접수 — 결재 없는 건" kicker="Direct Intake">
+      <Card title="CI SR 접수 — 결재 없는 건">
         <form action={receiveCiSr} className="hstack" style={{ flexWrap: 'wrap' }}>
           <select className="select" name="category" required title="보안/업무 구분">
             <option>보안</option><option>업무</option>
@@ -163,7 +163,7 @@ export default async function SrCiPage() {
         </div>
       </Card>
 
-      <Card title="CI SR 처리 이력" kicker="Direct History" pad={false}
+      <Card title="CI SR 처리 이력" pad={false}
         actions={<a className="btn sm" href="/api/export?type=ci-srs">엑셀 다운로드</a>}>
         {s.ciSrs.length === 0 ? (
           <div className="empty">직접 접수한 건이 없습니다.</div>
@@ -212,7 +212,7 @@ export default async function SrCiPage() {
         )}
       </Card>
 
-      <Card title="배정 완료 — 진행중" kicker="Assigned" pad={false}>
+      <Card title="배정 완료 — 진행중" pad={false}>
         {assigned.length === 0 ? (
           <div className="empty">배정된 SR이 없습니다.</div>
         ) : (

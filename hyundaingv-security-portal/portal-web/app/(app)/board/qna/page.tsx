@@ -103,7 +103,7 @@ export default async function QnaPage() {
         <Stat value={s.qna.length - open.length} label="답변 완료" />
       </div>
 
-      <Card title="질문 등록" kicker="Ask">
+      <Card title="질문 등록">
         <form action={ask} className="hstack">
           <select aria-label="도메인" className="select" name="domain">
             {DOMAINS.map((d) => <option key={d}>{d}</option>)}
@@ -114,7 +114,7 @@ export default async function QnaPage() {
         </form>
       </Card>
 
-      <Card title="문의 목록" kicker="Questions" pad={false}>
+      <Card title="문의 목록" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>번호</th><th>도메인</th><th>문의</th><th>작성자</th><th>담당</th><th>등록일</th><th style={{ maxWidth: 420 }}>답변</th></tr></thead>

@@ -56,7 +56,7 @@ export default async function SrNewPage() {
       <ScreenHeader kicker="IT Request" title="SR 신청"
         desc="시스템개발 · 데이터 · 계정/권한 요청을 작성하고 결재 상신한다 — 상신과 동시에 결재함·할일로 연결된다." />
 
-      <Card title="신청서 작성" kicker="New Request">
+      <Card title="신청서 작성">
         <form action={createSr} className="vstack" style={{ maxWidth: 640 }}>
           <div className="hstack">
             <label className="dim" style={{ width: 80, fontSize: 11.5, fontWeight: 600 }}>SR 유형</label>
@@ -91,7 +91,7 @@ export default async function SrNewPage() {
         </form>
       </Card>
 
-      <Card title="SR 유형별 처리 절차" kicker="Reference" pad={false}>
+      <Card title="SR 유형별 처리 절차" pad={false}>
         <div className="stub-list">
           {KINDS.map((k, i) => (
             <div className="it" key={k.kind}>

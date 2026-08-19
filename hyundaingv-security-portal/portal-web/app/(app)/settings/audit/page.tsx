@@ -38,7 +38,7 @@ export default async function AuditPage() {
         <Stat value={configs} label="설정 변경" tone={configs > 0 ? 'warn' : undefined} />
       </div>
 
-      <Card title="이력" kicker="Audit Trail" pad={false}
+      <Card title="이력" pad={false}
         actions={<a className="btn sm" href="/api/export?type=audit">엑셀 다운로드</a>}>
         {s.auditLogs.length === 0 ? (
           <div className="empty">기록이 없습니다.</div>

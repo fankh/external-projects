@@ -114,7 +114,7 @@ export default async function ViolationsPage() {
       </div>
 
       {canManage && (
-        <Card title="위반 등록 — 확인서 요청" kicker="New Violation"
+        <Card title="위반 등록 — 확인서 요청"
           actions={CHANNELS.some((c) => c.id === 'sec-monitor' && !c.planned)
             ? <form action={importSecmon}><button type="submit" className="btn sm" title="보안관제(DLP·EDR) 탐지 이벤트를 위반으로 편입 — 채널 중지 시 무동작">보안관제 이벤트 가져오기</button></form>
             : undefined}>
@@ -132,7 +132,7 @@ export default async function ViolationsPage() {
         </Card>
       )}
 
-      <Card title={canManage ? '위반 내역' : '내 위반 내역 — 사실확인서'} kicker="Violations" pad={false}
+      <Card title={canManage ? '위반 내역' : '내 위반 내역 — 사실확인서'} pad={false}
         actions={<a className="btn sm" href="/api/export?type=violations">엑셀 다운로드</a>}>
         {rows.length === 0 ? (
           <div className="empty">위반 내역이 없습니다.</div>

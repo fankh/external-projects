@@ -153,7 +153,7 @@ export default async function InvestPage() {
         </div>
       )}
 
-      <Card title="경영계획 — 투자과제" kicker="Plan" pad={false}>
+      <Card title="경영계획 — 투자과제" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>과제번호</th><th>과제명</th><th>담당</th><th className="num">계획액 (만원)</th><th>상태</th>{canManage && <th className="c">확정</th>}</tr></thead>
@@ -207,7 +207,7 @@ export default async function InvestPage() {
 
       {canViewFinance && (
       <div className="cols c2">
-        <Card title="시행 · 계약내역" kicker="Contracts" pad={false}>
+        <Card title="시행 · 계약내역" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>계약번호</th><th>계약명</th><th>업체</th><th className="num">계약액</th><th>과제</th></tr></thead>
@@ -254,7 +254,7 @@ export default async function InvestPage() {
           </div>
         </Card>
 
-        <Card title="정산품의 — 지급 항목" kicker="Settlement" pad={false}>
+        <Card title="정산품의 — 지급 항목" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>품의번호</th><th>계약</th><th>항목</th><th className="num">금액</th><th>지급예정</th><th>상태</th></tr></thead>
@@ -308,7 +308,7 @@ export default async function InvestPage() {
       )}
 
       {canViewFinance && (
-      <Card title="계획대비실적" kicker="Plan vs Actual" pad={false}
+      <Card title="계획대비실적" pad={false}
         actions={<a className="btn sm" href="/api/export?type=invest-actual">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">

@@ -171,7 +171,7 @@ export default async function ManagePledgePage() {
       </div>
 
       <div className="cols c2">
-        <Card title="양식관리 — 개정일자" kicker="Forms" pad={false}>
+        <Card title="양식관리 — 개정일자" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>서약서 양식</th><th>개정일자</th><th className="c">개정</th></tr></thead>
@@ -198,7 +198,7 @@ export default async function ManagePledgePage() {
           </div>
         </Card>
 
-        <Card title="미서약자 — 스캔본 업로드" kicker="Upload" pad={false}>
+        <Card title="미서약자 — 스캔본 업로드" pad={false}>
           {unsigned.length === 0 ? (
             <div className="empty">미서약자가 없습니다.</div>
           ) : (
@@ -225,7 +225,7 @@ export default async function ManagePledgePage() {
         </Card>
       </div>
 
-      <Card title="협력업체 서약서 — 징구·상신" kicker="Company Pledges" pad={false}>
+      <Card title="협력업체 서약서 — 징구·상신" pad={false}>
         <form action={submitCompanyPledges}>
           <div className="tbl-wrap">
             <table className="tbl">
@@ -264,7 +264,7 @@ export default async function ManagePledgePage() {
         </div>
       </Card>
 
-      <Card title="보안담당자 관리" kicker="Officers" pad={false}>
+      <Card title="보안담당자 관리" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>이름</th><th>부서</th><th>보안담당자</th><th className="c">지정 · 해제</th></tr></thead>

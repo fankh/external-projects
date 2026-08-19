@@ -196,7 +196,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         </Card>
       )}
 
-      <Card title="수신함 — 결재 대기" kicker="Inbox" pad={false}>
+      <Card title="수신함 — 결재 대기" pad={false}>
         {inboxWaiting.length === 0 ? (
           <div className="empty">대기 중인 결재가 없습니다.</div>
         ) : (
@@ -236,7 +236,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       </Card>
 
       <div className="cols c2">
-        <Card title="수신함 — 처리 완료" kicker="Inbox" pad={false}>
+        <Card title="수신함 — 처리 완료" pad={false}>
           {inbox.filter((a) => a.status !== '대기').length === 0 ? (
             <div className="empty">처리한 결재가 없습니다.</div>
           ) : (
@@ -258,7 +258,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           )}
         </Card>
 
-        <Card title="상신함 — 내 기안 문서" kicker="Outbox" pad={false}>
+        <Card title="상신함 — 내 기안 문서" pad={false}>
           {outbox.length === 0 ? (
             <div className="empty">상신한 문서가 없습니다.</div>
           ) : (

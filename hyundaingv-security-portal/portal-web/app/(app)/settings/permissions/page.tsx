@@ -50,7 +50,7 @@ export default async function PermissionsPage() {
         <Stat value={restrictedCount} label="런타임 제한" tone={restrictedCount > 0 ? 'warn' : undefined} note="메뉴 단위" />
       </div>
 
-      <Card title="권한 매트릭스" kicker="Role × Menu" pad={false}>
+      <Card title="권한 매트릭스" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl mx">
             <thead>

@@ -107,7 +107,7 @@ export default async function OperationsPage() {
         <Stat value={infra.brokenIfs} label="인터페이스 오류" tone={infra.brokenIfs > 0 ? 'err' : undefined} />
       </div>
 
-      <Card title="배치관리" kicker="Batch Jobs" pad={false}
+      <Card title="배치관리" pad={false}
         actions={<a className="btn sm" href="/api/export?type=batches">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
@@ -152,7 +152,7 @@ export default async function OperationsPage() {
       </Card>
 
       <div className="cols c2">
-        <Card title="인터페이스관리" kicker="Interfaces" pad={false}
+        <Card title="인터페이스관리" pad={false}
           actions={<a className="btn sm" href="/api/export?type=interfaces">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">
@@ -188,7 +188,7 @@ export default async function OperationsPage() {
           </div>
         </Card>
 
-        <Card title="서버별 디스크 사용 현황" kicker="Disk" pad={false}>
+        <Card title="서버별 디스크 사용 현황" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>호스트명</th><th>용도</th><th style={{ width: 220 }}>사용률</th></tr></thead>

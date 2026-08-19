@@ -97,7 +97,7 @@ export default async function DrPage() {
       </div>
 
       {canManage && (
-        <Card title="복구계획 등록" kicker="New DR Plan">
+        <Card title="복구계획 등록">
           <form action={addDrPlan} className="hstack">
             <input aria-label="대상 업무·시스템" className="input" name="system" required maxLength={60} placeholder="대상 업무·시스템" style={{ width: 150 }} />
             <input aria-label="계획명" className="input" name="title" required maxLength={120} placeholder="복구계획명" style={{ flex: 1 }} />
@@ -118,7 +118,7 @@ export default async function DrPage() {
         </Card>
       )}
 
-      <Card title="재해복구 관리대장" kicker="BCP / DR Register" pad={false}
+      <Card title="재해복구 관리대장" pad={false}
         actions={<a className="btn sm" href="/api/export?type=dr-plans">엑셀 다운로드</a>}>
         {rows.length === 0 ? (
           <div className="empty">등록된 복구계획이 없습니다.</div>

@@ -99,7 +99,7 @@ export default async function ProjectStatusPage() {
         <Stat value={late.length} label="기한 경과" tone={late.length > 0 ? 'err' : undefined} note={`오늘 ${t}`} />
       </div>
 
-      <Card title="프로젝트 목록" kicker="Projects" pad={false}
+      <Card title="프로젝트 목록" pad={false}
         actions={<a className="btn sm" href="/api/export?type=projects">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">

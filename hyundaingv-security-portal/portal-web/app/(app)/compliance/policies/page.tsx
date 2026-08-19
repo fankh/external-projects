@@ -135,7 +135,7 @@ export default async function PoliciesPage() {
       </div>
 
       {canManage && (
-        <Card title="정책 등록" kicker="New Policy">
+        <Card title="정책 등록">
           <form action={addPolicy} className="hstack">
             <select aria-label="분류" className="select" name="category">{POLICY_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select>
             <input aria-label="제목" className="input" name="title" required maxLength={120} placeholder="정책·지침 제목" style={{ flex: 1 }} />
@@ -151,7 +151,7 @@ export default async function PoliciesPage() {
         </Card>
       )}
 
-      <Card title="정책·지침 관리대장" kicker="Policy Register" pad={false}
+      <Card title="정책·지침 관리대장" pad={false}
         actions={<a className="btn sm" href="/api/export?type=policies">엑셀 다운로드</a>}>
         {rows.length === 0 ? (
           <div className="empty">등록된 정책·지침이 없습니다.</div>

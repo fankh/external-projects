@@ -123,7 +123,7 @@ export default async function MyPledgePage() {
           나의 할일에 다시 표시됩니다.
         </div>
       ) : (
-        <Card title="온라인 동의" kicker="Sign">
+        <Card title="온라인 동의">
           <form action={sign} className="hstack" style={{ justifyContent: 'space-between' }}>
             <label className="hstack" style={{ gap: 7, cursor: 'pointer' }}>
               <input aria-label="동의" type="checkbox" name="agree" required />
@@ -239,7 +239,7 @@ export default async function MyPledgePage() {
         )
       })()}
 
-      <Card title="내 서약 이력" kicker="History" pad={false}>
+      <Card title="내 서약 이력" pad={false}>
         {mine.length === 0 ? (
           <div className="empty">제출한 서약서가 없습니다.</div>
         ) : (

@@ -91,7 +91,7 @@ export default async function DeptPledgePage() {
         const members = s.people.filter((p) => p.dept === dept)
         const unsigned = members.filter((p) => !signedBy.has(p.name))
         return (
-          <Card key={dept} title={dept} kicker="Department"
+          <Card key={dept} title={dept}
             actions={
               <span className="hstack">
                 {unsigned.length > 0 ? (

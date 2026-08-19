@@ -37,7 +37,7 @@ export default async function ReportsPage() {
         <Stat value={thisWeekNotes.length} label="주간보고" />
       </div>
 
-      <Card title="작성" kicker="New">
+      <Card title="작성">
         <form action={addNote} className="hstack">
           <select aria-label="projectId" className="select" name="projectId">
             {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id} · {p.title}</option>)}
@@ -51,7 +51,7 @@ export default async function ReportsPage() {
         </form>
       </Card>
 
-      <Card title="기록 목록" kicker="Notes" pad={false}>
+      <Card title="기록 목록" pad={false}>
         {s.projectNotes.length === 0 ? (
           <div className="empty">작성된 기록이 없습니다.</div>
         ) : (

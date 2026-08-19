@@ -69,7 +69,7 @@ export default async function AssetRegPage({ searchParams }: { searchParams: Pro
         </div>
       )}
 
-      <Card title="자산 조회" kicker="Asset Search" pad={false}
+      <Card title="자산 조회" pad={false}
         actions={
           <form className="hstack" action="/finance/asset-reg">
             <input aria-label="시리얼 · 모델 · 사용자 검색" className="input" name="q" defaultValue={query} placeholder="시리얼 · 모델 · 사용자 검색" style={{ width: 220, height: 26, fontSize: 11.5 }} />
@@ -113,7 +113,7 @@ export default async function AssetRegPage({ searchParams }: { searchParams: Pro
         )}
       </Card>
 
-      <Card title="자산등록번호 취득 이력" kicker="Acquisitions" pad={false}>
+      <Card title="자산등록번호 취득 이력" pad={false}>
         {s.assetAcquisitions.length === 0 ? (
           <div className="empty">이번 세션에 취득한 등록번호가 없습니다.</div>
         ) : (
