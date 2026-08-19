@@ -601,6 +601,18 @@ try {
     ok('외부 노출 일괄 차단: 선택 2건 일괄 처리(차단요청 반영)', vpn.includes('차단요청') && cam.includes('차단요청'))
   }
 
+  // CT(인증서 투명성) 채널 — 인증서 발급 CA·유효기간 수집 후 유효기간으로 생존 여부 추정(§04). 유효 인증서=생존 유력, 만료=생존 불명(방치 후보). 능동 확인 전 수동 트라이애지 신호.
+  {
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const c = page.locator('.card', { hasText: '발견에서 조치까지' })
+    const active = (await c.locator('tr', { hasText: 'ct-active.seekerslab.co.kr' }).first().textContent()) || ''
+    const legacy = (await c.locator('tr', { hasText: 'ct-legacy.seekerslab.co.kr' }).first().textContent()) || ''
+    ok('CT 인증서 유효 → 발급 CA·유효기간 수집·생존 유력 추정(추정 생존)',
+      active.includes("Let's Encrypt") && active.includes('생존 유력') && active.includes('추정 생존'))
+    ok('CT 인증서 만료 → 생존 불명(방치 후보)로 추정',
+      legacy.includes('Sectigo') && legacy.includes('만료') && legacy.includes('생존 불명'))
+  }
+
   // AI 제안 판정 루프(11) — 승인→조치·반려 사유 필수
   await aiInsightDecide(page)
   await ctx.close()

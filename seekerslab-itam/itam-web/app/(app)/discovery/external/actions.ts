@@ -363,6 +363,9 @@ export async function runEasmScan(input: { domains: string[]; mode: 'Passive' | 
       cvss: active ? u.cvss : undefined,
       risk: u.risk,
       firstSeen: today(),
+      // CT 채널 인증서 메타데이터 승계 — 유효기간으로 생존 여부를 추정한다(§04)
+      certIssuer: u.certIssuer,
+      certValidUntil: u.certValidUntil,
       note: u.note,
       state: '미등록',
     })

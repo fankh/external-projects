@@ -260,7 +260,7 @@ function seedEasmRuns(): EasmRun[] {
 /** 재탐지가 돌면 드러날 외부 노출 자산 — 수동 수집으로 후보가 잡히고 능동으로 생존이 확인된다 */
 function seedUnseenExternal(): UnseenExternal[] {
   return [
-    { host: 'staging-api.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', domain: 'seekerslab.co.kr', risk: '중간', note: 'CT 로그 신규 발급 인증서 — 스테이징 API 외부 노출 후보' },
+    { host: 'staging-api.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', domain: 'seekerslab.co.kr', risk: '중간', certIssuer: "Let's Encrypt R3", certValidUntil: '2026-10-28', note: 'CT 로그 신규 발급 인증서 — 스테이징 API 외부 노출 후보' },
     { host: 'grafana.seekerslab.co.kr', ip: '203.0.113.51', method: '서브도메인 브루트포스', mode: 'Active', domain: 'seekerslab.co.kr', services: '3000/http (Grafana 9.3)', cve: 'CVE-2022-39307', cvss: 5.3, risk: '높음', note: '인증 없이 노출된 대시보드 — 기본 크리덴셜 점검 필요' },
     { host: 'old-jenkins.skl-dev.io', ip: '198.51.100.7', method: '웹 아카이브', mode: 'Passive', domain: 'skl-dev.io', risk: '중간', note: '과거 관측 호스트 — 생존 확인 전까지 비활성 표기' },
   ]
@@ -341,7 +341,7 @@ function seedDiscovered(): DiscoveredAsset[] {
 /** 외부 공격표면 — 수동(무접촉) 수집으로 후보 확보 → 능동 탐지로 생존·서비스·취약점 확인 */
 function seedExternal(): ExternalAsset[] {
   return [
-    { id: 'EXT-2607-01', host: 'legacy-vpn.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', alive: true, services: 'HTTPS 443 (Fortinet SSL-VPN 6.0.4)', cve: 'CVE-2018-13379', cvss: 9.8, risk: '높음', firstSeen: '2026-07-22', state: '미등록', note: '만료 임박 인증서 · 대장에 없는 잊힌 VPN 게이트웨이' },
+    { id: 'EXT-2607-01', host: 'legacy-vpn.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', alive: true, services: 'HTTPS 443 (Fortinet SSL-VPN 6.0.4)', cve: 'CVE-2018-13379', cvss: 9.8, risk: '높음', firstSeen: '2026-07-22', state: '미등록', certIssuer: 'DigiCert TLS RSA SHA256 2020 CA1', certValidUntil: '2026-09-01', note: '만료 임박 인증서 · 대장에 없는 잊힌 VPN 게이트웨이' },
     { id: 'EXT-2607-02', host: 'dev-api.seekerslab.co.kr', ip: '203.0.113.51', method: '서브도메인 브루트포스', mode: 'Active', alive: true, services: 'HTTP 8080 (Swagger UI 노출)', risk: '높음', firstSeen: '2026-07-24', state: '미등록', note: '개발 API 문서가 인증 없이 외부 공개' },
     { id: 'EXT-2607-03', host: 'old-portal.seekerslab.co.kr', ip: '203.0.113.12', method: '웹 아카이브', mode: 'Passive', alive: false, risk: '낮음', firstSeen: '2026-07-19', state: '미확인', note: '과거 관측 호스트 — 생존 확인 전까지 비활성 표기' },
     { id: 'EXT-2607-04', host: 'mail.seekerslab.co.kr', ip: '203.0.113.25', method: '역DNS · CIDR 스캔', mode: 'Active', alive: true, services: 'SMTP 25 · IMAPS 993', risk: '낮음', firstSeen: '2026-07-15', state: '등록·일치', note: '대장 등록 자산 — 정상 노출' },
@@ -349,6 +349,9 @@ function seedExternal(): ExternalAsset[] {
     { id: 'EXT-2607-06', host: 'db-backup.seekerslab.co.kr', ip: '203.0.113.90', method: '존 트랜스퍼 (AXFR)', mode: 'Active', alive: true, services: 'PostgreSQL 5432 (외부 노출)', cve: 'CVE-2024-10977', cvss: 8.1, risk: '높음', firstSeen: '2026-07-26', state: '미등록', note: 'DB 포트가 인터넷에 직접 노출 — 즉시 차단 필요', action: '차단요청' },
     { id: 'EXT-2607-07', host: 'kiosk-cam.seekerslab.co.kr', ip: '203.0.113.101', method: '검색엔진 도킹', mode: 'Passive', alive: true, services: 'HTTP 80 (관리 콘솔)', risk: '중간', firstSeen: '2026-07-20', state: '미등록', note: '공개 색인된 관리 콘솔 — site: 도크로 발견' },
     { id: 'EXT-2607-08', host: 'cdn-assets.seekerslab.co.kr', ip: '203.0.113.66', method: 'DNS 인텔리전스', mode: 'Passive', alive: true, services: 'HTTPS 443', risk: '낮음', firstSeen: '2026-07-11', state: '등록·일치' },
+    // CT 채널 — 인증서 유효기간으로 생존 추정. ct-active 는 유효(생존 유력·능동 확인 대기), ct-legacy 는 만료(생존 불명·방치 후보)
+    { id: 'EXT-2607-09', host: 'ct-active.seekerslab.co.kr', ip: '203.0.113.141', method: '인증서 투명성 (CT)', mode: 'Passive', alive: false, risk: '중간', firstSeen: '2026-08-10', state: '미확인', certIssuer: "Let's Encrypt R3", certValidUntil: '2026-11-12', note: 'CT 로그 신규 발급 인증서 — 유효기간 내, 생존 유력(능동 확인 대기)' },
+    { id: 'EXT-2607-10', host: 'ct-legacy.seekerslab.co.kr', ip: '203.0.113.142', method: '인증서 투명성 (CT)', mode: 'Passive', alive: false, risk: '낮음', firstSeen: '2026-08-05', state: '미확인', certIssuer: 'Sectigo RSA DV', certValidUntil: '2026-05-30', note: 'CT 로그 과거 발급 인증서 — 유효기간 만료, 방치 호스트 추정' },
   ]
 }
 

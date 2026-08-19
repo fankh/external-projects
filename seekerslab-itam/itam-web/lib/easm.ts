@@ -15,3 +15,26 @@ export function isEasmRescanOverdue(t: EasmTarget): boolean {
   const next = nextEasmRescan(t)
   return next !== null && (daysUntil(next) ?? 0) < 0
 }
+
+/** CT 인증서 유효기간 기반 생존 추정 결과 — §04 "유효기간으로 생존 여부 추정" */
+export interface CertLiveness {
+  /** valid = 유효기간 내(생존 유력) · expired = 만료(생존 불명·방치 후보) */
+  state: 'valid' | 'expired'
+  /** 남은 유효일(양수) 또는 만료 경과일(음수) */
+  days: number
+  /** 유효기간으로 추정한 생존 여부. 능동 확인(alive) 전 수동 트라이애지 신호이며 생존을 확정하지 않는다 */
+  aliveGuess: boolean
+  /** 화면 표기 라벨 */
+  label: string
+}
+
+/** CT(인증서 투명성) 채널로 수집한 인증서 유효기간으로 호스트 생존 여부를 추정한다.
+ *  유효한 인증서 = 최근 갱신·운영 중 → 생존 유력, 만료 = 방치·폐기 후보 → 생존 불명.
+ *  수동 수집 단계의 트라이애지 신호로, 능동 확인 전까지 생존을 확정하지 않는다(제품안내서 §04). */
+export function certLiveness(certValidUntil: string | undefined): CertLiveness | null {
+  if (!certValidUntil) return null
+  const days = daysUntil(certValidUntil)
+  if (days === null) return null
+  if (days >= 0) return { state: 'valid', days, aliveGuess: true, label: `유효 ${days}일 — 생존 유력` }
+  return { state: 'expired', days, aliveGuess: false, label: `만료 ${-days}일 경과 — 생존 불명` }
+}
