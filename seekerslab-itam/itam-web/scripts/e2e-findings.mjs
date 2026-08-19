@@ -1093,6 +1093,11 @@ try {
     const liveP2 = Number((rc0.match(/점수\s*(\d+)~/) || [])[1] ?? '34')
     const r0 = await checkTiers(liveP1, liveP2)
     ok('불변식: 취약점 우선순위 점수 내림차순·티어 임계(활성 위험도 기준) 정합', r0.checked > 0 && r0.mono && r0.tierOk)
+    // 취약점 점수 floor 절사(반올림 아님) 회귀 — 중간×높음=66.67 은 floor 66(P2)이어야 한다. 반올림이면 67(P1)이 돼 P2 가 P1 로 오분류(리포트 P2 상한 '66' 라벨과 불일치). 기본 기준(67/34)에서 66점 행은 P2·67점 행은 부재여야 한다. 위 checkTiers 는 표시된 점수로 티어를 되계산해 vacuous 하므로 이 절대 단언으로 잡는다.
+    const vtbl0 = p3.locator('table', { has: p3.locator('th', { hasText: /^점수$/ }) }).first()
+    const vpairs = []
+    { const nn = await vtbl0.locator('tbody tr').count(); for (let i = 0; i < nn; i++) { const tds = await vtbl0.locator('tbody tr').nth(i).locator('td').allTextContents(); const tier = (tds.find((x) => /^P[123]$/.test(x.trim())) || '').trim(); const sc = Number((tds[tds.length - 2] || '').trim()); if (/^P[123]$/.test(tier) && !Number.isNaN(sc)) vpairs.push({ sc, tier }) } }
+    ok('취약점 점수 floor 절사: 중간×높음=66점은 P2 (반올림 67·P1 오분류 아님)', vpairs.some((v) => v.sc === 66 && v.tier === 'P2') && !vpairs.some((v) => v.sc === 67))
 
     // 위험도 기준 편집(보안담당 책무 — ADMIN 가능) → 컷오프를 40/20 으로 낮추면 표가 새 기준으로 재분류된다
     await riskCard().locator('button', { hasText: /^기준 변경$/ }).click()
@@ -2160,6 +2165,20 @@ try {
   await pQB.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
   ok('대장 자산 격리(로70): 2단계 승인 → NAC 격리 집행(대장 격리 표시)', ((await pQB.locator('tr', { has: pQB.locator('td', { hasText: 'AST-2024-000377' }) }).first().textContent()) || '').includes('격리'))
   await ctxQB.close()
+  // 반납 폐기 권고 → 소유자 정리 불변식(홀더-상태) — 폐기 권고 접수는 정상·수리 필요 분기와 달리 소유자를 비우지 않아, 폐기 취소·반려로 유휴 복귀 시 떠난 보유자가 대장에 오귀속됐다(부서별 비용 배분 오염). 접수 즉시 owner='미지정' 이어야 한다. 시드 AST-2025-000513(반납대기·한도윤)을 폐기 권고로 접수 → 소유자 미지정 검증. 정리가 없으면 한도윤이 남아 실패.
+  const ctxRT = await browser.newContext(); await ctxRT.addCookies([cookie(ADMIN)]); const pRT = await ctxRT.newPage()
+  await pRT.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
+  ok('반납 폐기 권고(홀더-상태): 접수 전 반납대기 자산 소유자 존재(한도윤)', ((await pRT.locator('tr', { has: pRT.locator('td', { hasText: 'AST-2025-000513' }) }).first().textContent()) || '').includes('한도윤'))
+  await pRT.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const rtRow = pRT.locator('tr', { has: pRT.locator('td', { hasText: 'AST-2025-000513' }) }).first()
+  await rtRow.locator('select').first().selectOption('폐기 권고')
+  await pRT.waitForTimeout(200)
+  await rtRow.locator('button', { hasText: /^접수$/ }).click()
+  await pRT.waitForTimeout(900)
+  await pRT.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
+  const rtPost = (await pRT.locator('tr', { has: pRT.locator('td', { hasText: 'AST-2025-000513' }) }).first().textContent()) || ''
+  ok('반납 폐기 권고(홀더-상태): 접수 → 폐기예정·소유자 미지정으로 정리(떠난 보유자 오귀속 방지)', rtPost.includes('폐기예정') && rtPost.includes('미지정') && !rtPost.includes('한도윤'))
+  await ctxRT.close()
 
   await browser.close()
 } catch (err) {
