@@ -3,7 +3,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { noticeAudienceLabel, noticeTargets } from '@/lib/notice'
 import { NOTICE_CATEGORIES, type BoardPost, type NoticeCategory } from '@/lib/types'
-import { acknowledgeNotice, deleteNotice, editNotice, postNotice, remindNoticeUnacked, toggleNoticePin } from '../actions'
+import { acknowledgeNotice, deleteNotice, editNotice, postNotice, recordPostView, remindNoticeUnacked, toggleNoticePin } from '../actions'
 
 export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initialSel }: { posts: BoardPost[]; canWrite: boolean; me: string; allUsers: { name: string; dept: string }[]; depts: string[]; today: string; initialSel?: string }) {
   // 딥링크(?sel=NTC-…) — 알림 로그·대시보드에서 특정 공지로 진입. 목록에 없으면(비공개·예약) 최신 공지로 폴백.
@@ -41,8 +41,13 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
       return true
     })
   }, [posts, fq, fpinned, fscheduled, fcat, today])
-  // 다른 공지로 넘어가면 편집 모드 해제
-  const select = (id: string) => { setEditing(null); setOpenId(id === openId ? null : id) }
+  // 다른 공지로 넘어가면 편집 모드 해제. 새 공지를 여는 경우 조회수를 올린다(닫기·같은 글 토글은 제외).
+  const select = (id: string) => {
+    setEditing(null)
+    const opening = id !== openId
+    setOpenId(opening ? id : null)
+    if (opening) startTransition(async () => { await recordPostView(id) })
+  }
 
   return (
     <>
