@@ -58,6 +58,7 @@ CFIX_DATA = ROOT / 'scripts' / '.e2e-cfix-data.json'  # 취약점 조치율 no-f
 RISK_DATA = ROOT / 'scripts' / '.e2e-risk-data.json'  # 정보보호 위험평가 등록→재평가→종결→삭제 커버리지용 (v1.5.259)
 RISKDLY_DATA = ROOT / 'scripts' / '.e2e-riskdly-data.json'  # 위험 조치 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.261)
 RISKDEL_DATA = ROOT / 'scripts' / '.e2e-riskdel-data.json'  # 미종결 위험 은닉 삭제 서버 가드(직접 POST) 회귀용 (v1.5.265)
+RISKRA_DATA = ROOT / 'scripts' / '.e2e-riskra-data.json'  # 위험 담당 재배정 → 조치 지연 폐쇄루프 복구 회귀용 (v1.5.267)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -483,6 +484,10 @@ def sc_risk_register(pg, base, check):
     login(pg, base, '시스템관리자')  # ADMIN — 위험평가 관리(BIZ_MGR·ADMIN)
     pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
     check('등록된 위험이 없습니다' in pg.inner_text('body'), '초기 빈 위험관리대장')
+    # 종합현황 export — 빈 위험 대장은 종결률 0% 아닌 '해당없음'(타 무분모 라인과 정합, 감사 0% 오독 방지)
+    csv = pg.request.get(f'{base}/api/export?type=compliance-summary').text()
+    riskline = csv.split('정보보호 위험평가')[1][:20] if '정보보호 위험평가' in csv else ''
+    check('해당없음' in riskline, f'빈 위험 대장 종합현황 = 해당없음(0% 아님) (실제: {riskline!r})')
     card = pg.locator('.card', has_text='위험 등록')
     card.locator('input[name=title]').fill('테스트 위험 시나리오')
     card.locator('input[name=area]').fill('테스트 시스템')
@@ -543,6 +548,28 @@ def sc_risk_delete_guard(pg, base, check):
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
     check(pg.locator('tr', has_text='RK-2026-92').count() == 1, '미종결 위험은 위조 삭제 POST 로도 제거 불가(서버 가드)')
+
+
+def sc_risk_reassign(pg, base, check):
+    """위험 담당 재배정 → 조치 지연 폐쇄루프 복구 — 담당 immutable 이면 퇴사 담당의 지연 위험이 아무에게도
+    통지되지 않고(재직 교집합 드롭) 미종결이라 삭제도 막혀 고립된다. 재평가로 재직자에게 이관해 루프를 잇는다.
+    격리(RISKRA): RK-91(김현우 재직)·RK-92(E2E퇴사담당 퇴사) 지연 위험. RK-92 를 이수진으로 이관 → 대장 반영
+    + 알림 '위험 조치 지연 2명'(김현우·이수진). 담당 이관 불가 시 RK-92 퇴사 담당 유지 → 대조."""
+    login(pg, base, '시스템관리자')  # ADMIN — 위험 관리
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    reg = pg.locator('.card', has_text='위험관리대장')
+    reg.locator('tr', has_text='RK-2026-92').locator('select[name=owner]').select_option('이수진')
+    reg.locator('tr', has_text='RK-2026-92').locator('button:has-text("재평가")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    check('이수진' in reg.locator('tr', has_text='RK-2026-92').inner_text(), '퇴사 담당 위험을 재직자(이수진)로 재배정')
+    # 폐쇄루프 복구 — 알림 배치에서 두 지연 위험 모두 재직 담당에게 통지(김현우·이수진 = 2명)
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.locator('button:has-text("알림 배치 실행")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    detail = pg.locator('tr', has_text='알림 배치 실행').first.inner_text()
+    check('위험 조치 지연 2명' in detail, f'재배정 후 폐쇄루프 복구 — 지연 위험 2명 통지 (실제: {detail[:170]})')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2602,6 +2629,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(RISKDLY_DATA)}),
     ('risk_delete_guard', '미종결 위험 은닉 삭제 방지 — 위조 삭제 POST 서버 가드(ISMS 감사 트레일 보존)', sc_risk_delete_guard,
      {'PORTAL_DATA_FILE': str(RISKDEL_DATA)}),
+    ('risk_reassign', '위험 담당 재배정 → 조치 지연 폐쇄루프 복구(퇴사 담당 이관)', sc_risk_reassign,
+     {'PORTAL_DATA_FILE': str(RISKRA_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -3012,6 +3041,9 @@ def main() -> int:
                               'likelihood': 3, 'impact': 3, 'treatment': '완화', 'owner': '김현우', 'plan': 'p',
                               'dueDate': '2026-09-30', 'status': status, 'identifiedAt': '2026-06-01'}
     RISKDEL_DATA.write_text(json.dumps({'riskItems': [_rkd(1, '완료'), _rkd(2, '식별')]}, ensure_ascii=False), encoding='utf-8')
+    # 위험 담당 재배정 — 지연 위험 2건(재직 김현우·퇴사 E2E퇴사담당). RK-92 를 재직자로 재평가-이관하면
+    # 대장 반영 + 조치 지연 알림이 2명(폐쇄루프 복구)이어야 한다. RISKDLY 와 별도 파일(재배정 뮤테이션 격리).
+    RISKRA_DATA.write_text(json.dumps({'riskItems': [_rk(1, '김현우'), _rk(2, 'E2E퇴사담당')]}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
