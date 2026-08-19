@@ -1000,7 +1000,7 @@ try {
   check('공통코드: 위치 코드가 랙 단위까지 정의', rackLocations.every((l) => codeHtml2.includes(l)), rackLocations.filter((l) => !codeHtml2.includes(l)).join(', '))
   check('재물조사: 실사 위치 목록이 대장 위치와 정합', rackLocations.filter((l) => regHtml.includes(l)).every((l) => svyHtml.includes(l)), rackLocations.filter((l) => regHtml.includes(l) && !svyHtml.includes(l)).join(', '))
   const repHtml = await (await get('/ai/reports', 'ASSET_MGR')).text()
-  check('리포트: 11종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('연간 교체 계획') && repHtml.includes('취약점 조치 우선순위') && repHtml.includes('AI 거버넌스·성능') && repHtml.includes('부서별 IT 비용 배분') && repHtml.includes('계약 관리 현황') && repHtml.includes('정보보호 컴플라이언스 증적') && repHtml.includes('결재 첨부용'))
+  check('리포트: 12종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('연간 교체 계획') && repHtml.includes('취약점 조치 우선순위') && repHtml.includes('AI 거버넌스·성능') && repHtml.includes('부서별 IT 비용 배분') && repHtml.includes('계약 관리 현황') && repHtml.includes('정보보호 컴플라이언스 증적') && repHtml.includes('라이선스 갱신·트루업 계획') && repHtml.includes('결재 첨부용'))
   // 계약 관리 현황(§03 계약 이행 보고) — 만료·유지보수 예산 집행·구매 발주 이행·SLA·부속서류 거버넌스를 한 리포트로 집약(결재 첨부).
   check('리포트: 계약 관리 현황 리포트 유형 렌더', repHtml.includes('계약 관리 현황') && repHtml.includes('발주 이행'))
   // 재물조사 결과 요약에 차이 유형별 대장 대조·조정 결과(resolution) 추가 — 감사 추적 강화(유형 설명에 반영, 생성 시 buildSections 가 섹션 산출)
