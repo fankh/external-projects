@@ -7,6 +7,7 @@ import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra'
+import { computeRiskKpis, isRiskClosed, riskScore, riskTier } from '@/lib/risk'
 import { delayedSrs, srStatusLabel } from '@/lib/sr'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
@@ -23,6 +24,7 @@ const EXPORT_MENU: Record<string, string> = {
   batches: '/infra/operations', interfaces: '/infra/operations',
   'education-records': '/compliance/education', 'pledge-status': '/pledge/dept',
   'security-reviews': '/compliance/security-review',
+  risks: '/compliance/risks',
   'compliance-summary': '/compliance/inspection',
   'compliance-trend': '/compliance/inspection',
   'itops-summary': '/sr/manage',
@@ -240,12 +242,26 @@ export async function GET(req: Request) {
     return csvResponse('보안성검토_관리대장', rows)
   }
 
+  if (type === 'risks') {
+    // 정보보호 위험관리대장 (ISMS 위험평가) — 담당(BIZ)·Admin 전용 (화면 메뉴 권한과 동일 스코프)
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const t = today()
+    const rows: (string | number)[][] = [['번호', '위험 시나리오', '대상', '위협', '취약점', '발생가능성', '영향도', '위험도', '등급', '처리전략', '담당', '조치계획', '기한', '상태', '식별일']]
+    // 위험도·등급은 lib/risk 단일 원천(화면·KPI 와 동일 술어) — 감사 산출물에도 같은 값으로 노출
+    for (const r of s.riskItems) {
+      const score = riskScore(r)
+      rows.push([r.id, r.title, r.area, r.threat, r.vulnerability, Math.round(r.likelihood), Math.round(r.impact), score, riskTier(score).label, r.treatment, r.owner, r.plan, `${r.dueDate}${!isRiskClosed(r) && r.dueDate < t ? ' (경과)' : ''}`, r.status, r.identifiedAt])
+    }
+    return csvResponse('정보보호_위험관리대장', rows)
+  }
+
   if (type === 'compliance-summary') {
     // 보안 컴플라이언스 종합 현황 — ISMS 외부 감사 대응 근거(제품안내서 IV·VI장). 담당(BIZ)·Admin 전용.
     // 각 지표는 소속 화면과 동일 단일-원천 술어로 산출(비율은 div-zero·false-100 방어) — 화면과 수치 불일치 방지.
     if (!isMgr) return new Response('forbidden', { status: 403 })
     // KPI 는 lib/compliance 단일 원천(추세 스냅샷과 공유) — 화면·산출물 수치 불일치 방지.
     const k = computeComplianceKpis(s)
+    const rk = computeRiskKpis(s.riskItems, today())
     const score = compliancePostureScore(k)
     const weak = weakestPostureAxis(k)
     const rows: (string | number)[][] = [
@@ -257,6 +273,7 @@ export async function GET(req: Request) {
       ['보안점검(ISMS)', `완료 ${k.inspDone} / 전체 ${k.inspTotal}`, `결과 미등록 ${k.inspPending}건`],
       ['보안성 검토 조치율', k.fixFindings > 0 ? `${complianceKpiPct(k.fixDone, k.fixFindings)}%` : '해당없음', `고위험 미조치 ${k.highVulns}건 · 미조치 취약점 ${k.openVulns}건 · 검토 ${k.reviewCount}건`],
       ['보안위반 처리', `완료 ${k.vDone} / 전체 ${k.vTotal}`, `확인서 징구중 ${k.vPending}건`],
+      ['정보보호 위험평가', `종결률 ${rk.treatedRate}% (${s.riskItems.filter(isRiskClosed).length}/${rk.total})`, `높음↑ 미종결 ${rk.highOpen}건 · 기한경과 ${rk.overdue}건`],
     ]
     return csvResponse('보안컴플라이언스_종합현황', rows)
   }

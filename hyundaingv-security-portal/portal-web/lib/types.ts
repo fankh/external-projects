@@ -186,6 +186,38 @@ export interface SecurityReview {
   completedAt?: string
 }
 
+/** 정보보호 위험평가 — 처리 전략(ISMS 위험처리): 완화·수용·전가·회피 */
+export type RiskTreatment = '완화' | '수용' | '전가' | '회피'
+export const RISK_TREATMENTS: RiskTreatment[] = ['완화', '수용', '전가', '회피']
+/** 위험 처리 생명주기 — 식별 → 조치중 → 완료(종결) */
+export type RiskStatus = '식별' | '조치중' | '완료'
+export const RISK_STATUSES: RiskStatus[] = ['식별', '조치중', '완료']
+
+/** 정보보호 위험관리대장 항목 (ISMS 위험평가) — 자산·영역의 위협×취약점을 발생가능성·영향도로 평가하고
+ *  처리 전략·조치계획으로 관리한다. 위험도(=발생가능성×영향도)와 등급은 저장하지 않고 lib/risk 에서 파생한다
+ *  (단일 원천 — 화면·export·KPI 가 같은 술어 공유). L·I 는 1~5(5×5 매트릭스). */
+export interface RiskItem {
+  id: string
+  /** 위험 시나리오 */
+  title: string
+  /** 대상 자산·영역 (시스템·프로세스) */
+  area: string
+  threat: string
+  vulnerability: string
+  /** 발생가능성 1~5 */
+  likelihood: number
+  /** 영향도 1~5 */
+  impact: number
+  treatment: RiskTreatment
+  owner: string
+  /** 조치계획 (완화 조치·수용 근거 등) */
+  plan: string
+  /** 조치기한 (YYYY-MM-DD) — 경과 시 미종결 위험은 지연으로 드러난다 */
+  dueDate: string
+  status: RiskStatus
+  identifiedAt: string
+}
+
 /** 컴플라이언스 포스처 추세 스냅샷 — 주기(월)별 KPI 를 저장해 전기 대비 개선 추이(ISMS 감사 근거)를 본다.
  *  값은 lib/compliance computeComplianceKpis 기준 기록 시점 산출(rate 는 complianceKpiPct). */
 export interface ComplianceSnapshot {

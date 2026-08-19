@@ -55,6 +55,7 @@ SRGHOST_DATA = ROOT / 'scripts' / '.e2e-srghost-data.json'  # SR 지연 알림 �
 SECMON_DATA = ROOT / 'scripts' / '.e2e-secmon-data.json'  # 보안관제 어댑터 탐지→보안위반 자동 등록 커버리지용 (v1.5.249)
 EXECOVER_DATA = ROOT / 'scripts' / '.e2e-execover-data.json'  # 집행률 초과(err) 톤 원값 판정(반올림 경계) 회귀용 (v1.5.251)
 CFIX_DATA = ROOT / 'scripts' / '.e2e-cfix-data.json'  # 취약점 조치율 no-findings 100(추세 0% 오표기 방지) 회귀용 (v1.5.257)
+RISK_DATA = ROOT / 'scripts' / '.e2e-risk-data.json'  # 정보보호 위험평가 등록→재평가→종결→삭제 커버리지용 (v1.5.259)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -76,6 +77,7 @@ def login(pg, base, name):
     pg.goto(f'{base}/login', wait_until='networkidle')
     pg.click(f'.acct:has-text("{name}")')
     pg.wait_for_url('**/dashboard')
+
 
 
 def approve_first(pg, base, needle):
@@ -470,6 +472,41 @@ def sc_compliance_fixrate_clean(pg, base, check):
     detail = snaprow.first.inner_text()
     check('조치 100%' in detail, '발견 0건 → 조치율 100%(만점) 기록 (청정 기간, 추세 0% 오표기 아님)')
     check('조치 0%' not in detail, '청정 기간을 조치율 0%(실패)로 오표기하지 않음')
+
+
+def sc_risk_register(pg, base, check):
+    """정보보호 위험평가(ISMS 위험관리대장) — 등록 → 종결 → 삭제 생명주기 + 위험도 등급 파생(lib/risk 단일원천).
+    격리(riskItems 비움)로 RK 채번 고정(RK-....-0001). 발생가능성 5 × 영향도 5 = 위험도 25 → '심각' 등급이
+    저장 아닌 파생으로 표시되고(재평가 시 한 곳만 바뀜), 조치중→완료 종결 후 종결 건만 삭제 가능함을 검증."""
+    login(pg, base, '시스템관리자')  # ADMIN — 위험평가 관리(BIZ_MGR·ADMIN)
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    check('등록된 위험이 없습니다' in pg.inner_text('body'), '초기 빈 위험관리대장')
+    card = pg.locator('.card', has_text='위험 등록')
+    card.locator('input[name=title]').fill('테스트 위험 시나리오')
+    card.locator('input[name=area]').fill('테스트 시스템')
+    card.locator('input[name=threat]').fill('테스트 위협')
+    card.locator('input[name=vulnerability]').fill('테스트 취약점')
+    card.locator('select[name=likelihood]').select_option('5')
+    card.locator('select[name=impact]').select_option('5')
+    card.locator('select[name=treatment]').select_option('완화')
+    card.locator('button:has-text("등록")').click()
+    pg.wait_for_selector('tr:has-text("RK-2026-0001")', timeout=10000)
+    reg = pg.locator('.card', has_text='위험관리대장')
+    row = reg.locator('tr', has_text='RK-2026-0001')
+    txt = row.inner_text()
+    check('심각' in txt and '25' in txt, '위험도 25(=5×5) → 심각 등급 파생(저장 아닌 lib/risk 산출)')
+    check('식별' in txt, '신규 위험 상태 식별')
+    # 종결 진행: 식별 → 조치중 → 완료 (미종결 건만 advance 노출)
+    row.locator('button:has-text("조치중")').click()
+    pg.wait_for_load_state('networkidle')
+    reg.locator('tr', has_text='RK-2026-0001').locator('button:has-text("완료")').click()
+    pg.wait_for_load_state('networkidle')
+    check('완료' in reg.locator('tr', has_text='RK-2026-0001').inner_text(), '조치중 → 완료 종결')
+    # 종결 건 삭제 — 대장에서 제거
+    reg.locator('tr', has_text='RK-2026-0001').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')  # RSC 재검증 반영 후 재조회
+    check(pg.locator('tr', has_text='RK-2026-0001').count() == 0, '종결 위험 삭제 — 대장에서 제거')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2494,6 +2531,7 @@ def sc_infra_rollback_plan(pg, base, check):
     check(pg.locator('tr', has_text='E2E 롤백 변경작업').count() == 1, '이중 등록 방어 — 같은 제목 재등록해도 1건 유지')
 
 
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
@@ -2522,6 +2560,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(EXECOVER_DATA)}),
     ('compliance_fixrate_clean', '취약점 조치율 no-findings 만점(100) — 청정 기간 추세 0% 오표기 방지', sc_compliance_fixrate_clean,
      {'PORTAL_DATA_FILE': str(CFIX_DATA)}),
+    ('risk_register', '정보보호 위험평가 — 등록→종결→삭제 + 위험도 등급 파생(ISMS 위험관리대장)', sc_risk_register,
+     {'PORTAL_DATA_FILE': str(RISK_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -2918,6 +2958,8 @@ def main() -> int:
     # 취약점 조치율 no-findings — 보안성검토 0건(fixFindings=0)일 때 스냅샷 조치율이 만점(100)이어야 한다(추세 0% 오표기 방지).
     # 감사만 남기려 auditLogs 도 비워, 기록 후 유일한 '컴플라이언스 스냅샷' 감사에서 '조치 100%'를 확인한다.
     CFIX_DATA.write_text(json.dumps({'securityReviews': [], 'complianceSnapshots': [], 'auditLogs': []}, ensure_ascii=False), encoding='utf-8')
+    # 정보보호 위험평가 — 위험 없는 상태에서 등록(RK 채번 고정 RK-....-0001)→종결→삭제 전 생명주기 검증.
+    RISK_DATA.write_text(json.dumps({'riskItems': []}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
