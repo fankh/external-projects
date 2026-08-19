@@ -7,6 +7,7 @@ import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra'
+import { isTestOverdue, nextTestDue } from '@/lib/dr'
 import { computePolicyKpis, isReviewOverdue, nextReviewDue } from '@/lib/policy'
 import { computeRiskKpis, isRiskClosed, riskScore, riskTier } from '@/lib/risk'
 import { delayedSrs, srStatusLabel } from '@/lib/sr'
@@ -26,7 +27,7 @@ const EXPORT_MENU: Record<string, string> = {
   'education-records': '/compliance/education', 'pledge-status': '/pledge/dept',
   'security-reviews': '/compliance/security-review',
   risks: '/compliance/risks', 'risk-trend': '/compliance/risks',
-  policies: '/compliance/policies',
+  policies: '/compliance/policies', 'dr-plans': '/compliance/dr',
   'compliance-summary': '/compliance/inspection',
   'compliance-trend': '/compliance/inspection',
   'itops-summary': '/sr/manage',
@@ -267,6 +268,18 @@ export async function GET(req: Request) {
         p.status === '폐지' ? '-' : nextReviewDue(p), isReviewOverdue(p, t) ? 'Y' : ''])
     }
     return csvResponse('정보보호_정책지침_관리대장', rows)
+  }
+
+  if (type === 'dr-plans') {
+    // 재해복구·업무연속성 관리대장 (ISMS 2.12) — 담당(BIZ)·Admin 전용. 다음훈련·경과는 lib/dr 산출.
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const t = today()
+    const rows: (string | number)[][] = [['번호', '대상', '계획명', '등급', 'RTO(h)', 'RPO(h)', '담당', '훈련주기(개월)', '최근훈련일', '최근결과', '다음훈련예정', '훈련경과']]
+    for (const p of s.drPlans) {
+      rows.push([p.id, p.system, p.title, p.tier, p.rtoHours, p.rpoHours, p.owner, p.testCycleMonths,
+        p.lastResult === '미실시' ? '-' : p.lastTestedAt, p.lastResult, nextTestDue(p), isTestOverdue(p, t) ? 'Y' : ''])
+    }
+    return csvResponse('재해복구_업무연속성_관리대장', rows)
   }
 
   if (type === 'risk-trend') {

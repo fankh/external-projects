@@ -94,6 +94,7 @@ export const NAV: NavGroup[] = [
       { href: '/compliance/security-review', label: '보안성 검토', ico: '◈', roles: BIZ },
       { href: '/compliance/risks', label: '정보보호 위험평가', ico: '⚑', roles: BIZ },
       { href: '/compliance/policies', label: '정책·지침 관리', ico: '§', roles: BIZ },
+      { href: '/compliance/dr', label: '재해복구·업무연속성', ico: '⛑', roles: BIZ },
     ],
   },
   {

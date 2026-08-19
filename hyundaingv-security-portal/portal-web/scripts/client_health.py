@@ -30,7 +30,7 @@ ROUTES = [
     '/projects/status', '/projects/schedule', '/projects/reports',
     '/pledge/my', '/pledge/dept', '/pledge/manage',
     '/awareness/remote', '/awareness/prints', '/awareness/violations',
-    '/compliance/education', '/compliance/inspection', '/compliance/security-review', '/compliance/risks', '/compliance/policies',
+    '/compliance/education', '/compliance/inspection', '/compliance/security-review', '/compliance/risks', '/compliance/policies', '/compliance/dr',
     '/work/todo', '/work/approvals',
     '/settings/users', '/settings/menus', '/settings/permissions',
     '/settings/codes', '/settings/forms', '/settings/audit',

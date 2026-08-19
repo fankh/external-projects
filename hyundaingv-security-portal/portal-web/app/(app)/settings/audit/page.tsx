@@ -13,6 +13,7 @@ const ACTION_TONE: Record<AuditAction, 'ok' | 'err' | 'info' | 'neutral' | 'warn
   '인사정보 동기화': 'info', '배치 수동 실행': 'info', '일배치 이관': 'info', '알림 배치 실행': 'info',
   '위험 등록': 'neutral', '위험 변경': 'warn', '위험 삭제': 'warn', '위험 스냅샷': 'info',
   '정책 등록': 'neutral', '정책 변경': 'warn', '정책 삭제': 'warn',
+  '복구계획 등록': 'neutral', '복구계획 변경': 'warn', '복구계획 삭제': 'warn',
 }
 
 export default async function AuditPage() {

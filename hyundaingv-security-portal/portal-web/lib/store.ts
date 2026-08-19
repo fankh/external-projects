@@ -6,13 +6,14 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { nowStamp, today } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, RiskItem, RiskSnapshot, SecurityPolicy, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, RiskItem, RiskSnapshot, SecurityPolicy, DrPlan, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
   inspectionPlans: InspectionPlan[]
   securityReviews: SecurityReview[]
   securityPolicies: SecurityPolicy[]
+  drPlans: DrPlan[]
   riskItems: RiskItem[]
   riskSnapshots: RiskSnapshot[]
   complianceSnapshots: ComplianceSnapshot[]
@@ -167,6 +168,11 @@ function seed(): Store {
       { id: 'PL-2026-02', title: '접근통제 지침', category: '지침', version: 'v1.3', owner: '박정호', status: '시행', effectiveAt: '2024-03-01', reviewCycleMonths: 12, lastReviewedAt: '2025-07-10' },
       { id: 'PL-2026-03', title: '정보자산 관리 절차', category: '절차', version: 'v1.0', owner: '박정호', status: '개정중', effectiveAt: '2025-02-01', reviewCycleMonths: 12, lastReviewedAt: '2025-02-01' },
       { id: 'PL-2026-04', title: '개인정보 처리방침', category: '정책', version: 'v3.1', owner: '이수진', status: '시행', effectiveAt: '2026-06-01', reviewCycleMonths: 6, lastReviewedAt: '2026-06-01' },
+    ],
+    drPlans: [
+      { id: 'DR-2026-01', system: 'ERP', title: 'ERP 재해복구 계획', tier: '핵심', rtoHours: 4, rpoHours: 1, owner: '박정호', testCycleMonths: 12, lastTestedAt: '2026-03-15', lastResult: '성공' },
+      { id: 'DR-2026-02', system: '영업정보시스템', title: '영업정보 DR', tier: '중요', rtoHours: 24, rpoHours: 12, owner: '한지원', testCycleMonths: 12, lastTestedAt: '2025-05-20', lastResult: '부분성공' },
+      { id: 'DR-2026-03', system: '그룹웨어', title: '그룹웨어 복구 절차', tier: '일반', rtoHours: 48, rpoHours: 24, owner: '박정호', testCycleMonths: 12, lastTestedAt: '2026-06-01', lastResult: '미실시' },
     ],
     riskItems: [
       { id: 'RK-2026-01', title: '개인정보 대량 조회 권한 오남용', area: '영업정보시스템', threat: '내부자 정보유출', vulnerability: '접근권한 최소화 미흡·조회이력 미점검', likelihood: 3, impact: 5, treatment: '완화', owner: '한지원', plan: '조회권한 재점검·이상조회 모니터링 룰 적용', dueDate: '2026-09-30', status: '조치중', identifiedAt: '2026-07-01' },
