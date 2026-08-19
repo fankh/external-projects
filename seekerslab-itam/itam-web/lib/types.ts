@@ -72,6 +72,9 @@ export interface Asset {
   /** 수리·유지보수 비용 이력 — 외부 수리 완료 시 실비를 구조적으로 누적한다(자유 이력 텍스트와 달리 자산 TCO 집계·현황에 쓰인다).
    *  계약의 ContractCost(계약 단위 비용 이력)와 대칭인 자산 단위 비용 이력. (제품안내서 §03 유지보수: 비용 이력) */
   repairCosts?: AssetRepairCost[]
+  /** CMDB 의존 관계 — 이 자산이 정상 동작하려면 필요한 상위 자산(호스트 서버·네트워크·전원 등)의 자산번호.
+   *  역방향(이 자산에 의존하는 하위)은 조회로 산출한다. 상위 장애 시 하위가 영향받는 blast radius 분석 근거(§ CMDB). */
+  dependsOn?: string[]
   history: AssetHistoryItem[]
 }
 
