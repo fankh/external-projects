@@ -240,6 +240,7 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   asset.status = outcome === '수리 완료' ? (stillOwned ? '사용중' : '유휴') : '폐기예정'
   const cost = Math.max(0, Math.round(actualCost))
   const repairVendor = asset.repair?.vendor ?? '-' // asset.repair 는 아래에서 해제되므로 먼저 캡처
+  const repairEta = asset.repair?.eta // 예상 반환일 — 업체 SLA(정시 반환) 판정 근거, 해제 전 캡처
   asset.history.push({
     date: today(),
     kind: '수리',
@@ -251,7 +252,7 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   // 실비를 구조적 비용 이력에 누적한다 — 자유 이력 텍스트만으로는 자산 TCO 를 집계할 수 없다(계약 ContractCost 와 대칭).
   // 무상 보증 청구분은 warrantyClaimed 로 표기 — amount 는 제조사 부담(자사 절감)액이며 TCO 에선 제외되고 '보증 절감'으로 집계된다.
   if (cost > 0) {
-    asset.repairCosts = [...(asset.repairCosts ?? []), { id: nextId('ARC'), date: today(), vendor: repairVendor, item: note.trim() || (warrantyClaimed ? '무상 보증 청구' : outcome), amount: cost, by: session.name, warrantyClaimed: warrantyClaimed || undefined }]
+    asset.repairCosts = [...(asset.repairCosts ?? []), { id: nextId('ARC'), date: today(), vendor: repairVendor, item: note.trim() || (warrantyClaimed ? '무상 보증 청구' : outcome), amount: cost, by: session.name, warrantyClaimed: warrantyClaimed || undefined, onTime: repairEta ? today() <= repairEta : undefined }]
   }
   asset.repair = undefined // 수리 완료·불가로 의뢰 종료
   asset.faultNote = undefined // 수리 사유도 종료 시 해제
