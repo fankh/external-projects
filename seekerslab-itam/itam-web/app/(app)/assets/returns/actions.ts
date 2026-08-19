@@ -213,7 +213,7 @@ export async function sendToRepair(assetNo: string, rawVendor: string, eta: stri
   return { ok: true, message: `${assetNo} 수리 의뢰 접수 — ${vendor}${eta ? ` · 예상 반환 ${eta}` : ''}` }
 }
 
-export async function completeRepair(assetNo: string, outcome: '수리 완료' | '수리 불가', note: string, actualCost = 0) {
+export async function completeRepair(assetNo: string, outcome: '수리 완료' | '수리 불가', note: string, actualCost = 0, warrantyClaimed = false) {
   const session = await getSession()
   if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '수리 처리 권한이 없습니다 (자산담당·Admin).' }
@@ -224,6 +224,11 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (asset.status !== '수리중') {
     return { ok: false, message: `수리중 자산이 아닙니다 — ${assetNo} (${asset.status})` }
+  }
+  // 무상 보증 청구 — 보증 기간 내(warrantyEnd 미도래) 자산의 수리 완료만 대상. 제조사 보증으로 청구해 자사가 수리비를 부담하지 않는다(비용 회피).
+  const underWarranty = asset.warrantyEnd !== '-' && asset.warrantyEnd >= today()
+  if (warrantyClaimed && (outcome !== '수리 완료' || !underWarranty)) {
+    return { ok: false, message: '무상 보증 청구는 보증 기간 내 자산의 수리 완료만 가능합니다.' }
   }
 
   // 수리 완료 후 행선지 — 반납 접수분은 소유자를 비우고 수리에 들어와(유휴 풀 편성·재배치), 장애 신고 등
@@ -238,12 +243,15 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   asset.history.push({
     date: today(),
     kind: '수리',
-    detail: `수리 처리 ${outcome}${asset.repair ? ` · ${asset.repair.vendor}` : ''}${cost > 0 ? ` · 실비 ${cost.toLocaleString()}원` : ''}${note ? ` — ${note}` : ''}`,
+    detail: warrantyClaimed
+      ? `수리 처리 ${outcome} · 무상 보증 청구${repairVendor !== '-' ? ` · ${repairVendor}` : ''}${cost > 0 ? ` — 제조사 부담 ${cost.toLocaleString()}원 · 자사 부담 0원` : ''}${note ? ` (${note})` : ''}`
+      : `수리 처리 ${outcome}${asset.repair ? ` · ${asset.repair.vendor}` : ''}${cost > 0 ? ` · 실비 ${cost.toLocaleString()}원` : ''}${note ? ` — ${note}` : ''}`,
     actor: session.name,
   })
-  // 실비를 구조적 비용 이력에 누적한다 — 자유 이력 텍스트만으로는 자산 TCO 를 집계할 수 없다(계약 ContractCost 와 대칭)
+  // 실비를 구조적 비용 이력에 누적한다 — 자유 이력 텍스트만으로는 자산 TCO 를 집계할 수 없다(계약 ContractCost 와 대칭).
+  // 무상 보증 청구분은 warrantyClaimed 로 표기 — amount 는 제조사 부담(자사 절감)액이며 TCO 에선 제외되고 '보증 절감'으로 집계된다.
   if (cost > 0) {
-    asset.repairCosts = [...(asset.repairCosts ?? []), { id: nextId('ARC'), date: today(), vendor: repairVendor, item: note.trim() || outcome, amount: cost, by: session.name }]
+    asset.repairCosts = [...(asset.repairCosts ?? []), { id: nextId('ARC'), date: today(), vendor: repairVendor, item: note.trim() || (warrantyClaimed ? '무상 보증 청구' : outcome), amount: cost, by: session.name, warrantyClaimed: warrantyClaimed || undefined }]
   }
   asset.repair = undefined // 수리 완료·불가로 의뢰 종료
   asset.faultNote = undefined // 수리 사유도 종료 시 해제
@@ -280,5 +288,6 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   const next = outcome === '수리 완료'
     ? (stillOwned ? `원 소유자(${asset.owner}) 반환 — 사용중 복귀` : '유휴 풀 편성 — 재배치 가능')
     : '폐기예정 전환 — 폐기 절차로'
-  return { ok: true, message: `${assetNo} ${outcome} → ${next}` }
+  const claimNote = warrantyClaimed && cost > 0 ? ` · 무상 보증 청구(자사 부담 0 · 절감 ${cost.toLocaleString()}원)` : ''
+  return { ok: true, message: `${assetNo} ${outcome} → ${next}${claimNote}` }
 }
