@@ -13,7 +13,7 @@ import process from 'node:process'
 const ROOT = path.resolve(import.meta.dirname, '..')
 const PORT = 3419
 const DATA = path.join(ROOT, 'scripts', '.emptystate-data.json')
-const SECRET = process.env.SESSION_SECRET ?? 'ngv-portal-dev-secret'
+const SECRET = process.env.SESSION_SECRET || 'ngv-gate-nondefault-secret'
 const admin = { login: 'admin', name: '시스템관리자', dept: '정보기획팀', role: 'ADMIN' }
 const cookie = (() => {
   const p = Buffer.from(JSON.stringify({ ...admin, exp: Date.now() + 3600000 }), 'utf8').toString('base64url')
@@ -41,7 +41,7 @@ const ROUTES = [
 // extra(body) 를 주면 라우트별 추가 단언(예: 손상 파일에서도 정상 키가 머지됐는지)을 수행한다.
 async function probe(label, dataObj, port, extra) {
   writeFileSync(DATA, JSON.stringify(dataObj), 'utf8')
-  const server = spawn(`npx next start -p ${port}`, { cwd: ROOT, shell: true, stdio: 'ignore', env: { ...process.env, PORTAL_DATA_FILE: DATA } })
+  const server = spawn(`npx next start -p ${port}`, { cwd: ROOT, shell: true, stdio: 'ignore', env: { ...process.env, PORTAL_DATA_FILE: DATA, SESSION_SECRET: SECRET } })
   let ok = 0
   const fails = []
   try {
@@ -73,7 +73,7 @@ async function probe(label, dataObj, port, extra) {
 async function quarantineProbe(port) {
   const garbage = '{ truncated / not valid json ][ 손상'
   writeFileSync(DATA, garbage, 'utf8')
-  const server = spawn(`npx next start -p ${port}`, { cwd: ROOT, shell: true, stdio: 'ignore', env: { ...process.env, PORTAL_DATA_FILE: DATA } })
+  const server = spawn(`npx next start -p ${port}`, { cwd: ROOT, shell: true, stdio: 'ignore', env: { ...process.env, PORTAL_DATA_FILE: DATA, SESSION_SECRET: SECRET } })
   const dir = path.dirname(DATA), base = path.basename(DATA)
   try {
     for (let i = 0; i < 60; i++) {

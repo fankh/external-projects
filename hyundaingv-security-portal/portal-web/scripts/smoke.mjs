@@ -23,7 +23,7 @@ const ACCOUNTS = {
   ADMIN: { login: 'admin', name: '시스템관리자', dept: '정보기획팀', role: 'ADMIN' },
 }
 // 세션은 HMAC 서명 + 만료(exp) 쿠키다 — lib/session.ts 와 같은 방식·같은 기본 키로 서명한다
-const SECRET = process.env.SESSION_SECRET ?? 'ngv-portal-dev-secret'
+const SECRET = process.env.SESSION_SECRET || 'ngv-gate-nondefault-secret'
 const signSession = (acct, expMs = Date.now() + 60 * 60 * 1000) => {
   const payload = Buffer.from(JSON.stringify({ ...acct, exp: expMs }), 'utf8').toString('base64url')
   const sig = createHmac('sha256', SECRET).update(payload).digest('base64url')
@@ -118,7 +118,7 @@ async function main() {
     }
     // DEP0190 회피 — shell:true 에서는 인자 배열 대신 명령 문자열 하나로 넘긴다 (인자는 전부 상수)
     server = spawn(`npx next start -p ${PORT}`, {
-      cwd: ROOT, shell: true, stdio: 'ignore',
+      cwd: ROOT, shell: true, stdio: 'ignore', env: { ...process.env, SESSION_SECRET: SECRET },
     })
   }
   await waitReady()
