@@ -6,6 +6,7 @@ import { compliancePostureScore, computeComplianceKpis, postureRating } from '@/
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth } from '@/lib/infra'
 import { computeProjectPmo } from '@/lib/projects'
+import { computeDrKpis } from '@/lib/dr'
 import { computePolicyKpis } from '@/lib/policy'
 import { computeRiskKpis } from '@/lib/risk'
 import { delayedSrs } from '@/lib/sr'
@@ -29,6 +30,7 @@ export default async function DashboardPage() {
     securityReviews: canSee('/compliance/security-review'),
     risks: canSee('/compliance/risks'),
     policies: canSee('/compliance/policies'),
+    dr: canSee('/compliance/dr'),
     // 인프라 헬스 — 배치·인터페이스는 운영 화면, 디스크는 시스템 화면이 출처(각 출처 유효권한으로 게이트)
     infraOps: canSee('/infra/operations'),
     infraSys: canSee('/infra/systems'),
@@ -81,6 +83,8 @@ export default async function DashboardPage() {
   const riskKpis = computeRiskKpis(s.riskItems, today())
   // 정책 재검토 경과 — 시행 정책 재검토 예정일 초과(lib/policy 단일원천, 정책 관리대장 KPI 와 정합)
   const policyKpis = computePolicyKpis(s.securityPolicies, today())
+  // 복구훈련 경과 — 복구계획 훈련 예정일 초과(lib/dr 단일원천, 재해복구 관리대장 KPI 와 정합)
+  const drKpis = computeDrKpis(s.drPlans, today())
   const ops = {
     incidents: s.incidents.filter((i) => i.status === '조치중').length,
     delayedSr: delayedSrs(s).length,
@@ -99,6 +103,8 @@ export default async function DashboardPage() {
     riskOverdue: riskKpis.overdue,
     // 정책 재검토 경과 — 주기적 재검토(ISMS 관리체계 1.1) 미이행 신호.
     policyOverdue: policyKpis.overdue,
+    // 복구훈련 경과 — 정기 복구훈련(ISMS 2.12) 미이행 신호.
+    drOverdue: drKpis.overdue,
   }
   // 인프라 운영 헬스 — 배치 실패·인터페이스 오류·디스크 경고(lib/infra 단일원천, 운영·시스템 화면과 정합).
   const infra = computeInfraHealth(s)
@@ -149,6 +155,7 @@ export default async function DashboardPage() {
             {opsVis.risks && <Stat value={ops.riskHighOpen} label="높음↑ 미종결 위험" tone={ops.riskHighOpen > 0 ? 'err' : undefined} note="정보보호 위험평가" />}
             {opsVis.risks && ops.riskOverdue > 0 && <Stat value={ops.riskOverdue} label="위험 조치기한 경과" tone="warn" />}
             {opsVis.policies && <Stat value={ops.policyOverdue} label="정책 재검토 경과" tone={ops.policyOverdue > 0 ? 'err' : undefined} note="정책·지침" />}
+            {opsVis.dr && <Stat value={ops.drOverdue} label="복구훈련 경과" tone={ops.drOverdue > 0 ? 'err' : undefined} note="재해복구" />}
             {opsVis.financeExec && <Stat value={`${finExec('투자')}%`} label="투자 집행률" note="계획 대비" />}
             {opsVis.financeExec && <Stat value={`${finExec('비용')}%`} label="비용 집행률" note="계획 대비" />}
           </div>
