@@ -1742,14 +1742,27 @@ try {
   await p4.waitForTimeout(800)
   await p4.goto(`${BASE}/assets/register?sel=AST-2024-000995`, { waitUntil: 'networkidle' })
   ok('대여 반환 → 라이선스 좌석 자동 회수(좌석 누수 방지)', ((await p4.textContent('body')) || '').includes('대여 반환 접수 · 상태 점검 정상 (대여자 조민재) · 라이선스 좌석 1석 회수'))
-  // 재물조사 미확인 유휴 편성 좌석 회수(회귀) — 미확인 조정 승인은 사용중 자산을 유휴로 편성하는 이탈이므로 좌석 회수·소유자 정리가 따라야 한다. APR-2608-131(AST-2024-000994·M365 좌석) ADMIN 승인.
+  // 재물조사 미확인 유휴 편성 좌석 회수(회귀) + 스테일 재확인 방어 — 미확인 조정 승인은 plain 사용중 자산(994)을 유휴로 편성(좌석 회수)하되,
+  //  조정 상신 후 재배정(수령 대기)된 자산(706)은 스테일이라 유휴로 강제하지 않고 미적용해야 한다(재배정 무효화·좌석 오회수 방지). APR-2608-131 이 DIF-05·DIF-06 을 함께 처리.
   const ctxMU = await browser.newContext(); await ctxMU.addCookies([cookie(ADMIN)]); const pMU = await ctxMU.newPage()
+  // DIF-06 대상 706 을 조정 상신 후 재배정(수령 대기) — 재확인 스테일 유발
+  await pMU.goto(`${BASE}/assets/register?sel=AST-2024-000706`, { waitUntil: 'networkidle' })
+  await pMU.locator('button', { hasText: '자산 재배정 (직접 인계)' }).first().click()
+  await pMU.waitForTimeout(200)
+  await pMU.locator('select', { has: pMU.locator('option', { hasText: '김민준' }) }).first().selectOption('김민준')
+  await pMU.locator('[placeholder*="인계 사유"]').fill('스테일 방어 검증 재배정')
+  await pMU.locator('button', { hasText: /^재배정 확정$/ }).click()
+  await pMU.waitForTimeout(700)
+  // 미확인 조정 승인 (DIF-05 → 유휴 · DIF-06 → 스테일 미적용)
   await pMU.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
-  await pMU.locator('tr', { has: pMU.locator('text=재물조사 미확인 1건 조정') }).first().locator('button', { hasText: /^승인$/ }).click()
+  await pMU.locator('tr', { has: pMU.locator('text=재물조사 미확인 2건 조정') }).first().locator('button', { hasText: /^승인$/ }).click()
   await pMU.waitForTimeout(900)
   await pMU.goto(`${BASE}/assets/register?sel=AST-2024-000994`, { waitUntil: 'networkidle' })
   const adj994 = (await pMU.textContent('body')) || ''
   ok('재물조사 미확인 조정 승인 → 유휴 편성 + 좌석 회수(보유자 이탈 정리)', adj994.includes('재물조사 미확인 — 분실 후보로 유휴 편성 · 라이선스 좌석 1석 회수 (Microsoft 365 E3)'))
+  await pMU.goto(`${BASE}/assets/register?sel=AST-2024-000706`, { waitUntil: 'networkidle' })
+  const adj706row = (await pMU.locator('tr', { has: pMU.locator('td', { hasText: 'AST-2024-000706' }) }).first().textContent()) || ''
+  ok('재물조사 차이 조정 스테일 방어: 상신 후 재배정된 자산은 유휴 강제 안 함(사용중·재배정 보유자 김민준 유지·미적용)', adj706row.includes('사용중') && adj706row.includes('김민준'))
   await ctxMU.close()
   await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   // 수리 지연 → 업체 독촉(검출→조치). 상태를 바꾸지 않으므로 유휴 처리 앞에 수행.
