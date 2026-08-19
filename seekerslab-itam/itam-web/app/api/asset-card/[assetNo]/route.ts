@@ -44,6 +44,36 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('영향 범위 (blast radius)', deps.blastRadius.length ? `${deps.blastRadius.length}대 — ${deps.blastRadius.map(nameOf).join(', ')}` : undefined),
     row('⚠ 저하된 상위', deps.degradedUpstream.length ? `${deps.degradedUpstream.map(nameOf).join(', ')} — 상위 장애·이탈로 이 자산 위험` : undefined),
   ].filter(Boolean).join('')
+  // 의존 토폴로지 다이어그램 — 상위 의존(위)→이 자산(가운데)→직접 하위(아래)를 인라인 SVG 로. 인쇄용 카드라 외부 라이브러리 없이 자체 렌더.
+  const topo = (() => {
+    const up = deps.upstream, down = deps.dependents
+    if (!up.length && !down.length) return ''
+    const NW = 132, NH = 34, GX = 16
+    const rowW = (n: number) => n > 0 ? n * NW + (n - 1) * GX : NW
+    const W = Math.max(rowW(up.length), NW, rowW(down.length)) + 20
+    const upY = 30, midY = up.length ? 122 : 30, downY = midY + 92
+    const H = (down.length ? downY : midY) + 30
+    const rowX = (i: number, n: number) => (W - rowW(n)) / 2 + i * (NW + GX) + NW / 2
+    const midX = W / 2
+    const box = (cx: number, cy: number, no: string, tone: 'up' | 'self' | 'deg' | 'down') => {
+      const model = (asById.get(no)?.model ?? '').slice(0, 18)
+      const fill = tone === 'self' ? '#0b3d91' : tone === 'deg' ? '#c0392b' : '#eef2f8'
+      const fg = tone === 'self' || tone === 'deg' ? '#fff' : '#14161a'
+      return `<rect x="${(cx - NW / 2).toFixed(0)}" y="${cy - NH / 2}" width="${NW}" height="${NH}" rx="7" fill="${fill}" stroke="#c3c8d0"/>`
+        + `<text x="${cx.toFixed(0)}" y="${cy - 2}" text-anchor="middle" font-size="11" font-weight="700" fill="${fg}">${esc(no)}</text>`
+        + `<text x="${cx.toFixed(0)}" y="${cy + 11}" text-anchor="middle" font-size="8.5" fill="${fg}" opacity="0.8">${esc(model)}</text>`
+    }
+    const arrow = (x1: number, y1: number, x2: number, y2: number) => `<line x1="${x1.toFixed(0)}" y1="${y1}" x2="${x2.toFixed(0)}" y2="${y2}" stroke="#8494ac" stroke-width="1.5" marker-end="url(#ah)"/>`
+    const p: string[] = []
+    up.forEach((_, i) => p.push(arrow(rowX(i, up.length), upY + NH / 2, midX, midY - NH / 2)))
+    down.forEach((_, i) => p.push(arrow(midX, midY + NH / 2, rowX(i, down.length), downY - NH / 2)))
+    up.forEach((no, i) => p.push(box(rowX(i, up.length), upY, no, deps.degradedUpstream.includes(no) ? 'deg' : 'up')))
+    p.push(box(midX, midY, a.assetNo, 'self'))
+    down.forEach((no, i) => p.push(box(rowX(i, down.length), downY, no, 'down')))
+    return `<svg viewBox="0 0 ${W.toFixed(0)} ${H}" width="100%" style="max-width:${W.toFixed(0)}px">`
+      + `<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8494ac"/></marker></defs>`
+      + p.join('') + '</svg>'
+  })()
   const timeline = [...a.history].reverse().map((h) =>
     `<tr><td class="d">${esc(h.date)}</td><td class="k">${esc(h.kind)}</td><td>${esc(h.detail)}</td><td class="ac">${esc(h.actor)}</td></tr>`,
   ).join('')
@@ -100,6 +130,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
       </div>
     </div>
     <div class="kv">${fields}</div>
+    ${topo ? `<h2>의존 토폴로지 (CMDB)</h2>
+    <div style="border:1px solid #eef1f5;border-radius:8px;padding:12px;overflow-x:auto;text-align:center">${topo}
+      <div style="font-size:10.5px;color:#8494ac;margin-top:6px">상위 의존(위) → 이 자산(가운데) → 직접 하위(아래) · 붉은 상위=저하(장애 시 이 자산 위험)${deps.blastRadius.length ? ` · 전이적 영향 ${deps.blastRadius.length}대` : ''}</div>
+    </div>` : ''}
     ${seats.length ? `<h2>배정 라이선스 좌석 (${seats.length}석)</h2>
     <table>
       <thead><tr><th>라이선스</th><th>공급사</th><th>배정일</th></tr></thead>
