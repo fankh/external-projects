@@ -30,7 +30,7 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -42,6 +42,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [critOnly, setCritOnly] = useState(Boolean(props.initialCrit))
   const [maintOnly, setMaintOnly] = useState(Boolean(props.initialMaint))
   const [spofOnly, setSpofOnly] = useState(Boolean(props.initialSpof))
+  const [replaceOnly, setReplaceOnly] = useState(Boolean(props.initialReplace))
   // 저장된 뷰 — 자주 쓰는 필터 조합을 이름 붙여 localStorage 에 보관(MDI 탭과 같은 방식). 개인화·반복 워크플로.
   const [views, setViews] = useState<SavedView[]>([])
   const [naming, setNaming] = useState(false)
@@ -65,7 +66,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     setNaming(false); setViewName('')
   }
   const removeView = (name: string) => persistViews(views.filter((x) => x.name !== name))
-  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly || maintOnly || spofOnly
+  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly || maintOnly || spofOnly || replaceOnly
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const warrantySet = useMemo(() => new Set(props.warrantyNos ?? []), [props.warrantyNos])
   const dqSet = useMemo(() => new Set(props.dqNos ?? []), [props.dqNos])
@@ -73,6 +74,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const critSet = useMemo(() => new Set(props.critNos ?? []), [props.critNos])
   const maintSet = useMemo(() => new Set(props.maintenanceNos ?? []), [props.maintenanceNos])
   const spofSet = useMemo(() => new Set(props.spofNos ?? []), [props.spofNos])
+  const replaceSet = useMemo(() => new Set(props.replaceNos ?? []), [props.replaceNos])
   const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
   const [cfgOpen, setCfgOpen] = useState(false)
   const [cfgField, setCfgField] = useState<ConfigField>('memory')
@@ -139,11 +141,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       if (critOnly && !critSet.has(a.assetNo)) return false
       if (maintOnly && !maintSet.has(a.assetNo)) return false
       if (spofOnly && !spofSet.has(a.assetNo)) return false
+      if (replaceOnly && !replaceSet.has(a.assetNo)) return false
       if (!needle) return true
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet, spofOnly, spofSet])
+  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet, spofOnly, spofSet, replaceOnly, replaceSet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
   // CMDB 의존 관계 — 클라이언트에서 대장 스냅샷(props.assets)으로 순수 산출(상위 의존·영향 범위·저하 상위)
@@ -270,6 +273,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             {spofOnly ? '✓ ' : ''}단일 장애점 {spofSet.size}
           </button>
         )}
+        {replaceSet.size > 0 && (
+          <button className={`btn sm ${replaceOnly ? 'warn' : ''}`} onClick={() => setReplaceOnly((v) => !v)}
+            title="교체 대상(수명예측) — 내용연수 초과·보증 경과·장애 이력 자산. AI 분석 패널과 같은 근거, 조달 계획용 대장 브라우즈·반출">
+            {replaceOnly ? '✓ ' : ''}교체 대상 {replaceSet.size}
+          </button>
+        )}
         {props.canEdit && (props.receiptPendingCount ?? 0) > 0 && (
           <button className="btn sm warn" disabled={pending}
             onClick={() => startTransition(async () => setRcptRemindMsg((await remindReceipts()).message))}
@@ -297,7 +306,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             href={`/api/export/assets?${new URLSearchParams(
               // 화면 필터를 그대로 반영 — 서버 빌더가 지원하지 않는 필터(정합성·EOL·핵심중요·정기점검·단일장애점)가 켜져 있으면
               // 현재 보이는 행 번호를 nos 로 넘겨 파일이 화면 행수와 정확히 일치하게 한다(버튼이 약속한 건수와 파일이 어긋나지 않게).
-              (dqOnly || eolOnly || critOnly || maintOnly || spofOnly)
+              (dqOnly || eolOnly || critOnly || maintOnly || spofOnly || replaceOnly)
                 ? { nos: rows.map((a) => a.assetNo).join(',') }
                 : { q: q.trim(), cat, status, ...(staleOnly ? { stale: '1' } : {}), ...(warrantyOnly ? { warranty: '1' } : {}) },
             ).toString()}`}>
