@@ -233,6 +233,31 @@ export interface RiskSnapshot {
   treatedRate: number
 }
 
+/** 정보보호 정책·지침 분류 — 정책(최상위) > 지침 > 절차 문서 계층 (ISMS 관리체계 1.1) */
+export type PolicyCategory = '정책' | '지침' | '절차'
+export const POLICY_CATEGORIES: PolicyCategory[] = ['정책', '지침', '절차']
+/** 정책 생명주기 — 시행 → 개정중(개정 작업) → 시행(신 버전) 또는 폐지 */
+export type PolicyStatus = '시행' | '개정중' | '폐지'
+export const POLICY_STATUSES: PolicyStatus[] = ['시행', '개정중', '폐지']
+
+/** 정보보호 정책·지침 관리대장 항목 (ISMS 관리체계 1.1) — 버전·시행일·재검토 주기로 정책 문서를 관리한다.
+ *  재검토 예정일(nextReviewDue)은 저장하지 않고 lib/policy 에서 파생(lastReviewedAt + reviewCycleMonths·경과 시
+ *  재검토 지연). 게시판 공지(정책·규정 분류)가 '알림'이라면 이 대장은 정책 문서의 버전·재검토 '생명주기' 관리다. */
+export interface SecurityPolicy {
+  id: string
+  title: string
+  category: PolicyCategory
+  version: string
+  owner: string
+  status: PolicyStatus
+  /** 시행일 (YYYY-MM-DD) */
+  effectiveAt: string
+  /** 재검토 주기(개월) — 연 1회=12 */
+  reviewCycleMonths: number
+  /** 최근 재검토일 (YYYY-MM-DD) — 재검토 완료·개정 완료 시 today 로 갱신, nextReviewDue 산정 기준 */
+  lastReviewedAt: string
+}
+
 /** 컴플라이언스 포스처 추세 스냅샷 — 주기(월)별 KPI 를 저장해 전기 대비 개선 추이(ISMS 감사 근거)를 본다.
  *  값은 lib/compliance computeComplianceKpis 기준 기록 시점 산출(rate 는 complianceKpiPct). */
 export interface ComplianceSnapshot {

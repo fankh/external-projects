@@ -93,6 +93,7 @@ export const NAV: NavGroup[] = [
       { href: '/compliance/inspection', label: '보안점검 (ISMS)', ico: '✓', roles: BIZ },
       { href: '/compliance/security-review', label: '보안성 검토', ico: '◈', roles: BIZ },
       { href: '/compliance/risks', label: '정보보호 위험평가', ico: '⚑', roles: BIZ },
+      { href: '/compliance/policies', label: '정책·지침 관리', ico: '§', roles: BIZ },
     ],
   },
   {

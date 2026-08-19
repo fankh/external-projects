@@ -29,3 +29,16 @@ export function daysBetween(from: string, to: string): number | null {
   const d = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000)
   return Number.isFinite(d) ? d : null
 }
+
+/** YYYY-MM-DD 에 개월 수를 더한 날짜(YYYY-MM-DD) — 정책 재검토 주기(nextReviewDue) 산출용. 월 오버플로는
+ *  연도로 캐리, 말일은 대상 월 말일로 클램프(예: 1/31 +1개월 = 2/28). 손상 날짜(파싱 불가)는 원본 반환. */
+export function addMonths(dateStr: string, months: number): string {
+  const [y, m, d] = String(dateStr).split('-').map(Number)
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d) || m < 1 || m > 12) return dateStr
+  const total = y * 12 + (m - 1) + Math.round(months)
+  const ny = Math.floor(total / 12)
+  const nm = (total % 12) + 1  // 1~12
+  const lastDay = new Date(ny, nm, 0).getDate()  // 대상 월(nm) 말일 (숫자 생성자 — 앱 런타임 OK)
+  const nd = Math.min(d, lastDay)
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(nd).padStart(2, '0')}`
+}

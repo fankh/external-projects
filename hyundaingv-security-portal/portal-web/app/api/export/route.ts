@@ -7,6 +7,7 @@ import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra'
+import { isReviewOverdue, nextReviewDue } from '@/lib/policy'
 import { computeRiskKpis, isRiskClosed, riskScore, riskTier } from '@/lib/risk'
 import { delayedSrs, srStatusLabel } from '@/lib/sr'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
@@ -25,6 +26,7 @@ const EXPORT_MENU: Record<string, string> = {
   'education-records': '/compliance/education', 'pledge-status': '/pledge/dept',
   'security-reviews': '/compliance/security-review',
   risks: '/compliance/risks', 'risk-trend': '/compliance/risks',
+  policies: '/compliance/policies',
   'compliance-summary': '/compliance/inspection',
   'compliance-trend': '/compliance/inspection',
   'itops-summary': '/sr/manage',
@@ -253,6 +255,18 @@ export async function GET(req: Request) {
       rows.push([r.id, r.title, r.area, r.threat, r.vulnerability, Math.round(r.likelihood), Math.round(r.impact), score, riskTier(score).label, r.treatment, r.owner, r.plan, `${r.dueDate}${!isRiskClosed(r) && r.dueDate < t ? ' (경과)' : ''}`, r.status, r.identifiedAt])
     }
     return csvResponse('정보보호_위험관리대장', rows)
+  }
+
+  if (type === 'policies') {
+    // 정보보호 정책·지침 관리대장 (ISMS 관리체계 1.1) — 담당(BIZ)·Admin 전용. 재검토예정·경과는 lib/policy 산출.
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const t = today()
+    const rows: (string | number)[][] = [['번호', '제목', '분류', '버전', '담당', '상태', '시행일', '재검토주기(개월)', '최근검토일', '재검토예정일', '재검토경과']]
+    for (const p of s.securityPolicies) {
+      rows.push([p.id, p.title, p.category, p.version, p.owner, p.status, p.effectiveAt, p.reviewCycleMonths, p.lastReviewedAt,
+        p.status === '폐지' ? '-' : nextReviewDue(p), isReviewOverdue(p, t) ? 'Y' : ''])
+    }
+    return csvResponse('정보보호_정책지침_관리대장', rows)
   }
 
   if (type === 'risk-trend') {
