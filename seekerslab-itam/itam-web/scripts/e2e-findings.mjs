@@ -1767,6 +1767,10 @@ try {
   await pMU.goto(`${BASE}/assets/register?sel=AST-2021-000432`, { waitUntil: 'networkidle' })
   const adj432row = (await pMU.locator('tr', { has: pMU.locator('td', { hasText: 'AST-2021-000432' }) }).first().textContent()) || ''
   ok('재물조사 차이 조정 폐기충돌 방어: 폐기 대상 자산은 상태 보정(사용중) 미적용·유휴 유지', adj432row.includes('유휴') && !adj432row.includes('사용중'))
+  // 위치 스테일 방어 — DIF-01(위치·512)은 로67 실측 보정으로 위치가 이미 '부산 지사 3F'로 바뀌었다. 상신된 위치 조정(대장값 '본사 8F' 기준)은 스테일이라 미적용돼 최신 위치를 덮지 않는다(로67↔재물조사 교차-루프).
+  await pMU.goto(`${BASE}/assets/register?sel=AST-2025-000512`, { waitUntil: 'networkidle' })
+  const adj512row = (await pMU.locator('tr', { has: pMU.locator('td', { hasText: 'AST-2025-000512' }) }).first().textContent()) || ''
+  ok('재물조사 차이 조정 위치 스테일 방어: 상신 후 위치 변경(로67 부산 지사)된 자산은 실사 위치 미적용·최신 위치 유지', adj512row.includes('부산 지사 3F') && !adj512row.includes('판교 사무소'))
   await ctxMU.close()
   await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   // 수리 지연 → 업체 독촉(검출→조치). 상태를 바꾸지 않으므로 유휴 처리 앞에 수행.
