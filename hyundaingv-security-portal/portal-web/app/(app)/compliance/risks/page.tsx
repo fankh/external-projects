@@ -84,7 +84,10 @@ async function deleteRisk(formData: FormData) {
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const r = s.riskItems.find((x) => x.id === id)
-  if (!r) return
+  // 종결(완료)된 위험만 삭제 — 미종결 위험은 종결(수용·완화 조치)로 처리하지 삭제로 없애지 않는다(ISMS 감사
+  // 트레일 보존). 화면은 종결 건에만 삭제 버튼을 노출하나 서버액션은 직접 POST 가능하므로 서버에서 가드한다
+  // (updateProgress 완료 가드·deleteSettlement 상태 가드와 동일 방어 — 미종결 위험 은닉 삭제 차단).
+  if (!r || !isRiskClosed(r)) return
   s.riskItems = s.riskItems.filter((x) => x.id !== id)
   // 참조무결성 — 위험평가 증적 첨부도 함께 정리(id 재사용 유령 첨부 방지, deleteSettlement·게시물 삭제와 동일)
   s.attachments = s.attachments.filter((a) => a.refId !== id)

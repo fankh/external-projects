@@ -57,6 +57,7 @@ EXECOVER_DATA = ROOT / 'scripts' / '.e2e-execover-data.json'  # 집행률 초과
 CFIX_DATA = ROOT / 'scripts' / '.e2e-cfix-data.json'  # 취약점 조치율 no-findings 100(추세 0% 오표기 방지) 회귀용 (v1.5.257)
 RISK_DATA = ROOT / 'scripts' / '.e2e-risk-data.json'  # 정보보호 위험평가 등록→재평가→종결→삭제 커버리지용 (v1.5.259)
 RISKDLY_DATA = ROOT / 'scripts' / '.e2e-riskdly-data.json'  # 위험 조치 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.261)
+RISKDEL_DATA = ROOT / 'scripts' / '.e2e-riskdel-data.json'  # 미종결 위험 은닉 삭제 서버 가드(직접 POST) 회귀용 (v1.5.265)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -497,6 +498,8 @@ def sc_risk_register(pg, base, check):
     txt = row.inner_text()
     check('심각' in txt and '25' in txt, '위험도 25(=5×5) → 심각 등급 파생(저장 아닌 lib/risk 산출)')
     check('식별' in txt, '신규 위험 상태 식별')
+    # 미종결 위험은 삭제 버튼 미노출(종결 건만 삭제) — 서버 가드(deleteRisk isRiskClosed)와 화면 안전장치 정합
+    check(row.locator('button:has-text("삭제")').count() == 0, '미종결 위험 삭제 버튼 미노출(재평가·진행만)')
     # 종결 진행: 식별 → 조치중 → 완료 (미종결 건만 advance 노출)
     row.locator('button:has-text("조치중")').click()
     pg.wait_for_load_state('networkidle')
@@ -522,6 +525,24 @@ def sc_risk_overdue_notify(pg, base, check):
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
     detail = pg.locator('tr', has_text='알림 배치 실행').first.inner_text()
     check('위험 조치 지연 1명' in detail, f'위험 조치 지연 알림 = 재직 담당 1명(퇴사 담당 제외) (실제: {detail[:170]})')
+
+
+def sc_risk_delete_guard(pg, base, check):
+    """미종결 위험 은닉 삭제 방지(서버 가드) — 화면은 종결(완료) 건에만 삭제 버튼을 노출하나, 종결 건의 삭제폼
+    id 를 미종결 건으로 위조해 직접 POST 하면 서버 가드(deleteRisk isRiskClosed)가 막아야 한다. 격리 2건:
+    RK-91(완료·삭제폼 보유)·RK-92(식별·미종결). 위조 POST(id→RK-92) 후에도 RK-92 가 대장에 남아야 한다
+    (ISMS 감사 트레일 보존, updateProgress·deleteSettlement 상태 가드 계열). 가드 없으면 RK-92 삭제→대조."""
+    login(pg, base, '시스템관리자')  # ADMIN — 위험 관리
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    reg = pg.locator('.card', has_text='위험관리대장')
+    row91 = reg.locator('tr', has_text='RK-2026-91')  # 종결 건 — 삭제폼 보유
+    check(row91.locator('button:has-text("삭제")').count() == 1, '종결 위험은 삭제 버튼 노출')
+    # 삭제폼 hidden id 를 미종결 건(RK-92)으로 위조 후 제출 — 직접 POST 우회 재현
+    row91.locator('input[name=id]').evaluate("el => el.value = 'RK-2026-92'")
+    row91.locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    check(pg.locator('tr', has_text='RK-2026-92').count() == 1, '미종결 위험은 위조 삭제 POST 로도 제거 불가(서버 가드)')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2579,6 +2600,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(RISK_DATA)}),
     ('risk_overdue_notify', '위험 조치 지연 알림 — 조치기한 경과 담당 통지(퇴사 담당 유령 독촉 방지)', sc_risk_overdue_notify,
      {'PORTAL_DATA_FILE': str(RISKDLY_DATA)}),
+    ('risk_delete_guard', '미종결 위험 은닉 삭제 방지 — 위조 삭제 POST 서버 가드(ISMS 감사 트레일 보존)', sc_risk_delete_guard,
+     {'PORTAL_DATA_FILE': str(RISKDEL_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -2983,6 +3006,12 @@ def main() -> int:
                             'likelihood': 4, 'impact': 4, 'treatment': '완화', 'owner': owner, 'plan': 'p',
                             'dueDate': '2026-07-01', 'status': '식별', 'identifiedAt': '2026-06-01'}
     RISKDLY_DATA.write_text(json.dumps({'riskItems': [_rk(1, '김현우'), _rk(2, 'E2E퇴사담당')]}, ensure_ascii=False), encoding='utf-8')
+    # 미종결 위험 은닉 삭제 방지 — 종결(RK-2026-91 완료)·미종결(RK-2026-92 식별) 2건. 종결 건 삭제폼 id 를
+    # 미종결 건으로 바꿔 직접 POST 해도 서버 가드(deleteRisk isRiskClosed)가 막아 미종결 위험이 남아야 한다.
+    _rkd = lambda i, status: {'id': f'RK-2026-9{i}', 'title': f'삭제가드위험{i}', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
+                              'likelihood': 3, 'impact': 3, 'treatment': '완화', 'owner': '김현우', 'plan': 'p',
+                              'dueDate': '2026-09-30', 'status': status, 'identifiedAt': '2026-06-01'}
+    RISKDEL_DATA.write_text(json.dumps({'riskItems': [_rkd(1, '완료'), _rkd(2, '식별')]}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
