@@ -301,6 +301,8 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       ].filter(Boolean).join('\n'),
       evidence: [
         { label: '연간 교체 계획 리포트', href: '/ai/reports' },
+        // 답변이 센 그 집합(내용연수·보증·장애 이력)을 대장에서 그대로 브라우즈·반출 — 답변↔링크 정합(EOL 필터는 별개 드라이버).
+        { label: '자산 대장 (교체 대상)', href: '/assets/register?replace=1' },
         { label: '자산 대장 (EOL OS 필터)', href: '/assets/register?os=eol' },
       ],
     }
