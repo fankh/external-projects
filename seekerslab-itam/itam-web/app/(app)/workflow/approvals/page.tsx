@@ -12,6 +12,12 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const session = (await getSession())!
   const { sel } = await searchParams
   const s = getStore()
+  // USER 는 본인 상신분만 조회 — 권한 매트릭스 '신청·결재' 조회='p'(own-scope)를 화면이 강제한다(전역 검색·AI 어시스턴트·대장과 동일 규약).
+  // 예외: 소유자 확인은 사람이 아니라 부서 앞으로 온 요청이라(answerOwnerConfirm 은 session.dept===a.dept 로 응답), 대상 부서 USER 는 응답하려면 봐야 한다.
+  // 담당자·Admin 은 전체. (누락 시 USER 결재함에 전사 결재 id·제목·요청자·사유가 그대로 노출됐다.)
+  const visibleApprovals = session.role === 'USER'
+    ? s.approvals.filter((a) => a.requester === session.name || (a.kind === '소유자 확인' && a.dept === session.dept))
+    : s.approvals
   const pending = s.approvals.filter((a) => a.status === '대기')
 
   // 반납·이동 신청 대상 — 사용자는 본인 명의 자산만, 관리자는 운영 중인 자산 전체
@@ -49,13 +55,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         <Stat value={pending.length} label="결재 대기" tone="accent" />
         <Stat value={pending.filter((a) => a.kind === '격리 요청').length} label="격리 요청 (보안담당)" tone="err" />
         <Stat value={pending.filter((a) => a.requester === session.name).length} label="내가 상신한 건" />
-        <Stat value={s.approvals.filter((a) => a.status !== '대기').length} label="처리 완료 (누적)" tone="ok" />
+        <Stat value={visibleApprovals.filter((a) => a.status !== '대기').length} label="처리 완료 (누적)" tone="ok" />
       </div>
 
       <RequestForm myAssets={myAssets} locations={locations} loanable={loanable} />
 
       <Card pad={false}>
-        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} initialSel={sel} today={today()} slaDays={s.opsPolicy.approvalSlaDays} />
+        <ApprovalList approvals={visibleApprovals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} initialSel={sel} today={today()} slaDays={s.opsPolicy.approvalSlaDays} />
       </Card>
 
       <div className="callout">

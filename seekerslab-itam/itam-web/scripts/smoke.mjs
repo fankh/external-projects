@@ -639,6 +639,8 @@ try {
   check('상신 취소: 본인 대기 신청에 취소 버튼 노출', apUser.includes('상신 취소') && apUser.includes('APR-2607-121'))
   // 소유자 확인은 결재가 아니라 부서 응답 — 요청받은 부서(플랫폼개발팀=김민준)에게만 응답 버튼이 뜬다
   check('소유자 확인: 해당 부서 사용자에게 응답 버튼', apUser.includes('APR-2607-114') && apUser.includes('본인 자산'))
+  // 결재함 데이터 스코핑 — USER 는 본인 상신분(+부서 소유자확인)만 조회('신청·결재' 조회='p' own-scope). 타 부서 결재(APR-2607-112 격리·보안운영팀)는 미노출.
+  check('결재함 스코핑(USER): 타 부서 결재 미노출(본인·부서 소유자확인만 · 조회 own-scope)', !apUser.includes('APR-2607-112'))
   const apSec = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('소유자 확인: 타 부서에는 응답 버튼 미노출', apSec.includes('APR-2607-114') && apSec.includes('부서 응답 대기'))
   const insHtml = await (await get('/ai/insights', 'SEC_MGR')).text()
