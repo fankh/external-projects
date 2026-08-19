@@ -56,6 +56,7 @@ SETATT_DATA = ROOT / 'scripts' / '.e2e-setatt-data.json'  # 정산품의 삭제 
 SRGHOST_DATA = ROOT / 'scripts' / '.e2e-srghost-data.json'  # SR 지연 알림 퇴사 CI 유령 독촉 방지 회귀용 (v1.5.247)
 SECMON_DATA = ROOT / 'scripts' / '.e2e-secmon-data.json'  # 보안관제 어댑터 탐지→보안위반 자동 등록 커버리지용 (v1.5.249)
 RSECMON_DATA = ROOT / 'scripts' / '.e2e-rsecmon-data.json'  # 실 REST 보안관제 어댑터 탐지→위반 편입 회귀용 (v1.5.295)
+RSECDATA_DATA = ROOT / 'scripts' / '.e2e-rsecdata-data.json'  # 실 REST 출력물 어댑터 일배치 이관 회귀용 (v1.5.297)
 EXECOVER_DATA = ROOT / 'scripts' / '.e2e-execover-data.json'  # 집행률 초과(err) 톤 원값 판정(반올림 경계) 회귀용 (v1.5.251)
 CFIX_DATA = ROOT / 'scripts' / '.e2e-cfix-data.json'  # 취약점 조치율 no-findings 100(추세 0% 오표기 방지) 회귀용 (v1.5.257)
 RISK_DATA = ROOT / 'scripts' / '.e2e-risk-data.json'  # 정보보호 위험평가 등록→재평가→종결→삭제 커버리지용 (v1.5.259)
@@ -921,6 +922,54 @@ def sc_rest_secmon(pg, base, check):
         check('인가되지 않은 USB 사용' in body and '화면 미잠금' in body and '출력물 방치' in body,
               '탐지 유형(영문 카테고리)→위반 유형 3종 정규화 편입')
         check(pg.locator('td.code', has_text='VL-2026').count() == 3, '실 탐지 3건 → 위반 3건 편입')
+    finally:
+        srv.shutdown()
+
+
+REST_SECDATA_PORT = 3891  # REST 출력물 어댑터 픽스처 서버
+
+
+class _SecdataFixtureHandler(http.server.BaseHTTPRequestHandler):
+    gets = 0
+    # 고객 출력물 시스템 스키마(empName·orgName·docName·pageCount·hasPii·printedTime) — 필드 매핑 + 수치/불리언
+    # 강제 변환 검증. pageCount 는 문자열, hasPii 는 'Y'/false 로 줘서 pickNumber/pickBool 변환을 exercise.
+    body = json.dumps([
+        {'empName': '김수신', 'orgName': '여신팀', 'docName': '여신 심사 명세.xlsx', 'pageCount': '4', 'hasPii': 'Y', 'printedTime': '2026-08-19 09:12'},
+        {'empName': '이여신', 'orgName': '여신팀', 'docName': '금리 안내문.pdf', 'pageCount': 2, 'hasPii': False, 'printedTime': '2026-08-19 10:00'},
+    ]).encode('utf-8')
+
+    def do_GET(self):
+        _SecdataFixtureHandler.gets += 1
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(_SecdataFixtureHandler.body)
+
+    def log_message(self, *args):
+        pass
+
+
+def sc_rest_secdata(pg, base, check):
+    """REST 출력물 어댑터(실동작) — 실제 HTTP 조회 → 출력물 일배치 이관 검증. 금융 프로필
+    (fin-secdata→restSecdata)로 기동, PORTAL_SECDATA_API_URL 을 로컬 픽스처로(security-db 채널 ON·출력물 빈).
+    '전일자 이관 실행' → restSecdata 가 실 GET → 고객 스키마(empName·docName·pageCount·hasPii) 매핑 +
+    수치/불리언 강제 변환 → 출력물 편입.
+    fails-without-fix: restSecdata 가 실 GET 하지 않으면(빈 배열) 이관 0건 → 실패."""
+    _SecdataFixtureHandler.gets = 0
+    srv = http.server.ThreadingHTTPServer(('127.0.0.1', REST_SECDATA_PORT), _SecdataFixtureHandler)
+    th = threading.Thread(target=srv.serve_forever, daemon=True)
+    th.start()
+    try:
+        login(pg, base, '시스템관리자')  # 업무담당(ADMIN) — 출력물 관리·이관 권한
+        pg.goto(f'{base}/awareness/prints', wait_until='networkidle')
+        pg.locator('button:has-text("전일자 이관 실행")').click()
+        pg.wait_for_load_state('networkidle')
+        time.sleep(0.6)
+        check(_SecdataFixtureHandler.gets >= 1, f'restSecdata 가 실제 HTTP GET 으로 출력물 자료 조회 (픽스처 GET {_SecdataFixtureHandler.gets})')
+        pg.goto(f'{base}/awareness/prints', wait_until='networkidle')
+        body = pg.content()
+        check('여신 심사 명세.xlsx' in body and '금리 안내문.pdf' in body, '실 출력물 조회 결과가 이관 목록에 표시(문서명 매핑)')
+        check(pg.locator('td.code', has_text='PR-2026').count() == 2, '실 출력물 2건 이관')
     finally:
         srv.shutdown()
 
@@ -3007,6 +3056,9 @@ SCENARIOS = [
     ('rest_secmon', 'REST 보안관제 어댑터 — 실제 HTTP 조회+탐지유형 정규화→위반 편입(금융 프로필 fin-secmon→restSecmon)', sc_rest_secmon,
      {'PORTAL_PROFILE': 'finance', 'PORTAL_DATA_FILE': str(RSECMON_DATA),
       'PORTAL_SECMON_API_URL': f'http://127.0.0.1:{REST_SECMON_PORT}/events'}),
+    ('rest_secdata', 'REST 출력물 어댑터 — 실제 HTTP 조회+수치/불리언 변환→일배치 이관(금융 프로필 fin-secdata→restSecdata)', sc_rest_secdata,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_DATA_FILE': str(RSECDATA_DATA),
+      'PORTAL_SECDATA_API_URL': f'http://127.0.0.1:{REST_SECDATA_PORT}/printouts'}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -3395,6 +3447,8 @@ def main() -> int:
     SECMON_DATA.write_text(json.dumps({'violations': [], 'channelStates': {'sec-monitor': True}}, ensure_ascii=False), encoding='utf-8')
     # 실 REST 보안관제 어댑터 — 위반 없는 상태 + sec-monitor 채널 ON. 금융 프로필 fin-secmon→restSecmon.
     RSECMON_DATA.write_text(json.dumps({'violations': [], 'channelStates': {'sec-monitor': True}}, ensure_ascii=False), encoding='utf-8')
+    # 실 REST 출력물 어댑터 — 출력물 없는 상태 + security-db 채널 ON. 금융 프로필 fin-secdata→restSecdata.
+    RSECDATA_DATA.write_text(json.dumps({'printouts': [], 'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
     # 집행률 초과 톤 — 집행 1,004 / 계획 1,000 = 100.4% → 반올림 100. 원값(집행>계획)으로 초과 판정해야 err.
     # 반올림 집행률로 비교하면 100 이라 초과인데 warn 으로 내려앉는다(경계 오분류). 투자 화면 격리 픽스처.
     EXECOVER_DATA.write_text(json.dumps({

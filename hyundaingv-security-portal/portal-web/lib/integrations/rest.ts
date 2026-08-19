@@ -11,7 +11,7 @@
  *   · 비정상 응답(비 2xx) → { ok:false, detail: 'HTTP <status>' } (소프트 실패).
  *   · 네트워크·인증 예외 → throw. registry.sendVia 의 try/catch 가 실패 이력으로 흡수한다.
  *   · 자체 타임아웃 없음 — registry.withTimeout 이 모든 어댑터 호출을 감싼다. */
-import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, SecMonAdapter, SecurityEvent, SendResult } from './types'
+import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter, SecMonAdapter, SecurityEvent, SendResult } from './types'
 import type { Person, ViolationType } from '@/lib/types'
 
 interface RestChannelEnv {
@@ -110,6 +110,36 @@ export const restSecmon: SecMonAdapter = {
   },
 }
 
+/** 보안·출력물 시스템(REST) — 전일자 출력물 자료를 조회한다(→ 출력물 개인정보관리 일배치 이관 원천).
+ *  `PORTAL_SECDATA_API_URL` GET, 인증 `PORTAL_SECDATA_API_TOKEN`. 고객 스키마는 통용 필드명으로 매핑하며
+ *  매수(pages)는 수치·개인정보 포함(personalInfo)은 불리언으로 강제 변환한다. 미설정 시 빈 배열(자가진단
+ *  통과), 비정상 응답은 throw(수집 지점 try/catch 흡수). 실 스키마가 다르면 이 매핑만 조정한다. */
+export const restSecdata: SecdataAdapter = {
+  async fetchPrintouts(): Promise<PrintoutSourceRow[]> {
+    const url = (process.env.PORTAL_SECDATA_API_URL ?? '').trim()
+    if (!url) return []
+
+    const token = (process.env.PORTAL_SECDATA_API_TOKEN ?? '').trim()
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    const res = await fetch(url, { headers })
+    if (!res.ok) throw new Error(`출력물 조회 API HTTP ${res.status}`)
+    const rows = unwrapRows(await res.json(), 'printouts')
+    return rows
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+      .map((r) => ({
+        printedAt: pickField(r, '', ['printedAt', 'printDate', 'printedTime', 'timestamp', 'ts', '출력일시']),
+        name: pickField(r, '', ['name', 'empName', 'userName', '성명', '사용자']),
+        dept: pickField(r, '', ['dept', 'orgName', 'department', 'deptName', '부서']),
+        document: pickField(r, '', ['document', 'docName', 'fileName', 'title', '문서명']),
+        pages: pickNumber(r, ['pages', 'pageCount', 'numPages', '매수', '페이지수']),
+        personalInfo: pickBool(r, ['personalInfo', 'hasPii', 'pii', 'containsPii', '개인정보']),
+      }))
+      .filter((p) => p.printedAt && p.name && p.document)
+  },
+}
+
 /** 그룹웨어 메일(REST) — PORTAL_MAIL_API_URL 등으로 설정 */
 export const restMail: MessagingAdapter = restMessaging(MAIL_ENV)
 
@@ -129,6 +159,27 @@ const BOOTSTRAP_DIRECTORY: Person[] = [
   { name: '시스템관리자', dept: '정보기획팀' },
   { name: '강도윤', dept: '정보기획팀' },
 ]
+
+/** 통용 후보에서 첫 수치 필드를 뽑는다(숫자·숫자문자열). 없으면 0. */
+function pickNumber(row: Record<string, unknown>, candidates: string[]): number {
+  for (const k of candidates) {
+    const v = row[k]
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string' && v.trim() && Number.isFinite(Number(v))) return Number(v)
+  }
+  return 0
+}
+
+/** 통용 후보에서 첫 불리언 필드를 뽑는다(불리언·'true'/'Y'/'1'). 없으면 false. */
+function pickBool(row: Record<string, unknown>, candidates: string[]): boolean {
+  for (const k of candidates) {
+    const v = row[k]
+    if (typeof v === 'boolean') return v
+    if (typeof v === 'number') return v !== 0
+    if (typeof v === 'string' && v.trim()) return /^(true|y|yes|1|Y|개인정보|포함)$/i.test(v.trim())
+  }
+  return false
+}
 
 /** 고객 응답 행에서 필드를 뽑는다 — 명시 필드(env)가 있으면 우선, 없으면 통용 후보를 차례로. */
 function pickField(row: Record<string, unknown>, explicit: string, candidates: string[]): string {
