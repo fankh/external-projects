@@ -1,0 +1,43 @@
+/** CMDB 의존 그래프 — 순수 함수(스토어 비의존). 클라이언트·서버 공용.
+ *  assets 배열만 받아 상위 의존·하위·전이적 영향 범위(blast radius)를 산출한다.
+ *  (lib/cmdb.ts 는 이 순수 코어를 getStore 로 감싼 서버용 래퍼. node:fs 를 쓰는 store 를 클라이언트에 끌어들이지 않도록 분리.) */
+import type { Asset } from './types'
+
+/** 자산 운영 저하/이탈 상태 — 상위가 이 상태면 하위가 영향받는다(장애·이탈·정비). */
+export function isDegraded(a: Asset): boolean {
+  return ['분실', '폐기예정', '폐기완료', '수리중'].includes(a.status)
+}
+
+export interface AssetDeps {
+  /** 상위 의존 — 이 자산이 직접 의존하는 자산번호 */
+  upstream: string[]
+  /** 직접 하위 — 이 자산에 직접 의존하는 자산번호(1-hop) */
+  dependents: string[]
+  /** 영향 범위(blast radius) — 이 자산 장애 시 전이적으로 영향받는 전체 하위 자산번호 */
+  blastRadius: string[]
+  /** 저하된 상위 — 상위 의존 중 현재 저하/이탈 상태인 자산번호(이 자산이 위험) */
+  degradedUpstream: string[]
+}
+
+/** 자산 하나의 의존 관계·영향 범위를 assets 스냅샷에서 산출한다(순수). */
+export function assetDependenciesFrom(assets: Asset[], assetNo: string): AssetDeps {
+  const self = assets.find((x) => x.assetNo === assetNo)
+  const upstream = self?.dependsOn ?? []
+  const directDependents = (no: string) => assets.filter((x) => (x.dependsOn ?? []).includes(no)).map((x) => x.assetNo)
+  const dependents = directDependents(assetNo)
+  // 전이적 하위(BFS) — 순환 방어를 위해 방문 집합 사용
+  const blast = new Set<string>()
+  let frontier = [...dependents]
+  while (frontier.length) {
+    const next: string[] = []
+    for (const no of frontier) {
+      if (blast.has(no)) continue
+      blast.add(no)
+      next.push(...directDependents(no))
+    }
+    frontier = next
+  }
+  const byNo = new Map(assets.map((x) => [x.assetNo, x]))
+  const degradedUpstream = upstream.filter((no) => { const up = byNo.get(no); return up ? isDegraded(up) : false })
+  return { upstream, dependents, blastRadius: [...blast], degradedUpstream }
+}
