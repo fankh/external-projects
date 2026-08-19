@@ -517,7 +517,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
             .map((a) => `· ${a.assetNo} — ${a.model} · ${a.owner} (${a.dept})`)
             .join('\n')}\n\n대장의 수령 확인 독촉 발송으로 미확인 사용자에게 인수 확인을 요청할 수 있습니다.`,
       evidence: [
-        { label: '자산 대장 (수령 미확인)', href: '/assets/register' },
+        { label: '자산 대장 (수령 미확인)', href: '/assets/register?receipt=1' },
         { label: '대시보드', href: '/dashboard' },
       ],
     }
