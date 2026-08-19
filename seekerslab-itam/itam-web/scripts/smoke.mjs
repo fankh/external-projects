@@ -207,6 +207,10 @@ try {
   const regCmdb = await (await get('/assets/register?sel=AST-2022-000640', 'ASSET_MGR')).text()
   check('자산 대장 상세: CMDB 의존 관계·영향 범위(blast radius) 인라인 표기', regCmdb.includes('의존 관계 (CMDB)') && regCmdb.includes('영향 범위(blast radius)') && regCmdb.includes('상위 의존'))
   check('자산 대장 상세: 의존 토폴로지 다이어그램(SVG·화살표) 인라인 렌더', regCmdb.includes('의존 토폴로지') && regCmdb.includes('url(#ahi)'))
+  // 단일 장애점(SPOF) 필터 — CMDB blast radius ≥2 자산(시드 방화벽 641·스위치 640)을 대장 필터 칩으로 노출. 대시보드 영향 집중 큐(?spof=1) 드릴다운과 공유.
+  check('자산 대장: 단일 장애점(SPOF) 필터 칩 렌더(blast radius ≥2 자산 있을 때)', mgrHtml.includes('단일 장애점 '))
+  const regSpof = await (await get('/assets/register?spof=1', 'ASSET_MGR')).text()
+  check('자산 대장: ?spof=1 단일 장애점 필터 활성화(URL 파라미터→필터 배선)', regSpof.includes('단일 장애점 ') && regSpof.includes('✓ '))
   // 연관 자산(영향도) — 같은 계약·위치·소유자·모델 공유 자산 수 + 드릴 링크
   check('자산 대장: 상세에 연관 자산(영향도) 섹션 + 드릴 링크', regContractDetail.includes('연관 자산') && regContractDetail.includes('같은 모델'))
   check('자산 대장: 상세에 자산 카드(dossier) 인쇄 링크', regContractDetail.includes('/api/asset-card/') && regContractDetail.includes('자산 카드'))
@@ -297,6 +301,8 @@ try {
   check('대시보드: 정기 점검 대상 큐 (예방 정비 도래 · 자산담당)', dashHtml.includes('정기 점검 대상') && dashHtml.includes('예방 정비 도래'))
   // 영향 집중 자산(CMDB blast radius) 큐 — 장애 시 2대 이상 영향받는 단일 장애점(시드 스위치 640·방화벽 641). 이중화·우선 정비 근거.
   check('대시보드: 영향 집중 자산(blast radius ≥2 단일 장애점) 큐 (자산담당)', dashHtml.includes('영향 집중 자산') && dashHtml.includes('blast radius'))
+  // 영향 집중 큐는 첫 자산(?sel=)만 열던 것을 전체 SPOF 목록(?spof=1)으로 드릴다운 — 큐 건수 N 과 목록이 일치.
+  check('대시보드: 영향 집중 자산 큐가 단일 장애점 목록(?spof=1)으로 드릴다운', dashHtml.includes('/assets/register?spof=1'))
   // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다
   check('대시보드: 대장 정합성 미흡 운영 큐 (자산담당) + dq 드릴', dashHtml.includes('대장 정합성 미흡') && dashHtml.includes('dq=1'))
   // 결재 지연 — SLA 초과 대기 결재가 결재 대기 KPI 델타에 노출된다(정체 신호)
