@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import Link from 'next/link'
 import { Icon } from './chrome/Icon'
 
 /** 화면 헤더 — 키커(도메인) + 타이틀 + 설명 */
@@ -36,14 +37,19 @@ export function Card(props: { title?: string; kicker?: string; actions?: ReactNo
   )
 }
 
-export function Stat(props: { value: ReactNode; label: string; tone?: 'warn' | 'err'; note?: string }) {
-  return (
-    <div className={`stat ${props.tone ?? ''}`}>
+export function Stat(props: { value: ReactNode; label: string; tone?: 'warn' | 'err'; note?: string; href?: string }) {
+  const inner = (
+    <>
       <div className="v">{props.value}</div>
       <div className="l">{props.label}</div>
       {props.note && <div className="d">{props.note}</div>}
-    </div>
+    </>
   )
+  // href 가 있으면 타일 전체를 드릴다운 링크로 만든다(운영 신호 → 해당 화면). 없으면 순수 표시용.
+  const cls = `stat ${props.tone ?? ''}${props.href ? ' link' : ''}`.trim()
+  return props.href
+    ? <Link className={cls} href={props.href}>{inner}</Link>
+    : <div className={cls}>{inner}</div>
 }
 
 export function Chip(props: { tone: 'ok' | 'warn' | 'err' | 'info' | 'neutral'; children: ReactNode; bare?: boolean }) {

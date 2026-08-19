@@ -1946,6 +1946,20 @@ def sc_dashboard_ops_scope(pg, base, check):
           'ADMIN 은 제한 예외 — 장애 타일 정상 노출(게이트가 역할별로 동작)')
 
 
+def sc_dashboard_drilldown(pg, base, check):
+    """대시보드 드릴다운(v1.5.337) — 운영 스냅샷·개인 타일이 순수 표시가 아니라 출처 화면 링크(a.stat.link)로
+    렌더돼 신호에서 바로 조치 화면으로 이동한다. 개인 타일(나의 할일→/work/todo)·운영 타일(조치중 장애→
+    /infra/incidents) 확인 + 클릭 네비게이션. fails-without-fix: href 제거 시 div.stat 로 렌더돼 a.stat 링크 부재."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check(pg.locator('a.stat[href="/work/todo"]').count() >= 1, "개인 타일 '나의 할일' 드릴다운 링크(/work/todo)")
+    inc = pg.locator('a.stat[href="/infra/incidents"]')
+    check(inc.count() >= 1, "운영 타일 '조치중 장애' 드릴다운 링크(/infra/incidents)")
+    inc.first.click()
+    pg.wait_for_url('**/infra/incidents')
+    check('/infra/incidents' in pg.url, '타일 클릭 → 장애관리 화면 이동')
+
+
 def sc_approval_history_identity(pg, base, check):
     """결재 '이전 회차 이력' 신원 게이트(v1.5.54) — 회전 문서(출력물폐기 등)는 회차마다 ref 가 바뀌어
     유형·기안자로 이력을 잇는데, 그 매칭만으론 같은 기안자의 '별개 묶음'(내가 결재자·기안자가 아닌
@@ -3562,6 +3576,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(DTNAN_DATA)}),
     ('secprint_system_registered', '보안·출력물 시스템 정식 등록 — BJ-02 토폴로지 과소집계 해소', sc_secprint_system_registered, {}),
     ('remote_cycle_config', '재택 등록 주기 변경 — 매일·월·분기·반기(요구사항 54행)', sc_remote_cycle_config, {}),
+    ('dashboard_drilldown', '대시보드 타일 드릴다운 — 운영 신호·개인 타일에서 출처 화면으로 이동', sc_dashboard_drilldown, {}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
