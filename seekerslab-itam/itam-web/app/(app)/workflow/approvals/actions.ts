@@ -372,9 +372,17 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         asset.location = d.actual
         asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 위치 ${d.expected} → ${d.actual}`, actor: session.name })
       } else if (d.kind === '상태 불일치' && asset) {
-        d.resolution = '대장 보정'
-        asset.status = '사용중'
-        asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 상태 ${d.expected} → 사용중`, actor: session.name })
+        // 폐기 절차(대상 선정~소거 대기) 진행 중인 자산을 실사 상태 불일치로 '사용중' 되돌리면, 사용중 자산이 폐기 대상 리스트에 남아
+        // 폐기 결재가 selectForDisposal 의 사용중 가드를 우회한다. 폐기 판정이 우선이므로 조정은 미적용(실사가 맞다면 폐기를 별도 취소).
+        const inDisposal = s.disposals.some((dp) => dp.assetNo === asset.assetNo && dp.status !== '완료')
+        if (inDisposal) {
+          d.resolution = '미적용'
+          asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 미적용 — 폐기 절차 진행 중이라 상태 보정(사용중) 보류 (${d.kind})`, actor: session.name })
+        } else {
+          d.resolution = '대장 보정'
+          asset.status = '사용중'
+          asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 상태 ${d.expected} → 사용중`, actor: session.name })
+        }
       } else if (d.kind === '미확인 (실사 없음)' && asset) {
         // 미확인은 즉시 분실 확정이 아니라 보수적으로 유휴 편성(분실 후보) — resolution 도 실제 조치와 일치시킨다(분실 처리가 아님).
         // 유휴 편성은 보유자를 떠나는 이탈이므로 좌석 회수·소유자 정리·수령 대기 해제를 회수(recoverFromUser)와 동일하게 수행한다

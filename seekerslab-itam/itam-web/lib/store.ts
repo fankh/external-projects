@@ -636,8 +636,10 @@ function seed(): Store {
       { id: 'DIF-04', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '미조치' },
       // 미확인 유휴 편성 좌석 회수 회귀용 — 조정 상신 상태로 두어 차이 조정 승인(APR-2608-131) 시 즉시 처리된다.
       { id: 'DIF-05', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2024-000994', model: 'ThinkPad X1 Carbon', expected: '본사 7F', actual: '실사 미확인', status: '조정 상신' },
-      // 스테일 방어(재확인) 회귀 — 조정 상신 후 706 을 재배정하면 미확인 유휴 편성이 미적용돼야 한다(재배정 무효화·좌석 회수 방지). APR-2608-131 이 DIF-05·DIF-06 을 함께 처리.
+      // 스테일 방어(재확인) 회귀 — 조정 상신 후 706 을 재배정하면 미확인 유휴 편성이 미적용돼야 한다(재배정 무효화·좌석 회수 방지). APR-2608-131 이 DIF-05·DIF-06·DIF-07 을 함께 처리.
       { id: 'DIF-06', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2024-000706', model: 'ThinkPad E14 Gen5', expected: '본사 7F', actual: '실사 미확인', status: '조정 상신' },
+      // 폐기 절차 충돌 방어 — 폐기 대상(DSP-02·대상 선정)인 유휴 자산을 실사 '상태 불일치'로 사용중 되돌리면 사용중 자산이 폐기 리스트에 남는다. 폐기 진행 중이면 상태 보정 미적용.
+      { id: 'DIF-07', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '조정 상신' },
     ],
     contracts: [
       { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀',
@@ -747,7 +749,7 @@ function seed(): Store {
       { id: 'INS-2608-08', kind: '이상탐지', severity: '높음', title: '서버의 비정상 외부 통신 — AST-2024-000377 (GPU A100)', detail: '평시 내부 학습 트래픽만 있던 핵심 GPU 서버(AST-2024-000377)가 08-17 03:12 외부 IP(러시아)로 대용량 아웃바운드. 자산 평시 프로파일 이탈 — 발견 저장소엔 없는 대장 관리 자산이라 격리 대상 매칭이 필요.', evidence: '넷플로우 08-17 03:12~03:40 · 2.3GB 유출 의심', createdAt: '2026-08-18', status: '제안', refId: 'AST-2024-000377' },
     ],
     inventoryRounds: [
-      { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', kind: '연간', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 5, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
+      { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', kind: '연간', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 6, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
       { id: 'INV-2026-H1', name: '2026 상반기 정기 재물조사', kind: '연간', scope: '전사', planned: 1_198, scanned: 1_198, mismatched: 14, dueDate: '2026-02-27', assignee: '박자산', status: '완료' },
       { id: 'INV-2026-SP1', name: '판교 사무소 수시 조사', kind: '수시', scope: '판교 사무소', planned: 86, scanned: 0, mismatched: 0, dueDate: '2026-08-08', assignee: '최지원', status: '계획' },
     ],
