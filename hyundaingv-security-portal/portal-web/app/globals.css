@@ -163,6 +163,9 @@ button { font-family: inherit; }
 .stat.err .v { color: var(--err); }
 .stat .d { font-size: 10.5px; font-weight: 600; color: var(--mute); }
 .stat .d::before { content: '·'; margin-right: 5px; color: var(--line-strong); font-weight: 400; }
+/* 드릴다운 가능한 통계 타일 — 운영 신호에서 해당 화면으로 이동. 호버는 표·메뉴와 동일 컨벤션(--canvas). */
+.stat.link { text-decoration: none; color: inherit; cursor: pointer; }
+.stat.link:hover { background: var(--canvas); }
 
 /* ═══ 테이블 ═══ */
 .tbl-wrap { overflow: auto; min-height: 0; }

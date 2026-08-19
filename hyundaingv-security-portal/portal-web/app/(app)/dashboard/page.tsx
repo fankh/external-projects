@@ -122,43 +122,43 @@ export default async function DashboardPage() {
         desc={`${me.name} 님의 관리대상 현황 — 보안신청 · 의식제고 · 계획 · 컴플라이언스 · My Work`} />
 
       <div className="stat-row">
-        <Stat value={myTodos.length} label="나의 할일" tone={myTodos.length > 0 ? 'warn' : undefined} note="기한 도래 순" />
-        <Stat value={myApprovals.length} label="결재 대기" tone={myApprovals.length > 0 ? 'err' : undefined} note="내가 결재자" />
-        <Stat value={mySr.length} label="진행중 SR" note="완료·반려 제외" />
-        <Stat value={generalSigned ? '완료' : '미제출'} label="보안서약서" tone={generalSigned ? undefined : 'err'} note={`${currentYear()}년 일반 서약`} />
+        <Stat href="/work/todo" value={myTodos.length} label="나의 할일" tone={myTodos.length > 0 ? 'warn' : undefined} note="기한 도래 순" />
+        <Stat href="/work/approvals" value={myApprovals.length} label="결재 대기" tone={myApprovals.length > 0 ? 'err' : undefined} note="내가 결재자" />
+        <Stat href="/sr/requests" value={mySr.length} label="진행중 SR" note="완료·반려 제외" />
+        <Stat href="/pledge/my" value={generalSigned ? '완료' : '미제출'} label="보안서약서" tone={generalSigned ? undefined : 'err'} note={`${currentYear()}년 일반 서약`} />
       </div>
 
       {/* 관리대상 현황 — 의식제고 · 컴플라이언스 · 계획수립 */}
       <div className="stat-row">
-        <Stat value={!remoteTarget ? '대상 아님' : remoteDone ? '제출' : '미제출'} label="재택 체크리스트"
+        <Stat href="/awareness/remote" value={!remoteTarget ? '대상 아님' : remoteDone ? '제출' : '미제출'} label="재택 체크리스트"
           tone={remoteTarget && !remoteDone ? 'warn' : undefined} note={period} />
-        <Stat value={myEduMissing} label="보안교육 미이수" tone={myEduMissing > 0 ? 'err' : undefined} note="완료 과정 기준" />
-        <Stat value={myViolations} label="보안위반 확인서 대상" tone={myViolations > 0 ? 'err' : undefined} />
-        <Stat value={myPlansDraft} label="계획수립 작성중" note="투자·비용 과제" />
+        <Stat href="/compliance/education" value={myEduMissing} label="보안교육 미이수" tone={myEduMissing > 0 ? 'err' : undefined} note="완료 과정 기준" />
+        <Stat href="/awareness/violations" value={myViolations} label="보안위반 확인서 대상" tone={myViolations > 0 ? 'err' : undefined} />
+        <Stat href="/finance/invest" value={myPlansDraft} label="계획수립 작성중" note="투자·비용 과제" />
       </div>
 
       {showOps && (
         <Card title="전사 운영 스냅샷" pad={false}
           actions={canSee('/sr/manage') ? <a className="btn sm" href="/api/export?type=itops-summary" title="SR·장애·프로젝트·투자/비용 집행 종합 현황">IT 운영 종합 현황</a> : undefined}>
           <div className="stat-row" style={{ border: 'none' }}>
-            {opsVis.inspections && <Stat value={<>{ops.complianceScore}<small>/100</small></>} label="컴플라이언스 점수" note={postureRating(ops.complianceScore).label} tone={postureRating(ops.complianceScore).tone === 'err' ? 'err' : postureRating(ops.complianceScore).tone === 'warn' ? 'warn' : undefined} />}
-            {opsVis.incidents && <Stat value={ops.incidents} label="조치중 장애" tone={ops.incidents > 0 ? 'err' : undefined} />}
-            {opsVis.infraOps && <Stat value={infra.failedBatches} label="배치 실패" tone={infra.failedBatches > 0 ? 'err' : undefined} />}
-            {opsVis.infraOps && <Stat value={infra.brokenIfs} label="인터페이스 오류" tone={infra.brokenIfs > 0 ? 'err' : undefined} />}
-            {opsVis.infraSys && <Stat value={infra.diskWarns} label="디스크 경고" tone={infra.diskWarns > 0 ? 'err' : undefined} />}
-            {opsVis.delayedSr && <Stat value={ops.delayedSr} label="지연 SR" tone={ops.delayedSr > 0 ? 'warn' : undefined} />}
-            {opsVis.openIssues && <Stat value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />}
-            {opsVis.openIssues && <Stat value={ops.projectHighRisk} label="프로젝트 높은 리스크" tone={ops.projectHighRisk > 0 ? 'err' : undefined} />}
-            {opsVis.unsigned && <Stat value={ops.unsigned} label="미서약 인원" tone={ops.unsigned > 0 ? 'warn' : undefined} />}
-            {opsVis.inspections && <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />}
-            {opsVis.securityReviews && <Stat value={ops.securityHigh} label="고위험 미조치" tone={ops.securityHigh > 0 ? 'err' : undefined} />}
-            {opsVis.securityReviews && <Stat value={ops.securityReviews} label="미조치 취약점" tone={ops.securityReviews > 0 ? 'warn' : undefined} />}
-            {opsVis.risks && <Stat value={ops.riskHighOpen} label="높음↑ 미종결 위험" tone={ops.riskHighOpen > 0 ? 'err' : undefined} note="정보보호 위험평가" />}
-            {opsVis.risks && ops.riskOverdue > 0 && <Stat value={ops.riskOverdue} label="위험 조치기한 경과" tone="warn" />}
-            {opsVis.policies && <Stat value={ops.policyOverdue} label="정책 재검토 경과" tone={ops.policyOverdue > 0 ? 'err' : undefined} note="정책·지침" />}
-            {opsVis.dr && <Stat value={ops.drOverdue} label="복구훈련 경과" tone={ops.drOverdue > 0 ? 'err' : undefined} note="재해복구" />}
-            {opsVis.financeExec && <Stat value={`${finExec('투자')}%`} label="투자 집행률" note="계획 대비" />}
-            {opsVis.financeExec && <Stat value={`${finExec('비용')}%`} label="비용 집행률" note="계획 대비" />}
+            {opsVis.inspections && <Stat href="/compliance/inspection" value={<>{ops.complianceScore}<small>/100</small></>} label="컴플라이언스 점수" note={postureRating(ops.complianceScore).label} tone={postureRating(ops.complianceScore).tone === 'err' ? 'err' : postureRating(ops.complianceScore).tone === 'warn' ? 'warn' : undefined} />}
+            {opsVis.incidents && <Stat href="/infra/incidents" value={ops.incidents} label="조치중 장애" tone={ops.incidents > 0 ? 'err' : undefined} />}
+            {opsVis.infraOps && <Stat href="/infra/operations" value={infra.failedBatches} label="배치 실패" tone={infra.failedBatches > 0 ? 'err' : undefined} />}
+            {opsVis.infraOps && <Stat href="/infra/operations" value={infra.brokenIfs} label="인터페이스 오류" tone={infra.brokenIfs > 0 ? 'err' : undefined} />}
+            {opsVis.infraSys && <Stat href="/infra/systems" value={infra.diskWarns} label="디스크 경고" tone={infra.diskWarns > 0 ? 'err' : undefined} />}
+            {opsVis.delayedSr && <Stat href="/sr/delayed" value={ops.delayedSr} label="지연 SR" tone={ops.delayedSr > 0 ? 'warn' : undefined} />}
+            {opsVis.openIssues && <Stat href="/projects/schedule" value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />}
+            {opsVis.openIssues && <Stat href="/projects/status" value={ops.projectHighRisk} label="프로젝트 높은 리스크" tone={ops.projectHighRisk > 0 ? 'err' : undefined} />}
+            {opsVis.unsigned && <Stat href="/pledge/manage" value={ops.unsigned} label="미서약 인원" tone={ops.unsigned > 0 ? 'warn' : undefined} />}
+            {opsVis.inspections && <Stat href="/compliance/inspection" value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />}
+            {opsVis.securityReviews && <Stat href="/compliance/security-review" value={ops.securityHigh} label="고위험 미조치" tone={ops.securityHigh > 0 ? 'err' : undefined} />}
+            {opsVis.securityReviews && <Stat href="/compliance/security-review" value={ops.securityReviews} label="미조치 취약점" tone={ops.securityReviews > 0 ? 'warn' : undefined} />}
+            {opsVis.risks && <Stat href="/compliance/risks" value={ops.riskHighOpen} label="높음↑ 미종결 위험" tone={ops.riskHighOpen > 0 ? 'err' : undefined} note="정보보호 위험평가" />}
+            {opsVis.risks && ops.riskOverdue > 0 && <Stat href="/compliance/risks" value={ops.riskOverdue} label="위험 조치기한 경과" tone="warn" />}
+            {opsVis.policies && <Stat href="/compliance/policies" value={ops.policyOverdue} label="정책 재검토 경과" tone={ops.policyOverdue > 0 ? 'err' : undefined} note="정책·지침" />}
+            {opsVis.dr && <Stat href="/compliance/dr" value={ops.drOverdue} label="복구훈련 경과" tone={ops.drOverdue > 0 ? 'err' : undefined} note="재해복구" />}
+            {opsVis.financeExec && <Stat href="/finance/invest" value={`${finExec('투자')}%`} label="투자 집행률" note="계획 대비" />}
+            {opsVis.financeExec && <Stat href="/finance/expense" value={`${finExec('비용')}%`} label="비용 집행률" note="계획 대비" />}
           </div>
         </Card>
       )}
