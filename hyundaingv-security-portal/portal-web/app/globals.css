@@ -30,7 +30,7 @@
 
 html, body { height: 100%; }
 body {
-  font-family: 'Pretendard Variable', Pretendard, 'Malgun Gothic', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-pretendard, 'Pretendard Variable'), Pretendard, 'Malgun Gothic', 'Segoe UI', system-ui, sans-serif;
   background: var(--canvas);
   color: var(--ink);
   font-size: 13px;
