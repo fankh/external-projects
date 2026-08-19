@@ -170,6 +170,9 @@ async function main() {
     // SSO 로그인 진입점 — 데모 기본 프로필은 목업 SSO 라 노출하지 않는다(계정 선택 로그인만). 실 SSO 프로필에서만 노출.
     const loginHtml = await (await fetch(`${BASE}/login`)).text()
     check(!loginHtml.includes('sso-login'), '데모(목업 SSO) 로그인 화면에 SSO 로그인 진입점 미노출')
+    // SP SAML 메타데이터도 실 SSO 프로필에서만 — 데모(목업)는 404 (비-SSO 배포에 SP 메타데이터 미공개)
+    const metaResp = await fetch(`${BASE}/api/sso/metadata`)
+    check(metaResp.status === 404, '데모(목업 SSO) SP 메타데이터 미공개(404)')
 
     // 보안 응답 헤더 — 클릭재킹·스니핑·레퍼러 방어
     const hdr = await fetch(`${BASE}/login`, { redirect: 'manual' })

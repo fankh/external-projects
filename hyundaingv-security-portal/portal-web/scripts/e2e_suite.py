@@ -1039,6 +1039,13 @@ def sc_sso_saml(pg, base, check):
     check(sso_btn.count() == 1 and '/api/sso/login' in (sso_btn.get_attribute('href') or ''),
           '실 SSO 프로필 로그인 화면에 SSO 로그인 진입점 노출')
 
+    # SP 메타데이터 — IdP 관리자가 임포트할 SP SAML 메타데이터(EntityID·ACS·바인딩)를 공개한다
+    meta = pg.context.request.get(f'{base}/api/sso/metadata')
+    meta_xml = meta.text()
+    check(meta.ok and 'EntityDescriptor' in meta_xml and 'ngv-governance-portal' in meta_xml
+          and '/api/sso/acs' in meta_xml and 'AssertionConsumerService' in meta_xml,
+          f'SP SAML 메타데이터 공개(EntityID·ACS 포함) (status {meta.status})')
+
     # SP-initiated 로그인 시작 — SSO 채널 가동 시 IdP 로 리다이렉트(SAMLRequest 포함)
     login_resp = pg.context.request.get(f'{base}/api/sso/login?relayState=%2Fdashboard', max_redirects=0)
     loc = login_resp.headers.get('location', '')
