@@ -232,6 +232,8 @@ async function aiPeriodQuery(page) {
   ok('AI 교체질의: SW·가상자원 교체 대상 제외', !r1.includes('SW, 도입') && !r1.includes('가상자원, 도입'))
   // 장애 이력 드라이버(§05 기능03) — 반복 수리(2회 이상) 자산이 내용연수·보증과 별개로 교체 대상에 편입(AST-2023-000112: 키보드·배터리 2회)
   ok('AI 교체질의: 장애 이력(잦은 수리) 드라이버 반영(AST-2023-000112)', r1.includes('AST-2023-000112') && r1.includes('잦은 장애'))
+  // 답변↔링크 정합 — 교체 대상 답변이 대장 교체 필터(?replace=1)로 연결돼, 센 그 집합을 대장에서 그대로 브라우즈·반출. 리포트·EOL 링크와 별개 진입점.
+  ok('AI 교체질의: 답변이 대장 교체 대상 필터(?replace=1)로 연결', (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?replace=1"]').count()) > 0)
   // 취약점 우선순위·이상 탐지 인라인 질의(AI 기능 04·02) — 컴퓨티드 산출을 자연어로 조회(리포트 생성과 별개)
   const rv = await ask('취약점 조치 우선순위 알려줘')
   ok('AI 취약점질의: P1/P2/P3 인라인 요약(리포트 생성 아님)', /취약점 조치 우선순위 — 총 \d+건/.test(rv) && rv.includes('P1 즉시') && !rv.includes('리포트를 생성했습니다'))
