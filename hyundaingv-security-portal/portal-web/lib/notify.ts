@@ -7,6 +7,7 @@ import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
 import { ACCOUNTS } from './session'
+import { isTestOverdue } from './dr'
 import { isReviewOverdue } from './policy'
 import { isRiskClosed, upsertRiskSnapshot } from './risk'
 import { importSecurityEvents } from './secmon'
@@ -200,6 +201,12 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('정책 재검토 지연',
     s.securityPolicies.filter((p) => isReviewOverdue(p, t)).map((p) => p.owner).filter((name) => people.some((pp) => pp.name === name)),
     '[정책·지침] 재검토 예정일 경과 안내')
+
+  // 9) 복구훈련 지연 — 복구훈련 예정일 경과 복구계획의 담당 (ISMS 2.12 정기 복구훈련 강제). 훈련 기록하면
+  // 자동 제외(경과 해소). 재직자 교집합 — 담당 퇴사 시 유령 독촉 방지(타 person 경로와 동일 정합).
+  await send('복구훈련 지연',
+    s.drPlans.filter((p) => isTestOverdue(p, t)).map((p) => p.owner).filter((name) => people.some((pp) => pp.name === name)),
+    '[재해복구] 복구훈련 예정일 경과 안내')
 
   const total = results.reduce((sum, r) => sum + r.targets, 0)
   const allOk = results.every((r) => r.ok)

@@ -63,6 +63,7 @@ POLICY_DATA = ROOT / 'scripts' / '.e2e-policy-data.json'  # 정책·지침 생�
 POLICYNF_DATA = ROOT / 'scripts' / '.e2e-policynf-data.json'  # 정책 재검토 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.273)
 POLICYRA_DATA = ROOT / 'scripts' / '.e2e-policyra-data.json'  # 정책 담당 재배정(재검토 시 퇴사→재직 이관) 회귀용 (v1.5.275)
 DR_DATA = ROOT / 'scripts' / '.e2e-dr-data.json'  # 재해복구 복구훈련 주기(경과 리셋)·담당 재배정·삭제 커버리지용 (v1.5.279)
+DRNF_DATA = ROOT / 'scripts' / '.e2e-drnf-data.json'  # 복구훈련 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.281)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -681,6 +682,19 @@ def sc_dr_lifecycle(pg, base, check):
     reg.locator('tr', has_text='DR-2026-91').locator('button:has-text("삭제")').click()
     pg.goto(f'{base}/compliance/dr', wait_until='networkidle')
     check(pg.locator('tr', has_text='DR-2026-91').count() == 0, '복구계획 삭제 — 대장 제거')
+
+
+def sc_dr_notify(pg, base, check):
+    """복구훈련 지연 알림 — 훈련 예정일 경과 복구계획의 담당에게 안내(ISMS 2.12 폐쇄루프). 격리로 훈련 경과
+    복구계획 2건: 담당 재직(김현우)·퇴사(E2E퇴사담당, s.people 밖). 알림 배치 '복구훈련 지연' 대상이 재직
+    1명이어야 한다(타 person 알림과 동일 재직 교집합). 교집합 없으면 퇴사 담당 포함 2명 → 대조."""
+    login(pg, base, '시스템관리자')  # ADMIN — 수동 배치 실행
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.locator('button:has-text("알림 배치 실행")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    detail = pg.locator('tr', has_text='알림 배치 실행').first.inner_text()
+    check('복구훈련 지연 1명' in detail, f'복구훈련 지연 알림 = 재직 담당 1명(퇴사 담당 제외) (실제: {detail[:190]})')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2751,6 +2765,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(POLICYRA_DATA)}),
     ('dr_lifecycle', '재해복구 — 복구훈련 주기(경과 리셋)·담당 재배정·삭제(ISMS 2.12)', sc_dr_lifecycle,
      {'PORTAL_DATA_FILE': str(DR_DATA)}),
+    ('dr_notify', '복구훈련 지연 알림 — 훈련 경과 담당 통지(퇴사 담당 유령 독촉 방지)', sc_dr_notify,
+     {'PORTAL_DATA_FILE': str(DRNF_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -3182,6 +3198,11 @@ def main() -> int:
     DR_DATA.write_text(json.dumps({'drPlans': [
         {'id': 'DR-2026-91', 'system': '테스트', 'title': '테스트 복구계획', 'tier': '핵심', 'rtoHours': 4, 'rpoHours': 1,
          'owner': 'E2E퇴사담당', 'testCycleMonths': 12, 'lastTestedAt': '2024-01-01', 'lastResult': '부분성공'}]}, ensure_ascii=False), encoding='utf-8')
+    # 복구훈련 지연 알림 — 훈련 경과 복구계획 2건(담당 재직 김현우·퇴사 E2E퇴사담당). 알림 '복구훈련 지연'
+    # 대상이 재직 1명이어야 한다(교집합 없으면 퇴사 담당 포함 2명 → 대조).
+    _dr = lambda i, owner: {'id': f'DR-2026-8{i}', 'system': f'시스템{i}', 'title': f'훈련지연계획{i}', 'tier': '중요',
+                            'rtoHours': 24, 'rpoHours': 12, 'owner': owner, 'testCycleMonths': 12, 'lastTestedAt': '2024-01-01', 'lastResult': '성공'}
+    DRNF_DATA.write_text(json.dumps({'drPlans': [_dr(1, '김현우'), _dr(2, 'E2E퇴사담당')]}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
