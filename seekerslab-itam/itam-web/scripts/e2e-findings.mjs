@@ -613,6 +613,25 @@ try {
       legacy.includes('Sectigo') && legacy.includes('만료') && legacy.includes('생존 불명'))
   }
 
+  // AI 어시스턴트 스코핑(회귀) — 보안담당은 계약·라이선스·재고·수명주기 화면·전역 검색에서 막히므로 어시스턴트도 동일. 자산 도메인 질의는 데이터가 아니라 데모 안내(폴백)로 떨어져야 한다(!isUser 로 뭉뚱그려 유출하던 공백). Discovery·미인가 SaaS 등 보안 정당 도메인은 그대로 응답.
+  {
+    await page.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+    const secAsk = async (q) => {
+      const before = await page.locator('.msg.assistant .bub').count()
+      await page.locator('.chat-in input').fill(q)
+      await page.locator('.chat-in input').press('Enter')
+      await page.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, before, { timeout: 8000 })
+      await page.waitForTimeout(150)
+      return (await page.locator('.msg.assistant .bub').last().textContent()) || ''
+    }
+    const secLic = await secAsk('라이선스 초과 사용 현황')
+    ok('AI 어시스턴트 스코핑: 보안담당 라이선스 질의는 데이터 미노출(데모 안내 폴백)', secLic.includes('데모 모드'))
+    const secContract = await secAsk('만료 임박한 계약 목록')
+    ok('AI 어시스턴트 스코핑: 보안담당 계약 질의도 미노출(폴백)', secContract.includes('데모 모드') && !secContract.includes('세종네트웍스'))
+    const secSaas = await secAsk('미인가 SaaS 현황 알려줘')
+    ok('AI 어시스턴트 스코핑: 보안담당 미인가 SaaS 질의는 정상 응답(과잉 차단 아님 · 양성 대조)', !secSaas.includes('데모 모드'))
+  }
+
   // AI 제안 판정 루프(11) — 승인→조치·반려 사유 필수
   await aiInsightDecide(page)
   await ctx.close()
