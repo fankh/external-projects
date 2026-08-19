@@ -1078,6 +1078,22 @@ def sc_sso_saml(pg, base, check):
           f'RelayState 백슬래시 오픈 리다이렉트 차단(로컬 폴백) (loc={loc[:70]})')
 
 
+def sc_cookie_secure(pg, base, check):
+    """세션 쿠키 Secure 기본값(v1.5.313) — 프로덕션은 PORTAL_COOKIE_SECURE=0 으로 명시 해제하지 않는 한 Secure
+    쿠키를 발급한다(HTTPS 종단 전제). ACS 에 유효 어설션을 POST 해 발급 Set-Cookie 원문에 Secure 속성이 실리는지
+    확인한다 — 브라우저 저장이 아니라 '서버가 속성을 붙이는가'라 http 로도 관측된다(Next 는 전송로와 무관하게
+    Secure 를 emit). fails-without-fix: cookieSecure 를 옛 로직(=1 일 때만)으로 되돌리면 Secure 미부착."""
+    key = str(ROOT / 'scripts' / '.saml-test-key.pem')
+    acs = f'{base}/api/sso/acs'
+    saml = subprocess.run(
+        ['node', str(ROOT / 'scripts' / 'saml_gen.mjs'), key, 'admin', 'ngv-governance-portal', acs, '2030-01-01T00:00:00Z'],
+        cwd=str(ROOT), capture_output=True, text=True, check=True).stdout.strip()
+    raw = pg.context.request.post(acs, form={'SAMLResponse': saml, 'RelayState': '/dashboard'}, max_redirects=0)
+    setck = raw.headers.get('set-cookie', '')
+    check('ngv_portal_session=' in setck and 'Secure' in setck,
+          f'프로덕션 세션 쿠키 Secure 기본 발급 (set-cookie=…{setck[-70:]})')
+
+
 REST_ABORT_PORT = 3888  # 어댑터 fetch 취소 검증용 무응답 프로브
 
 
@@ -3240,6 +3256,11 @@ SCENARIOS = [
      {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
       'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
       'PORTAL_SAML_IDP_CERT_FILE': str(ROOT / 'scripts' / '.saml-test-cert.pem')}),
+    ('cookie_secure', '세션 쿠키 Secure 기본 — 프로덕션은 명시 해제(=0) 없이는 Secure 발급(cookieSecure, HTTPS 종단 전제)', sc_cookie_secure,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
+      'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
+      'PORTAL_SAML_IDP_CERT_FILE': str(ROOT / 'scripts' / '.saml-test-cert.pem'),
+      'PORTAL_COOKIE_SECURE': ''}),  # 일반 게이트의 =0 해제를 무효화 — 이 시나리오만 프로덕션 기본(Secure 발급)을 관측
     ('adapter_abort', '어댑터 fetch 취소 — 상한 초과 시 연결 중단(소켓 정리, AbortSignal)', sc_adapter_abort,
      {'PORTAL_PROFILE': 'finance', 'PORTAL_MAIL_API_URL': f'http://127.0.0.1:{REST_ABORT_PORT}/send',
       'PORTAL_ADAPTER_TIMEOUT_MS': '600'}),
@@ -3369,6 +3390,9 @@ def run_scenario(idx, key, title, fn, extra_env, browser):
     if 'PORTAL_DATA_FILE' not in extra_env:
         env.pop('PORTAL_DATA_FILE', None)  # 항상 시드 초기화 (persist 시나리오만 파일 지정)
     env.setdefault('SESSION_SECRET', 'ngv-gate-nondefault-secret')  # 비-기본값 — 프로덕션 세션키 하드페일 회피
+    # 게이트는 http 로 도는데 프로덕션 기본이 Secure 쿠키라, 브라우저가 http Set-Cookie(Secure)를 저장하지
+    # 않아 로그인이 깨진다 → http 게이트만 명시 해제. (Secure 기본 자체는 sc_cookie_secure 가 별도 검증.)
+    env.setdefault('PORTAL_COOKIE_SECURE', '0')
     server = subprocess.Popen(
         ['npx.cmd' if sys.platform == 'win32' else 'npx', 'next', 'start', '-p', str(port)],
         cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

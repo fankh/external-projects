@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ssoAdapter } from '@/lib/integrations/registry'
-import { ACCOUNTS, SESSION_COOKIE, signSession } from '@/lib/session'
+import { ACCOUNTS, cookieSecure, SESSION_COOKIE, signSession } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
   const res = NextResponse.redirect(new URL(relayState, req.url), 303)
   res.cookies.set(SESSION_COOKIE, signSession(acct), {
-    httpOnly: true, sameSite: 'lax', path: '/', secure: process.env.PORTAL_COOKIE_SECURE === '1',
+    httpOnly: true, sameSite: 'lax', path: '/', secure: cookieSecure(),
   })
   return res
 }
