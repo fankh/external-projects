@@ -60,6 +60,7 @@ RISKDLY_DATA = ROOT / 'scripts' / '.e2e-riskdly-data.json'  # 위험 조치 지�
 RISKDEL_DATA = ROOT / 'scripts' / '.e2e-riskdel-data.json'  # 미종결 위험 은닉 삭제 서버 가드(직접 POST) 회귀용 (v1.5.265)
 RISKRA_DATA = ROOT / 'scripts' / '.e2e-riskra-data.json'  # 위험 담당 재배정 → 조치 지연 폐쇄루프 복구 회귀용 (v1.5.267)
 POLICY_DATA = ROOT / 'scripts' / '.e2e-policy-data.json'  # 정책·지침 생명주기 + 재검토 주기(경과 리셋) 회귀용 (v1.5.271)
+POLICYNF_DATA = ROOT / 'scripts' / '.e2e-policynf-data.json'  # 정책 재검토 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.273)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -622,6 +623,19 @@ def sc_policy_lifecycle(pg, base, check):
     reg.locator('tr', has_text='PL-2026-91').locator('button:has-text("삭제")').click()
     reload()
     check(pg.locator('tr', has_text='PL-2026-91').count() == 0, '폐지 정책 삭제 — 대장 제거')
+
+
+def sc_policy_review_notify(pg, base, check):
+    """정책 재검토 지연 알림 — 재검토 예정일 경과 시행 정책의 담당에게 안내(ISMS 관리체계 1.1 폐쇄루프). 격리로
+    재검토 경과 정책 2건: 담당 재직(김현우)·퇴사(E2E퇴사담당, s.people 밖). 알림 배치 '정책 재검토 지연'
+    대상이 재직 1명이어야 한다(타 person 알림과 동일 재직 교집합). 교집합 없으면 퇴사 담당 포함 2명 → 대조."""
+    login(pg, base, '시스템관리자')  # ADMIN — 수동 배치 실행
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.locator('button:has-text("알림 배치 실행")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    detail = pg.locator('tr', has_text='알림 배치 실행').first.inner_text()
+    check('정책 재검토 지연 1명' in detail, f'정책 재검토 지연 알림 = 재직 담당 1명(퇴사 담당 제외) (실제: {detail[:180]})')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2686,6 +2700,8 @@ SCENARIOS = [
     ('risk_trend', '위험 추세 스냅샷 — 당월 upsert 기록(위험 감소 추이, ISMS 전기 대비 개선)', sc_risk_trend, {}),
     ('policy_lifecycle', '정책·지침 생명주기 — 재검토 경과 리셋·개정·폐지·삭제(ISMS 관리체계 1.1)', sc_policy_lifecycle,
      {'PORTAL_DATA_FILE': str(POLICY_DATA)}),
+    ('policy_review_notify', '정책 재검토 지연 알림 — 재검토 경과 담당 통지(퇴사 담당 유령 독촉 방지)', sc_policy_review_notify,
+     {'PORTAL_DATA_FILE': str(POLICYNF_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -3104,6 +3120,11 @@ def main() -> int:
     POLICY_DATA.write_text(json.dumps({'securityPolicies': [
         {'id': 'PL-2026-91', 'title': '테스트 정책', 'category': '정책', 'version': 'v1.0', 'owner': '박정호',
          'status': '시행', 'effectiveAt': '2024-01-01', 'reviewCycleMonths': 12, 'lastReviewedAt': '2024-01-01'}]}, ensure_ascii=False), encoding='utf-8')
+    # 정책 재검토 지연 알림 — 재검토 경과 정책 2건(담당 재직 김현우·퇴사 E2E퇴사담당). 알림 '정책 재검토 지연'
+    # 대상이 재직 1명이어야 한다(교집합 없으면 퇴사 담당 포함 2명 → 대조).
+    _pl = lambda i, owner: {'id': f'PL-2026-8{i}', 'title': f'재검토지연정책{i}', 'category': '지침', 'version': 'v1.0',
+                            'owner': owner, 'status': '시행', 'effectiveAt': '2024-01-01', 'reviewCycleMonths': 12, 'lastReviewedAt': '2024-01-01'}
+    POLICYNF_DATA.write_text(json.dumps({'securityPolicies': [_pl(1, '김현우'), _pl(2, 'E2E퇴사담당')]}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
