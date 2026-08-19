@@ -82,7 +82,8 @@ export function LifecyclePrediction({ canNotify }: { canNotify?: boolean }) {
       <div className="callout" style={{ margin: 14 }}>
         <b>내용연수 × 보증 × 장애 이력.</b> 도입 5년 초과·보증 경과·반복 수리(2회 이상) 신호를 결합해 교체 시점이 도래한 하드웨어를
         추립니다. 교체 예산은 유형별 표준 단가로, 잔존 장부가는 회계상 폐기손실 규모로 추정합니다.
-        승인 시 <Link href="/ai/reports">연간 교체 계획 리포트</Link>가 같은 근거로 생성됩니다.
+        승인 시 <Link href="/ai/reports">연간 교체 계획 리포트</Link>가 같은 근거로 생성되며,
+        <Link href="/assets/register?replace=1"> 자산 대장에서 교체 대상 전체를 조회·반출</Link>할 수 있습니다(조달 계획).
       </div>
     </Card>
   )
