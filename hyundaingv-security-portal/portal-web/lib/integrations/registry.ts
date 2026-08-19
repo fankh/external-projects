@@ -145,6 +145,14 @@ export function ssoAdapter(): SsoAdapter | null {
   return SSO[ch.adapterId] ?? null
 }
 
+/** 로그인 화면이 'SSO 로그인' 진입점을 노출할지 — SSO 채널 가동 + 실 어댑터(목업 제외)일 때만.
+ *  데모 기본(mock-sso)은 실 IdP 가 없어 계정 선택 로그인을 쓰므로 노출하지 않는다. */
+export function ssoLoginAvailable(): boolean {
+  const ch = channelOf('groupware-sso')
+  if (!ch || !isEnabled('groupware-sso')) return false
+  return ch.adapterId !== 'mock-sso'
+}
+
 export function secdataAdapter(): SecdataAdapter | null {
   const ch = channelOf('security-db')
   if (!ch || !isEnabled('security-db')) return null

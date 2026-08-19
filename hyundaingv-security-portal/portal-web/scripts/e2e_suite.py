@@ -1033,6 +1033,12 @@ def sc_sso_saml(pg, base, check):
                            cwd=str(ROOT), capture_output=True, text=True, check=True)
         return r.stdout.strip()
 
+    # 로그인 화면 진입점 — 실 SSO 채널 프로필(금융)은 'SSO 로그인' 버튼을 노출한다(데모 목업은 계정 선택만)
+    pg.goto(f'{base}/login', wait_until='networkidle')
+    sso_btn = pg.locator('a.sso-login')
+    check(sso_btn.count() == 1 and '/api/sso/login' in (sso_btn.get_attribute('href') or ''),
+          '실 SSO 프로필 로그인 화면에 SSO 로그인 진입점 노출')
+
     # SP-initiated 로그인 시작 — SSO 채널 가동 시 IdP 로 리다이렉트(SAMLRequest 포함)
     login_resp = pg.context.request.get(f'{base}/api/sso/login?relayState=%2Fdashboard', max_redirects=0)
     loc = login_resp.headers.get('location', '')
