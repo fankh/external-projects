@@ -61,6 +61,7 @@ RISKDEL_DATA = ROOT / 'scripts' / '.e2e-riskdel-data.json'  # 미종결 위험 �
 RISKRA_DATA = ROOT / 'scripts' / '.e2e-riskra-data.json'  # 위험 담당 재배정 → 조치 지연 폐쇄루프 복구 회귀용 (v1.5.267)
 POLICY_DATA = ROOT / 'scripts' / '.e2e-policy-data.json'  # 정책·지침 생명주기 + 재검토 주기(경과 리셋) 회귀용 (v1.5.271)
 POLICYNF_DATA = ROOT / 'scripts' / '.e2e-policynf-data.json'  # 정책 재검토 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.273)
+POLICYRA_DATA = ROOT / 'scripts' / '.e2e-policyra-data.json'  # 정책 담당 재배정(재검토 시 퇴사→재직 이관) 회귀용 (v1.5.275)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -636,6 +637,24 @@ def sc_policy_review_notify(pg, base, check):
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
     detail = pg.locator('tr', has_text='알림 배치 실행').first.inner_text()
     check('정책 재검토 지연 1명' in detail, f'정책 재검토 지연 알림 = 재직 담당 1명(퇴사 담당 제외) (실제: {detail[:180]})')
+
+
+def sc_policy_reassign(pg, base, check):
+    """정책 담당 재배정 — 재검토 시 퇴사 담당을 재직자로 이관해 재검토 지연 알림 폐쇄루프를 복구한다(위험 재평가
+    담당 이관과 동일 부류). 담당 immutable 이면 퇴사 담당 정책이 재검토 지연 알림에서 드롭돼 아무도 통지받지
+    못한다. 격리(PL-2026-95: 시행·재검토 경과·담당 퇴사 E2E퇴사담당) — 재검토 폼에서 재직자(이수진) 선택 →
+    대장에 이수진 반영. 담당 이관 불가 시 여전히 퇴사 담당 → 대조."""
+    login(pg, base, '시스템관리자')  # ADMIN — 정책 관리
+    pg.goto(f'{base}/compliance/policies', wait_until='networkidle')
+    reg = pg.locator('.card', has_text='정책·지침 관리대장')
+    row = reg.locator('tr', has_text='PL-2026-95')
+    check('E2E퇴사담당' in row.inner_text() and '경과' in row.inner_text(), '퇴사 담당·재검토 경과 정책')
+    row.locator('select[name=owner]').select_option('이수진')
+    row.locator('button:has-text("재검토")').click()
+    pg.goto(f'{base}/compliance/policies', wait_until='networkidle')  # RSC 재검증 반영 후 재조회
+    txt = reg.locator('tr', has_text='PL-2026-95').inner_text()
+    check('이수진' in txt, '재검토 시 퇴사 담당을 재직자(이수진)로 재배정')
+    check('E2E퇴사담당' not in txt, '퇴사 담당 이관됨(현 담당 아님)')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2702,6 +2721,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(POLICY_DATA)}),
     ('policy_review_notify', '정책 재검토 지연 알림 — 재검토 경과 담당 통지(퇴사 담당 유령 독촉 방지)', sc_policy_review_notify,
      {'PORTAL_DATA_FILE': str(POLICYNF_DATA)}),
+    ('policy_reassign', '정책 담당 재배정 — 재검토 시 퇴사 담당 재직자 이관(폐쇄루프 복구)', sc_policy_reassign,
+     {'PORTAL_DATA_FILE': str(POLICYRA_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -3125,6 +3146,10 @@ def main() -> int:
     _pl = lambda i, owner: {'id': f'PL-2026-8{i}', 'title': f'재검토지연정책{i}', 'category': '지침', 'version': 'v1.0',
                             'owner': owner, 'status': '시행', 'effectiveAt': '2024-01-01', 'reviewCycleMonths': 12, 'lastReviewedAt': '2024-01-01'}
     POLICYNF_DATA.write_text(json.dumps({'securityPolicies': [_pl(1, '김현우'), _pl(2, 'E2E퇴사담당')]}, ensure_ascii=False), encoding='utf-8')
+    # 정책 담당 재배정 — 재검토 경과·퇴사 담당 정책. 재검토 시 재직자로 이관되어 대장에 반영되어야 한다.
+    POLICYRA_DATA.write_text(json.dumps({'securityPolicies': [
+        {'id': 'PL-2026-95', 'title': '재배정 정책', 'category': '정책', 'version': 'v1.0', 'owner': 'E2E퇴사담당',
+         'status': '시행', 'effectiveAt': '2024-01-01', 'reviewCycleMonths': 12, 'lastReviewedAt': '2024-01-01'}]}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
