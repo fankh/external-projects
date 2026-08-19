@@ -83,6 +83,7 @@ PJDONE_DATA = ROOT / 'scripts' / '.e2e-pjdone-data.json'  # 프로젝트 완료 
 PJMEMB_DATA = ROOT / 'scripts' / '.e2e-pjmemb-data.json'  # 빈 명단 프로젝트 참여서약 집계 회귀용 (v1.5.89)
 EXECFALSE_DATA = ROOT / 'scripts' / '.e2e-execfalse-data.json'  # 집행률 거짓 100% 방지 회귀용 (v1.5.321)
 AUDITF_DATA = ROOT / 'scripts' / '.e2e-auditf-data.json'  # 감사 이력 조회 필터 회귀용 (v1.5.331)
+SRCH_DATA = ROOT / 'scripts' / '.e2e-srch-data.json'  # 통합 검색 커버리지(결재 신원 스코핑) 회귀용 (v1.5.333)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
 AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
 QNAROLE_DATA = ROOT / 'scripts' / '.e2e-qnarole-data.json'  # QnA 담당 지정 역할 정합 회귀용 (v1.5.92)
@@ -2750,6 +2751,22 @@ def sc_incident_audit(pg, base, check):
           '감사 이력에 장애 조치(조치완료) + 행위자 기록')
 
 
+def sc_search_coverage(pg, base, check):
+    """통합 검색 커버리지(v1.5.333) — 전자결재·위험·정책이 검색에 편입된다. 결재는 신원 스코핑(기안자·결재자
+    본인 문서만) — 무관 결재가 검색으로 유출되면 안 된다(검색이 권한 우회 경로가 되지 않게). 데이터: 본인문서
+    (김현우 기안)·무관문서(박정호 기안·김현우 무관) + 위험 1건. fails-without-fix: 결재 신원 필터 제거 시 무관문서 유출."""
+    # 1) 김현우(USER) — 본인 기안 결재는 검색되고, 무관 결재는 안 된다(신원 스코핑·유출 차단)
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/search?q=검색테스트', wait_until='networkidle')
+    body = pg.content()
+    check('검색테스트 본인문서' in body, '전자결재 검색: 본인 기안 문서 노출')
+    check('검색테스트 무관문서' not in body, '전자결재 검색: 무관 결재 미노출(신원 스코핑·유출 차단)')
+    # 2) 시스템관리자(ADMIN) — 위험평가 검색 편입(관리자급 접근 도메인)
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/search?q=검색테스트', wait_until='networkidle')
+    check('검색테스트 위험시나리오' in pg.content(), '위험평가 검색 편입(관리자급 canAccess)')
+
+
 def sc_audit_search(pg, base, check):
     """감사 이력 조회 필터(v1.5.331) — 감사관이 행위자·행위·기간·검색어로 좁혀 증적을 찾고 그 조회분을 export 로
     내려받는다. 화면·export 가 filterAuditLogs 단일 원천 공유(같은 필터→같은 행). 데이터 3건(김현우 결재승인 08-01·
@@ -3489,6 +3506,8 @@ SCENARIOS = [
     ('incident_audit', '장애 등록·조치 감사 이력 — 행위자 추적(§VI, 인프라 형제 화면 정합)', sc_incident_audit, {}),
     ('audit_search', '감사 이력 조회 필터 — 행위자·행위·기간·검색어, 화면=export 단일 원천', sc_audit_search,
      {'PORTAL_DATA_FILE': str(AUDITF_DATA)}),
+    ('search_coverage', '통합 검색 커버리지 — 전자결재(신원 스코핑)·위험·정책 편입, 무관 결재 유출 차단', sc_search_coverage,
+     {'PORTAL_DATA_FILE': str(SRCH_DATA)}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
     ('remote_overlap', '재택 경계월 인접 기간 — 당월 명단·통계 1회만(이중 집계 방지)', sc_remote_overlap,
      {'PORTAL_DATA_FILE': str(RSPAN_DATA)}),
@@ -3862,6 +3881,17 @@ def main() -> int:
         'investContracts': [{'id': 'CT-2026-90', 'kind': '투자', 'planId': 'IP-2026-90', 'vendor': '테스트벤더', 'title': '경계 계약', 'amount': 1004, 'signedAt': '2026-07-01'}],
         'settlements': [{'id': 'ST-2026-90', 'contractId': 'CT-2026-90', 'item': '착수금', 'amount': 1004, 'status': '지급완료', 'requestedBy': '김현우', 'requestedAt': '2026-07-05'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 통합 검색 커버리지(v1.5.333) — 결재 신원 스코핑 검증용. 본인문서(김현우 기안)·무관문서(박정호 기안, 김현우 무관) + 위험 1건.
+    SRCH_DATA.write_text(json.dumps({
+        'approvals': [
+            {'id': 'AP-SRCH-1', 'docType': 'SR 신청', 'title': '검색테스트 본인문서', 'drafter': '김현우', 'dept': '개발1팀', 'approver': '이수진', 'status': '대기', 'draftedAt': '2026-08-01'},
+            {'id': 'AP-SRCH-2', 'docType': 'SR 신청', 'title': '검색테스트 무관문서', 'drafter': '박정호', 'dept': 'IT운영팀', 'approver': '시스템관리자', 'status': '대기', 'draftedAt': '2026-08-01'},
+        ],
+        'riskItems': [
+            {'id': 'RK-SRCH-1', 'title': '검색테스트 위험시나리오', 'area': '테스트영역', 'threat': '위협X', 'vulnerability': '취약점Y',
+             'likelihood': 3, 'impact': 3, 'treatment': '완화', 'owner': '박정호', 'plan': '조치계획', 'dueDate': '2026-12-31', 'status': '조치중', 'identifiedAt': '2026-08-01'},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
     # 감사 이력 조회 필터(v1.5.331) — 행위자·행위·기간으로 좁히고 export 도 동일 필터. 3건(구별되는 행위자·행위·날짜).
     AUDITF_DATA.write_text(json.dumps({'auditLogs': [
         {'at': '2026-08-01 09:00', 'actor': '김현우', 'action': '결재 승인', 'detail': 'AP-1 승인 처리'},
@@ -4036,6 +4066,7 @@ def main() -> int:
     PJMEMB_DATA.unlink(missing_ok=True)
     EXECFALSE_DATA.unlink(missing_ok=True)
     AUDITF_DATA.unlink(missing_ok=True)
+    SRCH_DATA.unlink(missing_ok=True)
     RMGHOST_DATA.unlink(missing_ok=True)
     AFDEFEAT_DATA.unlink(missing_ok=True)
     QNAROLE_DATA.unlink(missing_ok=True)
