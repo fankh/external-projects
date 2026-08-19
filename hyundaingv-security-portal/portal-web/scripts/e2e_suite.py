@@ -811,6 +811,68 @@ def sc_rest_hr(pg, base, check):
         srv.shutdown()
 
 
+REST_ASSET_PORT = 3893  # REST 자산 어댑터 픽스처 서버 (GET 조회 + POST 등록)
+
+
+class _AssetFixtureHandler(http.server.BaseHTTPRequestHandler):
+    gets = 0
+    posts = 0
+    # 조회 결과 — 미등록 1건(SN-FIN-001, 취득 버튼 노출) + 등록 1건(SN-FIN-002, 번호 보유)
+    listing = json.dumps([
+        {'serial': 'SN-FIN-001', 'model': 'ThinkPad X1 Carbon', 'category': '노트북', 'holder': '김수신'},
+        {'serial': 'SN-FIN-002', 'model': 'PowerEdge R760', 'category': '서버', 'holder': '여신팀', 'assetNo': 'AST-FIN-0001'},
+    ]).encode('utf-8')
+
+    def do_GET(self):
+        _AssetFixtureHandler.gets += 1
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(_AssetFixtureHandler.listing)
+
+    def do_POST(self):
+        _AssetFixtureHandler.posts += 1
+        length = int(self.headers.get('Content-Length', 0))
+        self.rfile.read(length)  # 바디 소비
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"assetNo": "AST-FIN-9001"}')  # 취득된 등록번호
+
+    def log_message(self, *args):
+        pass
+
+
+def sc_rest_asset(pg, base, check):
+    """REST 자산 어댑터(실동작) — 실제 HTTP 조회 + 등록번호 취득(쓰기 폐쇄 루프) 검증. 금융 프로필
+    (fin-asset→restAsset)로 기동, PORTAL_ASSET_API_URL(조회 GET)·PORTAL_ASSET_REGISTER_URL(등록 POST)을
+    로컬 픽스처로 지정한다. 자산등록 화면 조회 → 실 GET 결과 표시, '등록번호 취득' → 실 POST → 취득번호 이력.
+    fails-without-fix: searchAssets 가 실 GET 하지 않으면(빈 배열) 조회 0건·취득 버튼 없음 → 실패."""
+    _AssetFixtureHandler.gets = 0
+    _AssetFixtureHandler.posts = 0
+    srv = http.server.ThreadingHTTPServer(('127.0.0.1', REST_ASSET_PORT), _AssetFixtureHandler)
+    th = threading.Thread(target=srv.serve_forever, daemon=True)
+    th.start()
+    try:
+        login(pg, base, '시스템관리자')  # ADMIN — 자산 조회·취득
+        pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
+        # 조회 — 페이지 로드 시 searchAssets 가 실 GET → 픽스처 목록 표시
+        check(_AssetFixtureHandler.gets >= 1, f'restAsset 이 실제 HTTP GET 으로 자산 조회 (픽스처 GET {_AssetFixtureHandler.gets})')
+        listing = pg.locator('table', has_text='자산등록번호').inner_text()
+        check('SN-FIN-001' in listing and 'ThinkPad X1 Carbon' in listing, '실 자산 조회 결과가 목록에 표시')
+        # 취득 — 미등록 자산(SN-FIN-001)의 '등록번호 취득' → 실 POST → 취득번호 이력
+        row = pg.locator('tr', has_text='SN-FIN-001')
+        row.locator('button:has-text("등록번호 취득")').click()
+        pg.wait_for_load_state('networkidle')
+        time.sleep(0.6)
+        check(_AssetFixtureHandler.posts >= 1, f'restAsset 이 실제 HTTP POST 로 등록번호 취득 (픽스처 POST {_AssetFixtureHandler.posts})')
+        pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
+        hist = pg.locator('.card', has_text='취득 이력').inner_text()
+        check('AST-FIN-9001' in hist, f'실 POST 로 취득한 등록번호가 이력에 기록 (실제: …{hist[:120]})')
+    finally:
+        srv.shutdown()
+
+
 def sc_settle_delete(pg, base, check):
     """정산품의 삭제(폐기) — 반려 건 삭제 + 재상신 할일 폐쇄 (요구사항 11·17행 P=삭제).
     격리(settlements·approvals 비움): 이수진 상신 → 박정호 반려(→이수진 재상신 할일) → 이수진 삭제 시 품의가
@@ -2496,7 +2558,7 @@ def sc_profile(pg, base, check):
     check('erp-asset' in body, 'ERP 자산 어댑터 바인딩')
     login(pg, base, '박정호')
     pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
-    check('SN-NB-88121' in pg.content(), 'erp-asset 어댑터 실동작(자산 조회)')
+    check('SN-DEMO-0001' in pg.content(), 'erp-asset 어댑터 실동작(자산 조회)')
 
 
 def sc_profile_public(pg, base, check):
@@ -2518,7 +2580,7 @@ def sc_profile_public(pg, base, check):
     # gov-asset 어댑터 실동작
     login(pg, base, '박정호')
     pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
-    check('SN-NB-88121' in pg.content(), 'gov-asset 어댑터 실동작(자산 조회)')
+    check('SN-DEMO-0001' in pg.content(), 'gov-asset 어댑터 실동작(자산 조회)')
 
 
 def sc_profile_finance(pg, base, check):
@@ -2539,7 +2601,7 @@ def sc_profile_finance(pg, base, check):
     # fin-asset 어댑터 실동작 — mockAsset(=erp/gov 과 동일 목업) 자산 조회
     login(pg, base, '박정호')
     pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
-    check('SN-NB-88121' in pg.content(), 'fin-asset 어댑터 실동작(자산 조회)')
+    check('SN-DEMO-0001' in pg.content(), 'fin-asset 어댑터 실동작(자산 조회)')
 
 
 def sc_persist(pg, base, check):
@@ -2887,6 +2949,9 @@ SCENARIOS = [
     ('rest_hr', 'REST HR 디렉터리 어댑터 — 실제 HTTP 조회·매핑(금융 프로필 fin-hr→restHr)', sc_rest_hr,
      {'PORTAL_PROFILE': 'finance', 'PORTAL_HR_API_URL': f'http://127.0.0.1:{REST_HR_PORT}/employees',
       'PORTAL_HR_NAME_FIELD': 'empName', 'PORTAL_HR_DEPT_FIELD': 'orgName'}),
+    ('rest_asset', 'REST 자산 어댑터 — 실제 HTTP 조회+등록번호 취득 쓰기 폐쇄루프(금융 프로필 fin-asset→restAsset)', sc_rest_asset,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_ASSET_API_URL': f'http://127.0.0.1:{REST_ASSET_PORT}/assets',
+      'PORTAL_ASSET_REGISTER_URL': f'http://127.0.0.1:{REST_ASSET_PORT}/assets/register'}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),

@@ -11,7 +11,7 @@
  *   · 비정상 응답(비 2xx) → { ok:false, detail: 'HTTP <status>' } (소프트 실패).
  *   · 네트워크·인증 예외 → throw. registry.sendVia 의 try/catch 가 실패 이력으로 흡수한다.
  *   · 자체 타임아웃 없음 — registry.withTimeout 이 모든 어댑터 호출을 감싼다. */
-import type { HrAdapter, MessagingAdapter, SendResult } from './types'
+import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, SendResult } from './types'
 import type { Person } from '@/lib/types'
 
 interface RestChannelEnv {
@@ -129,5 +129,77 @@ export const restHr: HrAdapter = {
         dept: pickField(r, deptField, ['dept', 'orgName', 'deptName', 'department', '부서']),
       }))
       .filter((p) => p.name && p.dept)
+  },
+}
+
+/** 응답 봉투에서 행 배열을 꺼낸다 — 배열 또는 {<key>|data|items:[...]} 지원. */
+function unwrapRows(data: unknown, key: string): unknown[] {
+  if (Array.isArray(data)) return data
+  const o = data as Record<string, unknown>
+  for (const k of [key, 'data', 'items']) {
+    if (Array.isArray(o?.[k])) return o[k] as unknown[]
+  }
+  return []
+}
+
+/** 부트스트랩 자산 목록 — 실 자산 엔드포인트(PORTAL_ASSET_API_URL) 미설정 시의 데모 인벤토리.
+ *  자산관리시스템 연동 전 초기 구동용. 모두 미등록(assetNo 없음)이라 자가진단의 취득 경로를 건드리지 않는다
+ *  (등록 자산이 있으면 conformance 가 acquireAssetNo 를 호출하는데 등록 엔드포인트 미설정 시 throw 되므로). */
+const BOOTSTRAP_ASSETS: ExternalAsset[] = [
+  { serial: 'SN-DEMO-0001', model: 'ThinkPad T14 Gen5', category: '노트북', holder: '김현우' },
+  { serial: 'SN-DEMO-0002', model: 'PowerEdge R760', category: '서버', holder: 'IT운영팀' },
+  { serial: 'SN-DEMO-0003', model: 'Dell U2723QE', category: '모니터', holder: '이수진' },
+]
+
+/** 자산관리시스템(REST) — 자산 조회 + 신규 자산등록번호 취득(쓰기 폐쇄 루프).
+ *  조회는 `PORTAL_ASSET_API_URL` GET(`?q=`), 취득은 `PORTAL_ASSET_REGISTER_URL` POST(`{serial}` → `{assetNo}`).
+ *  인증은 `PORTAL_ASSET_API_TOKEN`(Bearer). 고객 스키마는 통용 필드명으로 매핑(serial·sn / model / category·type /
+ *  holder·owner / assetNo?). 조회 엔드포인트 미설정 시 빈 배열(자가진단은 빈 배열도 계약 통과). 네트워크·인증·
+ *  비정상 응답은 throw — 조회는 화면의 `.catch(()=>[])`, 취득은 acquire 액션의 try/catch 가 흡수한다. */
+export const restAsset: AssetAdapter = {
+  async searchAssets(query: string): Promise<ExternalAsset[]> {
+    const url = (process.env.PORTAL_ASSET_API_URL ?? '').trim()
+    if (!url) {
+      const q = (query ?? '').trim()
+      return q ? BOOTSTRAP_ASSETS.filter((a) => a.serial.includes(q) || a.model.includes(q) || a.holder.includes(q)) : BOOTSTRAP_ASSETS
+    }
+
+    const token = (process.env.PORTAL_ASSET_API_TOKEN ?? '').trim()
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    const sep = url.includes('?') ? '&' : '?'
+    const res = await fetch(`${url}${sep}q=${encodeURIComponent(query ?? '')}`, { headers })
+    if (!res.ok) throw new Error(`자산 조회 API HTTP ${res.status}`)
+    const rows = unwrapRows(await res.json(), 'assets')
+    return rows
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+      .map((r) => {
+        const assetNo = pickField(r, '', ['assetNo', 'assetNumber', 'registrationNo', 'assetRegNo'])
+        const asset: ExternalAsset = {
+          serial: pickField(r, '', ['serial', 'sn', 'serialNo', 'assetTag']),
+          model: pickField(r, '', ['model', 'modelName', 'modelNm']),
+          category: pickField(r, '', ['category', 'type', 'assetType', 'categoryName']),
+          holder: pickField(r, '', ['holder', 'owner', 'user', 'userName', 'holderName']),
+        }
+        return assetNo ? { ...asset, assetNo } : asset
+      })
+      .filter((a) => a.serial && a.model && a.category && a.holder)
+  },
+
+  async acquireAssetNo(serial: string): Promise<{ assetNo: string }> {
+    const url = (process.env.PORTAL_ASSET_REGISTER_URL ?? '').trim()
+    if (!url) throw new Error('자산등록 endpoint 미설정 (PORTAL_ASSET_REGISTER_URL)')
+
+    const token = (process.env.PORTAL_ASSET_API_TOKEN ?? '').trim()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ serial }) })
+    if (!res.ok) throw new Error(`자산등록 API HTTP ${res.status}`)
+    const j = (await res.json()) as { assetNo?: unknown; assetNumber?: unknown }
+    const assetNo = typeof j.assetNo === 'string' ? j.assetNo : typeof j.assetNumber === 'string' ? j.assetNumber : ''
+    if (!assetNo.trim()) throw new Error('자산등록 응답에 assetNo 없음')
+    return { assetNo: assetNo.trim() }
   },
 }

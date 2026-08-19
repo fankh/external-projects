@@ -5,7 +5,7 @@ import { CHANNELS } from '@/portal.config'
 import { nowStamp } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { mockAsset, mockHr, mockMail, mockSecdata, mockSecmon, mockSms } from './mock'
-import { restHr, restMail, restSms } from './rest'
+import { restAsset, restHr, restMail, restSms } from './rest'
 import type { AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SecMonAdapter, SendResult } from './types'
 
 /** 어댑터 호출 상한 시간 — 실 고객사 시스템이 응답 없이 매달리면(타임아웃 없는 fetch 등)
@@ -40,7 +40,9 @@ const MESSAGING: Record<string, MessagingAdapter> = {
 // 데모 기본은 목업 유지(오프라인·결함주입 테스트). 샘플 고객사 프로필의 HR 은 실동작 REST 디렉터리 어댑터에
 // 바인딩 — PORTAL_HR_API_URL 설정 시 실 HR API 조회, 미설정 시 부트스트랩 명단(자가진단 통과).
 const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr, 'rest-hr': restHr, 'hanbit-hr': restHr, 'gov-hr': restHr, 'fin-hr': restHr }
-const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'erp-asset': mockAsset, 'gov-asset': mockAsset, 'fin-asset': mockAsset }
+// 데모 기본은 목업 유지(오프라인·결함주입 테스트). 샘플 고객사 프로필의 자산은 실동작 REST 어댑터에 바인딩 —
+// PORTAL_ASSET_API_URL 설정 시 실 자산 API 조회·PORTAL_ASSET_REGISTER_URL 로 등록번호 취득(쓰기 폐쇄 루프).
+const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'rest-asset': restAsset, 'erp-asset': restAsset, 'gov-asset': restAsset, 'fin-asset': restAsset }
 const SECDATA: Record<string, SecdataAdapter> = { 'mock-secdata': mockSecdata, 'gov-secdata': mockSecdata, 'fin-secdata': mockSecdata }
 const SECMON: Record<string, SecMonAdapter> = { 'mock-secmon': mockSecmon, 'gov-secmon': mockSecmon, 'fin-secmon': mockSecmon }
 
