@@ -488,12 +488,23 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       // 반납 승인은 '반납대기'까지만 — 실물 회수와 상태 점검을 거쳐야 유휴 풀에 들어간다
       // (제품안내서 §03 PHASE 4: 반납 접수 · 상태 점검 → 유휴 자산 풀)
       if (a.kind === '반납') {
-        asset.status = '반납대기'
-        asset.history.push({ date: today(), kind: '반납', detail: '반납 결재 승인 · 회수 접수 대기', actor: session.name })
-        // 반납으로 자산이 보유자를 떠나면 배정 라이선스 좌석을 회수한다(로56 좌석 생애주기) — 담당자 회수·폐기와 같은 처리. 여유석 복귀.
-        const freed = reclaimLicenseSeats(asset.assetNo, session.name, '반납')
-        if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (반납)`, actor: session.name })
-        asset.receiptPending = undefined // 미확인 수령 대기 해제 — 반납된 자산은 인수 대기 대상이 아니다
+        // 스테일 반납 방어 — 상신 후 자산이 이탈(분실·폐기)했거나 다른 보유자로 재확정(재배정·대여·수리)되었으면
+        //  반납대기로 되돌리지 않는다(대여 승인·차이 조정과 동형). 안 그러면 분실 자산을 손실 루프에서 빼내거나,
+        //  재배정된 자산을 반납대기로 뒤엎고 새 보유자의 좌석을 회수해 대장·SAM 이 어긋난다.
+        const departed = ['분실', '폐기예정', '폐기완료'].includes(asset.status)
+        const reConfirmed = asset.owner !== a.requester || ['대여중', '수리중'].includes(asset.status)
+        const inDisposal = s.disposals.some((dp) => dp.assetNo === asset.assetNo && dp.status !== '완료')
+        if (departed || reConfirmed || inDisposal) {
+          const why = departed ? `${asset.status} 이탈` : inDisposal ? '폐기 절차 진행 중' : asset.owner !== a.requester ? `보유자 변경(현재 ${asset.owner})` : `${asset.status} 재확인`
+          asset.history.push({ date: today(), kind: '반납', detail: `반납 결재 승인 미적용 — 상신 후 ${why}로 스테일 (${a.id})`, actor: session.name })
+        } else {
+          asset.status = '반납대기'
+          asset.history.push({ date: today(), kind: '반납', detail: '반납 결재 승인 · 회수 접수 대기', actor: session.name })
+          // 반납으로 자산이 보유자를 떠나면 배정 라이선스 좌석을 회수한다(로56 좌석 생애주기) — 담당자 회수·폐기와 같은 처리. 여유석 복귀.
+          const freed = reclaimLicenseSeats(asset.assetNo, session.name, '반납')
+          if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (반납)`, actor: session.name })
+          asset.receiptPending = undefined // 미확인 수령 대기 해제 — 반납된 자산은 인수 대기 대상이 아니다
+        }
       }
       if (a.kind === '폐기') {
         asset.history.push({ date: today(), kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 대기', actor: session.name })

@@ -55,9 +55,10 @@ export function buildMaintenance(): {
             .filter((a) => a.contractId === c.id && a.status === '수리중' && a.repair && -(daysUntil(a.repair.sentAt) ?? 0) > c.slaResponseDays!)
             .map((a) => a.assetNo)
         : []
-      // 초과·미집행 판정은 반올림 rate 가 아니라 실집행액으로 — 초과는 100.0~100.5%가 반올림되어 '소진 임박'으로,
-      // 미집행은 0.1%(반올림 0%)가 '미집행'으로 오분류되던 문제 방지(양쪽 경계 동일 규칙). 미집행 = 계약액 있음 + 집행 전무.
-      const status: MaintenanceRow['status'] = spent > c.amount ? '예산 초과' : c.amount > 0 && spent === 0 ? '미집행' : rate >= 90 ? '소진 임박' : '정상'
+      // 초과·미집행·소진 임박 판정은 모두 반올림 rate 가 아니라 실집행액으로 — 초과는 100.0~100.5%가 반올림되어 '소진 임박'으로,
+      // 미집행은 0.1%(반올림 0%)가 '미집행'으로, 소진 임박은 89.6%(반올림 90%)가 '소진 임박'으로 오분류되던 문제 방지(세 경계 동일 규칙).
+      // 소진 임박 = 계약액 대비 90% 이상 집행(spent/amount ≥ 0.9, 정수배로 비교). 미집행 = 계약액 있음 + 집행 전무.
+      const status: MaintenanceRow['status'] = spent > c.amount ? '예산 초과' : c.amount > 0 && spent === 0 ? '미집행' : c.amount > 0 && spent * 10 >= c.amount * 9 ? '소진 임박' : '정상'
       return {
         id: c.id,
         name: c.name,
