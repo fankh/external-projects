@@ -656,6 +656,14 @@ try {
   await p2.goto(`${BASE}/assets/register?os=eol`, { waitUntil: 'networkidle' })
   ok('EOL 필터: 운영 중 EOL 자산 노출(AST-2021-000432 유휴)', (await p2.locator('td', { hasText: 'AST-2021-000432' }).count()) > 0)
   ok('EOL 필터: 비운영(수리중) EOL 자산 제외(AST-2021-000556 · 교체 통보 오발송 방지)', (await p2.locator('td', { hasText: 'AST-2021-000556' }).count()) === 0)
+  // 수리 불가 → 보유자 정리(홀더-스테이트 불변식) — 장애 신고로 소유자를 유지한 채 수리에 든 자산(AST-2021-000556 한지원)이 수리 불가로 폐기예정 전환될 때 소유자를 비워야 한다.
+  //  안 하면 폐기 결재 반려 시 유휴 자산이 원 소유자에 오귀속되고 좌석이 샌다(반납·회수·폐기와 동일 정리). 이 EOL 게이트가 556 을 읽은 뒤에 소비.
+  await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  await p2.locator('tr', { hasText: 'AST-2021-000556' }).first().locator('button', { hasText: /^수리 불가$/ }).click()
+  await p2.waitForTimeout(700)
+  await p2.goto(`${BASE}/assets/register?q=AST-2021-000556`, { waitUntil: 'networkidle' })
+  const repaired556 = (await p2.locator('tr', { hasText: 'AST-2021-000556' }).first().textContent()) || ''
+  ok('수리 불가 → 보유자 정리(미지정·폐기예정 · 원 소유자 오귀속 방지)', repaired556.includes('미지정') && repaired556.includes('폐기예정') && !repaired556.includes('한지원'))
 
   // 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 새 보유자에게 직접 인계. 그동안 사용 중 자산의 보유자 변경 경로가 없어
   //  팀 내 인수인계가 반납→재불출을 강제했다(correctField 가 '이동·불출 결재로'라며 막지만 이동은 위치만·불출은 유휴만). AST-2023-000113(이서연) → 오세훈(인사팀).
@@ -1446,6 +1454,9 @@ try {
   const ctxSU = await browser.newContext(); await ctxSU.addCookies([cookie(USER)]); const pSU = await ctxSU.newPage()
   const userSearch = await (await pSU.request.get(`${BASE}/api/search?q=zzmktgscope`)).text()
   ok('전역 검색: 부서 지정 공지가 대상 밖 사용자에게 미노출(스코핑 유출 방지)', !userSearch.includes('ZZMKTGSCOPE'))
+  // 결재 검색 소유자확인 스코핑(회귀) — 우리 부서로 온 소유자 확인 요청(APR-2607-114·플랫폼개발팀)은 김민준이 응답 대상이라 검색에 나와야 한다(결재함 화면 USER 스코핑과 정합). 기안자가 아니라 검색만 좁아 응답할 건을 못 찾던 공백.
+  const ownerCfmSearch = await (await pSU.request.get(`${BASE}/api/search?q=APR-2607-114`)).text()
+  ok('전역 검색: 우리 부서 소유자 확인 요청은 응답 대상 사용자에게 노출(결재함 스코핑 정합)', ownerCfmSearch.includes('APR-2607-114'))
   await ctxSU.close()
   const ctxSA = await browser.newContext(); await ctxSA.addCookies([cookie(ADMIN)]); const pSA = await ctxSA.newPage()
   const adminSearch = await (await pSA.request.get(`${BASE}/api/search?q=zzmktgscope`)).text()
