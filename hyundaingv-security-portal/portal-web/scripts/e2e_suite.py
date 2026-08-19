@@ -56,6 +56,7 @@ SECMON_DATA = ROOT / 'scripts' / '.e2e-secmon-data.json'  # 보안관제 어댑�
 EXECOVER_DATA = ROOT / 'scripts' / '.e2e-execover-data.json'  # 집행률 초과(err) 톤 원값 판정(반올림 경계) 회귀용 (v1.5.251)
 CFIX_DATA = ROOT / 'scripts' / '.e2e-cfix-data.json'  # 취약점 조치율 no-findings 100(추세 0% 오표기 방지) 회귀용 (v1.5.257)
 RISK_DATA = ROOT / 'scripts' / '.e2e-risk-data.json'  # 정보보호 위험평가 등록→재평가→종결→삭제 커버리지용 (v1.5.259)
+RISKDLY_DATA = ROOT / 'scripts' / '.e2e-riskdly-data.json'  # 위험 조치 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.261)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -507,6 +508,20 @@ def sc_risk_register(pg, base, check):
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/compliance/risks', wait_until='networkidle')  # RSC 재검증 반영 후 재조회
     check(pg.locator('tr', has_text='RK-2026-0001').count() == 0, '종결 위험 삭제 — 대장에서 제거')
+
+
+def sc_risk_overdue_notify(pg, base, check):
+    """위험 조치 지연 알림 — 조치기한 경과 미종결 위험의 담당에게 안내(ISMS 위험처리 폐쇄루프). 격리로 지연
+    위험 2건: 담당 재직(김현우)·퇴사(E2E퇴사담당, s.people 밖). 알림 배치 '위험 조치 지연' 대상이 재직 1명
+    이어야 한다(타 person 알림과 동일 재직 교집합 — SR 지연·확인서 미제출과 동일 계열). 교집합 없으면 퇴사
+    담당 포함 2명 → 대조 재현. 배치에 유형 자체가 없으면(스텝 미구현) '위험 조치 지연' 부재로 단언 실패."""
+    login(pg, base, '시스템관리자')  # ADMIN — 수동 배치 실행
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.locator('button:has-text("알림 배치 실행")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    detail = pg.locator('tr', has_text='알림 배치 실행').first.inner_text()
+    check('위험 조치 지연 1명' in detail, f'위험 조치 지연 알림 = 재직 담당 1명(퇴사 담당 제외) (실제: {detail[:170]})')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2562,6 +2577,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(CFIX_DATA)}),
     ('risk_register', '정보보호 위험평가 — 등록→종결→삭제 + 위험도 등급 파생(ISMS 위험관리대장)', sc_risk_register,
      {'PORTAL_DATA_FILE': str(RISK_DATA)}),
+    ('risk_overdue_notify', '위험 조치 지연 알림 — 조치기한 경과 담당 통지(퇴사 담당 유령 독촉 방지)', sc_risk_overdue_notify,
+     {'PORTAL_DATA_FILE': str(RISKDLY_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -2960,6 +2977,12 @@ def main() -> int:
     CFIX_DATA.write_text(json.dumps({'securityReviews': [], 'complianceSnapshots': [], 'auditLogs': []}, ensure_ascii=False), encoding='utf-8')
     # 정보보호 위험평가 — 위험 없는 상태에서 등록(RK 채번 고정 RK-....-0001)→종결→삭제 전 생명주기 검증.
     RISK_DATA.write_text(json.dumps({'riskItems': []}, ensure_ascii=False), encoding='utf-8')
+    # 위험 조치 지연 알림 — 조치기한 경과 미종결 위험 2건: 담당 재직(김현우)·퇴사(E2E퇴사담당, people 밖).
+    # 알림 배치 '위험 조치 지연' 대상이 재직 1명이어야 한다(교집합 없으면 퇴사 담당 포함 2명 → 대조).
+    _rk = lambda i, owner: {'id': f'RK-2026-9{i}', 'title': f'지연위험{i}', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
+                            'likelihood': 4, 'impact': 4, 'treatment': '완화', 'owner': owner, 'plan': 'p',
+                            'dueDate': '2026-07-01', 'status': '식별', 'identifiedAt': '2026-06-01'}
+    RISKDLY_DATA.write_text(json.dumps({'riskItems': [_rk(1, '김현우'), _rk(2, 'E2E퇴사담당')]}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
