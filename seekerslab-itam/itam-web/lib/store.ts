@@ -634,13 +634,12 @@ function seed(): Store {
       { id: 'DIF-01', roundId: 'INV-2026-H2', kind: '위치 불일치', assetNo: 'AST-2025-000512', model: 'Galaxy Book4 Pro', expected: '본사 8F', actual: '판교 사무소', status: '조정 상신' },
       { id: 'DIF-02', roundId: 'INV-2026-H2', kind: '대장 미등록', assetNo: 'UNKNOWN-77213', model: '미상 (라벨만 확인)', expected: '-', actual: '본사 3F 자산창고', status: '미조치' },
       { id: 'DIF-03', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', expected: '본사 3F 자산창고', actual: '실사 미확인', status: '미조치' },
-      { id: 'DIF-04', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '미조치' },
+      // 폐기 절차 충돌 방어 회귀 — 폐기 대상(DSP-02·대상 선정)인 유휴 자산을 실사 '상태 불일치'로 사용중 되돌리면 사용중 자산이 폐기 리스트에 남는다. 폐기 진행 중이면 상태 보정 미적용. APR-2608-131 이 처리(조정 상신).
+      { id: 'DIF-04', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '조정 상신' },
       // 미확인 유휴 편성 좌석 회수 회귀용 — 조정 상신 상태로 두어 차이 조정 승인(APR-2608-131) 시 즉시 처리된다.
       { id: 'DIF-05', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2024-000994', model: 'ThinkPad X1 Carbon', expected: '본사 7F', actual: '실사 미확인', status: '조정 상신' },
-      // 스테일 방어(재확인) 회귀 — 조정 상신 후 706 을 재배정하면 미확인 유휴 편성이 미적용돼야 한다(재배정 무효화·좌석 회수 방지). APR-2608-131 이 DIF-05·DIF-06·DIF-07 을 함께 처리.
+      // 스테일 방어(재확인) 회귀 — 조정 상신 후 706 을 재배정하면 미확인 유휴 편성이 미적용돼야 한다(재배정 무효화·좌석 회수 방지). APR-2608-131 이 DIF-01·DIF-04·DIF-05·DIF-06 을 함께 처리(위치·폐기충돌·미확인·재확인 4종 스테일 방어를 한 승인에 검증).
       { id: 'DIF-06', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2024-000706', model: 'ThinkPad E14 Gen5', expected: '본사 7F', actual: '실사 미확인', status: '조정 상신' },
-      // 폐기 절차 충돌 방어 — 폐기 대상(DSP-02·대상 선정)인 유휴 자산을 실사 '상태 불일치'로 사용중 되돌리면 사용중 자산이 폐기 리스트에 남는다. 폐기 진행 중이면 상태 보정 미적용.
-      { id: 'DIF-07', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '조정 상신' },
     ],
     contracts: [
       { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀',
