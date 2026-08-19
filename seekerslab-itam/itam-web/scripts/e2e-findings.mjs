@@ -234,6 +234,10 @@ async function aiPeriodQuery(page) {
   ok('AI 교체질의: 장애 이력(잦은 수리) 드라이버 반영(AST-2023-000112)', r1.includes('AST-2023-000112') && r1.includes('잦은 장애'))
   // 답변↔링크 정합 — 교체 대상 답변이 대장 교체 필터(?replace=1)로 연결돼, 센 그 집합을 대장에서 그대로 브라우즈·반출. 리포트·EOL 링크와 별개 진입점.
   ok('AI 교체질의: 답변이 대장 교체 대상 필터(?replace=1)로 연결', (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?replace=1"]').count()) > 0)
+  // 운영 리스크 답변↔링크 정합 — '장기 미실측 필터' 링크가 실제 ?stale=1 로 연결(그전엔 bare /assets/register 로 전체 대장). 분실 링크도 ?status=분실.
+  const rRisk = await ask('운영 리스크 자산 알려줘')
+  ok('AI 운영리스크질의: 분실·미실측·연체·수리 요약', rRisk.includes('운영 리스크 자산 현황') && rRisk.includes('장기 미실측'))
+  ok('AI 운영리스크질의: 장기 미실측 링크가 ?stale=1 로 연결(전체 대장 아님)', (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?stale=1"]').count()) > 0)
   // 취약점 우선순위·이상 탐지 인라인 질의(AI 기능 04·02) — 컴퓨티드 산출을 자연어로 조회(리포트 생성과 별개)
   const rv = await ask('취약점 조치 우선순위 알려줘')
   ok('AI 취약점질의: P1/P2/P3 인라인 요약(리포트 생성 아님)', /취약점 조치 우선순위 — 총 \d+건/.test(rv) && rv.includes('P1 즉시') && !rv.includes('리포트를 생성했습니다'))
@@ -1937,6 +1941,10 @@ try {
   // 분실 신고 → 보유자 통보 — 회수·반납·재배정처럼 '보유 이탈'은 당사자에게 알린다(그동안 도난만 보안운영팀에 통보하고 보유자는 무통보였다). 발송 이력에 분실 신고 통지 적재.
   await p4.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   ok('분실 신고 → 보유자 통보(발송 이력에 분실 신고 통지 적재)', ((await p4.textContent('body')) || '').includes('분실 신고'))
+  // 분실·도난 큐 드릴다운(count↔destination 정합) — 분실 자산이 생긴 지금, 대시보드 분실 큐가 전체 대장이 아니라 ?status=분실 로 연결(큐 건수=목록).
+  await p4.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  const lostQueueHref = await p4.locator('a', { hasText: '분실 · 도난 자산' }).first().getAttribute('href')
+  ok('대시보드: 분실·도난 큐가 ?status=분실 로 드릴다운(전체 대장 아님)', !!lostQueueHref && decodeURIComponent(lostQueueHref).includes('/assets/register?status=분실'))
   await p4.goto(`${BASE}/assets/register?sel=${lostTarget}`, { waitUntil: 'networkidle' })
   const lostScrap = p4.locator('button', { hasText: /^미회수 확정 → 폐기$/ })
   ok('분실 자산: 미회수 확정 → 폐기 조치 노출', (await lostScrap.count()) > 0)

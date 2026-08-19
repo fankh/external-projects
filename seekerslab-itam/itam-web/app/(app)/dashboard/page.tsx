@@ -100,7 +100,7 @@ export default async function DashboardPage() {
       // 영향 집중 자산(단일 장애점·CMDB blast radius) — 이 자산 장애 시 전이적으로 2대 이상 영향. 이중화·우선 정비 대상. 현재 저하(수리중·분실 등) 상태면 즉시 리스크(err).
       { label: `영향 집중 자산 (blast radius ≥2 · 단일 장애점${spof.some((x) => x.degraded) ? ' · 저하 포함' : ''})`, count: spof.length, href: spof.length ? `/assets/register?spof=1` : '/assets/register', tone: spof.some((x) => x.degraded) ? 'err' : 'warn' },
       { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal', tone: 'err' },
-      { label: '분실 · 도난 자산 (회수·폐기 확정)', count: s.assets.filter((a) => a.status === '분실').length, href: '/assets/register', tone: 'err' },
+      { label: '분실 · 도난 자산 (회수·폐기 확정)', count: s.assets.filter((a) => a.status === '분실').length, href: '/assets/register?status=분실', tone: 'err' },
       { label: '대여 반환 연체 (반환 독촉)', count: s.assets.filter(isLoanOverdue).length, href: '/assets/returns', tone: 'err' },
       { label: '대여 반환 임박 (D-7 · 사전 안내)', count: s.assets.filter(isLoanDueSoon).length, href: '/assets/returns', tone: 'warn' },
       { label: '장기 미실측 (재물조사 편성)', count: s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).length, href: '/inventory/survey-plan', tone: 'warn' },

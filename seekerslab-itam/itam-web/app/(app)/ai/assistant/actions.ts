@@ -593,7 +593,8 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         sec(`수리중 (예상 반환 경과 ${repairLate.length}건)`, repairing, (a) => `${a.assetNo} — ${a.model}${a.repair ? ` · ${a.repair.vendor}${a.repair.eta ? ` (예상반환 ${a.repair.eta}${isRepairOverdue(a) ? ' · 지연' : ''})` : ''}` : ' · 의뢰 전'}`),
       ].join('\n\n')}\n\n분실은 회수·폐기 확정, 장기 미실측은 수시 재물조사 편성, 대여 연체는 반환 독촉, 수리 지연은 업체 독촉으로 처리합니다.`,
       evidence: [
-        { label: '자산 대장 (장기 미실측 필터)', href: '/assets/register' },
+        { label: '자산 대장 (장기 미실측 필터)', href: '/assets/register?stale=1' },
+        { label: '자산 대장 (분실·도난)', href: '/assets/register?status=분실' },
         { label: '재물조사 계획', href: '/inventory/survey-plan' },
       ],
     }
