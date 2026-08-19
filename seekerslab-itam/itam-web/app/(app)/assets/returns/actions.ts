@@ -30,6 +30,10 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
   //  - 정상 → 유휴 (바로 재배치 가능)
   if (condition === '폐기 권고') {
     asset.status = '폐기예정'
+    // 반납으로 보유자를 떠났으므로 소유자를 비운다 — 다른 점검 결과(정상·수리 필요)와 동일 불변식.
+    // (누락 시, 폐기 취소·반려로 유휴 복귀 때 떠난 보유자가 그대로 남아 유휴 자산이 그 부서에 오귀속된다.)
+    asset.owner = '미지정'
+    asset.dept = '자산관리팀'
     // 폐기 권고는 폐기 절차로 바로 편입한다 — 폐기 대상 레코드를 만들어야 결재·소거로 이어진다
     // (그동안 상태만 폐기예정으로 바뀌고 폐기 대장에 오르지 않아 소거로 진행할 수 없었다)
     if (!s.disposals.some((d) => d.assetNo === assetNo)) {

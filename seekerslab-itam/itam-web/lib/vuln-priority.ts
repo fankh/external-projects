@@ -47,9 +47,11 @@ function assetCriticality(opts: { internetFacing?: boolean; asset?: Asset }): Ri
   return W[explicit] >= W[heuristic] ? explicit : heuristic
 }
 
-/** 점수 — 심각도 × 중요도(1~9)를 0~100 으로 정규화. */
+/** 점수 — 심각도 × 중요도(1~9)를 0~100 으로 정규화. floor 로 절사한다(반올림 아님):
+ *  중간×높음=66.67 이 반올림되면 67 이 되어 P1 컷오프(≥67)를 넘어 P2 가 P1 로 오분류된다(리포트 P2 범위 라벨 '34~66'
+ *  이 66 을 상한으로 명시 — 66.67 은 P2). 미집행률·상각률과 동일한 반올림 오분류 계열(cost.ts depreciationPct 도 floor). */
 function scoreOf(sev: RiskLevel, crit: RiskLevel): number {
-  return Math.round(((W[sev] * W[crit]) / 9) * 100)
+  return Math.floor(((W[sev] * W[crit]) / 9) * 100)
 }
 /** 등급 판정 — 보안담당이 관리하는 위험도 기준(riskPolicy)의 컷오프로 P1/P2/P3 를 나눈다.
  *  임계값을 인자로 받아, 정책 참조 없이 순수 함수로 유지한다(호출부에서 정책 주입 — 누락 시 tsc 가 잡음). */

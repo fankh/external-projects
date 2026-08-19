@@ -480,6 +480,9 @@ export async function returnLoan(assetNo: string, condition: ReturnCondition = '
   //  정상 → 유휴 · 수리 필요 → 수리중(수리 후 유휴) · 폐기 권고 → 폐기예정(폐기 절차 편입).
   if (condition === '폐기 권고') {
     asset.status = '폐기예정'
+    // 대여 반환으로 보유자를 떠났으므로 소유자를 비운다 — 다른 점검 결과와 동일 불변식(폐기 취소·반려로 유휴 복귀 시 오귀속 방지).
+    asset.owner = '미지정'
+    asset.dept = '자산관리팀'
     if (!s.disposals.some((d) => d.assetNo === assetNo)) {
       s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `대여 반환 점검 폐기 권고${note ? ` — ${note}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
     }
