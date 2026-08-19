@@ -85,6 +85,8 @@ function seedAssets(): Asset[] {
       repairCosts: [
         { id: 'ARC-0001', date: '2024-06-18', vendor: '중부IT서비스', item: '키보드 교체', amount: 95_000, by: '박자산' },
         { id: 'ARC-0002', date: '2025-09-05', vendor: '중부IT서비스', item: '배터리 교체', amount: 148_000, by: '박자산' },
+        // 무상 보증 청구분(제조사 부담) — 자사 부담 누계(243,000)에 안 잡히고 보증 절감으로 집계. 잦은 장애 누계도 자사 부담만이어야 한다(교체 계획 리포트 정합 회귀).
+        { id: 'ARC-0003', date: '2026-06-20', vendor: '중부IT서비스', item: '메인보드 교체(보증 내)', amount: 200_000, by: '박자산', warrantyClaimed: true },
       ],
       history: [
         { date: '2023-03-15', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },

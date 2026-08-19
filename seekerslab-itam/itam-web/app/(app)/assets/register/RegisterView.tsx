@@ -6,7 +6,7 @@ import { ASSET_CATEGORIES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus, BizCriticality } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
-import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
+import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, reassignAsset, notifyEolUpgrade, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
@@ -721,14 +721,14 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <dt>수리 비용 이력</dt>
                   <dd className="vstack" style={{ gap: 3, alignItems: 'stretch' }}>
                     <div className="hstack" style={{ gap: 6 }}>
-                      <span className="strong tnum">누계 {sel.repairCosts!.reduce((n, c) => n + c.amount, 0).toLocaleString()}원</span>
-                      <span className="mut" style={{ fontSize: 11 }}>· {sel.repairCosts!.length}건</span>
+                      <span className="strong tnum">누계 {repairTotalOf(sel).toLocaleString()}원</span>
+                      <span className="mut" style={{ fontSize: 11 }}>· {sel.repairCosts!.length}건 (자사 부담)</span>
                     </div>
                     {[...sel.repairCosts!].sort((a, b) => b.date.localeCompare(a.date)).map((c) => (
                       <div key={c.id} className="hstack" style={{ gap: 8, fontSize: 12 }}>
                         <span className="tnum mut" style={{ minWidth: 76 }}>{c.date}</span>
-                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.item}</span>
-                        <span className="tnum" style={{ minWidth: 78, textAlign: 'right' }}>{c.amount.toLocaleString()}원</span>
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.item}{c.warrantyClaimed && <span className="mut"> · 무상 보증 청구</span>}</span>
+                        <span className="tnum" style={{ minWidth: 78, textAlign: 'right', color: c.warrantyClaimed ? 'var(--mut)' : undefined }}>{c.warrantyClaimed ? `절감 ${c.amount.toLocaleString()}` : `${c.amount.toLocaleString()}원`}</span>
                       </div>
                     ))}
                   </dd>

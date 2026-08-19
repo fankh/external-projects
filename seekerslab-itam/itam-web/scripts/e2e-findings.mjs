@@ -265,6 +265,8 @@ async function aiPeriodQuery(page) {
   // 무압축 저장 ZIP 이라 셀 XML(inlineStr)이 평문 — 실제 리포트 데이터(제목·섹션)가 셀에 담겼는지 확인(빈 시트·오源 회귀 방지)
   const xtext = xbuf.toString('utf8')
   ok('리포트 반출: xlsx 셀에 실제 리포트 데이터(제목·섹션)', xtext.includes('연간 교체 계획') && xtext.includes('교체 대상 자산'))
+  // 잦은 장애 누계 정합(회귀) — 교체 계획의 '잦은 장애 누계'는 자사 부담만(무상 보증 청구 제외)이어야 월간 리포트·TCO 와 어긋나지 않는다. 시드 AST-2023-000112: 자사 부담 243,000 + 무상 보증 청구 200,000 → 누계는 243,000.
+  ok('교체 계획 리포트: 잦은 장애 누계는 자사 부담만(무상 보증 청구 제외 · 월간 리포트 정합)', xtext.includes('누계 243,000') && !xtext.includes('누계 443,000'))
   // 감사 대응 자료 리포트에 이상 자산 행위 탐지(fn02) 섹션이 실제 생성됨 — fn02가 유일하게 리포트 미커버였던 공백 해소.
   // 유휴 자산 사용(미승인 불출 AST-2021-000432)은 위협 대응 카운트 섹션엔 없는 행위 이상이라, 이 섹션이 없으면 감사 증적에서 누락된다.
   const r3 = await ask('감사 대응 자료 리포트 생성해줘')
@@ -692,7 +694,7 @@ try {
   ok('무상 보증 청구: 보증 내 자산 무상 청구 성공(자사 부담 0 · 절감 표기)', ((await p2.locator('body').textContent()) || '').includes('절감 350,000원'))
   await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const returnsBodyW = (await p2.locator('body').textContent()) || ''
-  ok('무상 보증 청구: 보증 절감 누계 반영(350,000원 · 자사 TCO 제외분)', returnsBodyW.includes('보증 절감') && returnsBodyW.includes('350,000원'))
+  ok('무상 보증 청구: 보증 절감 누계 반영(시드 200,000 + 377 350,000 = 550,000원 · 자사 TCO 제외분)', returnsBodyW.includes('보증 절감') && returnsBodyW.includes('550,000원'))
   // 월간 자산 현황 리포트가 보증 절감을 노출(비용 회피 가시화·숫자 투명성) — 무상 청구분은 자사 수리비 총계에서 빠지되 '보증 절감'으로 별도 명시(위 377 청구 350,000 반영). 리포트 생성은 키 무관 결정적 처리.
   await p2.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
   const beforeM = await p2.locator('.msg.assistant .bub').count()
@@ -703,7 +705,7 @@ try {
   const warRHref = await p2.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
   const warRid = decodeURIComponent((warRHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const warRtext = Buffer.from(await (await p2.request.get(`${BASE}/api/reports/${encodeURIComponent(warRid)}?format=xlsx`)).body()).toString('utf8')
-  ok('월간 리포트: 무상 보증 청구 보증 절감 노출(비용 회피 가시화·숫자 투명성)', warRtext.includes('보증 절감') && warRtext.includes('350,000'))
+  ok('월간 리포트: 무상 보증 청구 보증 절감 노출(비용 회피 가시화·숫자 투명성)', warRtext.includes('보증 절감') && warRtext.includes('550,000'))
 
   // 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 새 보유자에게 직접 인계. 그동안 사용 중 자산의 보유자 변경 경로가 없어
   //  팀 내 인수인계가 반납→재불출을 강제했다(correctField 가 '이동·불출 결재로'라며 막지만 이동은 위치만·불출은 유휴만). AST-2023-000113(이서연) → 오세훈(인사팀).
