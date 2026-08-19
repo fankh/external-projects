@@ -8,6 +8,7 @@ smoke(SSR)·client_health(크래시)가 못 보는 '동작'을 본다: 결재 �
 import http.server
 import json
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -1075,6 +1076,77 @@ def sc_sso_saml(pg, base, check):
     loc = redir.headers.get('location', '')
     check(redir.status in (302, 303) and 'evil.example' not in loc,
           f'RelayState 백슬래시 오픈 리다이렉트 차단(로컬 폴백) (loc={loc[:70]})')
+
+
+REST_ABORT_PORT = 3888  # 어댑터 fetch 취소 검증용 무응답 프로브
+
+
+class _AbortProbe:
+    """요청을 받되 응답을 보내지 않는 원시 TCP 프로브 — 클라이언트가 상한 시점에 연결을 끊는지(FIN) 관찰한다.
+    쓰기 기반 감지는 TCP 버퍼링으로 신뢰할 수 없어(RST 지연), 연결 종료를 recv 로 직접 본다."""
+
+    def __init__(self, port):
+        self.aborted = None  # None=미수신 · True=클라이언트가 연결 종료(취소) · False=계속 대기(취소 안 됨)
+        self._stop = False
+        self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.srv.bind(('127.0.0.1', port))
+        self.srv.listen(8)
+
+    def serve(self):
+        self.srv.settimeout(0.5)
+        while not self._stop:
+            try:
+                conn, _ = self.srv.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            threading.Thread(target=self._handle, args=(conn,), daemon=True).start()
+
+    def _handle(self, conn):
+        try:
+            conn.recv(65536)  # 요청(헤더+바디) 읽기 — 응답은 보내지 않는다
+            # 응답이 없으면 클라이언트는 상한(600ms)까지 대기하다 취소한다. 취소 시 소켓이 닫혀 recv 가 b'' 반환.
+            conn.settimeout(1.5)
+            data = conn.recv(1)
+            self.aborted = (data == b'')  # 빈 바이트 = FIN(연결 종료, 취소됨)
+        except socket.timeout:
+            self.aborted = False  # 1.5초간 안 끊음 = 소켓 열린 채 방치(취소 안 됨)
+        except OSError:
+            self.aborted = True   # RST 등 강제 종료 = 취소
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    def stop(self):
+        self._stop = True
+        try:
+            self.srv.close()
+        except Exception:
+            pass
+
+
+def sc_adapter_abort(pg, base, check):
+    """어댑터 fetch 취소 — 상한 초과 시 실제 연결을 중단(소켓 정리)한다. registry.withTimeout 은 대기 프라미스만
+    끊고 fetch 는 열린 채 남으므로, 각 fetch 에 AbortSignal.timeout 을 걸어 연결까지 취소한다. 응답 없는 프로브에
+    낮은 상한(600ms)으로 발송 → 어댑터가 상한 시점에 연결을 끊어야 한다(프로브가 FIN 을 recv 로 감지).
+    fails-without-fix: signal 없으면 소켓이 열린 채 남아 프로브가 계속 대기(취소 미감지)."""
+    probe = _AbortProbe(REST_ABORT_PORT)
+    th = threading.Thread(target=probe.serve, daemon=True)
+    th.start()
+    try:
+        login(pg, base, '시스템관리자')
+        pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+        pg.locator('button:has-text("알림 배치 실행")').click()
+        pg.wait_for_load_state('networkidle')
+        time.sleep(2.5)  # 프로브의 recv 상한(1.5s) + 여유
+        check(probe.aborted is True,
+              f'상한 초과 시 어댑터가 fetch 연결 취소(소켓 정리) (aborted={probe.aborted})')
+    finally:
+        probe.stop()
 
 
 def sc_settle_delete(pg, base, check):
@@ -3168,6 +3240,9 @@ SCENARIOS = [
      {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
       'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
       'PORTAL_SAML_IDP_CERT_FILE': str(ROOT / 'scripts' / '.saml-test-cert.pem')}),
+    ('adapter_abort', '어댑터 fetch 취소 — 상한 초과 시 연결 중단(소켓 정리, AbortSignal)', sc_adapter_abort,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_MAIL_API_URL': f'http://127.0.0.1:{REST_ABORT_PORT}/send',
+      'PORTAL_ADAPTER_TIMEOUT_MS': '600'}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
