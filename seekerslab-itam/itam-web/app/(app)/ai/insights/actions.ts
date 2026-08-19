@@ -4,7 +4,8 @@ import { appendAudit } from '@/lib/audit'
 import { classifyDiscoveredType } from '@/lib/classify'
 import { today } from '@/lib/dates'
 import { raiseLicenseApproval } from '@/lib/license'
-import { createReport } from '@/lib/reports'
+import { dispatch } from '@/lib/notify'
+import { createReport, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 
@@ -151,4 +152,29 @@ export async function setRiskPolicy(input: { p1MinScore: number; p2MinScore: num
   appendAudit({ actor: session.name, action: `위험도 기준 변경 — P1≥${p1} · P2≥${p2}`, target: '취약점 우선순위' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `위험도 기준 저장 — P1≥${p1} · P2≥${p2} (P3 <${p2})` }
+}
+
+/** 교체 검토 통보(AI 기능 03 수명예측 조치) — 내용연수·보증 경과·장애 이력으로 교체 시점이 도래한 자산의
+ *  소유 부서에 교체 검토를 요청한다. 그동안 수명예측은 대시보드 '교체 대상 자산' 큐·패널로 표시만 되고(읽기 전용
+ *  표로 dead-end), 소유 부서를 움직일 조치 접점이 없었다 — EOL 업그레이드 통보(register)의 수명예측 판.
+ *  근거는 연간 교체 계획 리포트·패널과 동일한 replacementCandidates(). 당일 중복 발송 차단. 자산담당·Admin. */
+export async function notifyReplacement() {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '교체 검토 통보 권한이 없습니다 (자산담당·Admin).' }
+  }
+  const s = getStore()
+  const t = today()
+  const sentToday = new Set(s.dispatches.filter((m) => m.kind === '교체 검토 통보' && m.at.startsWith(t)).map((m) => m.ref))
+  let n = 0
+  for (const { a, why } of replacementCandidates().cands) {
+    if (sentToday.has(a.assetNo)) continue
+    dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `자산 교체 검토 요청 — ${a.assetNo} ${a.model} (${why})`, kind: '교체 검토 통보', ref: a.assetNo })
+    a.history.push({ date: t, kind: '구성변경', detail: `교체 검토 통보 발송 — ${why} (${a.owner} · ${a.dept})`, actor: session.name })
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: '교체 검토 통보 대상이 없습니다 (교체 대상 없음·오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `교체 검토 통보 발송 (${n}건)`, target: '교체 대상 자산' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `교체 검토 통보 ${n}건 발송 — 교체 시점 도래 자산의 소유 부서에 교체 검토 요청 (발송 이력 적재)` }
 }
