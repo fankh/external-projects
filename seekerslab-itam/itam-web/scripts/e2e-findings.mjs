@@ -1941,6 +1941,20 @@ try {
   await p4.waitForTimeout(800)
   ok('발주 이행 독촉: 발송 성공(주관부서·공급사·구매팀 · 발송 이력)', ((await p4.textContent('body')) || '').includes('발주 이행 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
 
+  // 발주 정산 종결(로72) — 검수 완료액을 '대금 정산 근거'로 약속하나 종결 조치가 없어 전량 이행된 계약도 이행 현황에 열린 채 남던 공백. 시드 CT-2026-018(8×3M=24M 전량 발주·검수 완료) → 정산 종결 가능 → 종결 시 정산 완료로 닫히고 이행/미이행 집계에서 빠진다. 검출·종결이 없으면 배지/버튼이 안 떠 실패.
+  const settleCardPre = p4.locator('.card', { has: p4.locator('text=발주·검수 이행 현황') })
+  const settleRowPre = (await settleCardPre.locator('tr', { has: p4.locator('td', { hasText: '2026 개발팀 워크스테이션 도입' }) }).first().textContent()) || ''
+  ok('발주 정산 종결(로72): 전량 발주·검수 완료 계약이 정산 종결 가능 판정', settleRowPre.includes('정산 종결 가능'))
+  const settleBtn = p4.locator('button', { hasText: /^발주 정산 종결 \(\d+\)$/ })
+  ok('발주 정산 종결(로72): 종결 버튼 노출(정산 종결 가능 ≥1)', (await settleBtn.count()) > 0 && !/\(0\)/.test(await settleBtn.first().innerText()))
+  await settleBtn.first().click()
+  await p4.waitForTimeout(800)
+  ok('발주 정산 종결(로72): 종결·주관부서/재무 통지 발송 성공(대금 정산 근거 확정)', ((await p4.textContent('body')) || '').includes('발주 정산 종결') && ((await p4.textContent('body')) || '').includes('정산 근거'))
+  await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const settleCardPost = p4.locator('.card', { has: p4.locator('text=발주·검수 이행 현황') })
+  const settleRowPost = (await settleCardPost.locator('tr', { has: p4.locator('td', { hasText: '2026 개발팀 워크스테이션 도입' }) }).first().textContent()) || ''
+  ok('발주 정산 종결(로72): 종결 후 정산 완료로 닫힘(이행 현황 종착)', settleRowPost.includes('정산 완료'))
+
   // 입고 지연 독촉(§06 ITSM 납기 관리 · 검출→조치) — 납기 경과 발주 로트(시드 IN-2607-03)의 공급사에 납기 확인 독촉 발송
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   ok('도입·검수: 입고 지연 독촉 버튼 노출(발주처)', (await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).count()) > 0)

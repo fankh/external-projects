@@ -11,7 +11,7 @@ import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ContractDocsButton, ExpiryNoticeButton } from './LicenseActions'
 import { LicenseTable } from './LicenseTable'
 import { MaintenanceBudgetButton, MaintenanceExecButton, MaintenanceSlaButton } from './MaintenanceActions'
-import { ProcurementRemindButton } from './ProcurementRemindButton'
+import { ProcurementRemindButton, ProcurementSettleButton } from './ProcurementRemindButton'
 import { SeatResolveCell } from './SeatResolveCell'
 import { UsageCollect } from './UsageCollect'
 
@@ -126,6 +126,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         actions={<span className="hstack" style={{ gap: 10 }}>
           <span className="dim" style={{ fontSize: 11.5 }}>연계 계약 {proc.rows.length}건 · 발주 {fmtAmount(proc.totalOrdered)}/{fmtAmount(proc.totalAmount)}원{proc.atRisk.length > 0 ? ` · 미이행 위험 ${proc.atRisk.length}` : ''}</span>
           <ProcurementRemindButton atRisk={proc.atRisk.length} />
+          <ProcurementSettleButton settleable={proc.settleable.length} />
         </span>}
       >
         <div className="stat-row" style={{ margin: 14 }}>
@@ -133,6 +134,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <Stat value={proc.rows.length} label="입고 연계 구매 계약" />
           <Stat value={proc.atRisk.length} label="발주 미이행 · 만료 임박" tone={proc.atRisk.length ? 'err' : 'ok'} />
           <Stat value={fmtAmount(proc.totalInspected)} label="검수 완료액 (정산 근거)" />
+          <Stat value={proc.settleable.length} label="정산 종결 가능 (전량 검수 완료)" tone={proc.settleable.length ? 'warn' : 'ok'} />
         </div>
         <div className="tbl-wrap">
           <table className="tbl">
@@ -154,7 +156,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="c tnum">{r.lots}{r.rejected > 0 && <span className="dim" style={{ fontSize: 11 }}> (반려 {r.rejected})</span>}</td>
                   <td className="c tnum">{r.pendingInspection || <span className="dim">-</span>}</td>
                   <td className="tnum">{r.end}{r.dday !== null && r.dday <= 90 && <span className="dim" style={{ fontSize: 11 }}> (D{r.dday >= 0 ? `-${r.dday}` : `+${-r.dday}`})</span>}</td>
-                  <td className="c">{r.atRisk ? <Chip tone="err">발주 미이행</Chip> : r.pendingInspection > 0 ? <Chip tone="warn">검수 진행</Chip> : <Chip tone="ok">정상</Chip>}</td>
+                  <td className="c">{r.settled ? <Chip tone="neutral">정산 완료 {r.settledAt}</Chip> : r.atRisk ? <Chip tone="err">발주 미이행</Chip> : r.settleable ? <Chip tone="warn">정산 종결 가능</Chip> : r.pendingInspection > 0 ? <Chip tone="warn">검수 진행</Chip> : <Chip tone="ok">정상</Chip>}</td>
                 </tr>
               ))}
               {proc.rows.length === 0 && <tr><td colSpan={10}><div className="empty">입고 로트가 연계된 구매 계약이 없습니다</div></td></tr>}
