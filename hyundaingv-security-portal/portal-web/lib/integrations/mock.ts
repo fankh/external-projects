@@ -82,6 +82,10 @@ const PRINTOUT_ROWS: PrintoutSourceRow[] = [
 
 export const mockSecdata: SecdataAdapter = {
   async fetchPrintouts() {
+    // 테스트 결함 주입 — 실 어댑터 예외·무응답 내성(hr·secmon 과 동일 계열). importDaily·notify 이관의
+    // try/catch·withTimeout 가 화면·배치를 죽이지 않고 '연동 예외' 실패로 흡수하는지 검증. 미설정 시 정상.
+    if (process.env.PORTAL_FAULT_SECDATA === 'throw') throw new Error('주입된 출력물 어댑터 장애 (테스트)')
+    if (process.env.PORTAL_FAULT_SECDATA === 'hang') return new Promise<PrintoutSourceRow[]>(() => { /* 무응답 → withTimeout 이 끊는다 */ })
     // 계약 위반(오형 행) 주입 — 필수 문자열(name·document·printedAt) 누락 행으로 importDaily 수집 검증
     if (process.env.PORTAL_FAULT_SECDATA === 'malformed') return [{ pages: 3 } as unknown as PrintoutSourceRow]
     // 계약 위반(dept·pages 객체값) 주입 — 유효 name/document/printedAt + 객체 pages/dept 로 {p.pages}/{p.dept}
@@ -115,6 +119,10 @@ let assetSeq = 230
 
 export const mockAsset: AssetAdapter = {
   async searchAssets(query) {
+    // 테스트 결함 주입 — 실 어댑터 예외·무응답 내성(hr·secmon 과 동일 계열). /finance/asset-reg 의
+    // withTimeout(...).catch(()=>[]) 가 throw·hang 을 빈 목록으로 흡수해 화면이 500·무한대기 나지 않는지 검증.
+    if (process.env.PORTAL_FAULT_ASSET === 'throw') throw new Error('주입된 자산 어댑터 장애 (테스트)')
+    if (process.env.PORTAL_FAULT_ASSET === 'hang') return new Promise<ExternalAsset[]>(() => { /* 무응답 → withTimeout 이 끊는다 */ })
     // 계약 위반(비배열 REST 봉투) 주입 — {data,total} 반환으로 assets.filter/.map 500 방어(수집 형태검증) 검증
     if (process.env.PORTAL_FAULT_ASSET === 'malformed') return { data: [], total: 0 } as unknown as ExternalAsset[]
     // 계약 위반(assetNo 객체값) 주입 — {a.assetNo} 직접 렌더가 React child 500 나지 않는지(assetNo 형태검증) 검증
