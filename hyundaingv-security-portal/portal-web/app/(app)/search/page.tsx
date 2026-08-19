@@ -41,6 +41,20 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     })
   }
 
+  if (canAccess('/work/approvals')) {
+    // 결재는 역할이 아닌 신원 스코핑 — 기안자·결재자 본인 문서만(work/approvals 상세 열람 가드와 동일).
+    // 역할 게이트만으론 전사 결재가 검색으로 유출된다(요구 72행 통제 무력화). id·제목·유형·기안자로 매칭.
+    groups.push({
+      label: '전자결재',
+      hits: s.approvals
+        .filter((a) => (a.approver === me.name || a.drafter === me.name) && has(a.id, a.title, a.docType, a.drafter, a.ref))
+        .map((a) => ({
+          href: `/work/approvals?sel=${encodeURIComponent(a.id)}`,
+          code: a.id, title: a.title, meta: `${a.docType} · 기안 ${a.drafter} · ${a.status}`,
+        })),
+    })
+  }
+
   groups.push({
     label: '게시판',
     hits: [
@@ -96,6 +110,24 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     })
   }
 
+  if (canAccess('/compliance/risks')) {
+    groups.push({
+      label: '정보보호 위험평가',
+      hits: s.riskItems.filter((r) => has(r.id, r.title, r.area, r.threat, r.vulnerability)).map((r) => ({
+        href: '/compliance/risks', code: r.id, title: r.title, meta: `${r.area} · ${r.treatment} · ${r.status}`,
+      })),
+    })
+  }
+
+  if (canAccess('/compliance/policies')) {
+    groups.push({
+      label: '정책·지침',
+      hits: s.securityPolicies.filter((p) => has(p.id, p.title, p.category)).map((p) => ({
+        href: '/compliance/policies', code: p.id, title: p.title, meta: `${p.category} · ${p.version} · ${p.status}`,
+      })),
+    })
+  }
+
   const nonEmpty = groups.filter((g) => g.hits.length > 0)
   const total = nonEmpty.reduce((sum, g) => sum + g.hits.length, 0)
 
@@ -111,7 +143,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
       {query === '' ? (
         <div className="callout">
-          <b>통합 검색</b> — SR·공지·QnA·계약{canAccess('/infra/incidents') || canAccess('/projects/status') ? '·장애·변경·프로젝트' : ''}{canAccess('/compliance/security-review') ? '·보안성검토' : ''} 를 한 번에 찾는다.
+          <b>통합 검색</b> — SR·전자결재·공지·QnA·계약{canAccess('/infra/incidents') || canAccess('/projects/status') ? '·장애·변경·프로젝트' : ''}{canAccess('/compliance/security-review') ? '·보안성검토·위험·정책' : ''} 를 한 번에 찾는다.
           예: <span className="mono">SR-2026</span>, <span className="mono">ERP</span>, <span className="mono">보안패치</span>
         </div>
       ) : total === 0 ? (
