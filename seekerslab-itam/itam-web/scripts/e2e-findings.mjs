@@ -1763,6 +1763,10 @@ try {
   await pMU.goto(`${BASE}/assets/register?sel=AST-2024-000706`, { waitUntil: 'networkidle' })
   const adj706row = (await pMU.locator('tr', { has: pMU.locator('td', { hasText: 'AST-2024-000706' }) }).first().textContent()) || ''
   ok('재물조사 차이 조정 스테일 방어: 상신 후 재배정된 자산은 유휴 강제 안 함(사용중·재배정 보유자 김민준 유지·미적용)', adj706row.includes('사용중') && adj706row.includes('김민준'))
+  // 폐기 절차 충돌 방어 — DIF-07(상태 불일치·AST-2021-000432)은 폐기 대상(DSP-02)이라 '사용중' 보정이 미적용돼 유휴 유지(사용중이면 폐기 리스트에 사용중 자산이 남아 사용중 가드 우회).
+  await pMU.goto(`${BASE}/assets/register?sel=AST-2021-000432`, { waitUntil: 'networkidle' })
+  const adj432row = (await pMU.locator('tr', { has: pMU.locator('td', { hasText: 'AST-2021-000432' }) }).first().textContent()) || ''
+  ok('재물조사 차이 조정 폐기충돌 방어: 폐기 대상 자산은 상태 보정(사용중) 미적용·유휴 유지', adj432row.includes('유휴') && !adj432row.includes('사용중'))
   await ctxMU.close()
   await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   // 수리 지연 → 업체 독촉(검출→조치). 상태를 바꾸지 않으므로 유휴 처리 앞에 수행.
