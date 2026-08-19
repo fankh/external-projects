@@ -693,6 +693,17 @@ try {
   await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const returnsBodyW = (await p2.locator('body').textContent()) || ''
   ok('무상 보증 청구: 보증 절감 누계 반영(350,000원 · 자사 TCO 제외분)', returnsBodyW.includes('보증 절감') && returnsBodyW.includes('350,000원'))
+  // 월간 자산 현황 리포트가 보증 절감을 노출(비용 회피 가시화·숫자 투명성) — 무상 청구분은 자사 수리비 총계에서 빠지되 '보증 절감'으로 별도 명시(위 377 청구 350,000 반영). 리포트 생성은 키 무관 결정적 처리.
+  await p2.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+  const beforeM = await p2.locator('.msg.assistant .bub').count()
+  await p2.locator('.chat-in input').fill('월간 자산 현황 리포트 생성해줘')
+  await p2.locator('.chat-in input').press('Enter')
+  await p2.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, beforeM, { timeout: 8000 })
+  await p2.waitForTimeout(200)
+  const warRHref = await p2.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const warRid = decodeURIComponent((warRHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const warRtext = Buffer.from(await (await p2.request.get(`${BASE}/api/reports/${encodeURIComponent(warRid)}?format=xlsx`)).body()).toString('utf8')
+  ok('월간 리포트: 무상 보증 청구 보증 절감 노출(비용 회피 가시화·숫자 투명성)', warRtext.includes('보증 절감') && warRtext.includes('350,000'))
 
   // 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 새 보유자에게 직접 인계. 그동안 사용 중 자산의 보유자 변경 경로가 없어
   //  팀 내 인수인계가 반납→재불출을 강제했다(correctField 가 '이동·불출 결재로'라며 막지만 이동은 위치만·불출은 유휴만). AST-2023-000113(이서연) → 오세훈(인사팀).

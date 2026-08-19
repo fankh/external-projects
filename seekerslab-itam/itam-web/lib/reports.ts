@@ -7,7 +7,7 @@ import { buildProcurement } from './procurement'
 import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
 import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, roundProgressPct } from './dates'
-import { ACQ_COST, acquisitionCostOf, bookValueOf, repairTotalOf } from './cost'
+import { ACQ_COST, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
@@ -188,11 +188,14 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const sumRepair = (a: (typeof s.assets)[number]) => repairTotalOf(a)
     const repaired = s.assets.filter((a) => repairTotalOf(a) > 0).sort((x, y) => sumRepair(y) - sumRepair(x))
     const totalRepair = repaired.reduce((n, a) => n + sumRepair(a), 0)
+    // 보증 절감 — 무상 보증 청구로 자사가 부담하지 않은 수리비. 자사 수리비 총계에서 빠진 금액을 리더십 보고에 명시(비용 회피 가시화·숫자 투명성).
+    const totalWarrantySaved = s.assets.reduce((n, a) => n + warrantySavingsOf(a), 0)
+    const savedNote = totalWarrantySaved > 0 ? ` · 보증 절감 ${totalWarrantySaved.toLocaleString()}원(무상 보증 청구)` : ''
     const repairSection: ReportSection = repaired.length === 0
-      ? { title: '유지보수(수리) 비용 현황', bullets: ['등록된 수리 비용 이력이 없습니다.'] }
+      ? { title: '유지보수(수리) 비용 현황', bullets: [totalWarrantySaved > 0 ? `자사 부담 수리 비용 없음 · 보증 절감 ${totalWarrantySaved.toLocaleString()}원(무상 보증 청구)` : '등록된 수리 비용 이력이 없습니다.'] }
       : {
           title: '유지보수(수리) 비용 현황',
-          note: `누적 수리비 총 ${totalRepair.toLocaleString()}원 · 수리 이력 자산 ${repaired.length}대`,
+          note: `누적 수리비 총 ${totalRepair.toLocaleString()}원 · 수리 이력 자산 ${repaired.length}대${savedNote}`,
           columns: ['자산번호', '모델', '수리 건수', '누적 수리비'],
           rows: repaired.map((a) => [a.assetNo, a.model, String(a.repairCosts!.length), `${sumRepair(a).toLocaleString()}원`]),
         }
