@@ -218,6 +218,9 @@ try {
   // 장기 미실측 URL 필터(?stale=1) — 그동안 클라이언트 토글만 있고 링크 진입점이 없어 대시보드·어시스턴트 '미실측' 링크가 전체 대장으로 떨어졌다. initialStale 로 토글 활성.
   const regStale = await (await get('/assets/register?stale=1', 'ASSET_MGR')).text()
   check('자산 대장: ?stale=1 장기 미실측 필터 활성화(어시스턴트 운영리스크 드릴다운)', regStale.includes('장기 미실측 ') && regStale.includes('✓ '))
+  // 수령 미확인 URL 필터(?receipt=1) — 대시보드 큐·어시스턴트 링크가 전체 대장으로 떨어지던 것을 인수 미확인 집합으로 드릴다운. receiptPending·사용중 판정 공유.
+  const regReceipt = await (await get('/assets/register?receipt=1', 'ASSET_MGR')).text()
+  check('자산 대장: ?receipt=1 수령 미확인 필터 활성화(대시보드·어시스턴트 드릴다운)', regReceipt.includes('수령 미확인 ') && regReceipt.includes('✓ '))
   // 연관 자산(영향도) — 같은 계약·위치·소유자·모델 공유 자산 수 + 드릴 링크
   check('자산 대장: 상세에 연관 자산(영향도) 섹션 + 드릴 링크', regContractDetail.includes('연관 자산') && regContractDetail.includes('같은 모델'))
   check('자산 대장: 상세에 자산 카드(dossier) 인쇄 링크', regContractDetail.includes('/api/asset-card/') && regContractDetail.includes('자산 카드'))
@@ -310,6 +313,8 @@ try {
   check('대시보드: 영향 집중 자산(blast radius ≥2 단일 장애점) 큐 (자산담당)', dashHtml.includes('영향 집중 자산') && dashHtml.includes('blast radius'))
   // 영향 집중 큐는 첫 자산(?sel=)만 열던 것을 전체 SPOF 목록(?spof=1)으로 드릴다운 — 큐 건수 N 과 목록이 일치.
   check('대시보드: 영향 집중 자산 큐가 단일 장애점 목록(?spof=1)으로 드릴다운', dashHtml.includes('/assets/register?spof=1'))
+  // 수령 미확인 큐도 전체 대장으로 떨어지던 것을 ?receipt=1 로 드릴다운 — 큐 건수=목록(체인 오브 커스터디 추적).
+  check('대시보드: 수령 미확인 큐가 인수 미확인 목록(?receipt=1)으로 드릴다운', dashHtml.includes('/assets/register?receipt=1'))
   // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다
   check('대시보드: 대장 정합성 미흡 운영 큐 (자산담당) + dq 드릴', dashHtml.includes('대장 정합성 미흡') && dashHtml.includes('dq=1'))
   // 결재 지연 — SLA 초과 대기 결재가 결재 대기 KPI 델타에 노출된다(정체 신호)
