@@ -21,8 +21,11 @@ import type { ReportKind, ReportSchedule, ReportSection, SaasUsage } from './typ
  *  리포트가 같은 산출을 쓰도록 한 곳에 둔다. */
 export function saasConsolidationCandidates(): { category: string; services: SaasUsage[]; users: number; shadowN: number; sanctioned?: SaasUsage }[] {
   const s = getStore()
+  // 차단 판정된 서비스는 이미 정리(통합)된 것이므로 중복 후보에서 제외한다 — 통합 정리(로69)로 미인가 중복을
+  // 표준으로 몰아 차단하면 해당 분류가 후보에서 빠져야 조치가 화면에 반영된다.
+  const blocked = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
   return Object.values(
-    s.saas.reduce<Record<string, { category: string; services: SaasUsage[] }>>((acc, x) => {
+    s.saas.filter((x) => !blocked.has(x.service)).reduce<Record<string, { category: string; services: SaasUsage[] }>>((acc, x) => {
       ;(acc[x.category] ??= { category: x.category, services: [] }).services.push(x)
       return acc
     }, {}),

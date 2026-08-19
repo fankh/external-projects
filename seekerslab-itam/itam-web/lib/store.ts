@@ -507,6 +507,7 @@ function seedSaasCatalog(): SaasCatalogEntry[] {
     { id: 'CAT-07', service: 'FlowTrackr', category: '기타', vendor: 'FlowTrackr Inc.', status: '검토중', dataGrade: '일반', owner: '인사팀', reviewSince: '2026-08-17' },
     { id: 'CAT-05', service: 'Dropbox', category: '스토리지', vendor: 'Dropbox', status: '차단', dataGrade: '기밀', owner: '영업1팀', decidedAt: '2026-07-18', decidedBy: '윤보안' },
     { id: 'CAT-06', service: 'GitHub', category: '개발', vendor: 'GitHub', status: '인가', dataGrade: '민감', owner: '개발본부', decidedAt: '2025-11-02', decidedBy: '시스템관리자' },
+    { id: 'CAT-08', service: 'GitLab', category: '개발', vendor: 'GitLab Inc.', status: '검토중', dataGrade: '민감', owner: '플랫폼개발팀', reviewSince: '2026-08-10' },
   ]
 }
 
@@ -718,6 +719,8 @@ function seed(): Store {
       { id: 'SAS-04', service: 'Miro', category: '협업', dept: '플랫폼개발팀', users: 9, sanctioned: false, monthlyVisits: 1_204, risk: '낮음' },
       { id: 'SAS-05', service: 'Dropbox', category: '스토리지', dept: '영업1팀', users: 6, sanctioned: false, monthlyVisits: 3_318, risk: '높음' },
       { id: 'SAS-06', service: 'GitHub', category: '개발', dept: '개발본부', users: 180, sanctioned: true, monthlyVisits: 88_400, risk: '낮음' },
+      // 중복 기능 SaaS — 개발 분류에 인가 표준(GitHub)과 별개로 일부 팀이 GitLab 을 미인가 병행. 통합 정리(로69) 대상.
+      { id: 'SAS-07', service: 'GitLab', category: '개발', dept: '플랫폼개발팀', users: 12, sanctioned: false, monthlyVisits: 2_100, risk: '중간' },
     ],
     insights: [
       { id: 'INS-2607-21', kind: '이상탐지', severity: '높음', title: '휴면 자산의 갑작스런 외부 통신 — printer-3f-old', detail: '40일간 무통신이던 장비가 07-27 22:14 외부 IP(불가리아)로 아웃바운드 시도. 평시 프로파일 이탈.', evidence: '프록시 로그 07-27 22:14~22:31 · 47건', createdAt: '2026-07-28', status: '제안' },

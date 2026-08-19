@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { decideSaasStatus } from '@/lib/saas'
 import { getSession } from '@/lib/session'
-import { getStore } from '@/lib/store'
+import { getStore, nextId } from '@/lib/store'
 import type { SaasCatalogEntry } from '@/lib/types'
 
 async function guard() {
@@ -32,4 +32,40 @@ export async function classifyShadowSaas(service: string, status: SaasCatalogEnt
   appendAudit({ actor: session.name, action: `Shadow SaaS 판정 → ${status}${newlyBlocked ? ' · 보안운영팀 차단 집행 요청' : ''}`, target: service })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${service} → ${status}${status === '인가' ? ' (인가 카탈로그 등재)' : newlyBlocked ? ' (차단 대상 · 프록시·DNS 차단 집행 요청)' : status === '차단' ? ' (차단 대상)' : ''}` }
+}
+
+/** 중복 기능 SaaS 통합 정리 — §05 라이선스 최적화(기능05)의 '중복 기능 SaaS 통합 후보'를 판정에서 조치로 잇는다.
+ *  같은 기능 분류에 인가 표준이 있으면, 그 분류의 미인가 중복 서비스를 표준으로 통합하고 나머지를 일괄 차단한다
+ *  (개별 차단 classifyShadowSaas 와 같은 propagation — 사용현황 동기화·보안운영팀 프록시·DNS 차단 집행 요청).
+ *  차단된 서비스는 통합 후보 집계에서 빠져(로69), 그동안 화면·리포트에만 있던 통합 후보가 실제로 정리된다. */
+export async function consolidateSaas(category: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '통합 정리는 보안담당·Admin 만 가능합니다.' }
+
+  const s = getStore()
+  const blocked = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
+  const group = s.saas.filter((x) => x.category === category && !blocked.has(x.service))
+  const std = group.find((x) => x.sanctioned)
+  if (!std) return { ok: false, message: `인가 표준이 없는 분류입니다 — 먼저 표준 서비스를 인가 카탈로그에 등재하세요 (${category}).` }
+  const shadows = group.filter((x) => !x.sanctioned)
+  if (!shadows.length) return { ok: false, message: `정리할 미인가 중복 서비스가 없습니다 — ${category}.` }
+
+  const names: string[] = []
+  for (const sh of shadows) {
+    let entry = s.saasCatalog.find((x) => x.service === sh.service)
+    if (!entry) {
+      // 카탈로그 미등재 미인가 서비스는 통합 정리 시 검토중으로 등재한 뒤 차단 판정한다(판정 이력 유지).
+      entry = { id: nextId('CAT'), service: sh.service, category: sh.category, vendor: '-', status: '검토중', dataGrade: '일반', owner: sh.dept }
+      s.saasCatalog.push(entry)
+    }
+    if (entry.status !== '차단') {
+      decideSaasStatus(entry, '차단', session.name)
+      names.push(sh.service)
+    }
+  }
+  if (!names.length) return { ok: false, message: `이미 정리된 분류입니다 — ${category}.` }
+
+  appendAudit({ actor: session.name, action: `중복 SaaS 통합 정리 — ${category}: ${std.service} 표준 유지 · 미인가 ${names.length}종 차단(${names.join('·')})`, target: category })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${category} 통합 정리 — ${std.service} 표준으로 통합 · 미인가 ${names.length}종(${names.join('·')}) 차단 집행 요청` }
 }
