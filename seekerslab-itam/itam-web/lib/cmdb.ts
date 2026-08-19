@@ -21,3 +21,14 @@ export function impactSources(): { asset: Asset; blastRadius: string[] }[] {
     .filter((x) => x.blastRadius.length > 0)
     .sort((a, b) => b.blastRadius.length - a.blastRadius.length)
 }
+
+/** 영향 집중 자산(단일 장애점·SPOF) — 이 자산이 장애나면 전이적으로 minBlast 대 이상이 영향받는 자산.
+ *  장애 대비·이중화 우선순위 근거(대시보드 blast radius 큐). degraded=현재 저하 상태(즉시 리스크). */
+export function criticalDependencies(minBlast = 2): { asset: Asset; blastRadius: string[]; degraded: boolean }[] {
+  const s = getStore()
+  return s.assets
+    .map((a) => ({ a, deps: assetDependenciesFrom(s.assets, a.assetNo) }))
+    .filter((x) => x.deps.blastRadius.length >= minBlast)
+    .map((x) => ({ asset: x.a, blastRadius: x.deps.blastRadius, degraded: isDegraded(x.a) }))
+    .sort((a, b) => Number(b.degraded) - Number(a.degraded) || b.blastRadius.length - a.blastRadius.length)
+}

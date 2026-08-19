@@ -3,6 +3,7 @@ import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
 import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isQnaOverdue, isRepairOverdue, isStaleVerify, nowMinute, roundProgressPct, today } from '@/lib/dates'
 import { isEasmRescanOverdue } from '@/lib/easm'
+import { criticalDependencies } from '@/lib/cmdb'
 import { overdueScanChannels } from '@/lib/scan-policy'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { isEolTarget } from '@/lib/eol'
@@ -77,6 +78,7 @@ export default async function DashboardPage() {
   if (['ASSET_MGR', 'ADMIN'].includes(session.role)) {
     const issueDue = s.approvals.filter((a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.refId?.startsWith('DSC-')).length
     const moveDue = s.approvals.filter((a) => a.kind === '이동' && a.status === '승인' && !a.fulfilled).length
+    const spof = criticalDependencies() // 영향 집중 자산(단일 장애점) — 이 자산 장애 시 blast radius ≥2
     opsQueues.push(
       { label: '입고 검수 대기', count: s.intakeLots.filter((l) => l.status === '입고 대기' || l.status === '검수 중').length, href: '/assets/intake', tone: 'warn' },
       // 도입 예정 입고 지연 — 도착 예정일이 지났는데 미입고(§06 ITSM·구매 연동). 발주처 독촉·납기 관리 대상.
@@ -95,6 +97,8 @@ export default async function DashboardPage() {
       { label: '수리 예상 반환 경과 (업체 독촉)', count: s.assets.filter(isRepairOverdue).length, href: '/assets/returns', tone: 'err' },
       // 정기 점검 대상 — 예방 정비 예정일 도래(30일 내·경과) 운영 자산. 반응형 수리와 별개의 사전 정비(§03 유지보수).
       { label: '정기 점검 대상 (예방 정비 도래)', count: s.assets.filter(isMaintenanceDue).length, href: '/assets/register?maint=1', tone: 'warn' },
+      // 영향 집중 자산(단일 장애점·CMDB blast radius) — 이 자산 장애 시 전이적으로 2대 이상 영향. 이중화·우선 정비 대상. 현재 저하(수리중·분실 등) 상태면 즉시 리스크(err).
+      { label: `영향 집중 자산 (blast radius ≥2 · 단일 장애점${spof.some((x) => x.degraded) ? ' · 저하 포함' : ''})`, count: spof.length, href: spof.length ? `/assets/register?sel=${spof[0].asset.assetNo}` : '/assets/register', tone: spof.some((x) => x.degraded) ? 'err' : 'warn' },
       { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal', tone: 'err' },
       { label: '분실 · 도난 자산 (회수·폐기 확정)', count: s.assets.filter((a) => a.status === '분실').length, href: '/assets/register', tone: 'err' },
       { label: '대여 반환 연체 (반환 독촉)', count: s.assets.filter(isLoanOverdue).length, href: '/assets/returns', tone: 'err' },
