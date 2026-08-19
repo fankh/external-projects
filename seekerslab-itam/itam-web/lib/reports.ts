@@ -700,12 +700,34 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const loR = licenseOptimization()
     const ddayR = (l: (typeof loR.active)[number]) => daysUntil(l.expiry) ?? 9999
     const upcomingR = loR.active.filter((l) => l.expiry !== '-' && ddayR(l) <= 180).sort((a, b) => ddayR(a) - ddayR(b))
+    const baseTerminatedR = (l: (typeof loR.active)[number]) => !!l.contractId && s.contracts.some((c) => c.id === l.contractId && c.status === '해지')
+    const recosR = loR.active.map((l) => {
+      const reco = baseTerminatedR(l) ? '근거 계약 해지 → 이관·재계약'
+        : l.used > l.purchased ? `추가 구매(트루업) +${l.used - l.purchased}석 · 약 ${((l.used - l.purchased) * l.unitCost).toLocaleString()}원`
+        : l.used / l.purchased < 0.6 ? `감축 갱신 -${l.purchased - l.used}석 · 절감 약 ${((l.purchased - l.used) * l.unitCost).toLocaleString()}원`
+        : '현행 갱신'
+      return [l.name, `${l.used}/${l.purchased}`, reco]
+    })
     return [
       {
         title: '갱신 예정 (만료 180일 이내)',
         note: `갱신 예정 ${upcomingR.length}종 · 예상 갱신액 ${fmtAmount(upcomingR.reduce((n, l) => n + l.purchased * l.unitCost, 0))}원`,
         columns: ['라이선스', '만료일', 'D-day', '보유', '사용', '예상 갱신액'],
         rows: upcomingR.length ? upcomingR.map((l) => [l.name, l.expiry, ddayR(l) < 0 ? `경과 ${-ddayR(l)}일` : `D-${ddayR(l)}`, String(l.purchased), String(l.used), `${(l.purchased * l.unitCost).toLocaleString()}원`]) : [['-', '만료 임박 라이선스 없음', '-', '-', '-', '-']],
+      },
+      {
+        title: '트루업 권고',
+        note: `초과 사용 ${loR.over.length}종(추가 구매·트루업) · 미사용 ${loR.under.length}종(감축 갱신)`,
+        columns: ['라이선스', '사용/보유', '갱신 권고'],
+        rows: recosR,
+      },
+      {
+        title: '갱신 예산 · 절감 요약',
+        bullets: [
+          `만료 180일 이내 예상 갱신액 ${fmtAmount(upcomingR.reduce((n, l) => n + l.purchased * l.unitCost, 0))}원`,
+          `트루업(초과 사용 해소) 추가 비용 약 ${fmtAmount(loR.overCost)}원`,
+          `미사용 좌석 감축 시 연 약 ${fmtAmount(loR.saving)}원 절감`,
+        ],
       },
     ]
   }
