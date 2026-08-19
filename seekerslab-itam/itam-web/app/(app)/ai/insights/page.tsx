@@ -83,7 +83,7 @@ export default async function InsightsPage() {
 
       <AnomalyDetection />
 
-      <LifecyclePrediction />
+      <LifecyclePrediction canNotify={['ASSET_MGR', 'ADMIN'].includes(session.role)} />
 
       <VulnPriority />
 
