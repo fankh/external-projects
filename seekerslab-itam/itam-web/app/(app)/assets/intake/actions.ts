@@ -220,8 +220,13 @@ export async function toggleCheck(lotId: string, item: string) {
   c.checked = !c.checked
   lot.inspector = session.name
   if (lot.status === '입고 대기') lot.status = '검수 중'
+  const wasComplete = lot.status === '검수 완료'
   if (lot.checklist.every((x) => x.checked)) lot.status = '검수 완료'
   else if (lot.status === '검수 완료') lot.status = '검수 중'
+  // 검수 완료(채번 게이트) 전이는 감사에 남긴다 — 누가·언제 이 로트의 QC 를 통과시켰는지 중앙 이력에 남아야 한다(형제 입고 액션과 정합).
+  if (lot.status === '검수 완료' && !wasComplete) {
+    appendAudit({ actor: session.name, action: `검수 완료 — ${lot.model} (로트 ${lot.id}) 체크리스트 전항목 확인 · 채번 가능`, target: lot.id })
+  }
   revalidatePath('/', 'layout')
 }
 
