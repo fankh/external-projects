@@ -167,6 +167,10 @@ async function main() {
     })
     check(expired.status === 307 && (expired.headers.get('location') ?? '').includes('/login'), '세션: 만료 쿠키 거부')
 
+    // SSO 로그인 진입점 — 데모 기본 프로필은 목업 SSO 라 노출하지 않는다(계정 선택 로그인만). 실 SSO 프로필에서만 노출.
+    const loginHtml = await (await fetch(`${BASE}/login`)).text()
+    check(!loginHtml.includes('sso-login'), '데모(목업 SSO) 로그인 화면에 SSO 로그인 진입점 미노출')
+
     // 보안 응답 헤더 — 클릭재킹·스니핑·레퍼러 방어
     const hdr = await fetch(`${BASE}/login`, { redirect: 'manual' })
     check(hdr.headers.get('x-frame-options') === 'DENY', '헤더: X-Frame-Options DENY')

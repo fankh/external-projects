@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ACCOUNTS, SESSION_COOKIE, signSession } from '@/lib/session'
+import { ssoLoginAvailable } from '@/lib/integrations/registry'
 import { ROLE_LABEL } from '@/lib/types'
 import { PORTAL } from '@/portal.config'
 
@@ -55,9 +56,12 @@ export default function LoginPage() {
 
       <main className="login-panel">
         <div className="login-card">
-          <div className="kicker">SAML SSO — Sign in</div>
           <h2>계정을 선택하세요</h2>
           <div className="hint">데모 환경 — SSO(SAML) 인증을 대체하는 권한그룹별 목업 계정입니다.</div>
+          {/* 실 SSO 채널이 가동된 배포에서는 IdP 로그인 진입점을 노출한다(데모 목업 프로필은 계정 선택만). */}
+          {ssoLoginAvailable() && (
+            <a className="btn pri sso-login" href="/api/sso/login?relayState=%2Fdashboard">SSO 로그인 →</a>
+          )}
           {ACCOUNTS.map((a) => (
             <form key={a.login} action={loginAs}>
               <input type="hidden" name="login" value={a.login} />
