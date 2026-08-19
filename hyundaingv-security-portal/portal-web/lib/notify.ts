@@ -7,6 +7,7 @@ import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
 import { ACCOUNTS } from './session'
+import { isRiskClosed } from './risk'
 import { importSecurityEvents } from './secmon'
 import { delayedSrs } from './sr'
 
@@ -175,6 +176,14 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('확인서 미제출',
     s.violations.filter((v) => v.status === '징구중').map((v) => v.name).filter((name) => people.some((p) => p.name === name)),
     '[보안위반] 사실확인서 제출 안내')
+
+  // 7) 위험 조치 지연 — 조치기한 경과 미종결 위험의 담당 (정보보호 위험관리대장, ISMS 위험처리 폐쇄루프).
+  // 종결(완료)하면 자동 제외. 재직자 교집합 — 담당이 퇴사하면 조치 주체가 없어 유령 독촉을 막는다(타 person
+  // 경로와 동일 재직 명단 정합). 위험 자체는 위험관리대장에 남아 미조치 가시성은 유지된다. dueDate < t 엄격
+  // (경과, sr 지연·산출물 기한경과와 동일 문자열 비교 술어).
+  await send('위험 조치 지연',
+    s.riskItems.filter((r) => !isRiskClosed(r) && r.dueDate < t).map((r) => r.owner).filter((name) => people.some((p) => p.name === name)),
+    '[정보보호 위험평가] 조치기한 경과 위험 안내')
 
   const total = results.reduce((sum, r) => sum + r.targets, 0)
   const allOk = results.every((r) => r.ok)
