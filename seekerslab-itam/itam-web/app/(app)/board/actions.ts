@@ -9,6 +9,19 @@ import { getStore, nextId } from '@/lib/store'
 import { NOTICE_CATEGORIES } from '@/lib/types'
 import type { NoticeCategory, QnaCategory } from '@/lib/types'
 
+/** 게시글 조회수 증가 — 공지·QnA 상세를 열 때 조회수를 1 올린다(§01 게시판 조회수).
+ *  그동안 views 는 시드 값에 고정돼 있었다(증가 접점 부재). 로그인 사용자면 누구나 조회로 집계된다. */
+export async function recordPostView(postId: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, views: 0 }
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId)
+  if (!post) return { ok: false, views: 0 }
+  post.views = (post.views ?? 0) + 1
+  revalidatePath('/', 'layout')
+  return { ok: true, views: post.views }
+}
+
 /** QnA 질문 등록 — 전 권한그룹이 사용 가능 (사용자의 유일한 쓰기 접점) */
 export async function askQuestion(title: string, body: string, category: QnaCategory) {
   const session = await getSession()

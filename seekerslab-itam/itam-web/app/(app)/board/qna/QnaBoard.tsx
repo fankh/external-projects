@@ -2,7 +2,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost, QnaCategory } from '@/lib/types'
-import { answerQuestion, askQuestion, deleteQuestion, editQuestion, remindQna, reopenQuestion, resolveQuestion } from '../actions'
+import { answerQuestion, askQuestion, deleteQuestion, editQuestion, recordPostView, remindQna, reopenQuestion, resolveQuestion } from '../actions'
 
 const CATEGORIES: QnaCategory[] = ['자산 신청·반납', '장애·수리', '라이선스', '보안·Discovery', '기타']
 
@@ -42,7 +42,12 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
     })
   }, [posts, fq, fcat, fstatus, fmine, me])
   const open = posts.find((p) => p.id === openId) ?? null
-  const select = (id: string) => { setEditingAnswer(false); setAnswer(''); setEditingQ(false); setOpenId(id === openId ? null : id) }
+  const select = (id: string) => {
+    setEditingAnswer(false); setAnswer(''); setEditingQ(false)
+    const opening = id !== openId
+    setOpenId(opening ? id : null)
+    if (opening) startTransition(async () => { await recordPostView(id) })
+  }
   // 본인 또는 Admin, 답변 전 문의만 수정 가능
   const canEditQ = !!open && (open.author === me || canModerate) && !open.answer
   const openEditQ = () => { if (!open) return; setEditingQ(true); setEqTitle(open.title); setEqBody(open.body); setEqCat((open.category ?? '기타') as QnaCategory); setMsg(null) }

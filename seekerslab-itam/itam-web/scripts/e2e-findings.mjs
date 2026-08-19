@@ -894,6 +894,14 @@ try {
   await pU.waitForTimeout(600)
   await pU.goto(`${BASE}/board/qna?sel=QNA-03`, { waitUntil: 'networkidle' })
   ok('QnA 재문의(작성자): 해결 확인 해제 후 해결 확인 버튼 복귀', (await pU.locator('button', { hasText: /^해결 확인$/ }).count()) > 0)
+  // 게시판 조회수 증가(§01) — views 는 시드 고정이었다(증가 접점 부재). 공지 상세를 열면(행 클릭 → recordPostView) 조회수가 1 증가한다. 증가 접점이 없으면 그대로라 실패. 첫 행(필독)은 자동 오픈이므로 닫힘 상태인 비고정 공지(NTC-02)를 연다.
+  await pU.goto(`${BASE}/board/notices`, { waitUntil: 'networkidle' })
+  const ntcRow = pU.locator('tr', { has: pU.locator('td', { hasText: '미인가 SaaS(스토리지류) 차단 정책' }) }).first()
+  const viewsBefore = parseInt(((await ntcRow.locator('td.num').first().textContent()) || '0').replace(/\D/g, ''), 10)
+  await ntcRow.click()
+  await pU.waitForTimeout(800)
+  const viewsAfter = parseInt(((await pU.locator('tr', { has: pU.locator('td', { hasText: '미인가 SaaS(스토리지류) 차단 정책' }) }).first().locator('td.num').first().textContent()) || '0').replace(/\D/g, ''), 10)
+  ok('게시판 조회수: 공지 상세 열람 → 조회수 1 증가(시드 고정 아님)', viewsAfter === viewsBefore + 1)
   // 대여 신청 대상 재배치 풀 정합 — 폐기 절차 자산(AST-2021-000432, 유휴+DSP-02)은 대여 후보에서 제외, 유효 유휴는 노출
   await pU.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   const reqCard = pU.locator('.card', { has: pU.locator('.tt', { hasText: '신청 상신' }) }).first()
