@@ -222,6 +222,40 @@ export async function remindMaintenanceExecution() {
   return { ok: true, message: `유지보수 이행 독촉 ${n}건 발송 — 주관부서·공급사에 이행 확인·점검 시행 요청 (발송 이력 적재)` }
 }
 
+/** 유지보수 SLA 위반 이행 독촉 — 유지보수 계약이 덮는 자산의 열린 수리가 SLA 대응 목표 일수(slaResponseDays)를 넘긴 계약의
+ *  주관부서·공급사에 SLA 이행(온사이트 대응·수리 완료)을 촉구한다. 그동안 SLA 는 편집기(setContractSla)만 있고, 세 유지보수
+ *  하위기능(대상 자산·비용 이력)은 닫힌 루프인데 SLA 준수를 감시·독촉하는 조치가 없었다(예산 통보·미집행 독촉은 집행률 기준이라
+ *  SLA 위반과 무관). 위반 자산번호를 열거해 통보하고 당일 중복 발송을 막는다(ref=계약 id). 자산담당·Admin. */
+export async function escalateSlaBreach() {
+  const session = await guard()
+  if (!session) return { ok: false, message: 'SLA 이행 독촉 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const t = today()
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === '유지보수 SLA 위반 독촉' && m.at.startsWith(t)).map((m) => m.ref),
+  )
+
+  let n = 0
+  for (const r of buildMaintenance().rows) {
+    if (r.slaBreach === 0) continue
+    if (sentToday.has(r.id)) continue
+    dispatch({
+      channel: '이메일',
+      to: `${r.ownerDept} · ${r.vendor}`,
+      subject: `${r.id} ${r.name} 유지보수 SLA 위반 — 대응 목표 ${r.slaResponseDays}영업일 초과 열린 수리 ${r.slaBreach}건(${r.breachAssetNos.join(', ')}) · SLA 이행(온사이트 대응·수리 완료) 촉구`,
+      kind: '유지보수 SLA 위반 독촉',
+      ref: r.id,
+    })
+    n += 1
+  }
+
+  if (n === 0) return { ok: false, message: 'SLA 위반 유지보수 계약이 없습니다 (오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `유지보수 SLA 위반 독촉 발송 (${n}건)`, target: '유지보수 계약' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `유지보수 SLA 위반 독촉 ${n}건 발송 — 주관부서·공급사에 SLA 이행 촉구 (발송 이력 적재)` }
+}
+
 /** 계약 부속서류 제출 요청 — 필수 부속서류(계약서·세금계산서 등)가 누락된 진행 중 계약의 주관부서·공급사에 미비 서류 제출을 요청한다.
  *  (§03 구매 계약 부속서류 관리 — 그동안 미비는 감사 리스크 집계 배지로만 표시되고 건별 등록(addContractDoc)만 있어,
  *   책임 주체에게 제출을 요청하는 배치 조치 채널이 없었다. 만료 임박 알림·발주 이행 독촉과 같은 컴플라이언스 통보.)

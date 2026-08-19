@@ -10,7 +10,7 @@ import { contractAssetCount, getStore } from '@/lib/store'
 import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ContractDocsButton, ExpiryNoticeButton } from './LicenseActions'
 import { LicenseTable } from './LicenseTable'
-import { MaintenanceBudgetButton, MaintenanceExecButton } from './MaintenanceActions'
+import { MaintenanceBudgetButton, MaintenanceExecButton, MaintenanceSlaButton } from './MaintenanceActions'
 import { ProcurementRemindButton } from './ProcurementRemindButton'
 import { SeatResolveCell } from './SeatResolveCell'
 import { UsageCollect } from './UsageCollect'
@@ -71,6 +71,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <span className="dim" style={{ fontSize: 11.5 }}>계약 {maint.rows.length}건 · 집행 {fmtAmount(maint.totalSpent)}/{fmtAmount(maint.totalAmount)}원</span>
           <MaintenanceBudgetButton alert={maint.budgetAlert} />
           <MaintenanceExecButton alert={maint.execAlert} />
+          <MaintenanceSlaButton alert={maint.slaBreachAlert} />
         </span>}
       >
         <div className="stat-row" style={{ margin: 14 }}>
@@ -79,6 +80,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <Stat value={maint.overBudget} label="예산 초과" tone={maint.overBudget ? 'err' : 'ok'} />
           <Stat value={maint.execAlert} label="미집행 (이행 확인)" tone={maint.execAlert ? 'warn' : 'ok'} />
           <Stat value={maint.noSla} label="SLA 미설정" tone={maint.noSla ? 'warn' : 'ok'} />
+          <Stat value={maint.slaBreachAlert} label="SLA 위반 (대응 시한 초과)" tone={maint.slaBreachAlert ? 'err' : 'ok'} />
         </div>
         <div className="tbl-wrap">
           <table className="tbl">
@@ -98,7 +100,10 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="num tnum" style={{ fontWeight: 700 }}>{r.rate}%</td>
                   <td className="num tnum">{fmtAmount(r.remaining)}원</td>
                   <td className="c tnum">{r.covered}</td>
-                  <td style={{ whiteSpace: 'normal', maxWidth: 260 }}>{r.sla ? <span className="dim" style={{ fontSize: 11 }}>{r.sla}</span> : <Chip tone="warn" bare>미설정</Chip>}</td>
+                  <td style={{ whiteSpace: 'normal', maxWidth: 260 }}>
+                    {r.sla ? <span className="dim" style={{ fontSize: 11 }}>{r.sla}</span> : <Chip tone="warn" bare>미설정</Chip>}
+                    {r.slaBreach > 0 && <><br /><Chip tone="err">SLA 위반 — 대응 {r.slaResponseDays}일 초과 {r.slaBreach}건 ({r.breachAssetNos.join(', ')})</Chip></>}
+                  </td>
                   <td className="tnum">{r.end}</td>
                   <td className="c"><Chip tone={r.status === '예산 초과' ? 'err' : r.status === '소진 임박' || r.status === '미집행' ? 'warn' : 'ok'}>{r.status}</Chip></td>
                 </tr>

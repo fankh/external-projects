@@ -157,7 +157,7 @@ function seedAssets(): Asset[] {
         { date: '2026-07-28', kind: '반납', detail: '반납 접수 · 상태 점검 수리 필요 — 디스플레이 힌지 파손·좌측 USB-C 불량 (반납자 오세훈)', actor: '박자산' },
       ] }),
     // 수리 의뢰 접수됐으나 예상 반환일 경과(업체 지연) — 수리 예상 반환 경과 신호 시연
-    mk({ assetNo: 'AST-2024-000512', category: '단말', model: 'Galaxy Book3 Ultra', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'i9-13900H', memory: '32GB', purchaseDate: '2024-05-10', warrantyEnd: '2027-05-09',
+    mk({ assetNo: 'AST-2024-000512', category: '단말', model: 'Galaxy Book3 Ultra', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'i9-13900H', memory: '32GB', purchaseDate: '2024-05-10', warrantyEnd: '2027-05-09', contractId: 'CT-2025-014',
       repair: { vendor: '중부IT서비스', sentAt: '2026-07-18', eta: '2026-07-28', estCost: 420_000 },
       history: [
         { date: '2024-05-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
@@ -658,6 +658,10 @@ function seed(): Store {
       // 소액 착수비만 집행(0.05% · 반올림 0%) — 미집행(집행 전무)이 아니라 정상. 반올림 오분류 회귀 가드.
       { id: 'CT-2025-013', kind: '유지보수', name: '보안관제(MSS) 유지보수', vendor: '이글루시큐리티', start: '2025-11-01', end: '2026-10-31', amount: 60_000_000, assetCount: 0, ownerDept: '보안운영팀',
         costs: [{ id: 'CST-0101', date: '2026-02-03', item: '착수 협의·환경 구성비', amount: 30_000, addedBy: '박자산' }] },
+      // 단말 유지보수 — SLA 대응 5영업일(slaResponseDays). 덮는 자산 AST-2024-000512 의 열린 수리가 SLA 시한을 넘겨 SLA 위반(로71). 집행 이력이 있어 미집행/예산초과 큐엔 안 걸린다(SLA 위반만 별도 판정).
+      { id: 'CT-2025-014', kind: '유지보수', name: '임직원 단말 하드웨어 유지보수', vendor: '중부IT서비스', start: '2025-06-01', end: '2027-05-31', amount: 12_000_000, assetCount: 120, ownerDept: '자산관리팀',
+        sla: '장애 접수 후 5영업일 내 온사이트 대응·수리 완료, 월 가동률 99% 보장', slaResponseDays: 5,
+        costs: [{ id: 'CST-0201', date: '2026-06-15', item: '상반기 정기 점검·소모품', amount: 3_000_000, addedBy: '박자산' }] },
     ],
     licenses: [
       { id: 'LIC-001', name: 'Microsoft 365 E3', vendor: 'Microsoft', purchased: 800, used: 743, expiry: '2026-12-31', unitCost: 335_000, contractId: 'CT-2023-002', usageCollectedAt: '2026-07-10', seats: [
