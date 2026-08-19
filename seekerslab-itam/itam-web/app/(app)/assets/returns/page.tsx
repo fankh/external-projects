@@ -1,8 +1,9 @@
-import { ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { warrantySavingsOf } from '@/lib/cost'
+import { buildRepairVendors } from '@/lib/repair-vendors'
 import { getStore } from '@/lib/store'
 import { ReturnsView } from './ReturnsView'
 
@@ -78,6 +79,8 @@ export default async function ReturnsPage() {
   const longIdle = idle.filter((a) => (a.idleDays ?? 0) >= 90).length
   // 보증 절감 — 무상 보증 청구로 자사가 부담하지 않은 수리비 누계(보증 활용·비용 회피 가시화)
   const warrantySaved = s.assets.reduce((n, a) => n + warrantySavingsOf(a), 0)
+  // 수리 업체 성과 — 자산 단위 수리 이력·진행 중 수리를 업체별로 집계(업체 책임성·재계약 근거)
+  const repairVendors = buildRepairVendors()
 
   return (
     <>
@@ -98,6 +101,34 @@ export default async function ReturnsPage() {
       </div>
 
       <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} repairRemindable={repairRemindable} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} />
+
+      {repairVendors.length > 0 && (
+        <Card kicker="Vendor Scorecard" title="수리 업체 성과" pad={false}>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr><th>수리 업체</th><th className="num">완료</th><th className="num">자사 부담 누계</th><th className="num">자사 부담 평균</th><th>보증 청구</th><th className="num">진행 중</th><th className="c">지연</th></tr>
+              </thead>
+              <tbody>
+                {repairVendors.map((v) => (
+                  <tr key={v.vendor}>
+                    <td className="strong">{v.vendor}</td>
+                    <td className="num tnum">{v.completed}</td>
+                    <td className="num tnum">{v.selfBorne.toLocaleString()}원</td>
+                    <td className="num tnum">{v.avgSelfBorne.toLocaleString()}원</td>
+                    <td className="tnum">{v.warrantyClaims > 0 ? `${v.warrantyClaims}건 · 절감 ${v.warrantySaved.toLocaleString()}원` : <span className="mut">-</span>}</td>
+                    <td className="num tnum">{v.inFlight}</td>
+                    <td className="c">{v.overdue > 0 ? <Chip tone="err">지연 {v.overdue}</Chip> : <span className="mut">-</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="callout" style={{ margin: 14 }}>
+            <b>업체 책임성.</b> 자산 단위 수리 이력을 업체별로 집계해 비용·물량·지연을 드러냅니다 — 재계약 협상·업체 조정의 근거이며, 유지보수 계약 관리(계약 단위)의 자산 단위 짝입니다.
+          </div>
+        </Card>
+      )}
     </>
   )
 }
