@@ -6,6 +6,7 @@ import { compliancePostureScore, computeComplianceKpis, postureRating } from '@/
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth } from '@/lib/infra'
 import { computeProjectPmo } from '@/lib/projects'
+import { computeRiskKpis } from '@/lib/risk'
 import { delayedSrs } from '@/lib/sr'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
@@ -25,6 +26,7 @@ export default async function DashboardPage() {
     unsigned: canSee('/pledge/manage'),
     inspections: canSee('/compliance/inspection'),
     securityReviews: canSee('/compliance/security-review'),
+    risks: canSee('/compliance/risks'),
     // 인프라 헬스 — 배치·인터페이스는 운영 화면, 디스크는 시스템 화면이 출처(각 출처 유효권한으로 게이트)
     infraOps: canSee('/infra/operations'),
     infraSys: canSee('/infra/systems'),
@@ -73,6 +75,8 @@ export default async function DashboardPage() {
   const signedNames = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= generalRevisedAt).map((p) => p.name))
   // 프로젝트 PMO — 오픈 이슈·높은 리스크(lib/projects 단일원천, schedule 화면과 정합).
   const pmo = computeProjectPmo(s)
+  // 정보보호 위험 — 높음↑ 미종결·기한 경과(lib/risk 단일원천, 위험관리대장 KPI 와 정합)
+  const riskKpis = computeRiskKpis(s.riskItems, today())
   const ops = {
     incidents: s.incidents.filter((i) => i.status === '조치중').length,
     delayedSr: delayedSrs(s).length,
@@ -86,6 +90,9 @@ export default async function DashboardPage() {
     securityHigh: s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + highSevOpen(r), 0),
     // 컴플라이언스 포스처 점수 — 경영 보고용 단일 지표(lib/compliance 단일원천, 추세 화면과 정합).
     complianceScore: compliancePostureScore(computeComplianceKpis(s)),
+    // 정보보호 위험 — 높음↑(≥10) 미종결 우선처리 신호 + 기한 경과(lib/risk 단일원천, 위험관리대장과 정합).
+    riskHighOpen: riskKpis.highOpen,
+    riskOverdue: riskKpis.overdue,
   }
   // 인프라 운영 헬스 — 배치 실패·인터페이스 오류·디스크 경고(lib/infra 단일원천, 운영·시스템 화면과 정합).
   const infra = computeInfraHealth(s)
@@ -133,6 +140,8 @@ export default async function DashboardPage() {
             {opsVis.inspections && <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />}
             {opsVis.securityReviews && <Stat value={ops.securityHigh} label="고위험 미조치" tone={ops.securityHigh > 0 ? 'err' : undefined} />}
             {opsVis.securityReviews && <Stat value={ops.securityReviews} label="미조치 취약점" tone={ops.securityReviews > 0 ? 'warn' : undefined} />}
+            {opsVis.risks && <Stat value={ops.riskHighOpen} label="높음↑ 미종결 위험" tone={ops.riskHighOpen > 0 ? 'err' : undefined} note="정보보호 위험평가" />}
+            {opsVis.risks && ops.riskOverdue > 0 && <Stat value={ops.riskOverdue} label="위험 조치기한 경과" tone="warn" />}
             {opsVis.financeExec && <Stat value={`${finExec('투자')}%`} label="투자 집행률" note="계획 대비" />}
             {opsVis.financeExec && <Stat value={`${finExec('비용')}%`} label="비용 집행률" note="계획 대비" />}
           </div>
