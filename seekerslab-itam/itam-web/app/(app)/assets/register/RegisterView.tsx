@@ -8,6 +8,7 @@ import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
 import { assetDependenciesFrom } from '@/lib/cmdb-graph'
+import { TopologyDiagram } from './TopologyDiagram'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, reassignAsset, notifyEolUpgrade, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
@@ -746,6 +747,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                     {selDeps.blastRadius.length > 0 && <div><span className="mut">영향 범위(blast radius)</span> <b>{selDeps.blastRadius.length}대</b> — {selDeps.blastRadius.join(', ')}</div>}
                     {selDeps.degradedUpstream.length > 0 && <div style={{ color: 'var(--err)' }}>⚠ 저하된 상위 {selDeps.degradedUpstream.join(', ')} — 이 자산 위험</div>}
                   </dd>
+                  <dt>의존 토폴로지</dt>
+                  <dd style={{ overflowX: 'auto' }}><TopologyDiagram deps={selDeps} selNo={sel.assetNo} modelOf={modelOf} /></dd>
                 </>
               )}
             </dl>

@@ -206,6 +206,7 @@ try {
   // CMDB 의존 관계 인라인 — 자산 대장 상세(주 UX)에도 상위 의존·영향 범위(blast radius) 표기. 시드 스위치(640)는 상위=방화벽(641)·영향 3대. UI 라벨로 검사(count 는 SSR 주석마커로 분절).
   const regCmdb = await (await get('/assets/register?sel=AST-2022-000640', 'ASSET_MGR')).text()
   check('자산 대장 상세: CMDB 의존 관계·영향 범위(blast radius) 인라인 표기', regCmdb.includes('의존 관계 (CMDB)') && regCmdb.includes('영향 범위(blast radius)') && regCmdb.includes('상위 의존'))
+  check('자산 대장 상세: 의존 토폴로지 다이어그램(SVG·화살표) 인라인 렌더', regCmdb.includes('의존 토폴로지') && regCmdb.includes('url(#ahi)'))
   // 연관 자산(영향도) — 같은 계약·위치·소유자·모델 공유 자산 수 + 드릴 링크
   check('자산 대장: 상세에 연관 자산(영향도) 섹션 + 드릴 링크', regContractDetail.includes('연관 자산') && regContractDetail.includes('같은 모델'))
   check('자산 대장: 상세에 자산 카드(dossier) 인쇄 링크', regContractDetail.includes('/api/asset-card/') && regContractDetail.includes('자산 카드'))
