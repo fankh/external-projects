@@ -7,7 +7,7 @@ import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
 import { ACCOUNTS } from './session'
-import { isRiskClosed } from './risk'
+import { isRiskClosed, upsertRiskSnapshot } from './risk'
 import { importSecurityEvents } from './secmon'
 import { delayedSrs } from './sr'
 
@@ -87,6 +87,14 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
     const snap = upsertComplianceSnapshot(s, '스케줄러')
     audit('스케줄러', '컴플라이언스 스냅샷', `${snap.period} 자동 (서약 ${snap.pledgeRate}% · 이수 ${snap.eduRate}% · 조치 ${snap.fixRate}% · 고위험 ${snap.highVulns})`)
     recordBatch(`컴플라이언스 포스처 스냅샷 (자동, ${snap.period})`, nowStamp(), '성공')
+  }
+
+  // 0-d) 위험 추세 스냅샷 (자동, 당월 upsert) — 위험 감소 추이가 사람 손 없이 쌓여 ISMS '전기 대비 개선' 근거가
+  //      된다. 수동 '현황 스냅샷 기록'과 동일 경로(upsertRiskSnapshot). 당월 upsert 라 매일 호출돼도 당월 1건.
+  {
+    const rsnap = upsertRiskSnapshot(s, '스케줄러')
+    audit('스케줄러', '위험 스냅샷', `${rsnap.period} 자동 — 전체 ${rsnap.total} · 미종결 ${rsnap.open} · 높음↑ ${rsnap.highOpen} · 경과 ${rsnap.overdue} · 종결률 ${rsnap.treatedRate}%`)
+    recordBatch(`위험 추세 스냅샷 (자동, ${rsnap.period})`, nowStamp(), '성공')
   }
 
   // 1) 미서약자 — 양식 개정일자 기준 유효 서약 없는 인원

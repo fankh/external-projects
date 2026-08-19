@@ -6,13 +6,14 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { nowStamp, today } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, RiskItem, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, RiskItem, RiskSnapshot, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
   inspectionPlans: InspectionPlan[]
   securityReviews: SecurityReview[]
   riskItems: RiskItem[]
+  riskSnapshots: RiskSnapshot[]
   complianceSnapshots: ComplianceSnapshot[]
   educationCourses: EducationCourse[]
   educationRecords: EducationRecord[]
@@ -165,6 +166,10 @@ function seed(): Store {
       { id: 'RK-2026-02', title: '레거시 서버 OS 지원종료(EOL)', area: 'IT 인프라', threat: '알려진 취약점 악용', vulnerability: '보안패치 미적용 구형 OS 운영', likelihood: 4, impact: 4, treatment: '완화', owner: '박정호', plan: 'OS 업그레이드·격리 네트워크 이전', dueDate: '2026-08-15', status: '식별', identifiedAt: '2026-07-10' },
       { id: 'RK-2026-03', title: '협력업체 원격접속 경로 통제 미흡', area: '외주·협력', threat: '외부 경유 침입', vulnerability: 'VPN 계정 공유·접속기간 미제한', likelihood: 2, impact: 4, treatment: '전가', owner: '한지원', plan: '보안관리약정·접속기간 한정·계정 개별화', dueDate: '2026-10-31', status: '식별', identifiedAt: '2026-07-15' },
       { id: 'RK-2026-04', title: '재해복구(DR) 체계 부재', area: 'IT 인프라', threat: '재해·장애 시 업무중단', vulnerability: '백업 소산·복구절차 미검증', likelihood: 2, impact: 5, treatment: '수용', owner: '박정호', plan: '연 1회 복구훈련 계획 수립 전까지 리스크 수용', dueDate: '2026-12-31', status: '식별', identifiedAt: '2026-06-20' },
+    ],
+    riskSnapshots: [
+      { id: 'RS-2026-06', period: '2026-06', at: '2026-06-30 18:00', by: '한지원', total: 5, open: 5, highOpen: 5, overdue: 2, treatedRate: 0 },
+      { id: 'RS-2026-07', period: '2026-07', at: '2026-07-31 18:00', by: '한지원', total: 5, open: 4, highOpen: 4, overdue: 1, treatedRate: 20 },
     ],
     complianceSnapshots: [
       { id: 'CS-2026-06', period: '2026-06', at: '2026-06-30 18:00', by: '한지원', score: 56, pledgeRate: 50, eduRate: 80, fixRate: 70, inspDone: 1, inspTotal: 4, highVulns: 4, openVulns: 6, vDone: 0, vTotal: 1 },

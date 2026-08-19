@@ -218,6 +218,21 @@ export interface RiskItem {
   identifiedAt: string
 }
 
+/** 정보보호 위험 추세 스냅샷 — 주기(월)별 위험 KPI 를 저장해 위험 감소 추이(ISMS '전기 대비 개선')를 본다.
+ *  값은 lib/risk computeRiskKpis 기준 기록 시점 산출. 컴플라이언스 포스처 스냅샷(ComplianceSnapshot)과 대칭. */
+export interface RiskSnapshot {
+  id: string
+  /** 대상 기간 (YYYY-MM) — 같은 기간 재기록 시 갱신(upsert) */
+  period: string
+  at: string
+  by: string
+  total: number
+  open: number
+  highOpen: number
+  overdue: number
+  treatedRate: number
+}
+
 /** 컴플라이언스 포스처 추세 스냅샷 — 주기(월)별 KPI 를 저장해 전기 대비 개선 추이(ISMS 감사 근거)를 본다.
  *  값은 lib/compliance computeComplianceKpis 기준 기록 시점 산출(rate 는 complianceKpiPct). */
 export interface ComplianceSnapshot {
