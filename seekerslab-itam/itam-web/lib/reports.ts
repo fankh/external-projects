@@ -94,7 +94,8 @@ export function replacementCandidates() {
       const reasons: string[] = []
       if (aged) reasons.push('내용연수 초과')
       if (warr) reasons.push('보증 경과')
-      if (failing) reasons.push(`잦은 장애(수리 ${repairs.length}회·누계 ${repairs.reduce((n, r) => n + r.amount, 0).toLocaleString()}원)`)
+      // 누계는 자사 부담분만(repairTotalOf) — 무상 보증 청구분(제조사 부담)은 제외해 월간 리포트·TCO 와 정합. 빈도(repairs.length)는 자사 부담 무관하게 고장 신호이므로 전체 건수 유지.
+      if (failing) reasons.push(`잦은 장애(수리 ${repairs.length}회·누계 ${repairTotalOf(a).toLocaleString()}원)`)
       return { a, why: reasons.join(' · '), book: bookValueOf(a, t) }
     })
     .filter((x) => x.why)

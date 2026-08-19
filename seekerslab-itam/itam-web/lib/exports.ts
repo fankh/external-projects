@@ -1,5 +1,5 @@
 import { missingContractDocs } from './contract'
-import { acquisitionCostOf, assetTco, bookValueOf } from './cost'
+import { acquisitionCostOf, assetTco, bookValueOf, repairTotalOf } from './cost'
 import { buildLicenseUsage } from './license-usage'
 import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
@@ -63,7 +63,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         ({ covered: '보증 내', soon: '만료 임박', expired: '보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())],
         a.lastVerifiedAt ?? '', a.maintenanceDue ?? '', a.contractId ?? '', a.discoveredVia ?? '',
         a.repair ? `${a.repair.vendor}${a.repair.eta ? ` (예상반환 ${a.repair.eta})` : ''}` : '',
-        (a.repairCosts?.length ?? 0) > 0 ? a.repairCosts!.reduce((n, c) => n + c.amount, 0) : '',
+        repairTotalOf(a) > 0 ? repairTotalOf(a) : '',
         acquisitionCostOf(a) > 0 ? acquisitionCostOf(a) : '', acquisitionCostOf(a) > 0 ? assetTco(a) : '',
         acquisitionCostOf(a) > 0 ? bookValueOf(a, today()) : '', a.history.length,
       ])

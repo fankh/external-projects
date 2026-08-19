@@ -862,7 +862,7 @@ try {
   check('자산 카드: 정기 점검 예정 행(예방 정비 일정)', cardMaint.includes('정기 점검 예정') && cardMaint.includes('2026-06-15'))
   // 자산 카드 누적 수리비 행 — 수리 비용 이력이 있는 자산(AST-2023-000112, 누계 243,000원 2건)에 노출
   const cardCost = await (await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')).text()
-  check('자산 카드: 수리 이력 자산에 누적 수리비 행(TCO)', cardCost.includes('누적 수리비') && cardCost.includes('243,000원') && cardCost.includes('(2건)'))
+  check('자산 카드: 수리 이력 자산에 누적 수리비 행(자사 부담 TCO · 무상 보증 청구 제외)', cardCost.includes('누적 수리비') && cardCost.includes('243,000원') && cardCost.includes('2건 · 자사 부담'))
   check('자산 카드: 취득가·TCO 행(취득 1,680,000 + 수리 = 1,923,000)', cardCost.includes('취득가') && cardCost.includes('1,680,000원') && cardCost.includes('TCO(취득+수리)') && cardCost.includes('1,923,000원'))
   check('자산 카드: 잔존가치(장부가·정액법) 행', cardCost.includes('잔존가치(장부가)') && cardCost.includes('정액법 상각'))
   // 보증 상태 — AST-2023-000112(보증 2026-03 경과)는 카드 보증 만료 행에 '· 보증 만료' 표기
