@@ -71,6 +71,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: 'AI 거버넌스·성능', period: '월간', desc: '모델·프롬프트 버전·분류 정확도 · AI 기능별 제안 채택률(재학습 신호) · 감사·권한 필터 거버넌스 준수' },
   { kind: '부서별 IT 비용 배분', period: '월간', desc: '부서별 IT 자산 원가(취득가·잔존가치·누적 유지보수)·라이선스 좌석 비용·유지보수 계약비를 합산해 IT 비용을 부서로 배분(차지백·예산 근거)' },
   { kind: '계약 관리 현황', period: '월간', desc: '구매·유지보수 계약 포트폴리오·만료 임박·유지보수 예산 집행·구매 발주 이행·SLA·부속서류 거버넌스 점검(계약 이행 보고)' },
+  { kind: '정보보호 컴플라이언스 증적', period: '수시', desc: 'ISMS/ISO 27001 통제별 증적 번들 — 자산 인벤토리 통제·접근 통제/SW 라이선스·매체 폐기 증적·운영 보안(취약점 노출)·로깅/변경 추적을 감사 대응용 한 문서로 집약' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -648,6 +649,23 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '정보보호 컴플라이언스 증적') {
+    // ISMS/ISO 27001 통제별 증적 — 기존 대장·라이선스·폐기·위협 데이터를 감사 대응 번들로 집약(추가 데이터 없음).
+    const liveC = s.assets.filter((a) => a.status !== '폐기완료')
+    const unregC = s.discovered.filter((d) => d.state === '미등록').length
+    const flaggedC = liveC.filter(hasDataIssue).length
+    const accuracyC = liveC.length ? Math.round(((liveC.length - flaggedC) / liveC.length) * 100) : 100
+    const byCatC = [...new Set(liveC.map((a) => a.category))].map((c) => [c, String(liveC.filter((a) => a.category === c).length)])
+    return [
+      {
+        title: 'A.8.1 자산 인벤토리 통제',
+        note: `대장 등록 운영 자산 ${liveC.length}건 · 미등록 발견 자산 ${unregC}건(편입 대상) · 대장 정합성(CMDB 정확도) ${accuracyC}%`,
+        columns: ['자산 유형', '보유 대수'],
+        rows: byCatC,
+      },
+    ]
+  }
+
   // 감사 대응 자료
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
@@ -748,6 +766,9 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   const s = getStore()
   const n = (t: string) => sections.find((x) => x.title.includes(t))?.rows?.length ?? 0
 
+  if (kind === '정보보호 컴플라이언스 증적') {
+    return `정보보호 컴플라이언스 증적 — 대장 등록 운영 자산 ${s.assets.filter((a) => a.status !== '폐기완료').length}건, 미등록 발견 자산 ${s.discovered.filter((d) => d.state === '미등록').length}건이 편입 대상입니다. ISMS/ISO 27001 통제(자산 관리·접근 통제·매체 폐기·운영 보안·로깅)별 증적을 아래 섹션에 집약했습니다.`
+  }
   if (kind === '주간 Shadow IT 브리핑') {
     const credN = s.credentials.filter((c) => c.status !== '조치 완료').length
     const acctN = s.accounts.filter((a) => !a.action).length

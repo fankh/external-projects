@@ -1078,6 +1078,7 @@ export type ReportKind =
   | 'AI 거버넌스·성능'
   | '부서별 IT 비용 배분'
   | '계약 관리 현황'
+  | '정보보호 컴플라이언스 증적'
 
 export interface ReportSection {
   title: string
