@@ -147,6 +147,13 @@ function seedAssets(): Asset[] {
         { date: '2026-07-18', kind: '반납', detail: '부서 이동에 따른 반납 신청 (결재 진행 중)', actor: '한도윤' },
       ] }),
     mk({ assetNo: 'AST-2024-000618', category: '가상자원', model: 'vSphere VM (was-prod-03)', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A vCluster1', os: 'RHEL 8.9', ip: '10.10.20.33', purchaseDate: '2024-03-11', warrantyEnd: '-' }),
+    // 스테일 반납 회귀 — 이서연이 반납 상신(APR-2607-118) 후 회수·재배정되어 현재 보유자가 오세훈. 반납 승인해도 반납대기로 되돌리면 안 된다(재배정 무효화·새 보유자 좌석 회수 방지).
+    mk({ assetNo: 'AST-2023-000707', category: '단말', model: 'Galaxy Book4 Pro', status: '사용중', owner: '오세훈', dept: '인사팀', location: '본사 12F', os: 'Windows 11 Pro', purchaseDate: '2023-05-10', warrantyEnd: '2026-05-09',
+      history: [
+        { date: '2023-05-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
+        { date: '2026-07-20', kind: '반납', detail: '부서 이동 반납 신청 (결재 진행 중 · 신청자 이서연)', actor: '이서연' },
+        { date: '2026-08-05', kind: '불출', detail: '반납 결재 대기 중 회수·재배정 — 오세훈(인사팀) 직접 인계', actor: '박자산' },
+      ] }),
     mk({ assetNo: 'AST-2026-000108', category: '단말', model: 'Raspberry Pi 5 (키오스크)', status: '사용중', owner: '총무팀', dept: '총무팀', location: '본사 1F 로비', os: 'Raspberry Pi OS', ip: '10.20.60.9', mac: 'E4:5F:01:99:AB:10', purchaseDate: '2026-04-15', warrantyEnd: '2027-04-14', discoveredVia: '네트워크 능동 스캔',
       history: [
         { date: '2026-04-02', kind: '편입', detail: '네트워크 능동 스캔 발견(2026-03-28) → 소유자 확인 → 결재 편입', actor: '박자산' },
@@ -671,6 +678,9 @@ function seed(): Store {
         costs: [{ id: 'CST-0101', date: '2026-02-03', item: '착수 협의·환경 구성비', amount: 30_000, addedBy: '박자산' }] },
       // 발주 전량 입고·검수 완료 구매 계약 — IN-2606-42(8×3M=24M) 전량 검수 완료 → 정산 종결 가능(로72). 대금 정산 근거(검수 완료액) 확정 대상.
       { id: 'CT-2026-018', kind: '구매', name: '2026 개발팀 워크스테이션 도입', vendor: '(주)한빛INT', start: '2026-06-01', end: '2026-12-31', amount: 24_000_000, assetCount: 8, ownerDept: 'IT기획팀' },
+      // 소진 임박 경계 회귀 — 집행률 89.6%(반올림 90%). 반올림 rate 로 판정하면 '소진 임박'으로 오분류되지만 실집행 기준(89.6%<90%)이면 '정상'이라 예산 통보 큐에서 빠져야 한다(미집행·발주 미이행과 동일 반올림 오분류 계열).
+      { id: 'CT-2025-015', kind: '유지보수', name: '가상화 플랫폼 유지보수', vendor: '클라우드메이트', start: '2025-10-01', end: '2027-09-30', amount: 10_000_000, assetCount: 0, ownerDept: '인프라운영팀',
+        sla: '장애 접수 후 익영업일 대응', costs: [{ id: 'CST-0401', date: '2026-03-10', item: '연간 유지보수료(부분 집행)', amount: 8_960_000, addedBy: '박자산' }] },
       // 단말 유지보수 — SLA 대응 5영업일(slaResponseDays). 덮는 자산 AST-2024-000512 의 열린 수리가 SLA 시한을 넘겨 SLA 위반(로71). 집행 이력이 있어 미집행/예산초과 큐엔 안 걸린다(SLA 위반만 별도 판정).
       { id: 'CT-2025-014', kind: '유지보수', name: '임직원 단말 하드웨어 유지보수', vendor: '중부IT서비스', start: '2025-06-01', end: '2027-05-31', amount: 12_000_000, assetCount: 120, ownerDept: '자산관리팀',
         sla: '장애 접수 후 5영업일 내 온사이트 대응·수리 완료, 월 가동률 99% 보장', slaResponseDays: 5,
@@ -728,6 +738,8 @@ function seed(): Store {
       // 대여 자동 집행 회귀 — 승인 즉시 지정 유휴 자산이 신청자에게 반환 기한과 함께 대여 처리돼야 한다. 자산담당 단계(대여 결재선 ['신청자','자산담당']의 최종·approvalRoute 가 '신청자' 제거)라 ASSET 1회 승인으로 집행.
       // refId=AST-2024-000995 — 좌석 회수 회귀 테스트가 스위트 앞부분에서 정상 반환(→유휴)하고 이후 미변경이라, 승인 시점(스위트 끝)에 결정적으로 유휴다(시드 상태는 대여중이라 smoke 단말 가용 집계엔 영향 없음).
       { id: 'APR-2608-161', kind: '대여', title: '노트북 단기 대여 신청(회귀)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-08-18', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000701', loanDueDate: '2026-10-15' },
+      // 스테일 반납 회귀 — 상신(이서연) 후 자산(AST-2023-000707)이 회수·재배정되어 보유자가 오세훈으로 바뀜. 승인해도 반납대기로 되돌리면 안 된다(대여 승인·차이 조정 스테일 방어와 동형).
+      { id: 'APR-2607-118', kind: '반납', title: 'AST-2023-000707 Galaxy Book4 Pro 반납', requester: '이서연', dept: '개발2팀', requestedAt: '2026-07-20', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2023-000707' },
     ],
     saas: [
       { id: 'SAS-01', service: 'Notion', category: '협업', dept: '마케팅팀', users: 28, sanctioned: false, monthlyVisits: 8_412, risk: '중간' },

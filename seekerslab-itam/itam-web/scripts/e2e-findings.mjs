@@ -1355,6 +1355,19 @@ try {
   await p3.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
   const relBody = (await p3.locator('body').textContent()) || ''
   ok('반납 결재 승인 → 라이선스 좌석 자동 회수(이력 적재·역조회 소멸)', relBody.includes('라이선스 좌석 회수') && !relBody.includes('배정 라이선스'))
+  // 스테일 반납 방어 — 상신(이서연) 후 자산이 회수·재배정되어 보유자가 오세훈으로 바뀐 반납 결재(APR-2607-118)는 승인해도 반납대기로 되돌리지 않는다(대여 승인·차이 조정 스테일 방어와 동형). 재배정 무효화·새 보유자 좌석 회수 방지.
+  await p3.goto(`${BASE}/workflow/approvals?sel=APR-2607-118`, { waitUntil: 'networkidle' })
+  await p3.locator('tr', { has: p3.locator('td', { hasText: 'APR-2607-118' }) }).first().locator('button', { hasText: /^승인$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/assets/register?q=AST-2023-000707`, { waitUntil: 'networkidle' })
+  const staleRet = (await p3.locator('tr', { hasText: 'AST-2023-000707' }).first().textContent()) || ''
+  ok('스테일 반납 승인 미적용 — 재배정 자산은 사용중·오세훈 유지(반납대기로 뒤엎지 않음)', staleRet.includes('사용중') && staleRet.includes('오세훈') && !staleRet.includes('반납대기'))
+  await p3.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  ok('스테일 반납 승인 → 반납 접수 대기열에 미편성(재배정 자산 보호)', !((await p3.locator('body').textContent()) || '').includes('AST-2023-000707'))
+  // 유지보수 소진 임박 경계 회귀 — 집행률 89.6%(반올림 90%)는 실집행 기준(89.6%<90%)으로 '정상'이어야 한다(반올림 rate 로 판정하면 '소진 임박' 오분류·예산 통보 큐 오염). CT-2025-015.
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const maintRow = (await p3.locator('tr', { hasText: '가상화 플랫폼 유지보수' }).first().textContent()) || ''
+  ok('유지보수 소진 임박 경계: 89.6%(반올림 90%)는 정상 판정(반올림 오분류 방지)', maintRow.includes('정상') && !maintRow.includes('소진 임박'))
   // 양쪽 정합 — 사용 현황(Shadow SaaS)에서도 Linear 가 인가로 반영되어야 한다(카탈로그↔사용현황 이중 저장소 일치)
   await p3.goto(`${BASE}/discovery/saas`, { waitUntil: 'networkidle' })
   const linearUsage = p3.locator('tr').filter({ hasText: 'Linear' }).first()
