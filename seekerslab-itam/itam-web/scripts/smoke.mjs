@@ -884,6 +884,10 @@ try {
   check('대여 확인서: 대여자·반환 기한·대여 조건 렌더', loanAgr.includes('LOAN AGREEMENT') && loanAgr.includes('김민준') && loanAgr.includes('2026-08-20') && loanAgr.includes('대여 조건'))
   // 대여일 회귀 — 연장 승인·반려·취소도 kind '대여'라 reverse().find('대여')만 쓰면 대여일이 최신 연장 조치일로 흐른다. AST-2024-000230: 최초 대여 2026-07-28 + 연장 반려 2026-08-12 → 대여일은 2026-07-28.
   check('대여 확인서: 대여일은 최초 대여일(연장 조치일로 흐르지 않음)', loanAgr.includes('2026-07-28') && !loanAgr.includes('2026-08-12'))
+  // 대여 대장(엑셀) 대여일 회귀 — 확인서와 동일 규약. AST-2023-000450 은 결재 경유 대여('대여 신청 승인 —', '대여 —' 표기 없음) + 연장 반려(2026-07-13)라,
+  //  '대여 —' 양성매칭만 쓰면 대여일이 최신 연장 조치일(2026-07-13)로 흐른다 → '연장' 제외 매칭으로 최초 대여(2026-07-08)를 잡아야 한다.
+  const loansTxt = Buffer.from(await (await get('/api/export/loans', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
+  check('대여 대장 반출: 결재 경유 대여의 대여일이 최초 대여일(2026-07-08 · 연장 조치일 아님)', loansTxt.includes('AST-2023-000450') && loansTxt.includes('2026-07-08') && !loansTxt.includes('2026-07-13'))
   const loanSel = await (await get('/assets/register?sel=AST-2024-000230', 'ASSET_MGR')).text()
   check('자산 대장: 대여 중 자산 상세에 대여 확인서 인쇄 링크', loanSel.includes('/api/loan-agreement/AST-2024-000230'))
   // 수리중 자산 카드에 수리 의뢰(업체·예상반환) 행 — 상세·엑셀과 일관. 시드 AST-2024-000512(중부IT서비스)로 검증
