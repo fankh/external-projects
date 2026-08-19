@@ -81,6 +81,7 @@ NOTICESCOPE_DATA = ROOT / 'scripts' / '.e2e-noticescope-data.json'  # 대시보�
 ROT_FRESH_DATA = ROOT / 'scripts' / '.e2e-rotfresh-data.json'  # 회전문서 신규 상신 과다마감 방지 회귀용 (v1.5.88 AP3-3)
 PJDONE_DATA = ROOT / 'scripts' / '.e2e-pjdone-data.json'  # 프로젝트 완료 시 재서약 할일 정리 회귀용 (v1.5.89)
 PJMEMB_DATA = ROOT / 'scripts' / '.e2e-pjmemb-data.json'  # 빈 명단 프로젝트 참여서약 집계 회귀용 (v1.5.89)
+EXECFALSE_DATA = ROOT / 'scripts' / '.e2e-execfalse-data.json'  # 집행률 거짓 100% 방지 회귀용 (v1.5.321)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
 AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
 QNAROLE_DATA = ROOT / 'scripts' / '.e2e-qnarole-data.json'  # QnA 담당 지정 역할 정합 회귀용 (v1.5.92)
@@ -1762,6 +1763,13 @@ def sc_project_emptymembers_signcount(pg, base, check):
     txt = pg.locator('tr', has_text='빈명단집계테스트').inner_text()
     check('1건' in txt and '0건' not in txt,
           f"빈 명단 프로젝트도 참여서약 전원 집계 ([]를 미지정과 동일 취급; 버그면 0건; 실제 …{txt[-30:]})")
+    # 화면-export 정합(v1.5.321) — PMO 대장 export 도 빈 명단을 화면과 동일 length 판정해야 한다.
+    # 버그(bare `p.members ?`)면 []는 truthy 라 [].filter=0 을 내보내 화면(1)과 어긋난다. 참여 서약=CSV 5열(idx4).
+    csv = pg.context.request.get(f'{base}/api/export?type=projects').text()
+    line = next((l for l in csv.splitlines() if '빈명단집계테스트' in l), '')
+    cols = line.split(',')
+    check(len(cols) > 4 and cols[4] == '1',
+          f"export 참여서약도 화면과 동일(1) — 빈 명단 length 판정 (버그면 0); 실제 행 …{line[:60]}")
 
 
 def sc_rotating_fresh_no_overclose(pg, base, check):
@@ -2044,6 +2052,16 @@ def sc_finance_exec_rate(pg, base, check):
     pg.goto(f'{base}/finance/invest', wait_until='networkidle')
     rate = pg.locator('.stat', has_text='집행률').locator('.v').inner_text().strip()
     check(rate == '100%', f'집행률 확정 계획 스코프 = 100% (수정 전 계획외 산입이면 150%; 실제 {rate})')
+
+
+def sc_finance_exec_false100(pg, base, check):
+    """집행률 거짓 100% 방지(v1.5.321) — 미집행(집행<계획)인데 Math.round 가 99.5~99.9% 를 100% 로 올려
+    '완전 집행'을 거짓 표기하면 안 된다(compliance·risk 비율의 거짓100 방지 규약과 정합). 데이터: 확정계획 20000·
+    지급 19900(99.5%) → 99% 표기해야 한다(버그면 100%). 초과(>=계획)는 실값 유지라 이 캡의 영향 없음(EXECOVER 별도)."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/finance/invest', wait_until='networkidle')
+    rate = pg.locator('.stat', has_text='집행률').locator('.v').inner_text().strip()
+    check(rate == '99%', f'미집행 99.5% 는 99% 로 표기(거짓 100 방지; 버그면 100%; 실제 {rate})')
 
 
 def sc_year_filter(pg, base, check):
@@ -3381,6 +3399,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(EDU_DATA)}),
     ('finance_exec_rate', '집행률 — 확정 계획 스코프(계획외 지급 미산입)', sc_finance_exec_rate,
      {'PORTAL_DATA_FILE': str(FIN_DATA)}),
+    ('finance_exec_false100', '집행률 거짓 100% 방지 — 99.5% 미집행이 100% 로 올림 안 됨(거짓 완전집행 방지)', sc_finance_exec_false100,
+     {'PORTAL_DATA_FILE': str(EXECFALSE_DATA)}),
     ('year_filter', '일반 서약 집계 year 필터(레거시 데이터 오인 방지)', sc_year_filter,
      {'PORTAL_DATA_FILE': str(FYEAR_DATA)}),
     ('export_kind_scope', 'export 투자 집계 kind 스코프(크로스-kind 오염 제외)', sc_export_kind_scope,
@@ -3794,6 +3814,12 @@ def main() -> int:
         'investContracts': [{'id': 'CT-2026-90', 'kind': '투자', 'planId': 'IP-2026-90', 'vendor': '테스트벤더', 'title': '경계 계약', 'amount': 1004, 'signedAt': '2026-07-01'}],
         'settlements': [{'id': 'ST-2026-90', 'contractId': 'CT-2026-90', 'item': '착수금', 'amount': 1004, 'status': '지급완료', 'requestedBy': '김현우', 'requestedAt': '2026-07-05'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 집행률 거짓 100% 방지(v1.5.321) — 확정 20000·지급 19900(99.5%, 미집행)이 Math.round 로 100% 로 올라가면 안 된다.
+    EXECFALSE_DATA.write_text(json.dumps({
+        'investPlans': [{'id': 'IP-2026-95', 'kind': '투자', 'year': '2026', 'title': '거짓100 집행 과제', 'owner': '김현우', 'dept': '개발1팀', 'amount': 20000, 'status': '확정'}],
+        'investContracts': [{'id': 'CT-2026-95', 'kind': '투자', 'planId': 'IP-2026-95', 'vendor': '테스트벤더', 'title': '거짓100 계약', 'amount': 20000, 'signedAt': '2026-07-01'}],
+        'settlements': [{'id': 'ST-2026-95', 'contractId': 'CT-2026-95', 'item': '착수금', 'amount': 19900, 'status': '지급완료', 'requestedBy': '김현우', 'requestedAt': '2026-07-05'}],
+    }, ensure_ascii=False), encoding='utf-8')
     # 취약점 조치율 no-findings — 보안성검토 0건(fixFindings=0)일 때 스냅샷 조치율이 만점(100)이어야 한다(추세 0% 오표기 방지).
     # 감사만 남기려 auditLogs 도 비워, 기록 후 유일한 '컴플라이언스 스냅샷' 감사에서 '조치 100%'를 확인한다.
     CFIX_DATA.write_text(json.dumps({'securityReviews': [], 'complianceSnapshots': [], 'auditLogs': []}, ensure_ascii=False), encoding='utf-8')
@@ -3954,6 +3980,7 @@ def main() -> int:
     ROT_FRESH_DATA.unlink(missing_ok=True)
     PJDONE_DATA.unlink(missing_ok=True)
     PJMEMB_DATA.unlink(missing_ok=True)
+    EXECFALSE_DATA.unlink(missing_ok=True)
     RMGHOST_DATA.unlink(missing_ok=True)
     AFDEFEAT_DATA.unlink(missing_ok=True)
     QNAROLE_DATA.unlink(missing_ok=True)
