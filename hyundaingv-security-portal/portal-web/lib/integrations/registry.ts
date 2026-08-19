@@ -5,7 +5,7 @@ import { CHANNELS } from '@/portal.config'
 import { nowStamp } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { mockAsset, mockHr, mockMail, mockSecdata, mockSecmon, mockSms } from './mock'
-import { restAsset, restHr, restMail, restSms } from './rest'
+import { restAsset, restHr, restMail, restSecmon, restSms } from './rest'
 import type { AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SecMonAdapter, SendResult } from './types'
 
 /** 어댑터 호출 상한 시간 — 실 고객사 시스템이 응답 없이 매달리면(타임아웃 없는 fetch 등)
@@ -44,7 +44,9 @@ const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr, 'rest-hr': restHr, 'h
 // PORTAL_ASSET_API_URL 설정 시 실 자산 API 조회·PORTAL_ASSET_REGISTER_URL 로 등록번호 취득(쓰기 폐쇄 루프).
 const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'rest-asset': restAsset, 'erp-asset': restAsset, 'gov-asset': restAsset, 'fin-asset': restAsset }
 const SECDATA: Record<string, SecdataAdapter> = { 'mock-secdata': mockSecdata, 'gov-secdata': mockSecdata, 'fin-secdata': mockSecdata }
-const SECMON: Record<string, SecMonAdapter> = { 'mock-secmon': mockSecmon, 'gov-secmon': mockSecmon, 'fin-secmon': mockSecmon }
+// 데모 기본은 목업 유지(오프라인·결함주입 테스트). 샘플 고객사 프로필의 보안관제는 실동작 REST 어댑터에
+// 바인딩 — PORTAL_SECMON_API_URL 설정 시 실 SIEM/DLP/EDR 탐지 이벤트 조회(→ 보안위반 자동 편입).
+const SECMON: Record<string, SecMonAdapter> = { 'mock-secmon': mockSecmon, 'rest-secmon': restSecmon, 'gov-secmon': restSecmon, 'fin-secmon': restSecmon }
 
 /** adapterId → 구현 해석 (kind 별) — 자가진단·바인딩 완결성 검사가 쓴다.
  *  활성 상태와 무관하게 '등록되어 있는가'만 본다 (계약 적합성은 별도). */
