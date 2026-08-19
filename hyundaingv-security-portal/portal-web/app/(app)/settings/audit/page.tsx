@@ -11,6 +11,7 @@ const ACTION_TONE: Record<AuditAction, 'ok' | 'err' | 'info' | 'neutral' | 'warn
   '결재선 변경': 'warn', '연동 채널 변경': 'warn', '공통코드 변경': 'warn', '서약양식 개정': 'warn', '엑셀양식 변경': 'warn', '게시물 삭제': 'warn', '재택 대상자 변경': 'warn', '점검 기준 변경': 'warn', '인프라 자산 변경': 'warn', '메뉴권한 변경': 'warn', '재무 속보 수정': 'warn', '정산품의 삭제': 'warn',
   '보안위반 등록': 'err', '협력업체 서약 징구': 'neutral', '보안담당자 지정': 'neutral', '보안성 검토 완료': 'ok', '컴플라이언스 스냅샷': 'info',
   '인사정보 동기화': 'info', '배치 수동 실행': 'info', '일배치 이관': 'info', '알림 배치 실행': 'info',
+  '위험 등록': 'neutral', '위험 변경': 'warn', '위험 삭제': 'warn',
 }
 
 export default async function AuditPage() {

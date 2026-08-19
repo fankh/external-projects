@@ -6,12 +6,13 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { nowStamp, today } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, RiskItem, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
   inspectionPlans: InspectionPlan[]
   securityReviews: SecurityReview[]
+  riskItems: RiskItem[]
   complianceSnapshots: ComplianceSnapshot[]
   educationCourses: EducationCourse[]
   educationRecords: EducationRecord[]
@@ -158,6 +159,12 @@ function seed(): Store {
       { id: 'SEC-2026-01', title: '영업정보시스템 시큐어코딩 점검', kind: '시큐어코딩', target: '영업정보시스템', reviewer: '한지원', status: '완료', findings: 8, fixed: 8, critFound: 1, critFixed: 1, highFound: 2, highFixed: 2, medFound: 3, medFixed: 3, lowFound: 2, lowFixed: 2, plannedAt: '2026-06-10', completedAt: '2026-06-28' },
       { id: 'SEC-2026-02', title: '그룹웨어 웹 취약점 점검', kind: '취약점점검', target: '그룹웨어', reviewer: '박정호', status: '조치중', findings: 5, fixed: 2, critFound: 1, critFixed: 0, highFound: 2, highFixed: 1, medFound: 1, medFixed: 1, lowFound: 1, lowFixed: 0, plannedAt: '2026-07-15' },
       { id: 'SEC-2026-03', title: 'ERP 모의해킹', kind: '모의해킹', target: 'ERP', reviewer: '한지원', status: '계획', findings: 0, fixed: 0, critFound: 0, critFixed: 0, highFound: 0, highFixed: 0, medFound: 0, medFixed: 0, lowFound: 0, lowFixed: 0, plannedAt: '2026-09-01' },
+    ],
+    riskItems: [
+      { id: 'RK-2026-01', title: '개인정보 대량 조회 권한 오남용', area: '영업정보시스템', threat: '내부자 정보유출', vulnerability: '접근권한 최소화 미흡·조회이력 미점검', likelihood: 3, impact: 5, treatment: '완화', owner: '한지원', plan: '조회권한 재점검·이상조회 모니터링 룰 적용', dueDate: '2026-09-30', status: '조치중', identifiedAt: '2026-07-01' },
+      { id: 'RK-2026-02', title: '레거시 서버 OS 지원종료(EOL)', area: 'IT 인프라', threat: '알려진 취약점 악용', vulnerability: '보안패치 미적용 구형 OS 운영', likelihood: 4, impact: 4, treatment: '완화', owner: '박정호', plan: 'OS 업그레이드·격리 네트워크 이전', dueDate: '2026-08-15', status: '식별', identifiedAt: '2026-07-10' },
+      { id: 'RK-2026-03', title: '협력업체 원격접속 경로 통제 미흡', area: '외주·협력', threat: '외부 경유 침입', vulnerability: 'VPN 계정 공유·접속기간 미제한', likelihood: 2, impact: 4, treatment: '전가', owner: '한지원', plan: '보안관리약정·접속기간 한정·계정 개별화', dueDate: '2026-10-31', status: '식별', identifiedAt: '2026-07-15' },
+      { id: 'RK-2026-04', title: '재해복구(DR) 체계 부재', area: 'IT 인프라', threat: '재해·장애 시 업무중단', vulnerability: '백업 소산·복구절차 미검증', likelihood: 2, impact: 5, treatment: '수용', owner: '박정호', plan: '연 1회 복구훈련 계획 수립 전까지 리스크 수용', dueDate: '2026-12-31', status: '식별', identifiedAt: '2026-06-20' },
     ],
     complianceSnapshots: [
       { id: 'CS-2026-06', period: '2026-06', at: '2026-06-30 18:00', by: '한지원', score: 56, pledgeRate: 50, eduRate: 80, fixRate: 70, inspDone: 1, inspTotal: 4, highVulns: 4, openVulns: 6, vDone: 0, vTotal: 1 },

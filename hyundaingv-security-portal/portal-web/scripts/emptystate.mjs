@@ -32,7 +32,7 @@ const ROUTES = [
   '/infra/systems', '/infra/racks', '/infra/operations', '/infra/incidents', '/infra/changes',
   '/projects/status', '/projects/schedule', '/projects/reports',
   '/pledge/my', '/pledge/dept', '/pledge/manage', '/awareness/remote', '/awareness/prints', '/awareness/violations',
-  '/compliance/education', '/compliance/inspection', '/compliance/security-review', '/work/todo', '/work/approvals',
+  '/compliance/education', '/compliance/inspection', '/compliance/security-review', '/compliance/risks', '/work/todo', '/work/approvals',
   '/settings/users', '/settings/menus', '/settings/permissions', '/settings/codes', '/settings/forms', '/settings/audit',
   '/platform/integrations', '/search',
 ]
