@@ -11,8 +11,8 @@
  *   · 비정상 응답(비 2xx) → { ok:false, detail: 'HTTP <status>' } (소프트 실패).
  *   · 네트워크·인증 예외 → throw. registry.sendVia 의 try/catch 가 실패 이력으로 흡수한다.
  *   · 자체 타임아웃 없음 — registry.withTimeout 이 모든 어댑터 호출을 감싼다. */
-import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, SendResult } from './types'
-import type { Person } from '@/lib/types'
+import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, SecMonAdapter, SecurityEvent, SendResult } from './types'
+import type { Person, ViolationType } from '@/lib/types'
 
 interface RestChannelEnv {
   /** 발송 엔드포인트 URL (예: https://knox.example/api/v1/mail) */
@@ -64,6 +64,50 @@ function restMessaging(cfg: RestChannelEnv): MessagingAdapter {
       return { ok: true, detail: `${cfg.label} ${accepted}/${recipients.length}건 발송 (HTTP ${res.status})` }
     },
   }
+}
+
+/** 보안관제 탐지 유형 → 포털 위반 유형(ViolationType) 정규화. 고객 DLP·EDR 의 탐지 카테고리 문자열을
+ *  포털 3종 위반 유형에 매핑한다. 매핑 실패 시 원문을 반환하고, 코드에 없는 유형은 secmon.ts 가 드롭한다. */
+function toViolationType(raw: string): string {
+  const t = raw.trim()
+  if (t === '출력물 방치' || t === '화면 미잠금' || t === '인가되지 않은 USB 사용') return t
+  const low = t.toLowerCase()
+  if (t.includes('USB') || /usb|removable|이동식|저장장치/.test(low)) return '인가되지 않은 USB 사용' satisfies ViolationType
+  if (/lock|screen|idle|잠금|미잠금|세션/.test(low)) return '화면 미잠금' satisfies ViolationType
+  if (/print|출력|프린터|tray|트레이/.test(low)) return '출력물 방치' satisfies ViolationType
+  return t
+}
+
+/** 보안관제(SIEM·DLP·EDR, REST) — 탐지 이벤트를 조회해 SecurityEvent 로 매핑한다(→ secmon.ts 가 보안위반
+ *  자동 편입). `PORTAL_SECMON_API_URL` GET, 인증 `PORTAL_SECMON_API_TOKEN`. 고객 스키마는 통용 필드명으로
+ *  매핑하고, 탐지 유형은 위반 유형으로 정규화한다. 발생일이 타임스탬프면 날짜(YYYY-MM-DD)로 절단.
+ *  미설정 시 빈 배열(자가진단은 빈 배열도 계약 통과), 비정상 응답은 throw(secmon.ts try/catch 흡수). */
+export const restSecmon: SecMonAdapter = {
+  async fetchEvents(): Promise<SecurityEvent[]> {
+    const url = (process.env.PORTAL_SECMON_API_URL ?? '').trim()
+    if (!url) return []
+
+    const token = (process.env.PORTAL_SECMON_API_TOKEN ?? '').trim()
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    const res = await fetch(url, { headers })
+    if (!res.ok) throw new Error(`보안관제 API HTTP ${res.status}`)
+    const rows = unwrapRows(await res.json(), 'events')
+    return rows
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+      .map((r) => {
+        const when = pickField(r, '', ['detectedAt', 'detectedDate', 'eventDate', 'occurredAt', 'timestamp', 'ts', '발생일'])
+        return {
+          name: pickField(r, '', ['name', 'empName', 'userName', '성명', '사용자']),
+          dept: pickField(r, '', ['dept', 'orgName', 'department', 'deptName', '부서']),
+          type: toViolationType(pickField(r, '', ['type', 'category', 'eventType', 'detectionType', '유형'])) as ViolationType,
+          detail: pickField(r, '', ['detail', 'message', 'description', 'desc', '내용']),
+          detectedAt: when.length > 10 ? when.slice(0, 10) : when,
+        }
+      })
+      .filter((e) => e.name && e.dept && e.type && e.detectedAt)
+  },
 }
 
 /** 그룹웨어 메일(REST) — PORTAL_MAIL_API_URL 등으로 설정 */
