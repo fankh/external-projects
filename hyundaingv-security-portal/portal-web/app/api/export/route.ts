@@ -273,7 +273,7 @@ export async function GET(req: Request) {
       ['보안점검(ISMS)', `완료 ${k.inspDone} / 전체 ${k.inspTotal}`, `결과 미등록 ${k.inspPending}건`],
       ['보안성 검토 조치율', k.fixFindings > 0 ? `${complianceKpiPct(k.fixDone, k.fixFindings)}%` : '해당없음', `고위험 미조치 ${k.highVulns}건 · 미조치 취약점 ${k.openVulns}건 · 검토 ${k.reviewCount}건`],
       ['보안위반 처리', `완료 ${k.vDone} / 전체 ${k.vTotal}`, `확인서 징구중 ${k.vPending}건`],
-      ['정보보호 위험평가', `종결률 ${rk.treatedRate}% (${s.riskItems.filter(isRiskClosed).length}/${rk.total})`, `높음↑ 미종결 ${rk.highOpen}건 · 기한경과 ${rk.overdue}건`],
+      ['정보보호 위험평가', rk.total > 0 ? `종결률 ${rk.treatedRate}% (${s.riskItems.filter(isRiskClosed).length}/${rk.total})` : '해당없음', `높음↑ 미종결 ${rk.highOpen}건 · 기한경과 ${rk.overdue}건`],
     ]
     return csvResponse('보안컴플라이언스_종합현황', rows)
   }

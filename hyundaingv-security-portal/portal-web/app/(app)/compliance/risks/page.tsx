@@ -59,8 +59,14 @@ async function reassessRisk(formData: FormData) {
   if (likelihood === null || impact === null || !RISK_TREATMENTS.includes(treatment) || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return
   r.likelihood = likelihood; r.impact = impact; r.treatment = treatment; r.dueDate = dueDate
   r.plan = String(formData.get('plan') ?? '').trim().slice(0, 200)
+  // 담당 재배정 — 재직자(s.people)로만 이관한다. 담당이 퇴사하면 조치 지연 알림(재직 교집합)이 그를 건너뛰어
+  // 아무도 통지받지 못하는데(폐쇄루프 단절), 삭제는 미종결이라 막혀 있고 재평가로만 살아있는 담당에게 넘길 수
+  // 있다. 제출값이 퇴사자(현 담당 유지)면 무변경(교집합 실패 → no-op). 이관 시 감사에 남긴다.
+  const owner = String(formData.get('owner') ?? '')
+  const reassigned = owner !== r.owner && s.people.some((p) => p.name === owner)
+  if (reassigned) r.owner = owner
   registerUpload(id, formData.get('file'), me.name)
-  audit(me.name, '위험 변경', `${id} 재평가 — 위험도 ${riskScore(r)} ${riskTier(riskScore(r)).label} · 처리 ${treatment}`)
+  audit(me.name, '위험 변경', `${id} 재평가 — 위험도 ${riskScore(r)} ${riskTier(riskScore(r)).label} · 처리 ${treatment}${reassigned ? ` · 담당 ${owner}` : ''}`)
   revalidatePath('/compliance/risks')
 }
 
@@ -222,6 +228,9 @@ export default async function RisksPage() {
                             <div className="hstack" style={{ justifyContent: 'center', gap: 6 }}>
                               <form action={reassessRisk} className="hstack" style={{ gap: 3, alignItems: 'center', padding: '3px 0' }}>
                                 <input type="hidden" name="id" value={r.id} />
+                                <select aria-label="재평가 담당" className="select" name="owner" defaultValue={r.owner} title="담당(재배정 — 담당 퇴사 시 재직자로 이관)" style={{ height: 24, fontSize: 11, padding: '0 4px', maxWidth: 90 }}>
+                                  {(s.people.some((p) => p.name === r.owner) ? s.people : [{ name: r.owner, dept: '(퇴사)' }, ...s.people]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                                </select>
                                 <select aria-label="재평가 발생가능성" className="select" name="likelihood" defaultValue={Math.round(r.likelihood)} title="발생가능성" style={{ height: 24, fontSize: 11, padding: '0 4px' }}>{LI.map((n) => <option key={n} value={n}>{n}</option>)}</select>
                                 <span className="mut" style={{ fontSize: 10 }}>×</span>
                                 <select aria-label="재평가 영향도" className="select" name="impact" defaultValue={Math.round(r.impact)} title="영향도" style={{ height: 24, fontSize: 11, padding: '0 4px' }}>{LI.map((n) => <option key={n} value={n}>{n}</option>)}</select>
