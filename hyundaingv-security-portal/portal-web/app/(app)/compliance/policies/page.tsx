@@ -43,8 +43,14 @@ async function reviewPolicy(formData: FormData) {
   const p = s.securityPolicies.find((x) => x.id === id && x.status === '시행')
   if (!p) return
   p.lastReviewedAt = today()
+  // 담당 재배정 — 재검토 시 담당을 재직자로 확인·이관한다. 담당이 퇴사하면 재검토 지연 알림(재직 교집합)이
+  // 그를 건너뛰어 아무도 통지받지 못하는데(폐쇄루프 단절), 재검토로 살아있는 담당에게 넘길 수 있다(위험 재평가
+  // 담당 이관과 동일 방어). 제출값이 퇴사자(현 담당 유지)면 무변경(교집합 실패 → no-op).
+  const owner = String(formData.get('owner') ?? '')
+  const reassigned = owner !== p.owner && s.people.some((x) => x.name === owner)
+  if (reassigned) p.owner = owner
   registerUpload(id, formData.get('file'), me.name)
-  audit(me.name, '정책 변경', `${id} ${p.title} — 재검토 완료(${today()}), 재검토 예정 ${nextReviewDue(p)}`)
+  audit(me.name, '정책 변경', `${id} ${p.title} — 재검토 완료(${today()}), 재검토 예정 ${nextReviewDue(p)}${reassigned ? ` · 담당 ${owner}` : ''}`)
   revalidatePath('/compliance/policies')
 }
 
@@ -184,8 +190,11 @@ export default async function PoliciesPage() {
                             </form>
                           ) : (
                             <div className="hstack" style={{ justifyContent: 'center', gap: 6 }}>
-                              <form action={reviewPolicy} style={{ display: 'inline' }}>
+                              <form action={reviewPolicy} className="hstack" style={{ gap: 3, alignItems: 'center', display: 'inline-flex' }}>
                                 <input type="hidden" name="id" value={p.id} />
+                                <select aria-label="재검토 담당" className="select" name="owner" defaultValue={p.owner} title="담당(재검토 시 재직자로 확인·이관 — 담당 퇴사 시 재직자에게 넘김)" style={{ height: 24, fontSize: 11, padding: '0 4px', maxWidth: 84 }}>
+                                  {(s.people.some((x) => x.name === p.owner) ? s.people : [{ name: p.owner, dept: '(퇴사)' }, ...s.people]).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}
+                                </select>
                                 <button type="submit" className="btn sm" title={`재검토 완료 처리 — 최근검토일 갱신(예정 ${due})`}>재검토</button>
                               </form>
                               <form action={reviseStart} style={{ display: 'inline' }}>
