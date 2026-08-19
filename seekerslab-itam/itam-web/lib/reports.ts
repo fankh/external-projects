@@ -656,12 +656,40 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const flaggedC = liveC.filter(hasDataIssue).length
     const accuracyC = liveC.length ? Math.round(((liveC.length - flaggedC) / liveC.length) * 100) : 100
     const byCatC = [...new Set(liveC.map((a) => a.category))].map((c) => [c, String(liveC.filter((a) => a.category === c).length)])
+    const licC = s.licenses.filter((l) => l.status !== '해지')
+    const disposedC = s.disposals.filter((d) => d.status === '완료')
+    const vulnC = buildVulnPriority()
     return [
       {
         title: 'A.8.1 자산 인벤토리 통제',
         note: `대장 등록 운영 자산 ${liveC.length}건 · 미등록 발견 자산 ${unregC}건(편입 대상) · 대장 정합성(CMDB 정확도) ${accuracyC}%`,
         columns: ['자산 유형', '보유 대수'],
         rows: byCatC,
+      },
+      {
+        title: 'A.9 접근 통제 · SW 라이선스 컴플라이언스',
+        note: `라이선스 초과 사용 ${licC.filter((l) => l.used > l.purchased).length}종(감사 리스크) · 휴면 계정 미처리 ${s.accounts.filter((a) => !a.action).length}건`,
+        columns: ['라이선스', '보유', '사용', '판정'],
+        rows: licC.map((l) => [l.name, String(l.purchased), String(l.used), l.used > l.purchased ? '초과(구매 필요)' : l.used / l.purchased < 0.6 ? '미사용(회수 후보)' : '적정']),
+      },
+      {
+        title: 'A.8.3 매체 폐기 · 데이터 소거 증적',
+        note: `완료 폐기 ${disposedC.length}건 · 소거 방식 기록 ${disposedC.filter((d) => d.wipeMethod).length}건 (매체 처리 증적)`,
+        columns: ['자산번호', '소거 방식', '물리 처분'],
+        rows: disposedC.length ? disposedC.map((d) => [d.assetNo, d.wipeMethod ?? '-', d.disposition ?? '-']) : [['-', '완료 폐기 없음', '-']],
+      },
+      {
+        title: 'A.12 운영 보안 (취약점 노출)',
+        note: `조치 우선순위 P1 ${vulnC.p1}건 · P2 ${vulnC.p2}건 · 외부 노출 미조치 ${s.external.filter((e) => !e.action && e.state !== '등록·일치').length}건 · 크리덴셜 노출 미조치 ${s.credentials.filter((c) => c.status !== '조치 완료').length}건`,
+        bullets: ['외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 자산 중요도와 결합해 P1/P2/P3로 순위화(취약점 조치 우선순위 리포트와 동일 산출).'],
+      },
+      {
+        title: 'A.12.4 로깅 · 변경 추적',
+        bullets: [
+          `감사 로그 보존 ${s.auditLogs.length}건 — 자산·결재·정책 변경 추적`,
+          `AI 제안·질의·응답 감사 로그 보존 ${s.aiPolicy.auditRetentionDays}일 · 권한 범위 필터 ${s.aiPolicy.scopeFilter ? '적용(권한 밖 데이터 원천 배제)' : '미적용'}`,
+          `결재 워크플로 추적 — 완료(승인·반려) ${s.approvals.filter((a) => a.status === '승인' || a.status === '반려').length}건 · 대기 ${s.approvals.filter((a) => a.status === '대기').length}건`,
+        ],
       },
     ]
   }
