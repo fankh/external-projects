@@ -128,6 +128,37 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     })
   }
 
+  if (canAccess('/compliance/inspection')) {
+    groups.push({
+      label: '정보보호 점검',
+      hits: s.inspectionItems.filter((i) => has(i.id, i.control, i.category)).map((i) => ({
+        href: '/compliance/inspection', code: i.id, title: i.control, meta: `${i.category} · ${i.cycle} · ${i.source}`,
+      })),
+    })
+  }
+
+  if (canAccess('/compliance/dr')) {
+    groups.push({
+      label: '재해복구·업무연속성',
+      hits: s.drPlans.filter((d) => has(d.id, d.title, d.system)).map((d) => ({
+        href: '/compliance/dr', code: d.id, title: d.title, meta: `${d.system} · ${d.tier} · RTO ${d.rtoHours}h`,
+      })),
+    })
+  }
+
+  if (canAccess('/awareness/violations')) {
+    // 보안위반은 화면과 동일 스코핑 — BIZ/ADMIN 은 전체, 그 외는 본인 것만(v.name===me.name). 검색이 타인
+    // 위반(개인정보)을 여는 우회 경로가 되지 않게 화면 가드(page.tsx:99)를 그대로 따른다.
+    const canManageViol = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
+    const scoped = canManageViol ? s.violations : s.violations.filter((v) => v.name === me.name)
+    groups.push({
+      label: '보안위반',
+      hits: scoped.filter((v) => has(v.id, v.type, v.detail, v.name)).map((v) => ({
+        href: '/awareness/violations', code: v.id, title: `${v.type} — ${v.name}`, meta: `${v.dept} · ${v.status}`,
+      })),
+    })
+  }
+
   const nonEmpty = groups.filter((g) => g.hits.length > 0)
   const total = nonEmpty.reduce((sum, g) => sum + g.hits.length, 0)
 
@@ -143,7 +174,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
       {query === '' ? (
         <div className="callout">
-          <b>통합 검색</b> — SR·전자결재·공지·QnA·계약{canAccess('/infra/incidents') || canAccess('/projects/status') ? '·장애·변경·프로젝트' : ''}{canAccess('/compliance/security-review') ? '·보안성검토·위험·정책' : ''} 를 한 번에 찾는다.
+          <b>통합 검색</b> — SR·전자결재·공지·QnA·계약{canAccess('/infra/incidents') || canAccess('/projects/status') ? '·장애·변경·프로젝트' : ''}{canAccess('/compliance/security-review') ? '·보안성검토·위험·정책·점검·재해복구' : ''}·보안위반 을 한 번에 찾는다.
           예: <span className="mono">SR-2026</span>, <span className="mono">ERP</span>, <span className="mono">보안패치</span>
         </div>
       ) : total === 0 ? (
