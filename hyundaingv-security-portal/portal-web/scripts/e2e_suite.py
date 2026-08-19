@@ -2755,16 +2755,19 @@ def sc_search_coverage(pg, base, check):
     """통합 검색 커버리지(v1.5.333) — 전자결재·위험·정책이 검색에 편입된다. 결재는 신원 스코핑(기안자·결재자
     본인 문서만) — 무관 결재가 검색으로 유출되면 안 된다(검색이 권한 우회 경로가 되지 않게). 데이터: 본인문서
     (김현우 기안)·무관문서(박정호 기안·김현우 무관) + 위험 1건. fails-without-fix: 결재 신원 필터 제거 시 무관문서 유출."""
-    # 1) 김현우(USER) — 본인 기안 결재는 검색되고, 무관 결재는 안 된다(신원 스코핑·유출 차단)
+    # 1) 김현우(USER) — 본인 기안 결재·본인 위반은 검색, 무관 결재·타인 위반은 안 된다(신원·본인 스코핑)
     login(pg, base, '김현우')
     pg.goto(f'{base}/search?q=검색테스트', wait_until='networkidle')
     body = pg.content()
     check('검색테스트 본인문서' in body, '전자결재 검색: 본인 기안 문서 노출')
     check('검색테스트 무관문서' not in body, '전자결재 검색: 무관 결재 미노출(신원 스코핑·유출 차단)')
-    # 2) 시스템관리자(ADMIN) — 위험평가 검색 편입(관리자급 접근 도메인)
+    check('VL-SRCH-1' in body and 'VL-SRCH-2' not in body, '보안위반 검색: 본인 위반만(타인 위반 미노출·개인정보 보호)')
+    # 2) 시스템관리자(ADMIN) — 위험·점검·재해복구 편입 + 위반 전체(관리자급)
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/search?q=검색테스트', wait_until='networkidle')
-    check('검색테스트 위험시나리오' in pg.content(), '위험평가 검색 편입(관리자급 canAccess)')
+    body = pg.content()
+    check('검색테스트 위험시나리오' in body, '위험평가 검색 편입(관리자급 canAccess)')
+    check('VL-SRCH-2' in body, '보안위반 검색: 관리자(BIZ/ADMIN)는 전체 위반 열람')
 
 
 def sc_audit_search(pg, base, check):
@@ -3890,6 +3893,10 @@ def main() -> int:
         'riskItems': [
             {'id': 'RK-SRCH-1', 'title': '검색테스트 위험시나리오', 'area': '테스트영역', 'threat': '위협X', 'vulnerability': '취약점Y',
              'likelihood': 3, 'impact': 3, 'treatment': '완화', 'owner': '박정호', 'plan': '조치계획', 'dueDate': '2026-12-31', 'status': '조치중', 'identifiedAt': '2026-08-01'},
+        ],
+        'violations': [
+            {'id': 'VL-SRCH-1', 'name': '김현우', 'dept': '개발1팀', 'type': '화면 미잠금', 'detail': '검색테스트 본인위반내역', 'occurredAt': '2026-08-01', 'status': '완료'},
+            {'id': 'VL-SRCH-2', 'name': '박정호', 'dept': 'IT운영팀', 'type': '화면 미잠금', 'detail': '검색테스트 타인위반내역', 'occurredAt': '2026-08-01', 'status': '완료'},
         ],
     }, ensure_ascii=False), encoding='utf-8')
     # 감사 이력 조회 필터(v1.5.331) — 행위자·행위·기간으로 좁히고 export 도 동일 필터. 3건(구별되는 행위자·행위·날짜).
