@@ -362,7 +362,11 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         ...list.map((a) => `· ${a.assetNo} — ${a.model} (${a.category}, 보증 만료 ${a.warrantyEnd} · D-${daysUntil(a.warrantyEnd)})`),
         scoped.length > list.length ? `\n… 외 ${scoped.length - list.length}건은 대장 보증 임박 필터에서 확인하세요.` : ``,
       ].filter(Boolean).join('\n'),
-      evidence: [{ label: '자산 대장 (보증 임박)', href: '/assets/register?warranty=soon' }],
+      // 기간 질의는 임의 창(예: 내년 1분기)이라 '보증 임박(≤90일)' 필터와 집합이 어긋난다 — 오연결 대신 유형/전체 대장으로(정직한 라벨).
+      //  기간 미지정(임박순)일 때만 보증 임박 필터로 연결(그 집합이 곧 답의 액션 대상). count↔destination 정합.
+      evidence: period
+        ? [{ label: cat ? `자산 대장 (${cat})` : '자산 대장', href: cat ? `/assets/register?cat=${encodeURIComponent(cat)}` : '/assets/register' }]
+        : [{ label: '자산 대장 (보증 임박)', href: '/assets/register?warranty=soon' }],
     }
   }
   // 공급사(벤더) 집중도 — 계약을 공급사별로 집계해 계약 수·계약액·집행·만료 임박을 한 번에 답한다(§04 계약·벤더 관리).
