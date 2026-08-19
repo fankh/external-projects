@@ -11,7 +11,8 @@
  *   · 비정상 응답(비 2xx) → { ok:false, detail: 'HTTP <status>' } (소프트 실패).
  *   · 네트워크·인증 예외 → throw. registry.sendVia 의 try/catch 가 실패 이력으로 흡수한다.
  *   · 자체 타임아웃 없음 — registry.withTimeout 이 모든 어댑터 호출을 감싼다. */
-import type { MessagingAdapter, SendResult } from './types'
+import type { HrAdapter, MessagingAdapter, SendResult } from './types'
+import type { Person } from '@/lib/types'
 
 interface RestChannelEnv {
   /** 발송 엔드포인트 URL (예: https://knox.example/api/v1/mail) */
@@ -70,3 +71,63 @@ export const restMail: MessagingAdapter = restMessaging(MAIL_ENV)
 
 /** 문자(SMS, REST) — PORTAL_SMS_API_URL 등으로 설정 */
 export const restSms: MessagingAdapter = restMessaging(SMS_ENV)
+
+/** 부트스트랩 임직원 명단 — 실 HR 엔드포인트(PORTAL_HR_API_URL) 미설정 시의 초기 디렉터리.
+ *  HRIS 연동 전 초기 구동·자가진단(계약이 비어있지 않은 Person[] 를 요구)용. 엔드포인트를 설정하면
+ *  실 HR API 응답으로 대체된다(이 상수는 사용되지 않는다). */
+const BOOTSTRAP_DIRECTORY: Person[] = [
+  { name: '김현우', dept: '개발1팀' },
+  { name: '최은영', dept: '개발1팀' },
+  { name: '이수진', dept: '경영지원팀' },
+  { name: '정민서', dept: '경영지원팀' },
+  { name: '박정호', dept: 'IT운영팀' },
+  { name: '한지원', dept: 'IT운영팀' },
+  { name: '시스템관리자', dept: '정보기획팀' },
+  { name: '강도윤', dept: '정보기획팀' },
+]
+
+/** 고객 응답 행에서 필드를 뽑는다 — 명시 필드(env)가 있으면 우선, 없으면 통용 후보를 차례로. */
+function pickField(row: Record<string, unknown>, explicit: string, candidates: string[]): string {
+  const keys = explicit ? [explicit, ...candidates] : candidates
+  for (const k of keys) {
+    const v = row[k]
+    if (typeof v === 'string' && v.trim()) return v.trim()
+    if (typeof v === 'number') return String(v)
+  }
+  return ''
+}
+
+/** 인사·근태 디렉터리(REST) — 실 HR API 로 임직원 명단을 조회해 포털 Person{name,dept} 으로 매핑한다.
+ *  엔드포인트·인증은 환경변수 주입: PORTAL_HR_API_URL·PORTAL_HR_API_TOKEN. 고객 스키마 필드명이 다르면
+ *  PORTAL_HR_NAME_FIELD·PORTAL_HR_DEPT_FIELD 로 지정(미지정 시 name·empName·성명 / dept·orgName·부서 순 탐색).
+ *  응답 봉투는 배열 또는 {employees|data|items:[...]} 를 지원한다. 미설정 시 부트스트랩 명단을 반환한다
+ *  (자가진단 계약 통과). 네트워크·인증·비정상 응답은 throw 하여 syncHr 의 try/catch 가 실패로 흡수한다. */
+export const restHr: HrAdapter = {
+  async fetchPeople(): Promise<Person[]> {
+    const url = (process.env.PORTAL_HR_API_URL ?? '').trim()
+    if (!url) return BOOTSTRAP_DIRECTORY
+
+    const token = (process.env.PORTAL_HR_API_TOKEN ?? '').trim()
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    const res = await fetch(url, { headers })
+    if (!res.ok) throw new Error(`HR API HTTP ${res.status}`)
+    const data = (await res.json()) as unknown
+    const rows: unknown[] = Array.isArray(data) ? data
+      : Array.isArray((data as { employees?: unknown[] })?.employees) ? (data as { employees: unknown[] }).employees
+        : Array.isArray((data as { data?: unknown[] })?.data) ? (data as { data: unknown[] }).data
+          : Array.isArray((data as { items?: unknown[] })?.items) ? (data as { items: unknown[] }).items
+            : []
+
+    const nameField = (process.env.PORTAL_HR_NAME_FIELD ?? '').trim()
+    const deptField = (process.env.PORTAL_HR_DEPT_FIELD ?? '').trim()
+    return rows
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+      .map((r) => ({
+        name: pickField(r, nameField, ['name', 'empName', 'userName', '성명', '이름']),
+        dept: pickField(r, deptField, ['dept', 'orgName', 'deptName', 'department', '부서']),
+      }))
+      .filter((p) => p.name && p.dept)
+  },
+}
