@@ -28,7 +28,11 @@ export function computeFinanceKpis(plans: InvestPlan[], contracts: InvestContrac
   const paidConfirmed = paid
     .filter((x) => confirmedIds.has(contracts.find((c) => c.id === x.contractId)?.planId ?? ''))
     .reduce((sum, x) => sum + x.amount, 0)
-  const execRate = planTotal > 0 ? Math.round((paidConfirmed / planTotal) * 100) : 0
+  // 집행률 표시 — 미집행(paidConfirmed<planTotal)인데 Math.round 가 99.5~99.9% 를 100% 로 올려 '완전 집행'을
+  // 거짓 표기하는 것을 막는다(compliance·risk 비율의 '거짓 100 방지'와 동일 규약). 초과(>=계획)는 실값 유지(초과 신호).
+  const execRate = planTotal > 0
+    ? (paidConfirmed >= planTotal ? Math.round((paidConfirmed / planTotal) * 100) : Math.min(99, Math.round((paidConfirmed / planTotal) * 100)))
+    : 0
   return { planTotal, contractTotal, paidTotal, paidConfirmed, execRate }
 }
 

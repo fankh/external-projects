@@ -189,7 +189,9 @@ export async function GET(req: Request) {
     const rows: (string | number)[][] = [['번호', '프로젝트', 'PM', '투입 인력', '참여 서약', '시작', '종료', '진척(%)', '상태']]
     for (const p of s.projects) {
       const names = new Set(s.pledges.filter((x) => x.kind === '프로젝트' && x.projectRef === p.id && x.signedAt >= pjRevised).map((x) => x.name))
-      const signs = p.members ? p.members.filter((m) => names.has(m)).length : names.size
+      // 명단 '비어있음(빈 배열)'과 '미지정'을 동일 취급 — 화면 signedCount 와 같은 length 판정. 파일 재로딩이
+      // members 를 undefined→[] 로 정규화하면 빈 배열은 truthy 라 bare `?` 는 0 으로 떨어져 화면과 어긋난다.
+      const signs = p.members && p.members.length > 0 ? p.members.filter((m) => names.has(m)).length : names.size
       rows.push([p.id, p.title, p.manager, p.headcount, signs, p.start, p.end, p.progress, p.status])
     }
     return csvResponse('프로젝트_진행현황', rows)
