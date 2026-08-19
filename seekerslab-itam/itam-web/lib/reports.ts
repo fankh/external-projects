@@ -184,9 +184,9 @@ export function buildSections(kind: ReportKind): ReportSection[] {
 
   if (kind === '월간 자산 현황') {
     const cats = [...new Set(s.assets.map((a) => a.category))]
-    // 유지보수(수리) 비용 — 자산 단위 수리비(repairCosts) 롤업. 월간 운영 보고에 TCO 반영.
-    const sumRepair = (a: (typeof s.assets)[number]) => (a.repairCosts ?? []).reduce((n, c) => n + c.amount, 0)
-    const repaired = s.assets.filter((a) => (a.repairCosts?.length ?? 0) > 0).sort((x, y) => sumRepair(y) - sumRepair(x))
+    // 유지보수(수리) 비용 — 자산 단위 수리비(repairCosts) 롤업. 월간 운영 보고에 TCO 반영. 무상 보증 청구분은 제조사 부담이라 자사 수리비에서 제외(repairTotalOf).
+    const sumRepair = (a: (typeof s.assets)[number]) => repairTotalOf(a)
+    const repaired = s.assets.filter((a) => repairTotalOf(a) > 0).sort((x, y) => sumRepair(y) - sumRepair(x))
     const totalRepair = repaired.reduce((n, a) => n + sumRepair(a), 0)
     const repairSection: ReportSection = repaired.length === 0
       ? { title: '유지보수(수리) 비용 현황', bullets: ['등록된 수리 비용 이력이 없습니다.'] }
@@ -756,7 +756,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
       + `인증·계정·엔드포인트 위생에서는 크리덴셜 노출 ${credN}건·휴면 계정 ${acctN}건·미인가 SW ${swN}건·USB 매체 ${usbN}건·로컬 VM ${vmN}건이 미조치 상태로, 보안담당의 차단·제거·회수·비활성화·소유자 확인 조치가 필요합니다.`
   }
   if (kind === '월간 자산 현황') {
-    const totalRepair = s.assets.reduce((t, a) => t + (a.repairCosts ?? []).reduce((n, c) => n + c.amount, 0), 0)
+    const totalRepair = s.assets.reduce((t, a) => t + repairTotalOf(a), 0)
     const proceeds = s.disposals.filter((d) => d.status === '완료').reduce((t, d) => t + (d.proceeds ?? 0), 0)
     return `총 등록 자산은 ${s.assets.length}대이며 사용중 ${s.assets.filter((a) => a.status === '사용중').length}대, 유휴·반납 ${s.assets.filter((a) => ['유휴', '반납대기'].includes(a.status)).length}대입니다. `
       + `${s.opsPolicy.expiryWindowDays}일 내 만료 계약이 ${n('만료 임박')}건 있어 갱신 검토가 필요하며, Discovery를 통해 대장에 편입된 자산은 ${s.assets.filter((a) => a.discoveredVia).length}대입니다. `

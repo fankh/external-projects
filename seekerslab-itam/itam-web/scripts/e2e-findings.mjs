@@ -683,6 +683,16 @@ try {
   await p2.goto(`${BASE}/assets/register?q=AST-2021-000556`, { waitUntil: 'networkidle' })
   const repaired556 = (await p2.locator('tr', { hasText: 'AST-2021-000556' }).first().textContent()) || ''
   ok('수리 불가 → 보유자 정리(미지정·폐기예정 · 원 소유자 오귀속 방지)', repaired556.includes('미지정') && repaired556.includes('폐기예정') && !repaired556.includes('한지원'))
+  // 무상 보증 청구(신규) — 보증 기간 내 자산 수리는 제조사 보증으로 무상 청구(자사 부담 0). 실 수리비는 제조사 부담(절감)액으로 기록돼 자사 TCO 에서 제외되고 '보증 절감'으로 집계(비용 회피 가시화). AST-2025-000377(보증 2028·수리중).
+  await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const wRow = p2.locator('tr', { hasText: 'AST-2025-000377' }).first()
+  await wRow.locator('input[placeholder="실 수리비"]').fill('350000')
+  await wRow.locator('button', { hasText: /^무상 보증 청구$/ }).click()
+  await p2.waitForTimeout(700)
+  ok('무상 보증 청구: 보증 내 자산 무상 청구 성공(자사 부담 0 · 절감 표기)', ((await p2.locator('body').textContent()) || '').includes('절감 350,000원'))
+  await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const returnsBodyW = (await p2.locator('body').textContent()) || ''
+  ok('무상 보증 청구: 보증 절감 누계 반영(350,000원 · 자사 TCO 제외분)', returnsBodyW.includes('보증 절감') && returnsBodyW.includes('350,000원'))
 
   // 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 새 보유자에게 직접 인계. 그동안 사용 중 자산의 보유자 변경 경로가 없어
   //  팀 내 인수인계가 반납→재불출을 강제했다(correctField 가 '이동·불출 결재로'라며 막지만 이동은 위치만·불출은 유휴만). AST-2023-000113(이서연) → 오세훈(인사팀).

@@ -84,6 +84,9 @@ export interface AssetRepairCost {
   item: string
   amount: number
   by: string
+  /** 무상 보증 청구 — 보증 내 자산의 수리를 제조사 보증으로 청구(자사 미부담). amount 는 제조사 부담(자사 절감)액이며,
+   *  자사 TCO·누적 수리비 집계에서 제외하고 '보증 절감'으로 별도 집계한다(제품안내서 §03 유지보수: 보증 수리). */
+  warrantyClaimed?: boolean
 }
 
 /** 최근 실측 확인이 이 일수를 넘거나 아예 없으면 '장기 미실측'(유령 자산 후보)으로 본다.

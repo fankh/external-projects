@@ -187,10 +187,13 @@ export function ReturnsView(props: {
                     </td>
                     <td className="c">
                       <span className="hstack" style={{ gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <input className="input" type="number" min={0} style={{ width: 90 }} placeholder="실 수리비" title="실 수리비(수리 완료 시)"
+                        <input className="input" type="number" min={0} style={{ width: 90 }} placeholder="실 수리비" title="실 수리비(수리 완료 시). 무상 보증 청구는 제조사 부담(절감)액."
                           value={rcost[a.assetNo] ?? ''} onChange={(e) => setRcost((m) => ({ ...m, [a.assetNo]: e.target.value }))} />
                         <button className="btn sm pri" disabled={pending}
                           onClick={() => startTransition(async () => setMsg((await completeRepair(a.assetNo, '수리 완료', rnote[a.assetNo] ?? '', Number(rcost[a.assetNo] ?? 0))).message))}>수리 완료</button>
+                        {a.warranty && <button className="btn sm" disabled={pending}
+                          title="보증 기간 내 자산 — 제조사 보증으로 무상 청구(자사 부담 0). 실 수리비 칸의 금액을 제조사 부담(절감)액으로 기록해 '보증 절감'으로 집계합니다."
+                          onClick={() => startTransition(async () => setMsg((await completeRepair(a.assetNo, '수리 완료', rnote[a.assetNo] ?? '', Number(rcost[a.assetNo] ?? 0), true)).message))}>무상 보증 청구</button>}
                         <button className="btn sm danger" disabled={pending}
                           onClick={() => startTransition(async () => setMsg((await completeRepair(a.assetNo, '수리 불가', rnote[a.assetNo] ?? '', Number(rcost[a.assetNo] ?? 0))).message))}>수리 불가</button>
                       </span>

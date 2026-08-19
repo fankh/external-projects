@@ -11,9 +11,14 @@ export function acquisitionCostOf(a: Asset): number {
   return a.acquisitionCost ?? ACQ_COST[a.category] ?? 0
 }
 
-/** 누적 수리비 — repairCosts 합계. */
+/** 누적 수리비 — repairCosts 합계(자사 부담분만). 무상 보증 청구분은 제조사 부담이라 TCO 에서 제외한다. */
 export function repairTotalOf(a: Asset): number {
-  return (a.repairCosts ?? []).reduce((n, c) => n + c.amount, 0)
+  return (a.repairCosts ?? []).reduce((n, c) => n + (c.warrantyClaimed ? 0 : c.amount), 0)
+}
+
+/** 보증 절감 — 무상 보증 청구로 자사가 지불하지 않은 수리비 합계(보증 활용·비용 회피 가시화). */
+export function warrantySavingsOf(a: Asset): number {
+  return (a.repairCosts ?? []).reduce((n, c) => n + (c.warrantyClaimed ? c.amount : 0), 0)
 }
 
 /** 총소유비용(TCO) — 취득가 + 누적 수리비. 자산이 운영 중 지금까지 든 비용. */

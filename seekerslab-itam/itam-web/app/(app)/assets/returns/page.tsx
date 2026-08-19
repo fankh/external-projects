@@ -2,6 +2,7 @@ import { ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
+import { warrantySavingsOf } from '@/lib/cost'
 import { getStore } from '@/lib/store'
 import { ReturnsView } from './ReturnsView'
 
@@ -75,6 +76,8 @@ export default async function ReturnsPage() {
   ).length
 
   const longIdle = idle.filter((a) => (a.idleDays ?? 0) >= 90).length
+  // 보증 절감 — 무상 보증 청구로 자사가 부담하지 않은 수리비 누계(보증 활용·비용 회피 가시화)
+  const warrantySaved = s.assets.reduce((n, a) => n + warrantySavingsOf(a), 0)
 
   return (
     <>
@@ -91,6 +94,7 @@ export default async function ReturnsPage() {
         <Stat value={idle.length} label="유휴 자산 풀" />
         <Stat value={longIdle} label="90일 이상 장기 유휴" tone={longIdle ? 'warn' : 'ok'} delta={{ text: '재배치·폐기 검토', dir: 'flat' }} />
         <Stat value={openRequests} label="배정 대기 자산 신청" tone={openRequests ? 'accent' : 'ok'} />
+        <Stat value={warrantySaved > 0 ? `${warrantySaved.toLocaleString()}원` : '0'} label="보증 절감 (무상 청구)" tone={warrantySaved > 0 ? 'ok' : undefined} delta={{ text: '제조사 보증 수리 비용 회피', dir: 'flat' }} />
       </div>
 
       <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} repairRemindable={repairRemindable} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} />
