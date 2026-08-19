@@ -7,7 +7,7 @@ import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra'
-import { isReviewOverdue, nextReviewDue } from '@/lib/policy'
+import { computePolicyKpis, isReviewOverdue, nextReviewDue } from '@/lib/policy'
 import { computeRiskKpis, isRiskClosed, riskScore, riskTier } from '@/lib/risk'
 import { delayedSrs, srStatusLabel } from '@/lib/sr'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
@@ -285,6 +285,7 @@ export async function GET(req: Request) {
     // KPI 는 lib/compliance 단일 원천(추세 스냅샷과 공유) — 화면·산출물 수치 불일치 방지.
     const k = computeComplianceKpis(s)
     const rk = computeRiskKpis(s.riskItems, today())
+    const pk = computePolicyKpis(s.securityPolicies, today())
     const score = compliancePostureScore(k)
     const weak = weakestPostureAxis(k)
     const rows: (string | number)[][] = [
@@ -297,6 +298,7 @@ export async function GET(req: Request) {
       ['보안성 검토 조치율', k.fixFindings > 0 ? `${complianceKpiPct(k.fixDone, k.fixFindings)}%` : '해당없음', `고위험 미조치 ${k.highVulns}건 · 미조치 취약점 ${k.openVulns}건 · 검토 ${k.reviewCount}건`],
       ['보안위반 처리', `완료 ${k.vDone} / 전체 ${k.vTotal}`, `확인서 징구중 ${k.vPending}건`],
       ['정보보호 위험평가', rk.total > 0 ? `종결률 ${rk.treatedRate}% (${s.riskItems.filter(isRiskClosed).length}/${rk.total})` : '해당없음', `높음↑ 미종결 ${rk.highOpen}건 · 기한경과 ${rk.overdue}건`],
+      ['정책·지침 관리', pk.total > 0 ? `시행 ${pk.active} / 전체 ${pk.total}` : '해당없음', `재검토 경과 ${pk.overdue}건 · 개정중 ${pk.revising}건`],
     ]
     return csvResponse('보안컴플라이언스_종합현황', rows)
   }

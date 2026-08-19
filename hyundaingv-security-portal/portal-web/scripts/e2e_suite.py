@@ -605,6 +605,9 @@ def sc_policy_lifecycle(pg, base, check):
     login(pg, base, '시스템관리자')  # ADMIN — 정책 관리(BIZ 게이트)
     reg = reload()
     check('경과' in reg.locator('tr', has_text='PL-2026-91').inner_text(), '재검토 예정일 경과 정책 = 경과 표시')
+    # ISMS 종합현황 export 에 정책 라인 포함(위험 라인과 함께) — 관리체계 종합 근거 완결
+    csv = pg.request.get(f'{base}/api/export?type=compliance-summary').text()
+    check('정책·지침 관리' in csv and '재검토 경과 1건' in csv, '종합현황 export = 정책 재검토 경과 라인(시행 정책 1·경과 1)')
     # 재검토 완료 → 최근검토일 today 갱신 → nextReviewDue 미래 → 경과 해소(시계 리셋)
     reg.locator('tr', has_text='PL-2026-91').locator('button:has-text("재검토")').click()
     reg = reload()
