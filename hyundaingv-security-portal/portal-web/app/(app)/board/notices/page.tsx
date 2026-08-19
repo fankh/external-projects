@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader } from '@/components/ui'
+import { Icon } from '@/components/chrome/Icon'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
@@ -75,7 +76,7 @@ export default async function NoticesPage() {
               {rows.map((n) => (
                 <tr key={n.id}>
                   <td><Chip tone={n.category === '보안' ? 'err' : n.category === '시스템' ? 'info' : n.category === '교육' ? 'ok' : 'neutral'} bare>{n.category}</Chip></td>
-                  <td className={n.pinned ? 'strong' : ''}>{n.pinned ? '📌 ' : ''}{n.title}<Clip count={attachCount(n.id)} title="공지 첨부" /></td>
+                  <td className={n.pinned ? 'strong' : ''}>{n.pinned && <Icon name="pin" size={12} aria-label="고정" style={{ marginRight: 4, verticalAlign: '-1px' }} />}{n.title}<Clip count={attachCount(n.id)} title="공지 첨부" /></td>
                   <td>{n.author}</td>
                   <td className="tnum">
                     {n.postedAt}

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Icon } from '@/components/chrome/Icon'
 import { effectiveRoles, requireMenu } from '@/lib/authz'
 import { currentYear, today } from '@/lib/dates'
 import { compliancePostureScore, computeComplianceKpis, postureRating } from '@/lib/compliance'
@@ -195,7 +196,7 @@ export default async function DashboardPage() {
                 {notices.map((n) => (
                   <tr key={n.id}>
                     <td><Chip tone={n.category === '보안' ? 'err' : n.category === '시스템' ? 'info' : n.category === '교육' ? 'ok' : 'neutral'} bare>{n.category}</Chip></td>
-                    <td className={n.pinned ? 'strong' : ''}>{n.pinned ? '📌 ' : ''}{n.title}</td>
+                    <td className={n.pinned ? 'strong' : ''}>{n.pinned && <Icon name="pin" size={12} aria-label="고정" style={{ marginRight: 4, verticalAlign: '-1px' }} />}{n.title}</td>
                     <td className="tnum mute">{n.postedAt}</td>
                   </tr>
                 ))}

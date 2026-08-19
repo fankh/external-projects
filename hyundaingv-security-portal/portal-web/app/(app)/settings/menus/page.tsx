@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { NAV } from '@/components/chrome/menus'
+import { Icon } from '@/components/chrome/Icon'
 import { registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { SCREENS } from '@/lib/screens'
@@ -57,7 +58,7 @@ export default async function MenusPage() {
                     <td>
                       <form action={uploadSpec} className="hstack" style={{ padding: '2px 0' }}>
                         <input type="hidden" name="href" value={i.href} />
-                        {spec && <span className="mono dim" style={{ fontSize: 11 }} title={`${spec.name} · ${spec.uploadedBy}`}>📎 {spec.name.slice(0, 16)}</span>}
+                        {spec && <span className="clip mono" title={`${spec.name} · ${spec.uploadedBy}`}><Icon name="clip" size={12} />{spec.name.slice(0, 16)}</span>}
                         <input className="input" type="file" name="file" required style={{ height: 24, fontSize: 11, width: 120, paddingTop: 2 }} title="화면 정의서 업로드 (교체)" />
                         <button type="submit" className="btn sm">{spec ? '교체' : '업로드'}</button>
                       </form>

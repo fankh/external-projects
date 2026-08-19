@@ -114,7 +114,9 @@ button { font-family: inherit; }
 }
 .modnav a:hover { background: var(--canvas); text-decoration: none; }
 .modnav a.on { background: color-mix(in srgb, var(--dm) 9%, #fff); color: var(--dm); font-weight: 700; }
-.modnav a .ico { width: 15px; font-size: 12px; text-align: center; opacity: .75; flex: none; }
+.modnav a .ico { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; opacity: .7; flex: none; }
+.modnav a.on .ico { opacity: 1; }
+.modnav a .ico svg { display: block; }
 .bdg {
   margin-left: auto; font-size: 10px; font-weight: 700; padding: 0 6px; border-radius: 8px;
   background: var(--err); color: #fff; line-height: 16px; flex: none;
@@ -132,6 +134,7 @@ button { font-family: inherit; }
 }
 .statusbar .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); display: inline-block; margin-right: 5px; }
 .statusbar .grow { flex: 1; }
+.statusbar .copyr { color: var(--dim); padding-left: 16px; border-left: 1px solid var(--line); }
 
 /* ═══ 화면 헤더 ═══ */
 .screen-hd { display: flex; align-items: flex-end; gap: 14px; }
@@ -285,7 +288,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .acct .role { margin-left: auto; }
 
 /* 첨부 뱃지 */
-.clip { font-size: 11px; color: var(--dim); margin-left: 5px; white-space: nowrap; }
+.clip { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--dim); margin-left: 5px; white-space: nowrap; vertical-align: middle; }
 
 /* 권한 매트릭스 */
 .mx td.y { color: var(--ok); font-weight: 700; text-align: center; }
