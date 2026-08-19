@@ -1,3 +1,4 @@
+import { assetDependencies } from '@/lib/cmdb'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
 import { today, warrantyState } from '@/lib/dates'
 import { qrSvg } from '@/lib/label'
@@ -17,6 +18,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   if (session.role === 'USER' && a.owner !== session.name) return new Response('Forbidden', { status: 403 })
 
   const qr = await qrSvg(a.assetNo, 120)
+  // CMDB 의존 관계 — 상위 의존·영향 범위(blast radius)·저하 상위. 이 자산 장애 시 무엇이 영향받는지 dossier 에 남긴다.
+  const deps = assetDependencies(a.assetNo)
+  const asById = new Map(getStore().assets.map((x) => [x.assetNo, x]))
+  const nameOf = (no: string) => { const x = asById.get(no); return x ? `${no}(${x.model})` : no }
   const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const row = (k: string, v?: string) => (v && v !== '-') ? `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>` : ''
   const fields = [
@@ -35,6 +40,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('취득가', acquisitionCostOf(a) > 0 ? `${acquisitionCostOf(a).toLocaleString()}원${a.acquisitionCost === undefined ? ' (표준 단가)' : ''}` : undefined),
     row('TCO(취득+수리)', acquisitionCostOf(a) > 0 ? `${assetTco(a).toLocaleString()}원` : undefined),
     row('잔존가치(장부가)', acquisitionCostOf(a) > 0 ? `${bookValueOf(a, today()).toLocaleString()}원 · 정액법 상각 ${depreciationPct(a, today())}%` : undefined),
+    row('상위 의존 (CMDB)', deps.upstream.length ? deps.upstream.map(nameOf).join(', ') : undefined),
+    row('영향 범위 (blast radius)', deps.blastRadius.length ? `${deps.blastRadius.length}대 — ${deps.blastRadius.map(nameOf).join(', ')}` : undefined),
+    row('⚠ 저하된 상위', deps.degradedUpstream.length ? `${deps.degradedUpstream.map(nameOf).join(', ')} — 상위 장애·이탈로 이 자산 위험` : undefined),
   ].filter(Boolean).join('')
   const timeline = [...a.history].reverse().map((h) =>
     `<tr><td class="d">${esc(h.date)}</td><td class="k">${esc(h.kind)}</td><td>${esc(h.detail)}</td><td class="ac">${esc(h.actor)}</td></tr>`,
