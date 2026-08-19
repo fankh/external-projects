@@ -67,6 +67,7 @@ const ROUTES = {
   '/compliance/inspection': BIZ,
   '/compliance/risks': BIZ,
   '/compliance/policies': BIZ,
+  '/compliance/dr': BIZ,
   '/work/todo': ALL,
   '/work/approvals': ALL,
   '/settings/users': ADM,
@@ -220,6 +221,8 @@ async function main() {
     ['/compliance/risks', 'BIZ_MGR', ['RK-2026-01', '개인정보 대량 조회 권한 오남용', '위험 매트릭스', '위험관리대장', '위험 등록', '심각', '완화', '위험 추세', '현황 스냅샷 기록']],
     // 정보보호 정책·지침 관리 — 관리대장·재검토 경과·생명주기(등록/재검토/개정)
     ['/compliance/policies', 'BIZ_MGR', ['PL-2026-01', '정보보호 기본정책', '정책·지침 관리대장', '정책 등록', '재검토 경과', '접근통제 지침', '개정중']],
+    // 재해복구·업무연속성 — 관리대장·RTO/RPO·훈련 경과·복구계획 등록
+    ['/compliance/dr', 'BIZ_MGR', ['DR-2026-01', 'ERP 재해복구 계획', '재해복구 관리대장', '복구계획 등록', '훈련 경과', '핵심', '부분성공']],
     // 비용 루프 — 속보 기준금액(정산>계약>계획), 투자·비용 분리
     ['/finance/expense', 'DEPT_MGR', ['클라우드 인프라 이용료', '씨클라우드', '속보', '기준금액', 'ST-2026-02', '월정산', '계획대비실적', 'expense-actual', '지급예정']],
     ['/finance/expense', 'USER', ['경영계획', '항목 등록']],

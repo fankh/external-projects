@@ -62,6 +62,7 @@ RISKRA_DATA = ROOT / 'scripts' / '.e2e-riskra-data.json'  # 위험 담당 재배
 POLICY_DATA = ROOT / 'scripts' / '.e2e-policy-data.json'  # 정책·지침 생명주기 + 재검토 주기(경과 리셋) 회귀용 (v1.5.271)
 POLICYNF_DATA = ROOT / 'scripts' / '.e2e-policynf-data.json'  # 정책 재검토 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.273)
 POLICYRA_DATA = ROOT / 'scripts' / '.e2e-policyra-data.json'  # 정책 담당 재배정(재검토 시 퇴사→재직 이관) 회귀용 (v1.5.275)
+DR_DATA = ROOT / 'scripts' / '.e2e-dr-data.json'  # 재해복구 복구훈련 주기(경과 리셋)·담당 재배정·삭제 커버리지용 (v1.5.279)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -658,6 +659,28 @@ def sc_policy_reassign(pg, base, check):
     txt = reg.locator('tr', has_text='PL-2026-95').inner_text()
     check('이수진' in txt, '재검토 시 퇴사 담당을 재직자(이수진)로 재배정')
     check('E2E퇴사담당' not in txt, '퇴사 담당 이관됨(현 담당 아님)')
+
+
+def sc_dr_lifecycle(pg, base, check):
+    """재해복구·업무연속성 — 복구훈련 주기(훈련 경과 리셋) + 담당 재배정 + 삭제. 격리(복구계획 1건 DR-2026-91:
+    핵심·훈련 경과·담당 퇴사 E2E퇴사담당). 훈련 기록(성공)으로 훈련 경과 해소(시계 리셋)·퇴사 담당 재직자
+    이관. ISMS 2.12 정기 복구훈련 강제. (퇴사담당 부재로 이관 검증 — 재직자 셀렉트 옵션 오탐 회피)."""
+    login(pg, base, '시스템관리자')  # ADMIN — 복구계획 관리(BIZ 게이트)
+    pg.goto(f'{base}/compliance/dr', wait_until='networkidle')
+    reg = pg.locator('.card', has_text='재해복구 관리대장')
+    row = reg.locator('tr', has_text='DR-2026-91')
+    check('경과' in row.inner_text() and 'E2E퇴사담당' in row.inner_text(), '훈련 경과·퇴사 담당 복구계획')
+    row.locator('select[name=result]').select_option('성공')
+    row.locator('select[name=owner]').select_option('이수진')
+    row.locator('button:has-text("훈련 기록")').click()
+    pg.goto(f'{base}/compliance/dr', wait_until='networkidle')  # RSC 재검증 반영 후 재조회
+    txt = reg.locator('tr', has_text='DR-2026-91').inner_text()
+    check('경과' not in txt, '복구훈련 기록 → 훈련 경과 해소(다음 예정일 미래로, 시계 리셋)')
+    check('E2E퇴사담당' not in txt, '퇴사 담당 재직자(이수진) 이관 — 셀렉트 퇴사옵션 사라짐')
+    # 삭제
+    reg.locator('tr', has_text='DR-2026-91').locator('button:has-text("삭제")').click()
+    pg.goto(f'{base}/compliance/dr', wait_until='networkidle')
+    check(pg.locator('tr', has_text='DR-2026-91').count() == 0, '복구계획 삭제 — 대장 제거')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2726,6 +2749,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(POLICYNF_DATA)}),
     ('policy_reassign', '정책 담당 재배정 — 재검토 시 퇴사 담당 재직자 이관(폐쇄루프 복구)', sc_policy_reassign,
      {'PORTAL_DATA_FILE': str(POLICYRA_DATA)}),
+    ('dr_lifecycle', '재해복구 — 복구훈련 주기(경과 리셋)·담당 재배정·삭제(ISMS 2.12)', sc_dr_lifecycle,
+     {'PORTAL_DATA_FILE': str(DR_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -3153,6 +3178,10 @@ def main() -> int:
     POLICYRA_DATA.write_text(json.dumps({'securityPolicies': [
         {'id': 'PL-2026-95', 'title': '재배정 정책', 'category': '정책', 'version': 'v1.0', 'owner': 'E2E퇴사담당',
          'status': '시행', 'effectiveAt': '2024-01-01', 'reviewCycleMonths': 12, 'lastReviewedAt': '2024-01-01'}]}, ensure_ascii=False), encoding='utf-8')
+    # 재해복구 — 훈련 경과·퇴사 담당 복구계획 1건. 훈련 기록으로 경과 해소(시계 리셋)·결과 갱신·재직자 이관 검증.
+    DR_DATA.write_text(json.dumps({'drPlans': [
+        {'id': 'DR-2026-91', 'system': '테스트', 'title': '테스트 복구계획', 'tier': '핵심', 'rtoHours': 4, 'rpoHours': 1,
+         'owner': 'E2E퇴사담당', 'testCycleMonths': 12, 'lastTestedAt': '2024-01-01', 'lastResult': '부분성공'}]}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',

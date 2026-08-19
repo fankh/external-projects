@@ -258,6 +258,34 @@ export interface SecurityPolicy {
   lastReviewedAt: string
 }
 
+/** 업무연속성/재해복구 등급 — 핵심(즉시 복구)·중요·일반 (ISMS 2.12 BCP·DR 대상 중요도) */
+export type DrTier = '핵심' | '중요' | '일반'
+export const DR_TIERS: DrTier[] = ['핵심', '중요', '일반']
+/** 최근 복구훈련 결과 — 미실시·성공·부분성공·실패 */
+export type DrTestResult = '미실시' | '성공' | '부분성공' | '실패'
+export const DR_TEST_RESULTS: DrTestResult[] = ['성공', '부분성공', '실패']
+
+/** 재해복구·업무연속성 관리대장 항목 (ISMS 2.12) — 대상 업무·시스템의 복구목표(RTO/RPO)와 주기적 복구훈련을
+ *  관리한다. 다음 훈련 예정일(nextTestDue)은 저장하지 않고 lib/dr 에서 파생(lastTestedAt + testCycleMonths·경과
+ *  시 훈련 지연). 정책 재검토 주기와 동형이나 대상은 '복구 훈련'(RTO/RPO·훈련 결과). */
+export interface DrPlan {
+  id: string
+  /** 대상 업무·시스템 */
+  system: string
+  title: string
+  tier: DrTier
+  /** 목표 복구시간 RTO (시간) */
+  rtoHours: number
+  /** 목표 복구시점 RPO (시간) */
+  rpoHours: number
+  owner: string
+  /** 복구훈련 주기(개월) — 연 1회=12 */
+  testCycleMonths: number
+  /** 최근 복구훈련일 (YYYY-MM-DD) — 훈련 기록 시 갱신, nextTestDue 산정 기준. 미실시면 수립일. */
+  lastTestedAt: string
+  lastResult: DrTestResult
+}
+
 /** 컴플라이언스 포스처 추세 스냅샷 — 주기(월)별 KPI 를 저장해 전기 대비 개선 추이(ISMS 감사 근거)를 본다.
  *  값은 lib/compliance computeComplianceKpis 기준 기록 시점 산출(rate 는 complianceKpiPct). */
 export interface ComplianceSnapshot {
