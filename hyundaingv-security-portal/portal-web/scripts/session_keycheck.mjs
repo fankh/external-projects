@@ -54,6 +54,25 @@ async function main() {
     const rejOther = await get('customer-B-different-key-0000')
     check(rejOther.status === 307, `또 다른 키 서명 세션 → 거부 (키 격리, got ${rejOther.status})`)
 
+    // 3) 프로덕션 기동 하드페일 — 개발 기본 키(SESSION_SECRET 미설정과 동치)로는 부팅을 거부해야 한다.
+    //    (경고로 흘리면 위조 가능한 키로 운영이 뜬다 — fail-closed 로 기동 자체를 막는다.)
+    const PORT2 = 3420
+    const badServer = spawn(`npx next start -p ${PORT2}`, {
+      cwd: ROOT, shell: true, stdio: 'ignore',
+      env: { ...process.env, SESSION_SECRET: DEV_DEFAULT },  // next start=production + 개발 기본값 → 기동 거부
+    })
+    try {
+      let served = false
+      for (let i = 0; i < 24; i++) {  // 정상 서버라면 이 안에 반드시 뜬다(약 12초 여유) — 안 뜨면 하드페일
+        try { if ((await fetch(`http://localhost:${PORT2}/login`, { redirect: 'manual' })).status === 200) { served = true; break } } catch { /* 미기동 */ }
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      check(!served, '개발 기본 키 + 프로덕션 → 기동 거부(하드페일·세션 위조 방지)')
+    } finally {
+      if (process.platform === 'win32') { try { execSync(`taskkill /pid ${badServer.pid} /T /F`, { stdio: 'ignore' }) } catch { /* 종료됨 */ } }
+      else badServer.kill()
+    }
+
     console.log(`\n${fails.length === 0 ? '✓' : '✗'} session-keycheck: ${pass} 통과, ${fails.length} 실패`)
     for (const f of fails) console.error(`  ✗ ${f}`)
     process.exitCode = fails.length === 0 ? 0 : 1

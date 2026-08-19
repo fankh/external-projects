@@ -12,7 +12,7 @@ import process from 'node:process'
 const ROOT = path.resolve(import.meta.dirname, '..')
 const PORT = 3419
 const BASE = `http://localhost:${PORT}`
-const SECRET = process.env.SESSION_SECRET ?? 'ngv-portal-dev-secret'
+const SECRET = process.env.SESSION_SECRET || 'ngv-gate-nondefault-secret'
 const admin = { login: 'admin', name: '시스템관리자', dept: '정보기획팀', role: 'ADMIN' }
 const sign = (a) => {
   const payload = Buffer.from(JSON.stringify({ ...a, exp: Date.now() + 3600000 }), 'utf8').toString('base64url')
@@ -110,7 +110,7 @@ async function waitReady() {
 
 async function main() {
   if (!existsSync(path.join(ROOT, '.next'))) { console.error('✗ .next 빌드 없음 — npm run build 먼저'); process.exit(1) }
-  const server = spawn(`npx next start -p ${PORT}`, { cwd: ROOT, shell: true, stdio: 'ignore' })
+  const server = spawn(`npx next start -p ${PORT}`, { cwd: ROOT, shell: true, stdio: 'ignore', env: { ...process.env, SESSION_SECRET: SECRET } })
   try {
     await waitReady()
     // 색 대비 정적 검사 (KWCAG 5.3.3) — 서버 무관, 토큰 값 기반

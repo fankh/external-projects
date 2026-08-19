@@ -4,16 +4,18 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
-  // 보안 기동 점검 — 프로덕션에서 세션 서명 키가 공개된 개발용 기본값이면 크게 경고한다.
-  // (이 값이면 소스에 키가 있으므로 누구나 관리자 세션을 위조할 수 있다 — 반드시 SESSION_SECRET 설정)
+  // 보안 기동 점검(fail-closed) — 프로덕션에서 세션 서명 키가 공개된 개발용 기본값이면 기동을 거부한다.
+  // (이 값이면 소스에 키가 있어 누구나 관리자 세션을 위조할 수 있다 — 경고로 흘리지 않고 부팅 자체를 막는다.)
+  // 게이트/데모는 서버 기동 시 비-기본 SESSION_SECRET 을 주입하므로 이 경로를 타지 않는다.
   if (process.env.NODE_ENV === 'production') {
     const { SESSION_SECRET_IS_DEFAULT } = await import('./lib/session')
     if (SESSION_SECRET_IS_DEFAULT) {
       console.error('\n' + '='.repeat(72))
-      console.error('[portal] ⚠ 보안 경고: SESSION_SECRET 미설정 — 공개된 개발용 서명 키 사용 중.')
-      console.error('[portal]   프로덕션에서는 세션 위조가 가능합니다. 랜덤 키를 반드시 설정하세요:')
+      console.error('[portal] ✖ 기동 거부: SESSION_SECRET 미설정 — 공개된 개발용 서명 키로는 프로덕션 기동 불가.')
+      console.error('[portal]   세션 위조 가능. 랜덤 키를 설정해 재기동하세요:')
       console.error('[portal]   docker run -e SESSION_SECRET="$(openssl rand -base64 32)" ...')
       console.error('='.repeat(72) + '\n')
+      process.exit(1)
     }
   }
 

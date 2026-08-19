@@ -45,7 +45,8 @@ ADMIN = {'login': 'admin', 'name': '시스템관리자', 'dept': '정보기획�
 USER = {'login': 'hw.kim', 'name': '김현우', 'dept': '개발1팀', 'role': 'USER'}
 
 
-SECRET = os.environ.get('SESSION_SECRET', 'ngv-portal-dev-secret').encode()
+SECRET_STR = os.environ.get('SESSION_SECRET', 'ngv-gate-nondefault-secret')  # 비-기본값 — 프로덕션 하드페일 회피
+SECRET = SECRET_STR.encode()
 
 
 def _b64url(data: bytes) -> str:
@@ -71,7 +72,8 @@ def main() -> int:
         return 1
 
     server = subprocess.Popen(['npx.cmd' if sys.platform == 'win32' else 'npx', 'next', 'start', '-p', str(PORT)],
-                              cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                              cwd=ROOT, env={**os.environ, 'SESSION_SECRET': SECRET_STR},
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     failures: list[str] = []
     loaded = 0
     try:

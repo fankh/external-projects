@@ -3293,6 +3293,7 @@ def run_scenario(idx, key, title, fn, extra_env, browser):
     env = {**os.environ, **extra_env}
     if 'PORTAL_DATA_FILE' not in extra_env:
         env.pop('PORTAL_DATA_FILE', None)  # 항상 시드 초기화 (persist 시나리오만 파일 지정)
+    env.setdefault('SESSION_SECRET', 'ngv-gate-nondefault-secret')  # 비-기본값 — 프로덕션 세션키 하드페일 회피
     server = subprocess.Popen(
         ['npx.cmd' if sys.platform == 'win32' else 'npx', 'next', 'start', '-p', str(port)],
         cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

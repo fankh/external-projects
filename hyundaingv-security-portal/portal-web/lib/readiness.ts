@@ -25,7 +25,7 @@ export function deployReadiness(): ReadinessItem[] {
       level: SESSION_SECRET_IS_DEFAULT ? (prod ? 'warn' : 'info') : 'ok',
       value: SESSION_SECRET_IS_DEFAULT ? '개발 기본값' : '설정됨',
       detail: SESSION_SECRET_IS_DEFAULT
-        ? 'SESSION_SECRET 미설정·빈값 — 프로덕션에서는 세션 위조 가능, 랜덤 키 필수'
+        ? 'SESSION_SECRET 미설정·빈값 — 프로덕션은 기동 거부(세션 위조 방지), 랜덤 키 필수'
         : 'SESSION_SECRET 로 서명 — 세션 위조 차단',
     },
     {
