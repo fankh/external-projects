@@ -10,9 +10,18 @@
  *   · 엔드포인트 미설정 → 네트워크 호출 없이 { ok:false, detail } (throw 하지 않음 — 설정 누락은 소프트 실패).
  *   · 비정상 응답(비 2xx) → { ok:false, detail: 'HTTP <status>' } (소프트 실패).
  *   · 네트워크·인증 예외 → throw. registry.sendVia 의 try/catch 가 실패 이력으로 흡수한다.
- *   · 자체 타임아웃 없음 — registry.withTimeout 이 모든 어댑터 호출을 감싼다. */
+ *   · 요청 취소 — 모든 fetch 에 AbortSignal.timeout(PORTAL_ADAPTER_TIMEOUT_MS)을 걸어 상한 초과 시 연결까지
+ *     중단한다(withTimeout 은 대기만 끊으므로 소켓 정리를 위해). */
 import type { ApprovalAdapter, AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter, SecMonAdapter, SecurityEvent, SendResult } from './types'
 import type { Person, ViolationType } from '@/lib/types'
+
+/** 어댑터 fetch 취소 신호 — 상한 시간 초과 시 실제 요청을 중단(소켓 정리)한다. registry.withTimeout 은 대기
+ *  프라미스만 거부하고 fetch 는 계속 열려 있으므로, 여기서 AbortSignal.timeout 으로 연결까지 취소한다.
+ *  상한은 withTimeout 과 동일 env(PORTAL_ADAPTER_TIMEOUT_MS, 기본 10초). */
+function adapterSignal(): AbortSignal {
+  const raw = Number(process.env.PORTAL_ADAPTER_TIMEOUT_MS)
+  return AbortSignal.timeout(Number.isFinite(raw) && raw > 0 ? raw : 10000)
+}
 
 interface RestChannelEnv {
   /** 발송 엔드포인트 URL (예: https://knox.example/api/v1/mail) */
@@ -49,6 +58,7 @@ function restMessaging(cfg: RestChannelEnv): MessagingAdapter {
         method: 'POST',
         headers,
         body: JSON.stringify({ to: recipients, subject, from }),
+        signal: adapterSignal(),
       })
       if (!res.ok) {
         const body = await res.text().catch(() => '')
@@ -91,7 +101,7 @@ export const restSecmon: SecMonAdapter = {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (token) headers.Authorization = `Bearer ${token}`
 
-    const res = await fetch(url, { headers })
+    const res = await fetch(url, { headers, signal: adapterSignal() })
     if (!res.ok) throw new Error(`보안관제 API HTTP ${res.status}`)
     const rows = unwrapRows(await res.json(), 'events')
     return rows
@@ -123,7 +133,7 @@ export const restSecdata: SecdataAdapter = {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (token) headers.Authorization = `Bearer ${token}`
 
-    const res = await fetch(url, { headers })
+    const res = await fetch(url, { headers, signal: adapterSignal() })
     if (!res.ok) throw new Error(`출력물 조회 API HTTP ${res.status}`)
     const rows = unwrapRows(await res.json(), 'printouts')
     return rows
@@ -156,7 +166,7 @@ export const restApproval: ApprovalAdapter = {
     const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' }
     if (token) headers.Authorization = `Bearer ${token}`
 
-    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(doc) })
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(doc), signal: adapterSignal() })
     if (!res.ok) throw new Error(`전자결재 API HTTP ${res.status}`)
     const j = (await res.json()) as { externalId?: unknown; id?: unknown }
     const externalId = typeof j.externalId === 'string' ? j.externalId : typeof j.id === 'string' ? j.id : ''
@@ -231,7 +241,7 @@ export const restHr: HrAdapter = {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (token) headers.Authorization = `Bearer ${token}`
 
-    const res = await fetch(url, { headers })
+    const res = await fetch(url, { headers, signal: adapterSignal() })
     if (!res.ok) throw new Error(`HR API HTTP ${res.status}`)
     const data = (await res.json()) as unknown
     const rows: unknown[] = Array.isArray(data) ? data
@@ -289,7 +299,7 @@ export const restAsset: AssetAdapter = {
     if (token) headers.Authorization = `Bearer ${token}`
 
     const sep = url.includes('?') ? '&' : '?'
-    const res = await fetch(`${url}${sep}q=${encodeURIComponent(query ?? '')}`, { headers })
+    const res = await fetch(`${url}${sep}q=${encodeURIComponent(query ?? '')}`, { headers, signal: adapterSignal() })
     if (!res.ok) throw new Error(`자산 조회 API HTTP ${res.status}`)
     const rows = unwrapRows(await res.json(), 'assets')
     return rows
@@ -315,7 +325,7 @@ export const restAsset: AssetAdapter = {
     const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' }
     if (token) headers.Authorization = `Bearer ${token}`
 
-    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ serial }) })
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ serial }), signal: adapterSignal() })
     if (!res.ok) throw new Error(`자산등록 API HTTP ${res.status}`)
     const j = (await res.json()) as { assetNo?: unknown; assetNumber?: unknown }
     const assetNo = typeof j.assetNo === 'string' ? j.assetNo : typeof j.assetNumber === 'string' ? j.assetNumber : ''
