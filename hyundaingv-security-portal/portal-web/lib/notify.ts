@@ -7,6 +7,7 @@ import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
 import { ACCOUNTS } from './session'
+import { isReviewOverdue } from './policy'
 import { isRiskClosed, upsertRiskSnapshot } from './risk'
 import { importSecurityEvents } from './secmon'
 import { delayedSrs } from './sr'
@@ -192,6 +193,13 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('위험 조치 지연',
     s.riskItems.filter((r) => !isRiskClosed(r) && r.dueDate < t).map((r) => r.owner).filter((name) => people.some((p) => p.name === name)),
     '[정보보호 위험평가] 조치기한 경과 위험 안내')
+
+  // 8) 정책 재검토 지연 — 재검토 예정일 경과 시행 정책의 담당 (ISMS 관리체계 1.1 주기적 재검토 강제). 재검토·
+  // 개정하면 자동 제외(경과 해소). 재직자 교집합 — 담당 퇴사 시 유령 독촉 방지(타 person 경로와 동일 정합).
+  // 정책 자체는 관리대장에 남아 재검토 미이행 가시성은 유지된다.
+  await send('정책 재검토 지연',
+    s.securityPolicies.filter((p) => isReviewOverdue(p, t)).map((p) => p.owner).filter((name) => people.some((pp) => pp.name === name)),
+    '[정책·지침] 재검토 예정일 경과 안내')
 
   const total = results.reduce((sum, r) => sum + r.targets, 0)
   const allOk = results.every((r) => r.ok)
