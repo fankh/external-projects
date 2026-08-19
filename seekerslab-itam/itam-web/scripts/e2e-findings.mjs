@@ -1649,6 +1649,18 @@ try {
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   ok('Shadow SaaS 차단 → 보안운영팀 차단 집행 통보 발송 이력(단일화 반영)', ((await p3.textContent('body')) || '').includes('ChatGPT') && ((await p3.textContent('body')) || '').includes('프록시·DNS 차단 집행'))
 
+  // 중복 SaaS 통합 정리(로69) — 개발 분류: 인가 표준 GitHub + 미인가 중복 GitLab. §05 기능05 '통합 후보'는 화면·리포트 표시만 있고 조치가 없었다. 통합 정리 요청 → GitLab 을 표준(GitHub)으로 통합·차단하면 차단 서비스가 통합 후보에서 빠져 개발 분류가 사라진다(협업=Notion·Miro 는 표준 없어 버튼 없이 남음). 조치가 없으면 개발 분류·버튼이 그대로라 실패.
+  await p3.goto(`${BASE}/discovery/saas`, { waitUntil: 'networkidle' })
+  const consCard = p3.locator('.card', { has: p3.locator('text=중복 기능 SaaS 통합 후보') })
+  const devRow = consCard.locator('tr', { has: p3.locator('td', { hasText: 'GitLab' }) })
+  ok('중복 SaaS 통합 정리(로69): 개발 분류가 통합 후보에 노출(GitHub 표준·GitLab 미인가·정리 버튼)', (await devRow.count()) === 1 && (await devRow.locator('button', { hasText: '통합 정리 요청' }).count()) === 1)
+  await devRow.locator('button', { hasText: '통합 정리 요청' }).first().click()
+  await p3.waitForTimeout(900)
+  ok('중복 SaaS 통합 정리(로69): GitHub 표준 통합·GitLab 차단 집행 메시지', ((await p3.textContent('body')) || '').includes('GitHub 표준') && ((await p3.textContent('body')) || '').includes('GitLab'))
+  await p3.goto(`${BASE}/discovery/saas`, { waitUntil: 'networkidle' })
+  const consCard2 = p3.locator('.card', { has: p3.locator('text=중복 기능 SaaS 통합 후보') })
+  ok('중복 SaaS 통합 정리(로69): 정리 후 개발 분류가 통합 후보에서 빠짐(GitLab 차단 제외)', (await consCard2.locator('tr', { has: p3.locator('td', { hasText: 'GitLab' }) }).count()) === 0)
+
   // 데이터 일괄 소거 — EOL 배치 폐기에서 소거 대기 건을 같은 소거 방식·처분으로 한 번에 처리(대상 선정 일괄 상신과 대칭). 시드 소거 대기 DSP-03(AST-2020-000771) 선택 → 일괄 소거·처분(건별 확인서).
   await p3.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
   await p3.locator('input[aria-label="AST-2020-000771 일괄 소거 선택"]').check()

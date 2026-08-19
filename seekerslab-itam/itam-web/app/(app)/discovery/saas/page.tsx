@@ -3,6 +3,7 @@ import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { saasConsolidationCandidates } from '@/lib/reports'
 import { getStore } from '@/lib/store'
+import { ConsolidationCard } from './ConsolidationCard'
 import { ShadowSaasTable } from './ShadowSaasTable'
 
 export const dynamic = 'force-dynamic'
@@ -73,38 +74,7 @@ export default async function SaasPage() {
         )}
       </Card>
 
-      {consolidation.length > 0 && (
-        <Card kicker="License Optimization" title="중복 기능 SaaS 통합 후보" pad={false}>
-          <div className="tbl-wrap">
-            <table className="tbl">
-              <thead>
-                <tr><th>기능 분류</th><th>중복 서비스</th><th className="num">서비스</th><th className="num">사용자 합</th><th>통합 권고</th></tr>
-              </thead>
-              <tbody>
-                {consolidation.map((r) => (
-                  <tr key={r.category}>
-                    <td className="strong">{r.category}</td>
-                    <td>
-                      <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
-                        {r.services.map((x) => (
-                          <Chip key={x.id} tone={x.sanctioned ? 'ok' : 'err'} bare>{x.service}{x.sanctioned ? ' ·인가' : ' ·미인가'}</Chip>
-                        ))}
-                      </span>
-                    </td>
-                    <td className="num tnum">{r.services.length}</td>
-                    <td className="num tnum">{r.users.toLocaleString()}</td>
-                    <td className="dim">
-                      {r.sanctioned
-                        ? `인가 ${r.sanctioned.service} 기준 통합 검토 — 미인가 ${r.shadowN}종 정리`
-                        : `미인가 ${r.shadowN}종 중복 — 카탈로그 등재 후 1종 통합 권고`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      {consolidation.length > 0 && <ConsolidationCard rows={consolidation} canDecide={canDecide} />}
 
       <Card kicker="Services" title="SaaS 서비스별 사용·판정" pad={false}>
         <ShadowSaasTable rows={rows} canDecide={canDecide} depts={[...new Set(rows.map((x) => x.dept))].sort()} />
