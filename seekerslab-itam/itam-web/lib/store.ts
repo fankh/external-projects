@@ -630,7 +630,8 @@ function seed(): Store {
         ] },
     ],
     surveyDiffs: [
-      { id: 'DIF-01', roundId: 'INV-2026-H2', kind: '위치 불일치', assetNo: 'AST-2025-000512', model: 'Galaxy Book4 Pro', expected: '본사 8F', actual: '판교 사무소', status: '미조치' },
+      // 위치 스테일 방어 회귀 — 512 는 로67(발견 대사 실측 보정)로 위치가 이미 '부산 지사 3F'로 바뀐다. 상신된 이 위치 조정(대장값 '본사 8F' 기준)은 스테일이라 승인 시 미적용돼야 한다(최신 위치를 덮지 않음). APR-2608-131 이 함께 처리.
+      { id: 'DIF-01', roundId: 'INV-2026-H2', kind: '위치 불일치', assetNo: 'AST-2025-000512', model: 'Galaxy Book4 Pro', expected: '본사 8F', actual: '판교 사무소', status: '조정 상신' },
       { id: 'DIF-02', roundId: 'INV-2026-H2', kind: '대장 미등록', assetNo: 'UNKNOWN-77213', model: '미상 (라벨만 확인)', expected: '-', actual: '본사 3F 자산창고', status: '미조치' },
       { id: 'DIF-03', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', expected: '본사 3F 자산창고', actual: '실사 미확인', status: '미조치' },
       { id: 'DIF-04', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '미조치' },

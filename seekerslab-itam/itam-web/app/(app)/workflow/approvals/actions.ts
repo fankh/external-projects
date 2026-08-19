@@ -368,9 +368,15 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         d.resolution = '미적용'
         asset!.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 미적용 — 상신 후 ${departed ? `${asset!.status} 이탈` : '재확인(능동 보유)'}로 스테일 (${d.kind})`, actor: session.name })
       } else if (d.kind === '위치 불일치' && asset) {
-        d.resolution = '대장 보정'
-        asset.location = d.actual
-        asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 위치 ${d.expected} → ${d.actual}`, actor: session.name })
+        // 상신 후 대장 위치가 이미 바뀌었으면(이동·실측 보정 등 — 현재 위치 ≠ 실사 기준 대장값) 실사 스냅샷은 스테일. 되돌리면 최신 위치를 덮으므로 미적용.
+        if (asset.location !== d.expected) {
+          d.resolution = '미적용'
+          asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 미적용 — 상신 후 위치 변경(현재 ${asset.location} ≠ 실사 기준 ${d.expected})로 스테일`, actor: session.name })
+        } else {
+          d.resolution = '대장 보정'
+          asset.location = d.actual
+          asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 위치 ${d.expected} → ${d.actual}`, actor: session.name })
+        }
       } else if (d.kind === '상태 불일치' && asset) {
         // 폐기 절차(대상 선정~소거 대기) 진행 중인 자산을 실사 상태 불일치로 '사용중' 되돌리면, 사용중 자산이 폐기 대상 리스트에 남아
         // 폐기 결재가 selectForDisposal 의 사용중 가드를 우회한다. 폐기 판정이 우선이므로 조정은 미적용(실사가 맞다면 폐기를 별도 취소).
