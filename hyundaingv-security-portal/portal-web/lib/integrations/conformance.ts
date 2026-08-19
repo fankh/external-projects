@@ -56,8 +56,8 @@ export function validateProfileStructure(name: string, brand: PortalBrand, chann
   return out
 }
 
-/** 계약이 정의된 kind — sso 는 아직 계약(인터페이스)이 없어 planned 로만 존재한다. approval 은 v1.5.299 에서 계약화. */
-const CONTRACTED = new Set(['mail', 'sms', 'approval', 'hr', 'asset', 'secdata', 'secmon'])
+/** 계약이 정의된 kind — 전 채널 종류 계약화 완료(approval v1.5.299, sso v1.5.301). */
+const CONTRACTED = new Set(['mail', 'sms', 'approval', 'sso', 'hr', 'asset', 'secdata', 'secmon'])
 
 function isPerson(x: unknown): x is { name: string; dept: string } {
   return !!x && typeof (x as { name?: unknown }).name === 'string' && typeof (x as { dept?: unknown }).dept === 'string'
@@ -85,6 +85,13 @@ async function exerciseContract(kind: string, adapter: unknown): Promise<{ ok: b
       const r = await withTimeout((adapter as { pushApproval: (d: typeof probe) => Promise<{ externalId: string }> }).pushApproval(probe), '자가진단 pushApproval')
       if (!r || typeof r.externalId !== 'string' || r.externalId.length === 0) return { ok: false, detail: 'pushApproval() 가 비어있지 않은 externalId 를 반환하지 않음' }
       return { ok: true, detail: `pushApproval(probe) → ${r.externalId}` }
+    }
+    if (kind === 'sso') {
+      // loginRedirect 만 호출 — 부작용·네트워크 없는 SP-initiated URL 생성이라 자가진단에 안전하다.
+      // verifyResponse(인바운드 어설션 검증)는 서명된 입력이 필요해 자가진단에서 호출하지 않는다(ACS 라우트가 실검).
+      const r = (adapter as { loginRedirect: (s: string) => { url: string } }).loginRedirect('__probe__')
+      if (!r || typeof r.url !== 'string' || !r.url.includes('SAMLRequest=')) return { ok: false, detail: 'loginRedirect() 가 SAMLRequest 를 포함한 url 을 반환하지 않음' }
+      return { ok: true, detail: 'loginRedirect() → SP-initiated URL' }
     }
     if (kind === 'hr') {
       const people = await withTimeout((adapter as { fetchPeople: () => Promise<unknown[]> }).fetchPeople(), '자가진단 fetchPeople')

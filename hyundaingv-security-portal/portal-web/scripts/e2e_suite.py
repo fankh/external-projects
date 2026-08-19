@@ -1018,6 +1018,39 @@ def sc_rest_approval(pg, base, check):
         srv.shutdown()
 
 
+def sc_sso_saml(pg, base, check):
+    """SSO(SAML) 어댑터(실동작) — SP-initiated 로그인 URL 생성 + IdP 어설션 서명 검증 로그인. 금융 프로필
+    (fin-sso→samlSso). 테스트 개인키로 서명한 SAMLResponse 를 ACS(/api/sso/acs)에 POST → 서명 검증 통과 시
+    nameId(admin)를 계정에 매핑해 세션 발급 → 대시보드 접근. 변조 어설션(서명 불일치)은 거부(세션 미발급).
+    fails-without-fix: 서명 검증을 무력화하면 변조 어설션도 수용돼 '거부' 단언이 실패한다."""
+    key = str(ROOT / 'scripts' / '.saml-test-key.pem')
+    acs = f'{base}/api/sso/acs'
+    audience = 'ngv-governance-portal'          # PORTAL_SAML_SP_ENTITY_ID
+    not_after = '2030-01-01T00:00:00Z'          # 먼 미래 — 만료 아님
+
+    def gen(*extra):
+        r = subprocess.run(['node', str(ROOT / 'scripts' / 'saml_gen.mjs'), key, 'admin', audience, acs, not_after, *extra],
+                           cwd=str(ROOT), capture_output=True, text=True, check=True)
+        return r.stdout.strip()
+
+    # SP-initiated 로그인 시작 — SSO 채널 가동 시 IdP 로 리다이렉트(SAMLRequest 포함)
+    login_resp = pg.context.request.get(f'{base}/api/sso/login?relayState=%2Fdashboard', max_redirects=0)
+    loc = login_resp.headers.get('location', '')
+    check(login_resp.status in (302, 303, 307) and 'SAMLRequest=' in loc, f'SP-initiated 로그인 → IdP 리다이렉트(SAMLRequest) (실제 {login_resp.status})')
+
+    # 유효 어설션 → ACS → 세션 발급 → 대시보드 접근
+    ok_resp = pg.context.request.post(acs, form={'SAMLResponse': gen(), 'RelayState': '/dashboard'})
+    check(ok_resp.ok, f'ACS 유효 어설션 수용 (status {ok_resp.status})')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check('개인별현황' in pg.content(), 'SSO 로그인(유효 어설션·서명 검증 통과) → 대시보드 접근')
+
+    # 변조 어설션(서명 불일치) → 거부 → 세션 미발급
+    pg.context.clear_cookies()
+    pg.context.request.post(acs, form={'SAMLResponse': gen('--tamper'), 'RelayState': '/dashboard'})
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check('계정을 선택하세요' in pg.content(), '변조 어설션(서명 불일치) 거부 → 세션 미발급(로그인 화면)')
+
+
 def sc_settle_delete(pg, base, check):
     """정산품의 삭제(폐기) — 반려 건 삭제 + 재상신 할일 폐쇄 (요구사항 11·17행 P=삭제).
     격리(settlements·approvals 비움): 이수진 상신 → 박정호 반려(→이수진 재상신 할일) → 이수진 삭제 시 품의가
@@ -1247,25 +1280,25 @@ def sc_inspection_resign_orphan(pg, base, check):
 def sc_channelstate_corrupt(pg, base, check):
     """channelStates 값 검증(v1.5.80) — 손상/구버전 파일의 비불리언 채널상태({})가 isEnabled 의 `st[id] ?? default`
     를 통과해(?? 는 null 만 폴백) 중지 채널(security-db, 기본 off)을 truthy 로 오판·가동시키면 안 된다. 머지가
-    비불리언 값을 걸러 기본값(off)으로 폴백 → 활성 채널 5/7 유지(오판 시 security-db 포함 6/7).
-    (비계획 채널 7종: mail·approval·hr·asset·secdata·sms·secmon — secdata·secmon 기본 off. approval 계약화 v1.5.299.)
+    비불리언 값을 걸러 기본값(off)으로 폴백 → 활성 채널 6/8 유지(오판 시 security-db 포함 7/8).
+    (비계획 채널 8종: mail·approval·sso·hr·asset·secdata·sms·secmon — secdata·secmon 기본 off. sso 계약화 v1.5.301.)
     PORTAL_DATA_FILE 로 {channelStates:{security-db:{}}} 주입."""
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
-    check('5/7' in stats and '6/7' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 5/7)')
+    check('6/8' in stats and '7/8' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 6/8)')
 
 
 def sc_profile_data_isolation(pg, base, check):
     """프로필 데이터 격리(v1.5.188, AD-7) — 한 PORTAL_DATA_FILE 을 PORTAL_PROFILE 전환에 재사용해도 프로필
     스코프 런타임 설정(채널 가동상태·메뉴권한 오버레이)이 새지 않는다. 파일이 'manufacturer' 스탬프 +
     security-db 강제 가동(true)인데 default 프로필로 기동하면, 스탬프 불일치라 채널상태를 default 시드로
-    리셋해 security-db 는 기본(off)으로 돌아간다(활성 5/7, 비계획 7종 중 secdata·secmon off). 도메인 데이터는 보존."""
+    리셋해 security-db 는 기본(off)으로 돌아간다(활성 6/8, 비계획 8종 중 secdata·secmon off). 도메인 데이터는 보존."""
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
-    check('5/7' in stats and '6/7' not in stats,
-          f'프로필 스탬프 불일치 → 채널상태 시드 리셋(security-db 강제가동 무시, 활성 5/7) (실제 {stats.strip()[:32]})')
+    check('6/8' in stats and '7/8' not in stats,
+          f'프로필 스탬프 불일치 → 채널상태 시드 리셋(security-db 강제가동 무시, 활성 6/8) (실제 {stats.strip()[:32]})')
 
 
 def sc_remote_cycle_config(pg, base, check):
@@ -3105,6 +3138,10 @@ SCENARIOS = [
       'PORTAL_SECDATA_API_URL': f'http://127.0.0.1:{REST_SECDATA_PORT}/printouts'}),
     ('rest_approval', 'REST 전자결재 어댑터 — 대기 결재 그룹웨어 결재함 실 POST 푸시(금융 프로필 fin-approval→restApproval)', sc_rest_approval,
      {'PORTAL_PROFILE': 'finance', 'PORTAL_APPROVAL_API_URL': f'http://127.0.0.1:{REST_APPROVAL_PORT}/approvals'}),
+    ('sso_saml', 'SSO(SAML) 어댑터 — SP-initiated 리다이렉트 + 어설션 서명 검증 로그인(금융 프로필 fin-sso→samlSso)', sc_sso_saml,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
+      'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal', 'PORTAL_SAML_NOW': '2026-08-19T00:00:00Z',
+      'PORTAL_SAML_IDP_CERT_FILE': str(ROOT / 'scripts' / '.saml-test-cert.pem')}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -3274,6 +3311,14 @@ def main() -> int:
     only = set(sys.argv[1:])
     targets = [(i, s) for i, s in enumerate(SCENARIOS) if not only or s[0] in only]
     UPLOAD.write_text('e2e upload payload ' * 30, encoding='utf-8')
+    # SAML 테스트 키쌍 생성 — sc_sso_saml 이 개인키로 어설션을 서명하고, 서버는 PORTAL_SAML_IDP_CERT_FILE(공개키)로
+    # 검증한다. 테스트 전용 키(gitignore, 매 실행 재생성)라 커밋되지 않는다.
+    subprocess.run(['node', '-e',
+        "const{generateKeyPairSync}=require('node:crypto'),fs=require('node:fs');"
+        "const{publicKey,privateKey}=generateKeyPairSync('rsa',{modulusLength:2048,"
+        "publicKeyEncoding:{type:'spki',format:'pem'},privateKeyEncoding:{type:'pkcs8',format:'pem'}});"
+        "fs.writeFileSync('scripts/.saml-test-key.pem',privateKey);fs.writeFileSync('scripts/.saml-test-cert.pem',publicKey);"],
+        cwd=str(ROOT), check=True)
     # persist 시나리오용 '구버전' 부분 데이터 파일 — 일부 컬렉션·채널 키만 담는다
     DATA.write_text(json.dumps({
         'notices': [{'id': 'NT-90', 'title': '영속화 파일 공지', 'category': '공지',

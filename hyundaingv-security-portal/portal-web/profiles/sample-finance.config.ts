@@ -24,7 +24,7 @@ export const CHANNELS: ChannelBinding[] = [
   { id: 'groupware-mail', kind: 'mail', name: '그룹웨어 메일', transport: 'REST API', usage: '안내메일 발송 (사내 메일 연동)', adapterId: 'fin-mail', enabledByDefault: true },
   { id: 'sms-gateway', kind: 'sms', name: '문자(SMS)·알림', transport: 'REST API', usage: 'OTP·이상거래·경과 알림 (금융 SMS 게이트웨이)', adapterId: 'fin-sms', enabledByDefault: true },
   { id: 'groupware-approval', kind: 'approval', name: '전자결재', transport: 'REST API', usage: '결재 상신 연동 (그룹웨어 결재함 푸시)', adapterId: 'fin-approval', enabledByDefault: true },
-  { id: 'groupware-sso', kind: 'sso', name: '통합인증 SSO', transport: 'SAML', usage: 'SSO 인증 — 실구현 예정', adapterId: 'fin-sso', enabledByDefault: true, planned: true },
+  { id: 'groupware-sso', kind: 'sso', name: '통합인증 SSO', transport: 'SAML', usage: 'SSO 인증 (SAML)', adapterId: 'fin-sso', enabledByDefault: true },
   { id: 'hr-sync', kind: 'hr', name: '인사·근태 시스템', transport: '인터페이스', usage: '사용자 기본정보·근태 (일배치)', adapterId: 'fin-hr', enabledByDefault: true },
   { id: 'asset-api', kind: 'asset', name: '자산관리 시스템', transport: 'REST API', usage: '자산정보 조회 · 자산등록번호 취득', adapterId: 'fin-asset', enabledByDefault: true },
   { id: 'security-db', kind: 'secdata', name: '보안·출력물 관제', transport: 'DB 연계', usage: '출력물 자료 조회 (일배치 이관 — 개인정보 통제)', adapterId: 'fin-secdata', enabledByDefault: true },
