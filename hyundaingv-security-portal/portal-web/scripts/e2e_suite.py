@@ -974,6 +974,50 @@ def sc_rest_secdata(pg, base, check):
         srv.shutdown()
 
 
+REST_APPROVAL_PORT = 3890  # REST 전자결재 어댑터 픽스처 서버 (POST 상신 푸시)
+
+
+class _ApprovalFixtureHandler(http.server.BaseHTTPRequestHandler):
+    posts = 0
+
+    def do_POST(self):
+        _ApprovalFixtureHandler.posts += 1
+        length = int(self.headers.get('Content-Length', 0))
+        self.rfile.read(length)
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"externalId": "GWDOC-77777"}')  # 그룹웨어 결재함 추적 id (목업 KNOX-<id> 와 구분)
+
+    def log_message(self, *args):
+        pass
+
+
+def sc_rest_approval(pg, base, check):
+    """REST 전자결재 어댑터(실동작) — 포털 대기 결재를 외부 그룹웨어 결재함에 실제 HTTP POST 로 푸시 검증.
+    금융 프로필(fin-approval→restApproval)로 기동, PORTAL_APPROVAL_API_URL 을 로컬 픽스처로 지정. 알림 배치
+    실행 → pushPendingApprovals 가 대기 결재를 실 POST → 응답 externalId(GWDOC-77777)를 연동 id 로 저장·감사.
+    fails-without-fix: restApproval 이 실 POST 하지 않으면(로컬 id) 픽스처 POST 0 · 연동 id 부재 → 실패."""
+    _ApprovalFixtureHandler.posts = 0
+    srv = http.server.ThreadingHTTPServer(('127.0.0.1', REST_APPROVAL_PORT), _ApprovalFixtureHandler)
+    th = threading.Thread(target=srv.serve_forever, daemon=True)
+    th.start()
+    try:
+        login(pg, base, '시스템관리자')  # ADMIN — 배치 실행
+        pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+        pg.locator('button:has-text("알림 배치 실행")').click()
+        pg.wait_for_load_state('networkidle')
+        time.sleep(1.0)
+        check(_ApprovalFixtureHandler.posts >= 1, f'restApproval 이 실제 HTTP POST 로 상신 푸시 (픽스처 POST {_ApprovalFixtureHandler.posts})')
+        # 연동 id(픽스처 응답)가 저장되고 감사에 남는다 — GWDOC-77777 은 픽스처 고유값(목업 KNOX-<id> 아님)
+        pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+        audit = pg.locator('tr', has_text='전자결재 상신 연동').first
+        check(audit.count() > 0, '전자결재 상신 연동 감사 기록')
+        check('GWDOC-77777' in audit.inner_text(), f'픽스처 응답 externalId(GWDOC-77777)를 연동 id 로 저장 (실제: …{audit.inner_text()[:90]})')
+    finally:
+        srv.shutdown()
+
+
 def sc_settle_delete(pg, base, check):
     """정산품의 삭제(폐기) — 반려 건 삭제 + 재상신 할일 폐쇄 (요구사항 11·17행 P=삭제).
     격리(settlements·approvals 비움): 이수진 상신 → 박정호 반려(→이수진 재상신 할일) → 이수진 삭제 시 품의가
@@ -1203,25 +1247,25 @@ def sc_inspection_resign_orphan(pg, base, check):
 def sc_channelstate_corrupt(pg, base, check):
     """channelStates 값 검증(v1.5.80) — 손상/구버전 파일의 비불리언 채널상태({})가 isEnabled 의 `st[id] ?? default`
     를 통과해(?? 는 null 만 폴백) 중지 채널(security-db, 기본 off)을 truthy 로 오판·가동시키면 안 된다. 머지가
-    비불리언 값을 걸러 기본값(off)으로 폴백 → 활성 채널 4/6 유지(오판 시 security-db 포함 5/6).
-    (비계획 채널 6종: mail·hr·asset·secdata·sms·secmon — secdata·secmon 기본 off. sec-monitor 추가 v1.5.249.)
+    비불리언 값을 걸러 기본값(off)으로 폴백 → 활성 채널 5/7 유지(오판 시 security-db 포함 6/7).
+    (비계획 채널 7종: mail·approval·hr·asset·secdata·sms·secmon — secdata·secmon 기본 off. approval 계약화 v1.5.299.)
     PORTAL_DATA_FILE 로 {channelStates:{security-db:{}}} 주입."""
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
-    check('4/6' in stats and '5/6' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/6)')
+    check('5/7' in stats and '6/7' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 5/7)')
 
 
 def sc_profile_data_isolation(pg, base, check):
     """프로필 데이터 격리(v1.5.188, AD-7) — 한 PORTAL_DATA_FILE 을 PORTAL_PROFILE 전환에 재사용해도 프로필
     스코프 런타임 설정(채널 가동상태·메뉴권한 오버레이)이 새지 않는다. 파일이 'manufacturer' 스탬프 +
     security-db 강제 가동(true)인데 default 프로필로 기동하면, 스탬프 불일치라 채널상태를 default 시드로
-    리셋해 security-db 는 기본(off)으로 돌아간다(활성 4/6, 비계획 6종 중 secdata·secmon off). 도메인 데이터는 보존."""
+    리셋해 security-db 는 기본(off)으로 돌아간다(활성 5/7, 비계획 7종 중 secdata·secmon off). 도메인 데이터는 보존."""
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
-    check('4/6' in stats and '5/6' not in stats,
-          f'프로필 스탬프 불일치 → 채널상태 시드 리셋(security-db 강제가동 무시, 활성 4/6) (실제 {stats.strip()[:32]})')
+    check('5/7' in stats and '6/7' not in stats,
+          f'프로필 스탬프 불일치 → 채널상태 시드 리셋(security-db 강제가동 무시, 활성 5/7) (실제 {stats.strip()[:32]})')
 
 
 def sc_remote_cycle_config(pg, base, check):
@@ -3059,6 +3103,8 @@ SCENARIOS = [
     ('rest_secdata', 'REST 출력물 어댑터 — 실제 HTTP 조회+수치/불리언 변환→일배치 이관(금융 프로필 fin-secdata→restSecdata)', sc_rest_secdata,
      {'PORTAL_PROFILE': 'finance', 'PORTAL_DATA_FILE': str(RSECDATA_DATA),
       'PORTAL_SECDATA_API_URL': f'http://127.0.0.1:{REST_SECDATA_PORT}/printouts'}),
+    ('rest_approval', 'REST 전자결재 어댑터 — 대기 결재 그룹웨어 결재함 실 POST 푸시(금융 프로필 fin-approval→restApproval)', sc_rest_approval,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_APPROVAL_API_URL': f'http://127.0.0.1:{REST_APPROVAL_PORT}/approvals'}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),

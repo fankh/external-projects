@@ -364,6 +364,8 @@ export interface Approval {
   rejectReason?: string
   /** 다단 결재 잔여 결재자 큐 — 승인마다 하나씩 회부되고, 비면 최종 승인으로 전파된다 */
   queue?: string[]
+  /** 외부 전자결재(그룹웨어) 연동 추적 id — 상신 푸시(approval 어댑터) 성공 시 채워진다. 결재는 그룹웨어에서 확인 */
+  externalRef?: string
 }
 
 export interface TodoItem {

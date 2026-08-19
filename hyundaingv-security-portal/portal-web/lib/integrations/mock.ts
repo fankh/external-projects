@@ -1,7 +1,7 @@
 /** 목업 어댑터 — 데모 환경에서 고객사 시스템을 대체한다.
  *  실서비스 커스터마이징: 이 파일을 고객사 어댑터(REST API·DB 연계 구현)로 교체하고
  *  portal.config.ts 의 adapterId 만 바꾼다. 포털 본체 코드는 변경 없음. */
-import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter, SecMonAdapter, SecurityEvent } from './types'
+import type { ApprovalAdapter, AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter, SecMonAdapter, SecurityEvent } from './types'
 import type { Person } from '@/lib/types'
 
 export const mockMail: MessagingAdapter = {
@@ -15,6 +15,14 @@ export const mockMail: MessagingAdapter = {
 export const mockSms: MessagingAdapter = {
   async send(to, subject) {
     return { ok: true, detail: `문자 ${to.length}건 발송 — ${subject}` }
+  },
+}
+
+/** 전자결재(그룹웨어) 목업 — 데모에서 외부 그룹웨어 결재함 등록을 흉내내 합성 추적 id 를 반환한다.
+ *  실서비스에서는 restApproval(REST 푸시)로 교체한다. */
+export const mockApproval: ApprovalAdapter = {
+  async pushApproval(doc) {
+    return { externalId: `KNOX-${doc.docId}` }
   },
 }
 

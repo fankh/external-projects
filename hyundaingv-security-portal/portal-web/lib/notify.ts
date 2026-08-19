@@ -11,6 +11,7 @@ import { isTestOverdue } from './dr'
 import { isReviewOverdue } from './policy'
 import { isRiskClosed, upsertRiskSnapshot } from './risk'
 import { importSecurityEvents } from './secmon'
+import { pushPendingApprovals } from './approvalsync'
 import { delayedSrs } from './sr'
 
 export interface NotifyResult {
@@ -80,6 +81,15 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
     if (r.added > 0) recordBatch(`보안관제 이벤트 이관 (자동, ${r.added}건 위반 편입)`, nowStamp(), '성공')
     else if (r.ok) recordBatch('보안관제 이벤트 이관 (자동, 신규 0건)', nowStamp(), '성공')
     else recordBatch(`보안관제 이벤트 이관 (자동) — ${r.detail}`, nowStamp(), '실패')
+  }
+
+  // 0-d) 전자결재 상신 푸시 (자동) — 대기 결재를 외부 그룹웨어 결재함에 등록해 연동 id 를 잇는다. 미연동 건만
+  //      대상(중복 방지). 채널 중지/미설정이면 pushed 0·ok=false 로 기록된다(포털 상신은 이와 무관하게 유지).
+  {
+    const r = await pushPendingApprovals('스케줄러')
+    if (r.pushed > 0) recordBatch(`전자결재 상신 푸시 (자동, ${r.pushed}건 연동)`, nowStamp(), '성공')
+    else if (r.ok) recordBatch('전자결재 상신 푸시 (자동, 신규 0건)', nowStamp(), '성공')
+    else recordBatch(`전자결재 상신 푸시 (자동) — ${r.detail}`, nowStamp(), '실패')
   }
 
   // 0-b) 컴플라이언스 포스처 스냅샷 (자동, 당월 upsert) — 추세가 사람 손 없이 쌓여 ISMS 감사 근거가 된다.

@@ -11,7 +11,7 @@
  *   · 비정상 응답(비 2xx) → { ok:false, detail: 'HTTP <status>' } (소프트 실패).
  *   · 네트워크·인증 예외 → throw. registry.sendVia 의 try/catch 가 실패 이력으로 흡수한다.
  *   · 자체 타임아웃 없음 — registry.withTimeout 이 모든 어댑터 호출을 감싼다. */
-import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter, SecMonAdapter, SecurityEvent, SendResult } from './types'
+import type { ApprovalAdapter, AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter, SecMonAdapter, SecurityEvent, SendResult } from './types'
 import type { Person, ViolationType } from '@/lib/types'
 
 interface RestChannelEnv {
@@ -137,6 +137,31 @@ export const restSecdata: SecdataAdapter = {
         personalInfo: pickBool(r, ['personalInfo', 'hasPii', 'pii', 'containsPii', '개인정보']),
       }))
       .filter((p) => p.printedAt && p.name && p.document)
+  },
+}
+
+/** 전자결재(그룹웨어, REST) — 포털 결재 상신을 외부 그룹웨어 결재함에 푸시하고 추적 id 를 취득한다.
+ *  `PORTAL_APPROVAL_API_URL` POST(`ApprovalPushDoc` → `{externalId}`), 인증 `PORTAL_APPROVAL_API_TOKEN`.
+ *  자가진단 프로브(docId 가 `__probe`로 시작)는 네트워크 없이 합성 id 를 반환(실 그룹웨어 유령 결재 방지).
+ *  엔드포인트 미설정 시 실 문서는 throw(푸시 지점 try/catch 가 흡수하고 다음 배치 재시도). */
+export const restApproval: ApprovalAdapter = {
+  async pushApproval(doc): Promise<{ externalId: string }> {
+    // 자가진단 프로브 — 부작용(외부 결재 생성) 없이 계약 반환형만 확인시킨다.
+    if (doc.docId.startsWith('__probe')) return { externalId: `PROBE-${doc.docId}` }
+
+    const url = (process.env.PORTAL_APPROVAL_API_URL ?? '').trim()
+    if (!url) throw new Error('전자결재 endpoint 미설정 (PORTAL_APPROVAL_API_URL)')
+
+    const token = (process.env.PORTAL_APPROVAL_API_TOKEN ?? '').trim()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(doc) })
+    if (!res.ok) throw new Error(`전자결재 API HTTP ${res.status}`)
+    const j = (await res.json()) as { externalId?: unknown; id?: unknown }
+    const externalId = typeof j.externalId === 'string' ? j.externalId : typeof j.id === 'string' ? j.id : ''
+    if (!externalId.trim()) throw new Error('전자결재 응답에 externalId 없음')
+    return { externalId: externalId.trim() }
   },
 }
 
