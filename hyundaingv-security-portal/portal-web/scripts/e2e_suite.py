@@ -71,6 +71,8 @@ DR_DATA = ROOT / 'scripts' / '.e2e-dr-data.json'  # 재해복구 복구훈련 �
 DRNF_DATA = ROOT / 'scripts' / '.e2e-drnf-data.json'  # 복구훈련 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.281)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
+SECFT_DATA = ROOT / 'scripts' / '.e2e-secft-data.json'  # secdata throw 내성용 security-db 채널 ON (v1.5.317)
+SECFH_DATA = ROOT / 'scripts' / '.e2e-secfh-data.json'  # secdata hang 내성용 security-db 채널 ON (v1.5.317)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
 APPLYROUTE_DATA = ROOT / 'scripts' / '.e2e-applyroute-data.json'  # 적용요청 재상신 할일 라우팅 회귀용 (v1.5.85)
 OPSSCOPE_DATA = ROOT / 'scripts' / '.e2e-opsscope-data.json'  # 대시보드 전사 스냅샷 런타임 메뉴권한 정합 회귀용 (v1.5.86)
@@ -2203,6 +2205,44 @@ def sc_adapter_secdata_badfield(pg, base, check):
           '객체 pages/dept 이관에도 오류 바운더리 미표시')
 
 
+def sc_adapter_asset_fault(pg, base, check):
+    """자산 어댑터 예외·무응답 내성(v1.5.317) — searchAssets 가 throw(예외)/hang(무응답)이어도 /finance/asset-reg 의
+    withTimeout(...).catch(()=>[]) 가 빈 목록으로 흡수해 화면이 500·무한대기 없이 렌더된다. hang 은 서버 컴포넌트
+    로드 자체가 완료되는 것으로 timeout 복구를 증명한다(withTimeout 없으면 goto 가 무한 대기→네비 타임아웃). 계약
+    위반(malformed/badfield)은 형태검증이, 예외·무응답(throw/hang)은 catch·withTimeout 이 담당 — 결함 4종 패리티.
+    PORTAL_FAULT_ASSET 로 주입. fails-without-fix: page.tsx 의 .catch(()=>[]) 제거 시 throw 전파로 화면 500."""
+    login(pg, base, '시스템관리자')
+    resp = pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
+    check(resp.status == 200, '자산 어댑터 예외·무응답에도 자산등록 화면 무크래시(빈 목록 폴백)')
+    body = pg.content()
+    check('문제가 발생' not in body and 'Application error' not in body and 'something went wrong' not in body.lower(),
+          '자산 어댑터 장애(throw/hang)에도 오류 바운더리 미표시(정상 렌더)')
+
+
+def sc_adapter_secdata_fault(pg, base, check):
+    """출력물(secdata) 어댑터 예외·무응답 내성(v1.5.317) — fetchPrintouts 가 throw/hang 이어도 importDaily 의
+    try/catch·withTimeout 가 배치를 '연동 예외' 실패로 흡수하고 /awareness/prints·배치 이력이 500·무한대기 없이
+    렌더된다. 실패가 조용히 삼켜지지 않고 배치 이력에 관측되는지도 확인. PORTAL_FAULT_SECDATA 주입 + security-db
+    채널 ON. fails-without-fix: importDaily 의 try/catch 제거(rethrow) 시 이관 서버액션 POST 가 500(hang 은 무한대기)
+    — 후속 GET 은 어느 쪽이든 정상이라 액션 응답 상태를 직접 관측해야 검출된다."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/awareness/prints', wait_until='networkidle')
+    # 서버액션 POST 응답을 직접 포착 — 실패가 흡수되면 200, throw 전파되면 500. Next 서버액션은 현재 페이지 URL 로 POST.
+    with pg.expect_response(lambda r: r.request.method == 'POST' and r.url.rstrip('/').endswith('/awareness/prints')) as ri:
+        pg.click('button:has-text("전일자 이관 실행")')
+    act = ri.value
+    check(act.status == 200, f'출력물 이관 서버액션이 어댑터 장애를 흡수(200) — throw 전파 시 500 (실제 {act.status})')
+    pg.wait_for_load_state('networkidle')
+    resp = pg.goto(f'{base}/awareness/prints', wait_until='networkidle')
+    check(resp.status == 200, '출력물 어댑터 예외·무응답에도 출력물 화면 무크래시')
+    body = pg.content()
+    check('문제가 발생' not in body and 'Application error' not in body and 'something went wrong' not in body.lower(),
+          '출력물 어댑터 장애(throw/hang)에도 오류 바운더리 미표시')
+    ops = pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    check(ops.status == 200 and '연동 예외' in pg.content(),
+          '출력물 이관 실패가 배치 이력에 연동 예외로 기록(무관측 삼킴 방지)')
+
+
 def sc_deptpledge_resign(pg, base, check):
     """부서서약 fresh 상신 과다마감 방지(v1.5.84 AP3-3) — 부서서약을 비회전·부서명 ref 로 바꿔, 무관한 타 부서의
     일상(fresh) 상신이 반려된 부서의 재상신 할일을 개수기반으로 과다마감하지 않는다. 개발1팀 반려 재상신
@@ -3334,6 +3374,14 @@ SCENARIOS = [
      {'PORTAL_FAULT_ASSET': 'badfield'}),
     ('adapter_secdata_badfield', 'secdata 이관 dept/pages 객체값 내성 — 출력물 화면 무크래시(수집 렌더 필드 검증)', sc_adapter_secdata_badfield,
      {'PORTAL_FAULT_SECDATA': 'badfield', 'PORTAL_DATA_FILE': str(SECBAD_DATA)}),
+    ('adapter_asset_throw', '자산 어댑터 예외 내성 — searchAssets throw 시 자산등록 화면 빈 목록 폴백·무크래시(v1.5.317)', sc_adapter_asset_fault,
+     {'PORTAL_FAULT_ASSET': 'throw'}),
+    ('adapter_asset_hang', '자산 어댑터 무응답 내성 — searchAssets hang→timeout 시 화면 폴백·무한대기 방지(v1.5.317)', sc_adapter_asset_fault,
+     {'PORTAL_FAULT_ASSET': 'hang', 'PORTAL_ADAPTER_TIMEOUT_MS': '500'}),
+    ('adapter_secdata_throw', 'secdata 어댑터 예외 내성 — 이관 throw 시 연동 예외 기록·출력물 화면 무크래시(v1.5.317)', sc_adapter_secdata_fault,
+     {'PORTAL_FAULT_SECDATA': 'throw', 'PORTAL_DATA_FILE': str(SECFT_DATA)}),
+    ('adapter_secdata_hang', 'secdata 어댑터 무응답 내성 — 이관 hang→timeout 시 연동 예외 기록·무한대기 방지(v1.5.317)', sc_adapter_secdata_fault,
+     {'PORTAL_FAULT_SECDATA': 'hang', 'PORTAL_ADAPTER_TIMEOUT_MS': '500', 'PORTAL_DATA_FILE': str(SECFH_DATA)}),
     ('deptpledge_resign', '부서서약 fresh 상신 과다마감 방지 — 무관 부서 상신이 반려 재상신 할일 안 닫음', sc_deptpledge_resign,
      {'PORTAL_DATA_FILE': str(DPLGRESIGN_DATA)}),
     ('apply_resubmit_route', '적용요청 재상신 할일 라우팅 — /sr/manage(재상신처)로 안내', sc_apply_resubmit_route,
@@ -3659,6 +3707,9 @@ def main() -> int:
         {'id': 'IN-2026-92', 'system': '테스트시스템', 'title': '무날짜 장애', 'grade': '1등급', 'occurredAt': '', 'status': '조치중', 'reportStatus': '미상신'},
     ]}, ensure_ascii=False), encoding='utf-8')
     SECBAD_DATA.write_text(json.dumps({'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
+    # secdata throw/hang 내성 — security-db 채널만 ON(출력물 빈). 어댑터가 예외·무응답이라 이관은 실패로 기록될 뿐.
+    SECFT_DATA.write_text(json.dumps({'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
+    SECFH_DATA.write_text(json.dumps({'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
     # 점검 경과 알림 팀장 수신 — 경과(2026-07·결과미등록) 점검 1건에 담당자(박정호)+팀장(시스템관리자, 둘 다 재직).
     # 수정 전엔 담당자만 통지해 '점검 경과 1명', 수정 후 팀장 포함 '점검 경과 2명'.
     INSPTL_DATA.write_text(json.dumps({'inspectionPlans': [
