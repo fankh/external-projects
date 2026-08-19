@@ -72,6 +72,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '부서별 IT 비용 배분', period: '월간', desc: '부서별 IT 자산 원가(취득가·잔존가치·누적 유지보수)·라이선스 좌석 비용·유지보수 계약비를 합산해 IT 비용을 부서로 배분(차지백·예산 근거)' },
   { kind: '계약 관리 현황', period: '월간', desc: '구매·유지보수 계약 포트폴리오·만료 임박·유지보수 예산 집행·구매 발주 이행·SLA·부속서류 거버넌스 점검(계약 이행 보고)' },
   { kind: '정보보호 컴플라이언스 증적', period: '수시', desc: 'ISMS/ISO 27001 통제별 증적 번들 — 자산 인벤토리 통제·접근 통제/SW 라이선스·매체 폐기 증적·운영 보안(취약점 노출)·로깅/변경 추적을 감사 대응용 한 문서로 집약' },
+  { kind: '라이선스 갱신·트루업 계획', period: '수시', desc: '만료 임박 라이선스의 예상 갱신액·트루업 권고(초과=추가 구매·미사용=감축 갱신·근거 계약 해지=재계약)·갱신 예산 및 좌석 감축 절감을 선제 계획(컴플라이언스 리포트의 시점 감사와 달리 전방 예측)' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -694,6 +695,21 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '라이선스 갱신·트루업 계획') {
+    // 전방 갱신 계획 — 기존 라이선스(만료·보유·사용·단가) 집약. 컴플라이언스(시점 감사)와 달리 만료 임박·예상 갱신액·트루업 권고를 선제 제시.
+    const loR = licenseOptimization()
+    const ddayR = (l: (typeof loR.active)[number]) => daysUntil(l.expiry) ?? 9999
+    const upcomingR = loR.active.filter((l) => l.expiry !== '-' && ddayR(l) <= 180).sort((a, b) => ddayR(a) - ddayR(b))
+    return [
+      {
+        title: '갱신 예정 (만료 180일 이내)',
+        note: `갱신 예정 ${upcomingR.length}종 · 예상 갱신액 ${fmtAmount(upcomingR.reduce((n, l) => n + l.purchased * l.unitCost, 0))}원`,
+        columns: ['라이선스', '만료일', 'D-day', '보유', '사용', '예상 갱신액'],
+        rows: upcomingR.length ? upcomingR.map((l) => [l.name, l.expiry, ddayR(l) < 0 ? `경과 ${-ddayR(l)}일` : `D-${ddayR(l)}`, String(l.purchased), String(l.used), `${(l.purchased * l.unitCost).toLocaleString()}원`]) : [['-', '만료 임박 라이선스 없음', '-', '-', '-', '-']],
+      },
+    ]
+  }
+
   // 감사 대응 자료
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
@@ -796,6 +812,11 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
 
   if (kind === '정보보호 컴플라이언스 증적') {
     return `정보보호 컴플라이언스 증적 — 대장 등록 운영 자산 ${s.assets.filter((a) => a.status !== '폐기완료').length}건, 미등록 발견 자산 ${s.discovered.filter((d) => d.state === '미등록').length}건이 편입 대상입니다. ISMS/ISO 27001 통제(자산 관리·접근 통제·매체 폐기·운영 보안·로깅)별 증적을 아래 섹션에 집약했습니다.`
+  }
+  if (kind === '라이선스 갱신·트루업 계획') {
+    const loH = licenseOptimization()
+    const soon = loH.active.filter((l) => l.expiry !== '-' && (daysUntil(l.expiry) ?? 9999) <= 180)
+    return `만료 180일 이내 갱신 예정 라이선스는 ${soon.length}종이며, 초과 사용 ${loH.over.length}종은 추가 구매(트루업)·미사용 ${loH.under.length}종은 감축 갱신 대상입니다. 미사용 좌석 감축 시 연 약 ${fmtAmount(loH.saving)}원 절감이 가능합니다.`
   }
   if (kind === '주간 Shadow IT 브리핑') {
     const credN = s.credentials.filter((c) => c.status !== '조치 완료').length
