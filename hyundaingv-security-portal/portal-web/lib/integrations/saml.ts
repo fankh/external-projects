@@ -103,15 +103,27 @@ export const samlSso: SsoAdapter = {
     // 조건 검증 — 만료(NotOnOrAfter) · audience(SP EntityID) · (선택) Issuer.
     const conditions = between(assertion, '<saml:Conditions', '</saml:Conditions>')
       ?? between(assertion, '<Conditions', '</Conditions>')
-    if (conditions) {
-      const notOnOrAfter = attr(conditions, 'NotOnOrAfter')
-      if (notOnOrAfter && Date.parse(notOnOrAfter) <= Date.parse(env('PORTAL_SAML_NOW') || new Date().toISOString())) {
-        throw new Error('SAML 어설션 만료(NotOnOrAfter 경과)')
-      }
-      const sp = env('PORTAL_SAML_SP_ENTITY_ID')
-      if (sp && conditions.includes('Audience') && !conditions.includes(`>${sp}<`)) {
-        throw new Error('SAML audience 불일치')
-      }
+    // 시각 기준 — PORTAL_SAML_NOW 시계 고정은 테스트 훅이라 비운영에서만 허용(운영 누출 시 만료 동결 방지).
+    const nowOverride = process.env.NODE_ENV !== 'production' ? env('PORTAL_SAML_NOW') : ''
+    const nowMs = Date.parse(nowOverride || new Date().toISOString())
+    // 만료는 fail-closed — 시간 한정(NotOnOrAfter)이 없거나·파싱 불가·경과면 거부한다. 서명된 어설션이라도
+    // 시간 한정이 없으면 무기한 재사용(replay) 가능하므로, 유효한 미래 NotOnOrAfter 를 필수로 요구한다.
+    const notOnOrAfter = conditions ? attr(conditions, 'NotOnOrAfter') : null
+    const expMs = notOnOrAfter ? Date.parse(notOnOrAfter) : NaN
+    if (!Number.isFinite(expMs) || expMs <= nowMs) {
+      throw new Error('SAML 어설션 만료·시간한정 부재(NotOnOrAfter)')
+    }
+    // NotBefore(있으면) fail-closed — 파싱 불가·아직 도래 전이면 거부(미래 유효 어설션 선행 사용 방지).
+    const notBefore = conditions ? attr(conditions, 'NotBefore') : null
+    if (notBefore) {
+      const nbMs = Date.parse(notBefore)
+      if (!Number.isFinite(nbMs) || nbMs > nowMs) throw new Error('SAML 어설션 아직 유효하지 않음(NotBefore)')
+    }
+    // audience — SP EntityID 는 메타데이터와 동일 기본값으로 일관화(미설정 시 검증 누락 방지). 어설션에
+    // AudienceRestriction 이 있으면 반드시 우리 SP 와 일치해야 한다(타 SP 발급 토큰 재사용 차단).
+    const sp = env('PORTAL_SAML_SP_ENTITY_ID') || 'ngv-governance-portal'
+    if (conditions && conditions.includes('Audience') && !conditions.includes(`>${sp}<`)) {
+      throw new Error('SAML audience 불일치')
     }
     const idpEntity = env('PORTAL_SAML_IDP_ENTITY_ID')
     if (idpEntity) {

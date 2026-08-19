@@ -1028,8 +1028,8 @@ def sc_sso_saml(pg, base, check):
     audience = 'ngv-governance-portal'          # PORTAL_SAML_SP_ENTITY_ID
     not_after = '2030-01-01T00:00:00Z'          # 먼 미래 — 만료 아님
 
-    def gen(*extra):
-        r = subprocess.run(['node', str(ROOT / 'scripts' / 'saml_gen.mjs'), key, 'admin', audience, acs, not_after, *extra],
+    def gen(*extra, when=not_after):
+        r = subprocess.run(['node', str(ROOT / 'scripts' / 'saml_gen.mjs'), key, 'admin', audience, acs, when, *extra],
                            cwd=str(ROOT), capture_output=True, text=True, check=True)
         return r.stdout.strip()
 
@@ -1062,6 +1062,19 @@ def sc_sso_saml(pg, base, check):
     pg.context.request.post(acs, form={'SAMLResponse': gen('--tamper'), 'RelayState': '/dashboard'})
     pg.goto(f'{base}/dashboard', wait_until='networkidle')
     check('계정을 선택하세요' in pg.content(), '변조 어설션(서명 불일치) 거부 → 세션 미발급(로그인 화면)')
+
+    # 만료 fail-closed — 시간한정(NotOnOrAfter)이 파싱 불가하면 서명이 유효해도 거부(무기한 재사용 방지)
+    pg.context.clear_cookies()
+    pg.context.request.post(acs, form={'SAMLResponse': gen(when='not-a-valid-date'), 'RelayState': '/dashboard'})
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check('계정을 선택하세요' in pg.content(), '시간한정(NotOnOrAfter) 불량 어설션 거부(fail-closed·재사용 방지)')
+
+    # 오픈 리다이렉트 방지 — 백슬래시 RelayState(/\evil)는 WHATWG URL 이 외부 origin 으로 해석하므로 로컬 폴백해야 한다
+    pg.context.clear_cookies()
+    redir = pg.context.request.post(acs, form={'SAMLResponse': gen(), 'RelayState': '/\\evil.example/x'}, max_redirects=0)
+    loc = redir.headers.get('location', '')
+    check(redir.status in (302, 303) and 'evil.example' not in loc,
+          f'RelayState 백슬래시 오픈 리다이렉트 차단(로컬 폴백) (loc={loc[:70]})')
 
 
 def sc_settle_delete(pg, base, check):
@@ -3153,7 +3166,7 @@ SCENARIOS = [
      {'PORTAL_PROFILE': 'finance', 'PORTAL_APPROVAL_API_URL': f'http://127.0.0.1:{REST_APPROVAL_PORT}/approvals'}),
     ('sso_saml', 'SSO(SAML) 어댑터 — SP-initiated 리다이렉트 + 어설션 서명 검증 로그인(금융 프로필 fin-sso→samlSso)', sc_sso_saml,
      {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
-      'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal', 'PORTAL_SAML_NOW': '2026-08-19T00:00:00Z',
+      'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
       'PORTAL_SAML_IDP_CERT_FILE': str(ROOT / 'scripts' / '.saml-test-cert.pem')}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),

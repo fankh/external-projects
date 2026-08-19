@@ -19,8 +19,15 @@ export async function POST(req: Request) {
     const form = await req.formData()
     samlResponse = String(form.get('SAMLResponse') ?? '')
     const rs = String(form.get('RelayState') ?? '')
-    // 오픈 리다이렉트 방지 — 로컬 경로만 허용(외부 URL·프로토콜 상대 경로 거부).
-    if (rs.startsWith('/') && !rs.startsWith('//')) relayState = rs
+    // 오픈 리다이렉트 방지 — 로컬 절대경로만. 백슬래시(\)·탭은 WHATWG URL 이 '/'로 취급해 '/\evil' 이 외부
+    // origin 으로 해석되는 우회가 되므로 거부하고, 해석 후 origin 이 자기 자신과 같은지까지 확인(fail-closed).
+    if (rs.startsWith('/') && !rs.startsWith('//') && !/[\\\t\r\n]/.test(rs)) {
+      try {
+        const self = new URL(req.url)
+        const resolved = new URL(rs, self)
+        if (resolved.origin === self.origin) relayState = resolved.pathname + resolved.search
+      } catch { /* 무효 → 기본 /dashboard */ }
+    }
   } catch {
     return fail('sso-badrequest')
   }

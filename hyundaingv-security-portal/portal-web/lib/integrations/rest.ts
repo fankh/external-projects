@@ -212,7 +212,7 @@ function pickField(row: Record<string, unknown>, explicit: string, candidates: s
   for (const k of keys) {
     const v = row[k]
     if (typeof v === 'string' && v.trim()) return v.trim()
-    if (typeof v === 'number') return String(v)
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v)
   }
   return ''
 }
