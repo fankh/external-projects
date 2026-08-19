@@ -1250,6 +1250,29 @@ try {
   await camRow.locator('.hstack', { hasText: 'AST-2024-000092' }).locator('button', { hasText: /^회수$/ }).click()
   await p3.waitForTimeout(700)
   ok('라이선스 좌석 회수: 배정 해제 → 배정 2석 복귀', ((await camRow.textContent()) || '').includes('배정 2/15석'))
+  // 좌석 파생 used 하향 정합 — UI 생성 라이선스는 used 가 좌석 배정 고점에서만 온다(전사 소비 집계 없음). 배정 후 전량 회수하면 used 도 함께 내려야 하며,
+  //  갇히면 '미배정 사용' 팬텀이 남고 컴플라이언스가 '적정'으로 오분류돼 회수 절감 기회가 감춰진다(배정 상한 클램프의 하향 짝). used===좌석수일 때만 하향(넓은 소비 집계는 유지).
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  await p3.locator('button', { hasText: /라이선스 등록/ }).first().click()
+  await p3.locator('input[placeholder="라이선스명"]').fill('e2e-좌석파생-라이선스')
+  await p3.locator('input[placeholder="공급사"]').fill('e2e-공급사')
+  await p3.locator('label', { hasText: '보유' }).locator('input[type="number"]').fill('3')
+  await p3.locator('input[placeholder*="만료"]').fill('-')
+  await p3.locator('button', { hasText: /^등록$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const drvRow = () => p3.locator('tr', { hasText: 'e2e-좌석파생-라이선스' }).first()
+  await drvRow().locator('button', { hasText: /배정 0\/3석/ }).click()
+  await drvRow().locator('input[placeholder*="자산번호"]').fill('AST-2024-000618')
+  await drvRow().locator('button', { hasText: /^좌석 배정$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  await drvRow().locator('button', { hasText: /배정 1\/3석/ }).click()
+  await drvRow().locator('.hstack', { hasText: 'AST-2024-000618' }).locator('button', { hasText: /^회수$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const drvFinal = (await drvRow().textContent()) || ''
+  ok('라이선스 좌석 파생 used 하향 정합: 전량 회수 후 used 갇힘 없음(미배정 사용 팬텀 제거)', drvFinal.includes('배정 0/3석') && !drvFinal.includes('미배정 사용'))
   // 라이선스 STEP2 사용 수집(§03) — EDR 설치 SW 인벤토리를 배정 좌석과 대사. 배정 밖 설치(무단 사용)·미설치 좌석 식별 + 수집 실행.
   //  LIC-004: 좌석 2(871·112) vs 설치 2(871·432) → AST-2021-000432 배정 밖 설치, AST-2023-000112 미설치 좌석.
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })

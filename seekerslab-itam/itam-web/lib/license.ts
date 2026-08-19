@@ -55,7 +55,12 @@ export function reclaimLicenseSeats(assetNo: string, actor: string, reason: stri
   const freed: string[] = []
   for (const l of s.licenses) {
     if (!l.seats?.some((st) => st.assetNo === assetNo)) continue
+    const before = l.seats.length
     l.seats = l.seats.filter((st) => st.assetNo !== assetNo)
+    // used 하한 정합 — used 가 좌석 수에 붙어 있었으면(좌석 파생 · 전사 소비 집계 없음) 좌석 회수 시 함께 내린다.
+    //  used 가 좌석보다 크면(넓은 소비 집계) 그대로 둔다. 배정 시 상한 클램프(seats.length>used→used=seats.length)의 하향 짝 —
+    //  이게 없으면 UI 생성 라이선스 used 가 배정 고점에 갇혀 전량 회수 후에도 '적정'으로 오분류돼 회수 절감 기회가 감춰진다.
+    if (l.used === before) l.used = l.seats.length
     freed.push(l.name)
     appendAudit({ actor, action: `라이선스 좌석 자동 회수 — ${l.name} ← ${assetNo} (${reason})`, target: l.id })
   }
