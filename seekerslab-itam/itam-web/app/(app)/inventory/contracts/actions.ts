@@ -660,6 +660,8 @@ export async function unassignLicenseSeat(licenseId: string, assetNo: string) {
   const before = lic.seats.length
   lic.seats = lic.seats.filter((x) => x.assetNo !== assetNo)
   if (lic.seats.length === before) return { ok: false, message: `배정되지 않은 자산입니다 — ${assetNo}` }
+  // used 하한 정합 — used 가 좌석 수에 붙어 있었으면(좌석 파생) 회수 시 함께 내린다(넓은 소비 집계면 유지). 배정 상한 클램프의 하향 짝(reclaimLicenseSeats 와 동형).
+  if (lic.used === before) lic.used = lic.seats.length
   appendAudit({ actor: session.name, action: `라이선스 좌석 회수 — ${lic.name} ← ${assetNo}`, target: licenseId })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${lic.name} 좌석 회수 — ${assetNo} 배정 해제 (배정 ${lic.seats.length}/${lic.purchased}석)` }
