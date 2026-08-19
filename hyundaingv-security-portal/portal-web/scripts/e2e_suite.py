@@ -5,10 +5,12 @@ smoke(SSR)·client_health(크래시)가 못 보는 '동작'을 본다: 결재 �
 각 시나리오는 독립 서버(시드 초기화)에서 돌아 순서 간섭이 없다.
 사용:  npm run build  후  python scripts/e2e_suite.py  (특정만: python scripts/e2e_suite.py sr settle)
 """
+import http.server
 import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -701,6 +703,59 @@ def sc_dr_notify(pg, base, check):
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
     detail = pg.locator('tr', has_text='알림 배치 실행').first.inner_text()
     check('복구훈련 지연 1명' in detail, f'복구훈련 지연 알림 = 재직 담당 1명(퇴사 담당 제외) (실제: {detail[:190]})')
+
+
+REST_MAIL_PORT = 3895  # REST 메일 어댑터 캡처 서버 — e2e 포트 대역(37xx)·스크린샷 포트와 겹치지 않음
+
+
+class _CaptureHandler(http.server.BaseHTTPRequestHandler):
+    posts = []  # 수신한 POST 바디(JSON) 수집 — 클래스 변수(시나리오당 1회만 사용)
+
+    def do_POST(self):
+        length = int(self.headers.get('Content-Length', 0))
+        raw = self.rfile.read(length).decode('utf-8') if length else ''
+        try:
+            _CaptureHandler.posts.append(json.loads(raw))
+        except Exception:
+            _CaptureHandler.posts.append({'_raw': raw})
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"accepted": 1}')
+
+    def log_message(self, *args):
+        pass  # 조용히
+
+
+def sc_rest_mail(pg, base, check):
+    """REST 메시징 어댑터(실동작) — 목업을 넘어선 실제 HTTP 발송 검증. 금융 샘플 프로필(fin-mail→restMail)
+    로 기동하고 PORTAL_MAIL_API_URL 을 로컬 캡처 서버로 지정한다. 알림 배치를 돌리면 restMail 이 실제
+    HTTP POST 로 발송해야 한다 — 캡처 서버가 수신한 바디에 수신자·제목·발신자(env 주입)가 담겨야 한다.
+    fails-without-fix: restMail 이 POST 하지 않으면(목업/스텁) 캡처 0건 → 실패."""
+    _CaptureHandler.posts = []
+    srv = http.server.ThreadingHTTPServer(('127.0.0.1', REST_MAIL_PORT), _CaptureHandler)
+    th = threading.Thread(target=srv.serve_forever, daemon=True)
+    th.start()
+    try:
+        login(pg, base, '시스템관리자')  # ADMIN — 배치 실행
+        pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+        pg.locator('button:has-text("알림 배치 실행")').click()
+        pg.wait_for_load_state('networkidle')
+        time.sleep(1.0)  # 캡처 서버가 배치의 다중 발송 POST 를 수신할 여유
+        posts = list(_CaptureHandler.posts)
+        check(len(posts) >= 1, f'restMail 이 실제 HTTP POST 로 발송 (캡처 {len(posts)}건)')
+        with_to = [p for p in posts if isinstance(p.get('to'), list) and p['to'] and isinstance(p.get('subject'), str)]
+        check(len(with_to) >= 1, f'POST 바디에 수신자 목록·제목 포함 ({len(with_to)}건)')
+        # env 주입 발신자가 페이로드에 실림 — 어댑터가 환경변수를 실제로 읽어 전송함을 증명
+        check(any(p.get('from') == 'no-reply@narae.example' for p in with_to),
+              f'발신자(env PORTAL_MAIL_FROM) 페이로드 반영 (from 값들: {[p.get("from") for p in posts][:3]})')
+        # 발송 이력에 REST 발송이 성공으로 기록(HTTP 200 → ok:true). 핵심 증명은 위 캡처 검증이고
+        # 이력은 배치가 실제 채널을 통해 발송했음을 앱 관점에서 교차확인한다.
+        pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+        log = pg.locator('.card', has_text='발송 이력').inner_text()
+        check('그룹웨어 메일' in log and '성공' in log, f'발송 이력에 REST 메일 발송 성공 기록 (실제: …{log[:120]})')
+    finally:
+        srv.shutdown()
 
 
 def sc_settle_delete(pg, base, check):
@@ -2773,6 +2828,9 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(DR_DATA)}),
     ('dr_notify', '복구훈련 지연 알림 — 훈련 경과 담당 통지(퇴사 담당 유령 독촉 방지)', sc_dr_notify,
      {'PORTAL_DATA_FILE': str(DRNF_DATA)}),
+    ('rest_mail', 'REST 메시징 어댑터 — 실제 HTTP 발송(금융 프로필 fin-mail→restMail)', sc_rest_mail,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_MAIL_API_URL': f'http://127.0.0.1:{REST_MAIL_PORT}/send',
+      'PORTAL_MAIL_FROM': 'no-reply@narae.example'}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
