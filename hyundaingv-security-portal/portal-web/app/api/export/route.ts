@@ -1,5 +1,6 @@
 /** 엑셀 다운로드 API — 요구사항 '엑셀 ◎' 화면의 목록을 CSV(BOM)로 내린다.
  *  화면과 동일한 권한·데이터 스코핑을 서버에서 재적용한다(시큐어 코딩). */
+import { filterAuditLogs } from '@/lib/audit'
 import { effectiveRoles } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
 import { currentYear, today } from '@/lib/dates'
@@ -430,8 +431,14 @@ export async function GET(req: Request) {
 
   if (type === 'audit') {
     if (role !== 'ADMIN') return new Response('forbidden', { status: 403 })
+    // 화면 감사 조회와 동일 필터(filterAuditLogs 단일 원천) — 감사관이 좁힌 뒤 그 조회분만 내려받는다.
+    const sp = new URL(req.url).searchParams
+    const logs = filterAuditLogs(s.auditLogs, {
+      actor: sp.get('actor') ?? '', action: sp.get('action') ?? '', q: sp.get('q') ?? '',
+      from: sp.get('from') ?? '', to: sp.get('to') ?? '',
+    })
     const rows: (string | number)[][] = [['일시', '행위자', '행위', '상세']]
-    for (const l of s.auditLogs) rows.push([l.at, l.actor, l.action, l.detail])
+    for (const l of logs) rows.push([l.at, l.actor, l.action, l.detail])
     return csvResponse('감사_이력', rows)
   }
 
