@@ -696,6 +696,10 @@ try {
   // 자산담당은 위험도 기준을 조회만 — 변경 버튼 미노출(보안담당·Admin 관리)
   const insAsset = await (await get('/ai/insights', 'ASSET_MGR')).text()
   check('AI 제안(자산담당): 위험도 기준 조회 전용 (변경 미노출)', insAsset.includes('위험도 기준 — 취약점 우선순위 판정 컷오프') && insAsset.includes('보안담당·Admin 이 관리') && !insAsset.includes('기준 변경'))
+  // 수명예측(fn03) 교체 검토 통보 — 교체 대상 자산의 소유 부서에 발송하는 조치 접점(EOL 업그레이드 통보의 수명예측 판). 그동안 패널이 읽기 전용 표로 dead-end 였다.
+  check('AI 제안(자산담당): 교체 검토 통보 조치 버튼 노출(교체 대상 있을 때)', insAsset.includes('교체 검토 통보'))
+  // 교체 검토 통보는 자산담당·Admin 조치 — 보안담당은 위험도 기준만 관할, 통보 버튼 미노출(page canNotify 게이트)
+  check('AI 제안(보안담당): 교체 검토 통보 버튼 미노출(자산담당·Admin 조치)', !insHtml.includes('교체 검토 통보'))
   const fndHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 소유자 확인·에스컬레이션 진입점', fndHtml.includes('미확인 소유자 정책') && fndHtml.includes('미응답 에스컬레이션') && fndHtml.includes('응답 대기'))
   // 지문 병합 — 화면이 '지문 병합 후'라고 주장하려면 원시 관측과 병합 근거가 있어야 한다

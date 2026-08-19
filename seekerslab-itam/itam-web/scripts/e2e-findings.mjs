@@ -694,6 +694,14 @@ try {
   await p2.waitForTimeout(700)
   const eolBody = (await p2.locator('body').textContent()) || ''
   ok('EOL 업그레이드 통보: 발송 성공(소유 부서 업그레이드·교체 요청·발송 이력)', eolBody.includes('EOL 업그레이드 통보') && eolBody.includes('발송'))
+  // 교체 검토 통보(fn03 수명예측 조치) — 교체 대상 자산(내용연수·보증·장애 이력)의 소유 부서에 교체 검토 요청 발송. EOL 통보의 수명예측 판, 그동안 수명예측 패널이 읽기 전용 표로 dead-end 였다.
+  await p2.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  const replBtn = p2.locator('button', { hasText: /교체 검토 통보/ })
+  ok('교체 검토 통보: 교체 대상 있으면 자산담당에 통보 버튼 노출', (await replBtn.count()) > 0)
+  await replBtn.first().click()
+  await p2.waitForTimeout(700)
+  const replBody = (await p2.locator('body').textContent()) || ''
+  ok('교체 검토 통보: 발송 성공(소유 부서 교체 검토 요청·발송 이력)', replBody.includes('교체 검토 통보') && replBody.includes('발송'))
   // EOL 대상 운영 상태 게이트(회귀) — 대장 EOL 필터가 비운영(수리중·분실·반납대기) 자산을 제외하는지. 시드 AST-2021-000556(수리중·Win10 EOL)은 빠지고, AST-2021-000432(유휴·Win10 EOL)은 남아야 한다(표시·통보 게이트 일치).
   // 렌더된 표 셀(td)로만 검사 — body 텍스트에는 RSC 플라이트 페이로드(전체 자산 직렬화)가 섞여 필터와 무관하게 모든 자산번호가 잡힌다.
   await p2.goto(`${BASE}/assets/register?os=eol`, { waitUntil: 'networkidle' })
