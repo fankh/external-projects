@@ -79,7 +79,7 @@ export default async function SchedulePage() {
       </div>
 
       <div className="cols c2">
-        <Card title="산출물 점검" kicker="Deliverables" pad={false}
+        <Card title="산출물 점검" pad={false}
           actions={<a className="btn sm" href="/api/export?type=deliverables" title="프로젝트 산출물 대장 (기한 경과 포함)">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">
@@ -115,7 +115,7 @@ export default async function SchedulePage() {
           </div>
         </Card>
 
-        <Card title="이슈 · 리스크" kicker="Issues" pad={false}
+        <Card title="이슈 · 리스크" pad={false}
           actions={<a className="btn sm" href="/api/export?type=project-issues" title="프로젝트 이슈·리스크 대장 (PMO 보고 근거)">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">

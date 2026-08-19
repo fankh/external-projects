@@ -138,7 +138,7 @@ export default async function DashboardPage() {
       </div>
 
       {showOps && (
-        <Card title="전사 운영 스냅샷" kicker="Operations" pad={false}
+        <Card title="전사 운영 스냅샷" pad={false}
           actions={canSee('/sr/manage') ? <a className="btn sm" href="/api/export?type=itops-summary" title="SR·장애·프로젝트·투자/비용 집행 종합 현황">IT 운영 종합 현황</a> : undefined}>
           <div className="stat-row" style={{ border: 'none' }}>
             {opsVis.inspections && <Stat value={<>{ops.complianceScore}<small>/100</small></>} label="컴플라이언스 점수" note={postureRating(ops.complianceScore).label} tone={postureRating(ops.complianceScore).tone === 'err' ? 'err' : postureRating(ops.complianceScore).tone === 'warn' ? 'warn' : undefined} />}
@@ -164,7 +164,7 @@ export default async function DashboardPage() {
       )}
 
       <div className="cols c2">
-        <Card title="나의 할일" kicker="My Work"
+        <Card title="나의 할일"
           actions={<Link className="btn sm" href="/work/todo">전체 보기</Link>} pad={false}>
           {myTodos.length === 0 ? (
             <div className="empty">처리할 할일이 없습니다.</div>
@@ -187,7 +187,7 @@ export default async function DashboardPage() {
         </Card>
 
         {canSeeNotices && (
-        <Card title="공지사항" kicker="Board"
+        <Card title="공지사항"
           actions={<Link className="btn sm" href="/board/notices">전체 보기</Link>} pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
@@ -208,7 +208,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="cols c2">
-        <Card title="결재 대기" kicker="Approvals"
+        <Card title="결재 대기"
           actions={<Link className="btn sm" href="/work/approvals">결재함</Link>} pad={false}>
           {myApprovals.length === 0 ? (
             <div className="empty">대기 중인 결재가 없습니다.</div>
@@ -231,7 +231,7 @@ export default async function DashboardPage() {
           )}
         </Card>
 
-        <Card title="나의 SR 진행현황" kicker="IT Request"
+        <Card title="나의 SR 진행현황"
           actions={<Link className="btn sm" href="/sr/requests">신청내역</Link>} pad={false}>
           {mySr.length === 0 ? (
             <div className="empty">진행 중인 SR이 없습니다.</div>

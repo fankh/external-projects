@@ -58,7 +58,7 @@ export default async function SrRequestsPage({ searchParams }: { searchParams: P
         <Stat value={scoped.filter((r) => r.status === '완료').length} label="완료" />
       </div>
 
-      <Card title="신청 목록" kicker="Requests"
+      <Card title="신청 목록"
         actions={
           <span className="hstack" style={{ gap: 4 }}>
             {query && <Chip tone="info" bare>검색: {query}</Chip>}

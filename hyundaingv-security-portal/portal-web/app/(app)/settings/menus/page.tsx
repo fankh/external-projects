@@ -39,7 +39,7 @@ export default async function MenusPage() {
         <Stat value={stubs.size} label="스텁" tone={stubs.size > 0 ? 'warn' : undefined} />
       </div>
 
-      <Card title="메뉴 체계" kicker="Menu Tree" pad={false}>
+      <Card title="메뉴 체계" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>

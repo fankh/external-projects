@@ -117,7 +117,7 @@ export default async function SystemsPage() {
         {canSeeIncidents && <Stat value={s.incidents.filter((i) => i.status === '조치중').length} label="조치중 장애" tone={s.incidents.some((i) => i.status === '조치중') ? 'warn' : undefined} />}
       </div>
 
-      <Card title="시스템 현황 — 애플리케이션" kicker="Systems" pad={false}
+      <Card title="시스템 현황 — 애플리케이션" pad={false}
         actions={<a className="btn sm" href="/api/export?type=systems">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
@@ -175,7 +175,7 @@ export default async function SystemsPage() {
         </div>
       </Card>
 
-      <Card title="서버 · 랙 구성" kicker="Servers" pad={false}
+      <Card title="서버 · 랙 구성" pad={false}
         actions={<a className="btn sm" href="/api/export?type=servers">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">

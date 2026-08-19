@@ -119,7 +119,7 @@ export default async function SrManagePage() {
         ))}
       </div>
 
-      <Card title="전사 SR 목록" kicker="Pipeline" pad={false}
+      <Card title="전사 SR 목록" pad={false}
         actions={<a className="btn sm" href="/api/export?type=sr-requests">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">

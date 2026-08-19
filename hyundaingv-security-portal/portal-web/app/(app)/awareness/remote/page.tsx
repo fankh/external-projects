@@ -178,7 +178,7 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
           <b>제출 완료</b> — {mySubmitted.submittedAt} 제출. 다음 주기에 다시 제출 대상이 됩니다.
         </div>
       ) : (
-        <Card title={`${thisPeriod} 자가점검 제출`} kicker="Checklist">
+        <Card title={`${thisPeriod} 자가점검 제출`}>
           <form action={submitCheck} className="vstack" style={{ gap: 8 }}>
             {ITEMS.map((item, i) => (
               <label key={item} className="hstack" style={{ gap: 7, cursor: 'pointer' }}>
@@ -193,7 +193,7 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
       )}
 
       {canManage && (
-        <Card title={me.role === 'DEPT_MGR' ? `${me.dept} 제출 현황` : '전사 제출 현황'} kicker="Status" pad={false}
+        <Card title={me.role === 'DEPT_MGR' ? `${me.dept} 제출 현황` : '전사 제출 현황'} pad={false}
           actions={
             <span className="hstack">
               <form method="get" className="hstack" style={{ gap: 4 }}>
@@ -234,7 +234,7 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
       )}
 
       {(me.role === 'BIZ_MGR' || me.role === 'ADMIN') && (
-        <Card title="대상자 관리 — 일자별 명단" kicker="Targets">
+        <Card title="대상자 관리 — 일자별 명단">
           <div className="dim" style={{ fontSize: 11.5, marginBottom: 8 }}>
             시작일자를 넣으면 신규 등록(기존 열린 기간은 전일로 마감), 종료일자만 넣으면 진행중 대상의 재택 종료 처리.
             업로드는 CSV 한 줄에 <span className="mono">이름,시작일자[,종료일자]</span> — 같은 규칙으로 행 단위 반영된다.

@@ -115,7 +115,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           예: <span className="mono">SR-2026</span>, <span className="mono">ERP</span>, <span className="mono">보안패치</span>
         </div>
       ) : total === 0 ? (
-        <Card title="결과 없음" kicker="No Results">
+        <Card title="결과 없음">
           <div className="empty">"{query}" 에 해당하는 항목이 없습니다 — 권한 범위 밖이거나 존재하지 않는 항목입니다.</div>
         </Card>
       ) : (

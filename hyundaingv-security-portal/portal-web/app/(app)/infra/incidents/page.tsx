@@ -116,7 +116,7 @@ export default async function IncidentsPage() {
       </div>
 
       {/* 주기별 장애 통계 (제품안내서 III장) — 발생월 × 등급 집계, 통계 상신의 취합 근거 */}
-      <Card title="월별 장애 통계" kicker="Monthly Stats" pad={false}
+      <Card title="월별 장애 통계" pad={false}
         actions={<a className="btn sm" href="/api/export?type=incident-stats" title="월별 장애 통계 (발생월×등급, 주기별 보고 근거)">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
@@ -137,7 +137,7 @@ export default async function IncidentsPage() {
         </div>
       </Card>
 
-      <Card title="장애 등록" kicker="New Incident">
+      <Card title="장애 등록">
         <form action={addIncident} className="hstack">
           <input aria-label="대상 시스템" className="input" name="system" required maxLength={60} placeholder="대상 시스템" style={{ width: 160 }} />
           <input aria-label="장애 내용" className="input" name="title" required maxLength={120} placeholder="장애 내용" style={{ flex: 1 }} />
@@ -155,7 +155,7 @@ export default async function IncidentsPage() {
         </div>
       </Card>
 
-      <Card title="장애 목록 · 통계 상신" kicker="Incidents" pad={false}
+      <Card title="장애 목록 · 통계 상신" pad={false}
         actions={<a className="btn sm" href="/api/export?type=incidents">엑셀 다운로드</a>}>
         <form action={submitReport}>
           <div className="tbl-wrap">
@@ -204,7 +204,7 @@ export default async function IncidentsPage() {
       </Card>
 
       <div className="cols c2">
-        <Card title="조치 등록 — 조치중 장애" kicker="Resolve" pad={false}>
+        <Card title="조치 등록 — 조치중 장애" pad={false}>
           {open.length === 0 ? (
             <div className="empty">조치중인 장애가 없습니다.</div>
           ) : (
@@ -230,7 +230,7 @@ export default async function IncidentsPage() {
           )}
         </Card>
 
-        <Card title="향후대책 — 결과 등록" kicker="Countermeasures" pad={false}>
+        <Card title="향후대책 — 결과 등록" pad={false}>
           {cmPending.length === 0 ? (
             <div className="empty">결과 등록 대기 중인 대책이 없습니다.</div>
           ) : (

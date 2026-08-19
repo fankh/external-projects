@@ -138,7 +138,7 @@ export default async function RisksPage() {
         <Stat value={s.riskItems.length ? `${k.treatedRate}%` : '-'} label="종결률" />
       </div>
 
-      <Card title="위험 매트릭스 (5×5)" kicker="Risk Heatmap"
+      <Card title="위험 매트릭스 (5×5)"
         actions={<span className="mut" style={{ fontSize: 11 }}>미종결 위험 분포 · 발생가능성(→) × 영향도(↑)</span>}>
         <div className="tbl-wrap">
           <table className="tbl" style={{ tableLayout: 'fixed', maxWidth: 460 }}>
@@ -169,7 +169,7 @@ export default async function RisksPage() {
       </Card>
 
       {canManage && (
-        <Card title="위험 등록" kicker="New Risk">
+        <Card title="위험 등록">
           <form action={addRisk} className="vstack" style={{ gap: 8 }}>
             <div className="hstack">
               <input aria-label="위험 시나리오" className="input" name="title" required maxLength={120} placeholder="위험 시나리오" style={{ flex: 1 }} />
@@ -201,7 +201,7 @@ export default async function RisksPage() {
         </Card>
       )}
 
-      <Card title="위험관리대장" kicker="Risk Register" pad={false}
+      <Card title="위험관리대장" pad={false}
         actions={<a className="btn sm" href="/api/export?type=risks">엑셀 다운로드</a>}>
         {rows.length === 0 ? (
           <div className="empty">등록된 위험이 없습니다.</div>
@@ -269,7 +269,7 @@ export default async function RisksPage() {
         )}
       </Card>
 
-      <Card title="위험 추세" kicker="Risk Trend" pad={false}
+      <Card title="위험 추세" pad={false}
         actions={<div className="hstack" style={{ gap: 6 }}>
           {s.riskSnapshots.length > 0 && <a className="btn sm" href="/api/export?type=risk-trend">엑셀 다운로드</a>}
           {canManage && <form action={recordRiskSnapshot}><button type="submit" className="btn sm" title="현재 위험 KPI 를 당월 스냅샷으로 기록 — 위험 감소 추이(ISMS 전기 대비 개선)">현황 스냅샷 기록</button></form>}

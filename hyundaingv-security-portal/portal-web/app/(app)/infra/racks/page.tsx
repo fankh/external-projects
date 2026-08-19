@@ -84,7 +84,7 @@ export default async function RacksPage() {
       </div>
 
       <div className="cols c2">
-        <Card title="랙관리" kicker="Racks" pad={false}
+        <Card title="랙관리" pad={false}
           actions={<a className="btn sm" href="/api/export?type=racks">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">
@@ -127,7 +127,7 @@ export default async function RacksPage() {
           </div>
         </Card>
 
-        <Card title="H/W 관리" kicker="Hardware" pad={false}
+        <Card title="H/W 관리" pad={false}
           actions={<a className="btn sm" href="/api/export?type=hardware">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">
@@ -175,7 +175,7 @@ export default async function RacksPage() {
       </div>
 
       {/* 요구사항 29행 — 랙구성도: 랙 → H/W → 서버 → 시스템 → 배치·인터페이스 도식화 */}
-      <Card title="랙구성도" kicker="Topology">
+      <Card title="랙구성도">
         <div className="vstack" style={{ gap: 12 }}>
           {s.racks.map((rack) => (
             <div key={rack.id} style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '10px 12px' }}>

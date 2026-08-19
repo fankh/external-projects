@@ -110,7 +110,7 @@ export default async function ChangesPage() {
         <Stat value={s.changes.filter((c) => c.status === '최종완료').length} label="최종완료" />
       </div>
 
-      <Card title="변경 작업 목록" kicker="Change Works" pad={false}
+      <Card title="변경 작업 목록" pad={false}
         actions={<a className="btn sm" href="/api/export?type=changes">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
@@ -156,7 +156,7 @@ export default async function ChangesPage() {
       </Card>
 
       <div className="cols c2">
-        <Card title="인프라변경 등록" kicker="Infra Change">
+        <Card title="인프라변경 등록">
           <form action={addInfraChange} className="vstack" style={{ gap: 7 }}>
             <input aria-label="변경 작업 제목" className="input" name="title" required maxLength={120} placeholder="변경 작업 제목" />
             <input aria-label="작업계획" className="input" name="plan" required maxLength={500} placeholder="작업계획 (작업 내용·절차)" />
@@ -167,7 +167,7 @@ export default async function ChangesPage() {
           </form>
         </Card>
 
-        <Card title="시스템개발변경 등록 — SR 편입" kicker="Dev Change">
+        <Card title="시스템개발변경 등록 — SR 편입">
           {matchable.length === 0 ? (
             <div className="empty" style={{ padding: '12px 0' }}>편입 대기 중인 적용요청 SR이 없습니다.</div>
           ) : (

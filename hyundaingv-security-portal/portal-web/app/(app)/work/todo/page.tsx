@@ -63,7 +63,7 @@ export default async function TodoPage() {
         <Stat value={done.length} label="처리 완료" />
       </div>
 
-      <Card title="미처리 할일" kicker="Open" pad={false}>
+      <Card title="미처리 할일" pad={false}>
         {open.length === 0 ? (
           <div className="empty">처리할 할일이 없습니다.</div>
         ) : (
@@ -90,7 +90,7 @@ export default async function TodoPage() {
         )}
       </Card>
 
-      <Card title="처리 완료" kicker="Done" pad={false}>
+      <Card title="처리 완료" pad={false}>
         {done.length === 0 ? (
           <div className="empty">처리한 할일이 없습니다.</div>
         ) : (

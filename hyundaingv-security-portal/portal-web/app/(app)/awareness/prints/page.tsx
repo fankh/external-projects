@@ -141,7 +141,7 @@ export default async function PrintsPage() {
         </div>
       )}
 
-      <Card title="출력물 목록" kicker="Printouts" pad={false}
+      <Card title="출력물 목록" pad={false}
         actions={
           <span className="hstack">
             {myCollation && (

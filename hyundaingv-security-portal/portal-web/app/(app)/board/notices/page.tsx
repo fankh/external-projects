@@ -53,7 +53,7 @@ export default async function NoticesPage() {
       <ScreenHeader kicker="Main" title="공지사항" desc="전사 공지 — 고정 공지가 상단에 노출된다." />
 
       {canPost && (
-        <Card title="공지 등록" kicker="New">
+        <Card title="공지 등록">
           <form action={addNotice} className="hstack">
             <select aria-label="항목" className="select" name="category">
               {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -68,7 +68,7 @@ export default async function NoticesPage() {
         </Card>
       )}
 
-      <Card title="공지 목록" kicker="Notices" pad={false}>
+      <Card title="공지 목록" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>분류</th><th>제목</th><th>작성자</th><th>게시일</th></tr></thead>

@@ -88,7 +88,7 @@ export default async function EducationPage() {
         <Stat value={myMissing.length} label="내 미이수" tone={myMissing.length > 0 ? 'err' : undefined} />
       </div>
 
-      <Card title="연간계획 — 교육 과정" kicker="Annual Plan" pad={false}>
+      <Card title="연간계획 — 교육 과정" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>과정번호</th><th>과정명</th><th>대상</th><th>예정월</th><th>상태</th><th className="num">이수 인원</th></tr></thead>
@@ -125,7 +125,7 @@ export default async function EducationPage() {
 
       <div className="cols c2">
         {canManage ? (
-          <Card title="결과 · 명단 등록" kicker="Records">
+          <Card title="결과 · 명단 등록">
             {s.educationCourses.map((c) => {
               const missing = eligible(c.target).filter((p) => !recordsOf(c.id).some((r) => r.name === p.name))
               if (missing.length === 0) return null
@@ -154,7 +154,7 @@ export default async function EducationPage() {
             </div>
           </Card>
         ) : (
-          <Card title="내 이수현황" kicker="My Records" pad={false}>
+          <Card title="내 이수현황" pad={false}>
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead><tr><th>과정</th><th>대상</th><th>상태</th><th>이수일</th></tr></thead>
@@ -180,7 +180,7 @@ export default async function EducationPage() {
           </Card>
         )}
 
-        <Card title={canManage ? '이수현황 — 전 임직원' : '이수율 안내'} kicker="Completion" pad={false}
+        <Card title={canManage ? '이수현황 — 전 임직원' : '이수율 안내'} pad={false}
           actions={canManage ? <a className="btn sm" href="/api/export?type=education-records">엑셀 다운로드</a> : undefined}>
           {canManage ? (
             <div className="tbl-wrap">
@@ -213,7 +213,7 @@ export default async function EducationPage() {
       </div>
 
       {/* 게시/공지 이력 (요구사항 61행·제품안내서 IV장) — 교육 분류 공지의 완료 내역·첨부를 교육 도메인에서 조회 */}
-      <Card title="게시 · 공지 이력" kicker="Postings" pad={false}>
+      <Card title="게시 · 공지 이력" pad={false}>
         {s.notices.filter((n) => n.category === '교육').length === 0 ? (
           <div className="empty">교육 분류의 게시/공지 이력이 없습니다 — 공지사항에서 '교육' 분류로 등록하면 여기에 모입니다.</div>
         ) : (

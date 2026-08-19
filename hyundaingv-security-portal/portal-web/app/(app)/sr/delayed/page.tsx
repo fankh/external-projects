@@ -39,7 +39,7 @@ export default async function SrDelayedPage() {
         <Stat value={delayed.length ? Math.max(0, ...delayed.map((r) => daysBetween(r.dueDate!, t) ?? 0)) : 0} label="최대 지연일수" tone={delayed.length ? 'warn' : undefined} />
       </div>
 
-      <Card title="지연 SR" kicker="Delayed" pad={false}>
+      <Card title="지연 SR" pad={false}>
         {delayed.length === 0 ? (
           <div className="empty">지연 중인 SR이 없습니다.</div>
         ) : (

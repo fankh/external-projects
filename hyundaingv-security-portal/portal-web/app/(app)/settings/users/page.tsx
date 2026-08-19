@@ -46,7 +46,7 @@ export default async function UsersPage() {
       </div>
 
       <div className="cols c2">
-        <Card title="사용자 목록" kicker="Users" pad={false}>
+        <Card title="사용자 목록" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>이름</th><th>부서</th><th>권한그룹</th><th>재직상태</th></tr></thead>
@@ -68,7 +68,7 @@ export default async function UsersPage() {
           </div>
         </Card>
 
-        <Card title="결재선 관리 — 문서 유형별 기본 결재자" kicker="Approval Lines" pad={false}>
+        <Card title="결재선 관리 — 문서 유형별 기본 결재자" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>문서 유형</th><th>현재 결재선</th><th className="c">변경 (1차 · 2차)</th></tr></thead>

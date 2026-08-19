@@ -59,7 +59,7 @@ export default async function FormsPage() {
         <Stat value={new Set(s.excelTemplates.map((t) => t.docType)).size} label="매핑 문서 유형" />
       </div>
 
-      <Card title="양식 등록" kicker="Upload">
+      <Card title="양식 등록">
         <form action={addTemplate} className="hstack">
           <input aria-label="양식명" className="input" name="name" required maxLength={120} placeholder="양식명 (예: 장애보고 취합 양식)" style={{ flex: 1 }} />
           <select aria-label="문서 유형" className="select" name="docType">
@@ -70,7 +70,7 @@ export default async function FormsPage() {
         </form>
       </Card>
 
-      <Card title="양식 목록" kicker="Templates" pad={false}>
+      <Card title="양식 목록" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>

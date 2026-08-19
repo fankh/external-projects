@@ -100,7 +100,7 @@ export default async function IntegrationsPage() {
       </div>
 
       {/* 배포 준비 상태 — 실배포 전 확인할 런타임 구성 신호를 한눈에 (운영자용) */}
-      <Card title="배포 준비 상태" kicker="Deploy Readiness" pad={false}
+      <Card title="배포 준비 상태" pad={false}
         actions={readyWarn === 0
           ? <Chip tone="ok">준비 완료</Chip>
           : <Chip tone="warn">조치 권장 {readyWarn}건</Chip>}>
@@ -122,7 +122,7 @@ export default async function IntegrationsPage() {
       </Card>
 
       {/* 어댑터 계약 자가진단 — 고객사 어댑터 스테이징 투입 전 통과해야 하는 프레임워크 게이트 */}
-      <Card title="어댑터 계약 자가진단" kicker="Adapter Conformance" pad={false}
+      <Card title="어댑터 계약 자가진단" pad={false}
         actions={confFail.length === 0
           ? <Chip tone="ok">전 프로필 적합 · {conformance.length}건</Chip>
           : <Chip tone="err">부적합 {confFail.length}건</Chip>}>
@@ -150,7 +150,7 @@ export default async function IntegrationsPage() {
         </div>
       </Card>
 
-      <Card title="연동 채널" kicker="Channels"
+      <Card title="연동 채널"
         actions={
           <span className="hstack">
             <form action={notifyBatch}>
@@ -195,7 +195,7 @@ export default async function IntegrationsPage() {
       </Card>
 
       <div className="cols c2">
-        <Card title="발송 이력" kicker="Send Log" pad={false}>
+        <Card title="발송 이력" pad={false}>
           {s.sendLog.length === 0 ? (
             <div className="empty">어댑터 경유 발송 이력이 없습니다.</div>
           ) : (
@@ -218,7 +218,7 @@ export default async function IntegrationsPage() {
           )}
         </Card>
 
-        <Card title="배치 실행 이력" kicker="Batch" pad={false}>
+        <Card title="배치 실행 이력" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>작업</th><th>실행 시각</th><th>결과</th></tr></thead>
