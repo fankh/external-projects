@@ -2106,6 +2106,28 @@ try {
   await pSV.goto(`${BASE}/assets/register?sel=AST-2020-000883`, { waitUntil: 'networkidle' })
   ok('대사 생존 신호(로68): 대장 이력에 대사 생존 확인 점검 기록', ((await pSV.locator('body').textContent()) || '').includes('CMDB 대사 생존 확인'))
   await ctxSV.close()
+  // AI 이상탐지 → 대장 관리 자산 격리(로70) — INS-2608-08(핵심 GPU 서버 AST-2024-000377 비정상 외부 통신, 발견 저장소 없음). 이상탐지 승인은 그동안 host 를 discovered 에서만 찾아 대장 자산은 no-op 이었다. refId 로 대장 자산 격리 요청 상신 → 보안담당→IT기획팀장 2단계 승인 → NAC 격리(대장 격리 표시). 집행이 없으면 격리 칩이 안 떠 실패.
+  const ctxQA = await browser.newContext(); await ctxQA.addCookies([cookie(SEC)]); const pQA = await ctxQA.newPage()
+  await pQA.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
+  ok('대장 자산 격리(로70): 격리 전 대장 자산에 격리 표시 없음', !((await pQA.locator('tr', { has: pQA.locator('td', { hasText: 'AST-2024-000377' }) }).first().textContent()) || '').includes('격리'))
+  await pQA.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  await pQA.locator('.seg button', { hasText: /^전체$/ }).click()
+  await pQA.waitForTimeout(200)
+  const insBtn = pQA.locator('tr', { has: pQA.locator('td', { hasText: 'INS-2608-08' }) }).first().locator('button', { hasText: /^승인$/ })
+  if ((await insBtn.count()) > 0) { await insBtn.first().click(); await pQA.waitForTimeout(800) }  // 상위 aiInsightDecide 가 먼저 승인했으면 스킵
+  await pQA.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const qaRow = pQA.locator('tr', { has: pQA.locator('td', { hasText: 'AST-2024-000377' }) }).first()
+  ok('대장 자산 격리(로70): 이상탐지 승인 → 대장 자산 격리 요청 상신', (await qaRow.count()) > 0)
+  await qaRow.locator('button', { hasText: /^승인$/ }).first().click()  // 1단계 보안담당 승인
+  await pQA.waitForTimeout(700)
+  await ctxQA.close()
+  const ctxQB = await browser.newContext(); await ctxQB.addCookies([cookie(ADMIN)]); const pQB = await ctxQB.newPage()
+  await pQB.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await pQB.locator('tr', { has: pQB.locator('td', { hasText: 'AST-2024-000377' }) }).first().locator('button', { hasText: /^승인$/ }).first().click()  // 2단계 IT기획팀장 승인 → NAC 격리 집행
+  await pQB.waitForTimeout(900)
+  await pQB.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
+  ok('대장 자산 격리(로70): 2단계 승인 → NAC 격리 집행(대장 격리 표시)', ((await pQB.locator('tr', { has: pQB.locator('td', { hasText: 'AST-2024-000377' }) }).first().textContent()) || '').includes('격리'))
+  await ctxQB.close()
 
   await browser.close()
 } catch (err) {

@@ -731,6 +731,8 @@ function seed(): Store {
       { id: 'INS-2607-05', kind: '자동분류', severity: '낮음', title: '발견 자산 9건 자동분류 완료 — 확인 대기', detail: '스캔 배너·설치 SW 문자열을 표준 유형·제조사·모델로 매핑. 신뢰도 0.92 이상 9건.', evidence: 'LLM 분류 · 규칙 하이브리드', createdAt: '2026-07-19', status: '승인', decidedAt: '2026-07-19', decidedBy: '박자산', action: '분류 결과 대장 반영 — 9건' },
       // 자동분류 판정→조치 대상(§05 기능01 · 그림4 환류) — 미상 IoT 장비(ESP-9F31A2)는 규칙 기본값 '단말'로 오분류 소지. AI 가 표준 유형 '주변기기' 제안 → 담당자 승인 시 발견 자산에 확정, 편입 유형으로 승계.
       { id: 'INS-2608-07', kind: '자동분류', severity: '낮음', title: '자동분류 제안 — ESP-9F31A2 (IoT 장비 → 주변기기)', detail: '패시브 트래픽 배너·MAC OUI(Espressif)로 미상 IoT 장비를 표준 유형 주변기기로 매핑. 규칙 기본값은 단말(미매칭)이라 오분류될 수 있어 담당자 확인 후 편입 유형으로 확정한다.', evidence: 'LLM 분류 · MAC OUI 하이브리드 · 신뢰도 0.88', createdAt: '2026-07-28', status: '제안', refId: 'DSC-2607-0038', proposedCategory: '주변기기' },
+      // 대장 관리 자산의 이상행위 — 발견 저장소엔 없고 대장에만 있는 자산(핵심 GPU 서버). refId 로 대장 자산을 직접 지목(§05 기능02 '서버의 비정상 외부 통신'). 배열 끝에 둬 '첫 미판정 제안'을 잡는 다른 테스트(정확도 환류 반려)에 소진되지 않게 한다.
+      { id: 'INS-2608-08', kind: '이상탐지', severity: '높음', title: '서버의 비정상 외부 통신 — AST-2024-000377 (GPU A100)', detail: '평시 내부 학습 트래픽만 있던 핵심 GPU 서버(AST-2024-000377)가 08-17 03:12 외부 IP(러시아)로 대용량 아웃바운드. 자산 평시 프로파일 이탈 — 발견 저장소엔 없는 대장 관리 자산이라 격리 대상 매칭이 필요.', evidence: '넷플로우 08-17 03:12~03:40 · 2.3GB 유출 의심', createdAt: '2026-08-18', status: '제안', refId: 'AST-2024-000377' },
     ],
     inventoryRounds: [
       { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', kind: '연간', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 4, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
