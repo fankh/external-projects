@@ -110,6 +110,8 @@ function seedAssets(): Asset[] {
     mk({ assetNo: 'AST-2024-000995', category: '단말', model: 'Galaxy Book4 (대여용)', status: '대여중', owner: '조민재', dept: '마케팅팀', location: '본사 6F', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.60.31', mac: '3C:52:82:14:AA:19', purchaseDate: '2024-03-15', warrantyEnd: '2027-03-14', loanDueDate: '2026-12-01', lastVerifiedAt: '2026-07-25' }),
     // 재물조사 미확인 유휴 편성 좌석 회수 회귀 — 사용중이면서 라이선스 좌석 보유. 미확인 조정 승인 시 유휴 편성되며 좌석 회수·소유자 정리가 따라야 한다.
     mk({ assetNo: 'AST-2024-000994', category: '단말', model: 'ThinkPad X1 Carbon', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', cpu: 'i7-1365U', memory: '16GB', ip: '10.20.70.22', mac: 'B4:2E:99:70:5C:8A', purchaseDate: '2024-02-01', warrantyEnd: '2027-01-31', lastVerifiedAt: '2026-07-25' }),
+    // 재물조사 차이 조정 스테일 방어(재확인) 회귀용 — 미확인 조정(DIF-06)이 상신된 뒤 재배정되면 유휴 강제가 아니라 미적용되어야 한다.
+    mk({ assetNo: 'AST-2024-000706', category: '단말', model: 'ThinkPad E14 Gen5', status: '사용중', owner: '한도윤', dept: '영업1팀', location: '본사 7F', os: 'Windows 11 Pro', cpu: 'i5-1335U', memory: '16GB', ip: '10.20.70.28', mac: 'B4:2E:99:70:5C:9C', purchaseDate: '2024-04-01', warrantyEnd: '2027-03-31', lastVerifiedAt: '2026-07-25' }),
     mk({ assetNo: 'AST-2021-000432', category: '단말', model: 'LG gram 17', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 10 Pro', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09',
       history: [
         { date: '2021-05-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
@@ -634,6 +636,8 @@ function seed(): Store {
       { id: 'DIF-04', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '미조치' },
       // 미확인 유휴 편성 좌석 회수 회귀용 — 조정 상신 상태로 두어 차이 조정 승인(APR-2608-131) 시 즉시 처리된다.
       { id: 'DIF-05', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2024-000994', model: 'ThinkPad X1 Carbon', expected: '본사 7F', actual: '실사 미확인', status: '조정 상신' },
+      // 스테일 방어(재확인) 회귀 — 조정 상신 후 706 을 재배정하면 미확인 유휴 편성이 미적용돼야 한다(재배정 무효화·좌석 회수 방지). APR-2608-131 이 DIF-05·DIF-06 을 함께 처리.
+      { id: 'DIF-06', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2024-000706', model: 'ThinkPad E14 Gen5', expected: '본사 7F', actual: '실사 미확인', status: '조정 상신' },
     ],
     contracts: [
       { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀',
@@ -708,7 +712,7 @@ function seed(): Store {
       { id: 'APR-2607-112', kind: '격리 요청', title: 'DSC-2607-0031 (개인 구독 Azure VM) NAC 격리', requester: '윤보안', dept: '보안운영팀', requestedAt: '2026-07-24', status: '대기', currentStep: '보안담당 승인', refId: 'DSC-2607-0031' },
       { id: 'APR-2607-119', kind: '폐기', title: 'AST-2019-000218 외 11대 노후 단말 일괄 폐기', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-07-21', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'AST-2019-000218' },
       // 미확인 유휴 편성 좌석 회수 회귀용 — 최종 단계(IT기획팀장=ADMIN)에 두어 ADMIN 승인 1회로 효과 적용. refId=회차, DIF-05(조정 상신)만 처리된다.
-      { id: 'APR-2608-131', kind: '차이 조정', title: '2026 하반기 재물조사 미확인 1건 조정 (AST-2024-000994)', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-08-18', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'INV-2026-H2' },
+      { id: 'APR-2608-131', kind: '차이 조정', title: '2026 하반기 재물조사 미확인 2건 조정 (AST-2024-000994 외)', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-08-18', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'INV-2026-H2' },
       // 승인은 났으나 아직 집행되지 않은 이동 — 불출·이동 처리 화면의 대기열에 잡힌다.
       // targetLocation 은 공통코드 LOCATION 의 값이어야 대장에 그대로 반영할 수 있다.
       { id: 'APR-2607-101', kind: '이동', title: 'AST-2023-000112 좌석 이동 (본사 8F → 본사 9F)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-15', status: '승인', currentStep: '완료', refId: 'AST-2023-000112', decidedAt: '2026-07-16', decidedBy: '박자산', targetLocation: '본사 9F', note: '팀 좌석 재배치' },
@@ -743,7 +747,7 @@ function seed(): Store {
       { id: 'INS-2608-08', kind: '이상탐지', severity: '높음', title: '서버의 비정상 외부 통신 — AST-2024-000377 (GPU A100)', detail: '평시 내부 학습 트래픽만 있던 핵심 GPU 서버(AST-2024-000377)가 08-17 03:12 외부 IP(러시아)로 대용량 아웃바운드. 자산 평시 프로파일 이탈 — 발견 저장소엔 없는 대장 관리 자산이라 격리 대상 매칭이 필요.', evidence: '넷플로우 08-17 03:12~03:40 · 2.3GB 유출 의심', createdAt: '2026-08-18', status: '제안', refId: 'AST-2024-000377' },
     ],
     inventoryRounds: [
-      { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', kind: '연간', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 4, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
+      { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', kind: '연간', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 5, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
       { id: 'INV-2026-H1', name: '2026 상반기 정기 재물조사', kind: '연간', scope: '전사', planned: 1_198, scanned: 1_198, mismatched: 14, dueDate: '2026-02-27', assignee: '박자산', status: '완료' },
       { id: 'INV-2026-SP1', name: '판교 사무소 수시 조사', kind: '수시', scope: '판교 사무소', planned: 86, scanned: 0, mismatched: 0, dueDate: '2026-08-08', assignee: '최지원', status: '계획' },
     ],
