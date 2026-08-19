@@ -41,7 +41,7 @@ function detectReportIntent(q: string): { kind?: ReportKind } | null {
 }
 
 /** 권한 범위 내 자산 데이터를 질의 컨텍스트로 요약 (RAG 대체 — 데모 스코프) */
-function buildContext(userName: string, isUser: boolean): string {
+function buildContext(userName: string, isUser: boolean, canAsset: boolean): string {
   const s = getStore()
   const assets = isUser ? s.assets.filter((a) => a.owner === userName) : s.assets
   const mine = s.approvals.filter((a) => a.requester === userName)
@@ -52,24 +52,30 @@ function buildContext(userName: string, isUser: boolean): string {
     `[내 신청] ${mine.length}건`,
     ...mine.map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.status}${a.status === '대기' ? ` (${a.currentStep})` : ''}`),
   ]
+  // 보안담당·자산담당 공용 컨텍스트 — 발견 자산·Shadow SaaS·결재 대기·외부 위협·계정 위생(보안담당 정당 도메인)
   if (!isUser) {
     lines.push(
       `[발견 자산] ${s.discovered.length}건`,
       ...s.discovered.map((d) => `- ${d.id} | ${d.hostname} | ${d.type} | ${d.channel} | ${d.state} | 위험도:${d.risk} | 최근:${d.lastSeen}${d.note ? ` | ${d.note}` : ''}`),
-      `[계약] ${s.contracts.length}건`,
-      ...s.contracts.map((c) => `- ${c.id} | ${c.name} | ${c.vendor} | 만료:${c.end} (D-${daysUntil(c.end)})${c.status === '해지' ? ' | 해지' : ''}`),
-      `[라이선스]`,
-      ...s.licenses.map((l) => `- ${l.name} | 보유:${l.purchased} 사용:${l.used} | 만료:${l.expiry}${l.status === '해지' ? ' | 해지' : ''}`),
       `[Shadow SaaS]`,
       ...s.saas.map((x) => `- ${x.service} | ${x.dept} | 사용자:${x.users} | ${x.sanctioned ? '인가' : '미인가'} | 위험도:${x.risk}`),
-      `[재물조사] ${s.inventoryRounds.length}회차`,
-      ...s.inventoryRounds.map((r) => `- ${r.name} | ${r.status} | ${r.scanned}/${r.planned} 스캔 | 차이:${r.mismatched} | 기한:${r.dueDate}`),
       `[결재 대기] ${s.approvals.filter((a) => a.status === '대기').length}건`,
       ...s.approvals.filter((a) => a.status === '대기').map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.currentStep}`),
       `[외부 위협] 외부 노출 미조치 ${s.external.filter((e) => !e.action && e.state !== '등록·일치').length} · 크리덴셜 노출 미조치 ${s.credentials.filter((c) => c.status !== '조치 완료').length} · IOC 상관 미조치 ${s.iocMatches.filter((i) => !i.action).length} · 다크웹 유출·침해 미조치 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
       ...s.iocMatches.filter((i) => !i.action).map((i) => `- ${i.id} | IOC 상관 | ${i.iocType} ${i.iocValue} | 귀속:${i.threatActor} | 상관:${i.matchedAsset} | 위험도:${i.severity}`),
       `[엔드포인트·계정 위생] 휴면 계정 미처리 ${s.accounts.filter((a) => !a.action).length} · 미인가 SW 미조치 ${s.unauthorizedSw.filter((w) => !w.action).length} · USB 매체 미조치 ${s.usbFindings.filter((u) => !u.action).length} · 로컬 VM 미조치 ${s.localVms.filter((v) => !v.action).length}`,
       ...s.credentials.filter((c) => c.status !== '조치 완료').map((c) => `- ${c.id} | 크리덴셜 노출 | ${c.service} ${c.host}:${c.port} | ${c.issue} | 위험도:${c.severity}`),
+    )
+  }
+  // 계약·라이선스·재물조사·운영 리스크(자산 도메인)는 자산담당·Admin 만 — 보안담당은 화면·전역 검색에서 막히므로 LLM 컨텍스트에도 넣지 않는다(스텁 인텐트 게이팅과 동일 스코핑).
+  if (canAsset) {
+    lines.push(
+      `[계약] ${s.contracts.length}건`,
+      ...s.contracts.map((c) => `- ${c.id} | ${c.name} | ${c.vendor} | 만료:${c.end} (D-${daysUntil(c.end)})${c.status === '해지' ? ' | 해지' : ''}`),
+      `[라이선스]`,
+      ...s.licenses.map((l) => `- ${l.name} | 보유:${l.purchased} 사용:${l.used} | 만료:${l.expiry}${l.status === '해지' ? ' | 해지' : ''}`),
+      `[재물조사] ${s.inventoryRounds.length}회차`,
+      ...s.inventoryRounds.map((r) => `- ${r.name} | ${r.status} | ${r.scanned}/${r.planned} 스캔 | 차이:${r.mismatched} | 기한:${r.dueDate}`),
       `[운영 리스크] 분실·도난 ${s.assets.filter((a) => a.status === '분실').length} · 장기미실측 ${s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).length} · 대여연체 ${s.assets.filter(isLoanOverdue).length} · 수리중 ${s.assets.filter((a) => a.status === '수리중').length}(예상반환경과 ${s.assets.filter(isRepairOverdue).length})`,
       ...s.assets
         .filter((a) => a.status === '분실' || isStaleVerify(a, s.opsPolicy.staleVerifyDays) || isLoanOverdue(a) || a.status === '수리중')
@@ -83,6 +89,8 @@ function buildContext(userName: string, isUser: boolean): string {
 function stubAnswer(question: string, userName: string, isUser: boolean, role: Role): ChatMessage {
   const s = getStore()
   const q = question.toLowerCase()
+  // 자산·계약·재고 도메인 질의는 자산담당·Admin 만 — 보안담당은 화면(계약·재고·재물조사·수명주기 requireRole)·전역 검색에서 막히므로 어시스턴트도 동일 스코핑(!isUser 로 뭉뚱그리면 보안담당에 데이터 유출). Discovery·위협·미인가 SaaS·취약점·이상행위·결재는 보안담당도 정당.
+  const canAsset = role === 'ASSET_MGR' || role === 'ADMIN'
 
   // 내 신청 상태 — 본인이 상신한 결재 (전 권한그룹, 본인 범위). 조직 결재 큐(비사용자)와 구분해 '내 신청'으로 잡는다.
   if (q.includes('내 신청') || q.includes('신청 상태') || q.includes('내 요청')) {
@@ -133,7 +141,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
 
-  if (!isUser && (q.includes('재물조사') || q.includes('실사') || q.includes('재고조사'))) {
+  if (canAsset && (q.includes('재물조사') || q.includes('실사') || q.includes('재고조사'))) {
     const cur = s.inventoryRounds.find((r) => r.status === '진행중')
     const rounds = s.inventoryRounds
     return {
@@ -268,7 +276,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   // 교체 대상·수명 예측 (AI 기능 03 수명주기·교체 예측) — 내용연수 초과·보증 경과·OS 지원 종료(EOL) 자산을
   //  연간 교체 계획 리포트와 동일한 근거(replacementCandidates)로 인라인 답변한다. 리포트 생성 동사가 없을 때 이 인텐트가 받는다.
-  if (!isUser && (q.includes('교체') || q.includes('수명') || q.includes('내용연수') || q.includes('노후') || q.includes('eol'))) {
+  if (canAsset && (q.includes('교체') || q.includes('수명') || q.includes('내용연수') || q.includes('노후') || q.includes('eol'))) {
     const t = today()
     const { cands, budget, residualBook } = replacementCandidates()
     const eolAssets = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, t))
@@ -327,7 +335,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   // 자산 보증 만료 (유형 스코프) — 안내서 §05 예시 질의 "보증 만료되는 네트워크 장비 목록".
   //  '보증' + 자산 맥락(유형/장비/자산)일 때 계약 만료가 아니라 대장 보증을 만료 임박순으로 답한다. 유형 언급 시 스코프.
-  if (!isUser && q.includes('보증') && (ASSET_CATEGORIES.some((c) => q.includes(c.toLowerCase())) || q.includes('장비') || q.includes('자산') || q.includes('노트북') || q.includes('pc'))) {
+  if (canAsset && q.includes('보증') && (ASSET_CATEGORIES.some((c) => q.includes(c.toLowerCase())) || q.includes('장비') || q.includes('자산') || q.includes('노트북') || q.includes('pc'))) {
     const cat = ASSET_CATEGORIES.find((c) => q.includes(c.toLowerCase()))
     // 기간 스코프 — "내년 1분기 보증 만료…"처럼 시점을 좁히면 그 기간 안에 만료되는 것만 답한다(안내서 §05 예시 질의)
     const period = parsePeriodWindow(q, today())
@@ -355,7 +363,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   // 공급사(벤더) 집중도 — 계약을 공급사별로 집계해 계약 수·계약액·집행·만료 임박을 한 번에 답한다(§04 계약·벤더 관리).
   //  부서별(자산) 인텐트의 벤더 판 — 기존 벤더 집계 뷰가 없어 "공급사별 계약/지출" 질의가 일반 만료 답으로 떨어지던 공백을 메운다.
   //  '계약' 포괄 인텐트(아래)보다 먼저 잡아야 공급사 질의가 만료 답으로 오라우팅되지 않는다.
-  if (!isUser && (q.includes('공급사') || q.includes('공급업체') || q.includes('벤더'))) {
+  if (canAsset && (q.includes('공급사') || q.includes('공급업체') || q.includes('벤더'))) {
     const live = s.contracts.filter((c) => c.status !== '해지')
     const byV = new Map<string, { count: number; amount: number; spent: number; soon: number }>()
     for (const c of live) {
@@ -379,7 +387,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   // 계약 이행 질의 — 유지보수 예산 집행·구매 발주 이행(#48·#51 신호)을 인라인으로 답한다. 만료 질의(아래)보다 먼저 잡아
   //  '유지보수 예산 초과'·'발주 미이행'을 만료 계약 답변으로 오라우팅하지 않게 한다(계약 관리 현황 리포트와 동일 근거).
-  if (!isUser && (q.includes('유지보수 예산') || q.includes('예산 초과') || q.includes('집행률') || q.includes('발주 이행') || q.includes('발주 미이행') || q.includes('계약 이행') || q.includes('계약 관리'))) {
+  if (canAsset && (q.includes('유지보수 예산') || q.includes('예산 초과') || q.includes('집행률') || q.includes('발주 이행') || q.includes('발주 미이행') || q.includes('계약 이행') || q.includes('계약 관리'))) {
     const mb = buildMaintenance()
     const proc = buildProcurement()
     const overBudget = mb.rows.filter((r) => r.status === '예산 초과' || r.status === '소진 임박')
@@ -396,7 +404,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       evidence: [{ label: '계약 · 라이선스', href: '/inventory/contracts' }],
     }
   }
-  if (!isUser && (q.includes('만료') || q.includes('보증') || q.includes('계약'))) {
+  if (canAsset && (q.includes('만료') || q.includes('보증') || q.includes('계약'))) {
     // 기간 스코프 — "내년 상반기 만료 계약"처럼 시점을 좁히면 그 창 안에 만료되는 계약을, 아니면 운영 정책 만료창 임박분을 답한다
     const period = parsePeriodWindow(q, today())
     const win = s.opsPolicy.expiryWindowDays
@@ -423,7 +431,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       evidence: [{ label: '계약 · 라이선스', href: '/inventory/contracts' }],
     }
   }
-  if (!isUser && (q.includes('라이선스') || q.includes('license'))) {
+  if (canAsset && (q.includes('라이선스') || q.includes('license'))) {
     // 산정은 분석 화면 패널·리포트와 동일한 licenseOptimization() 단일 소스 — 임계값(미사용 60%) 변경 시 세 화면이 함께 움직인다.
     const { over, under: low } = licenseOptimization()
     return {
@@ -437,7 +445,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
   // 자산 가치·감가상각 질의 — 취득가·잔존가치(장부가)·TCO 를 조직 집계로 답한다(v1.180~186 원가 체인). 비사용자만(가치 집계는 권한 스코프).
-  if (!isUser && (q.includes('자산 가치') || q.includes('자산가치') || q.includes('취득가') || q.includes('감가상각') || q.includes('잔존가치') || q.includes('장부가') || q.includes('총소유비용') || q.includes('tco') || q.includes('자산 가액'))) {
+  if (canAsset && (q.includes('자산 가치') || q.includes('자산가치') || q.includes('취득가') || q.includes('감가상각') || q.includes('잔존가치') || q.includes('장부가') || q.includes('총소유비용') || q.includes('tco') || q.includes('자산 가액'))) {
     const t = today()
     const valued = s.assets.filter((a) => a.status !== '폐기완료' && acquisitionCostOf(a) > 0)
     const totalAcq = valued.reduce((n, a) => n + acquisitionCostOf(a), 0)
@@ -470,7 +478,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   // 부서별 자산 보유 — 어느 부서가 얼마나 보유하는지(비용 배분·차지백 근거). '분포'가 상태별 인텐트에도 걸리므로
   //  '부서'가 포함된 질의는 여기서 먼저 잡는다. 미인가 SaaS·보증·라이선스 등 주제 인텐트는 위에서 이미 처리돼 안전.
-  if (!isUser && q.includes('부서') && (q.includes('별') || q.includes('분포') || q.includes('보유') || q.includes('많') || q.includes('현황'))) {
+  if (canAsset && q.includes('부서') && (q.includes('별') || q.includes('분포') || q.includes('보유') || q.includes('많') || q.includes('현황'))) {
     const live = s.assets.filter((a) => a.status !== '폐기완료')
     const byDept = new Map<string, { total: number; inUse: number }>()
     for (const a of live) {
@@ -493,7 +501,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   // 수령 미확인(인수 대기) — 불출 후 사용자가 인수 확인을 안 한 사용 중 자산. 대시보드 큐·독촉과 같은 판정(receiptPending·사용중).
   //  status 게이트로 회수·반납·폐기된 자산의 스테일 플래그는 제외한다(대시보드 큐와 동일 정의).
-  if (!isUser && (q.includes('수령 미확인') || q.includes('인수 미확인') || q.includes('수령 확인') || q.includes('인수 확인'))) {
+  if (canAsset && (q.includes('수령 미확인') || q.includes('인수 미확인') || q.includes('수령 확인') || q.includes('인수 확인'))) {
     const pend = s.assets.filter((a) => a.receiptPending && a.status === '사용중')
     return {
       role: 'assistant',
@@ -511,7 +519,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   // 안전재고 부족(발주 검토) — 불출형 유형(단말·주변기기) 가용 재고가 안전재고 미만인 유형. 재고 화면·대시보드와 같은 lib/stock 판정을 쓴다.
   //  '재고 규모'(상태별 분포)와 구분되도록 '재고 부족'·'안전재고'·'발주'·'스톡아웃'만 잡는다.
-  if (!isUser && (q.includes('재고 부족') || q.includes('안전재고') || q.includes('발주') || q.includes('재고 보충') || q.includes('스톡아웃'))) {
+  if (canAsset && (q.includes('재고 부족') || q.includes('안전재고') || q.includes('발주') || q.includes('재고 보충') || q.includes('스톡아웃'))) {
     const low = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
     return {
       role: 'assistant',
@@ -528,7 +536,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   // 자산 현황·분포 — 총 보유·상태별 분포·대여 현황을 한 번에 답한다 (조직 집계, 비사용자).
   //  '대여 현황'·'대여 중'은 여기서(전체 대여), '대여 연체'는 아래 운영 리스크 인텐트에서 처리한다.
-  if (!isUser && (q.includes('상태별') || q.includes('분포') || q.includes('보유 현황') || q.includes('보유 대수') || q.includes('몇 대') || q.includes('자산 현황') || q.includes('재고 규모') || q.includes('대여 현황') || q.includes('대여 중'))) {
+  if (canAsset && (q.includes('상태별') || q.includes('분포') || q.includes('보유 현황') || q.includes('보유 대수') || q.includes('몇 대') || q.includes('자산 현황') || q.includes('재고 규모') || q.includes('대여 현황') || q.includes('대여 중'))) {
     const STATS = ['사용중', '유휴', '대여중', '수리중', '반납대기', '검수중', '분실', '폐기예정', '폐기완료'] as const
     const byStatus = (st: string) => s.assets.filter((a) => a.status === st).length
     const dist = STATS.filter((st) => byStatus(st) > 0).map((st) => `${st} ${byStatus(st)}`)
@@ -546,7 +554,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
 
   // 정기 점검(예방 정비) 대상 — 예정일이 도래·경과한 자산을 경과(미시행)·임박으로 나눠 답한다 (자산팀 사전 정비 대상).
   //  대장 필터·대시보드 큐·독촉과 같은 lib/dates 판정(isMaintenanceDue/Overdue)을 쓴다 — 어시스턴트가 별도 임계값을 만들지 않는다.
-  if (!isUser && (q.includes('정기 점검') || q.includes('예방 정비') || q.includes('점검 대상') || q.includes('점검 밀린') || q.includes('점검 경과') || q.includes('정비'))) {
+  if (canAsset && (q.includes('정기 점검') || q.includes('예방 정비') || q.includes('점검 대상') || q.includes('점검 밀린') || q.includes('점검 경과') || q.includes('정비'))) {
     const due = s.assets.filter(isMaintenanceDue)
     const overdue = due.filter(isMaintenanceOverdue).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? ''))
     const soon = due.filter((a) => !isMaintenanceOverdue(a)).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? ''))
@@ -563,7 +571,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
   // 운영 리스크 자산 — 분실·도난, 장기 미실측(유령 후보), 대여 반환 연체, 수리(지연)를 한 번에 훑는다 (자산팀 조치 대상)
-  if (!isUser && (q.includes('분실') || q.includes('도난') || q.includes('미실측') || q.includes('유령') || q.includes('연체') || q.includes('대여') || q.includes('반출') || q.includes('수리') || q.includes('운영 리스크') || q.includes('리스크 자산'))) {
+  if (canAsset && (q.includes('분실') || q.includes('도난') || q.includes('미실측') || q.includes('유령') || q.includes('연체') || q.includes('대여') || q.includes('반출') || q.includes('수리') || q.includes('운영 리스크') || q.includes('리스크 자산'))) {
     const lost = s.assets.filter((a) => a.status === '분실')
     const stale = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays))
     const overdue = s.assets.filter(isLoanOverdue)
@@ -741,7 +749,7 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     const client = new Anthropic({ apiKey })
     // 외부 API 연계 — 반출 전 비식별 처리(개인 식별자·IP·MAC·이메일 마스킹)
-    const safeContext = deidentify(buildContext(session.name, isUser), getStore().users.map((u) => u.name))
+    const safeContext = deidentify(buildContext(session.name, isUser, session.role === 'ASSET_MGR' || session.role === 'ADMIN'), getStore().users.map((u) => u.name))
     const response = await client.messages.create({
       // claude-opus-5는 thinking 기본 on — max_tokens가 thinking+응답 합산 상한이라 여유를 둔다
       model: process.env.ANTHROPIC_MODEL_ID || 'claude-opus-5',
