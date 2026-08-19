@@ -47,6 +47,21 @@ function attr(el: string, name: string): string | null {
   return m ? m[1] : null
 }
 
+/** SP(포털) SAML 메타데이터 XML — IdP 관리자가 신뢰 관계(EntityID·ACS·바인딩)를 구성할 때 임포트한다.
+ *  EntityID 는 PORTAL_SAML_SP_ENTITY_ID, ACS 는 PORTAL_SAML_SP_ACS_URL(미설정 시 인자 acsUrl=요청 기준). */
+export function spMetadata(acsUrl: string): string {
+  const sp = env('PORTAL_SAML_SP_ENTITY_ID') || 'ngv-governance-portal'
+  const acs = env('PORTAL_SAML_SP_ACS_URL') || acsUrl
+  return `<?xml version="1.0" encoding="UTF-8"?>`
+    + `<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="${sp}">`
+    + `<md:SPSSODescriptor AuthnRequestsSigned="false" WantAssertionsSigned="true"`
+    + ` protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">`
+    + `<md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:persistent</md:NameIDFormat>`
+    + `<md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"`
+    + ` Location="${acs}" index="0" isDefault="true"/>`
+    + `</md:SPSSODescriptor></md:EntityDescriptor>`
+}
+
 export const samlSso: SsoAdapter = {
   loginRedirect(relayState: string): { url: string } {
     // SP-initiated AuthnRequest — HTTP-Redirect 바인딩(DEFLATE + base64 + urlencode). 부작용·네트워크 없음.
