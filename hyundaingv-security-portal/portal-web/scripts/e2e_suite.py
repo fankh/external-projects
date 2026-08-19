@@ -758,6 +758,59 @@ def sc_rest_mail(pg, base, check):
         srv.shutdown()
 
 
+REST_HR_PORT = 3894  # REST HR 디렉터리 어댑터 픽스처 서버
+
+
+class _HrFixtureHandler(http.server.BaseHTTPRequestHandler):
+    hits = 0
+    # 고객 스키마(empName·orgName) — 어댑터 필드 매핑까지 검증. 센티넬 이름으로 실 조회를 증명.
+    body = json.dumps([
+        {'empName': '나래HR동기화확인', 'orgName': '디지털금융팀'},
+        {'empName': '김수신', 'orgName': '여신팀'},
+        {'empName': '이여신', 'orgName': '여신팀'},
+    ]).encode('utf-8')
+
+    def do_GET(self):
+        _HrFixtureHandler.hits += 1
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(_HrFixtureHandler.body)
+
+    def log_message(self, *args):
+        pass
+
+
+def sc_rest_hr(pg, base, check):
+    """REST HR 디렉터리 어댑터(실동작) — 실제 HTTP GET 으로 임직원 명단 조회·매핑 검증. 금융 프로필
+    (fin-hr→restHr)로 기동하고 PORTAL_HR_API_URL 을 로컬 픽스처 서버로, 고객 스키마 필드명을
+    PORTAL_HR_NAME_FIELD=empName·PORTAL_HR_DEPT_FIELD=orgName 으로 지정한다. '인사정보 즉시 동기화'
+    를 누르면 restHr 이 실제 GET → 응답을 Person{name,dept} 으로 매핑 → s.people 을 교체해야 한다.
+    fails-without-fix: restHr 이 GET 하지 않으면(부트스트랩) 센티넬 부재·명단 8명 → 실패."""
+    _HrFixtureHandler.hits = 0
+    srv = http.server.ThreadingHTTPServer(('127.0.0.1', REST_HR_PORT), _HrFixtureHandler)
+    th = threading.Thread(target=srv.serve_forever, daemon=True)
+    th.start()
+    try:
+        login(pg, base, '시스템관리자')  # ADMIN — 동기화 실행
+        pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+        pg.locator('button:has-text("인사정보 즉시 동기화")').click()
+        pg.wait_for_load_state('networkidle')
+        time.sleep(0.6)
+        check(_HrFixtureHandler.hits >= 1, f'restHr 이 실제 HTTP GET 으로 HR API 조회 (픽스처 히트 {_HrFixtureHandler.hits})')
+        pg.goto(f'{base}/settings/users', wait_until='networkidle')
+        users = pg.locator('table', has_text='재직상태').inner_text()
+        # 센티넬 — 픽스처(HTTP)에만 있고 부트스트랩·시드에는 없다. 실 GET+매핑 증명.
+        check('나래HR동기화확인' in users, f'실 HR API 조회 결과가 디렉터리에 반영 (센티넬 존재)')
+        # 부서 필드 매핑(orgName→dept) 반영 — 필드명 매핑까지 동작함을 증명
+        check('디지털금융팀' in users, 'orgName→dept 필드 매핑 반영')
+        # 디렉터리가 픽스처 3명으로 교체됨 — 부트스트랩(8명)·시드가 아니라 실 응답으로 대체
+        rows = pg.locator('table', has_text='재직상태').locator('tbody tr').count()
+        check(rows == 3, f'디렉터리가 실 HR 응답(3명)으로 교체 (실제 {rows}행)')
+    finally:
+        srv.shutdown()
+
+
 def sc_settle_delete(pg, base, check):
     """정산품의 삭제(폐기) — 반려 건 삭제 + 재상신 할일 폐쇄 (요구사항 11·17행 P=삭제).
     격리(settlements·approvals 비움): 이수진 상신 → 박정호 반려(→이수진 재상신 할일) → 이수진 삭제 시 품의가
@@ -2831,6 +2884,9 @@ SCENARIOS = [
     ('rest_mail', 'REST 메시징 어댑터 — 실제 HTTP 발송(금융 프로필 fin-mail→restMail)', sc_rest_mail,
      {'PORTAL_PROFILE': 'finance', 'PORTAL_MAIL_API_URL': f'http://127.0.0.1:{REST_MAIL_PORT}/send',
       'PORTAL_MAIL_FROM': 'no-reply@narae.example'}),
+    ('rest_hr', 'REST HR 디렉터리 어댑터 — 실제 HTTP 조회·매핑(금융 프로필 fin-hr→restHr)', sc_rest_hr,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_HR_API_URL': f'http://127.0.0.1:{REST_HR_PORT}/employees',
+      'PORTAL_HR_NAME_FIELD': 'empName', 'PORTAL_HR_DEPT_FIELD': 'orgName'}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
