@@ -452,6 +452,13 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     if (d && verdict === '반려') d.action = undefined
     const asset = s.assets.find((x) => x.assetNo === a.refId)
     if (asset && verdict === '승인') {
+      // 대장 관리 자산 격리 요청(AI 이상탐지) 최종 승인 = NAC 차단 집행 — 발견 자산 격리(d.action='격리완료')의 대장 자산 대응.
+      // 상태는 유지한 채 네트워크만 격리하고, 이메일 상세 + 문자로 즉시 차단을 알린다.
+      if (a.kind === '격리 요청' && !asset.quarantinedAt) {
+        asset.quarantinedAt = today()
+        asset.history.push({ date: today(), kind: '점검', detail: `NAC 격리 집행 — AI 이상행위 탐지 결재 승인, 네트워크 차단 (${a.id})`, actor: session.name })
+        escalate({ to: '보안운영팀 · NAC', subject: `NAC 격리 집행 — ${asset.assetNo} (${asset.model}) 결재 승인, 네트워크 차단 요청`, kind: '격리 통보', ref: asset.assetNo, sms: `NAC 격리 집행 ${asset.assetNo} — 즉시 차단` })
+      }
       // 반납 승인은 '반납대기'까지만 — 실물 회수와 상태 점검을 거쳐야 유휴 풀에 들어간다
       // (제품안내서 §03 PHASE 4: 반납 접수 · 상태 점검 → 유휴 자산 풀)
       if (a.kind === '반납') {

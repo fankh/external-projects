@@ -74,6 +74,29 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
       })
       d.action = '격리요청'
       action = `격리 요청 상신 — ${id}`
+    } else if (!d && ins.refId) {
+      // 발견 저장소에 없는 대장 관리 자산의 이상행위(§05 기능02 '서버의 비정상 외부 통신'). 그동안 host 를 discovered 에서만
+      // 찾아, 대장에만 있는 자산은 승인해도 조치 없이 no-op 이었다. refId 로 대장 자산을 지목해 자산 키 격리 요청을 상신한다.
+      const asset = s.assets.find((a) => a.assetNo === ins.refId)
+      if (asset && !asset.quarantinedAt && !s.approvals.some((ap) => ap.status === '대기' && ap.kind === '격리 요청' && ap.refId === asset.assetNo)) {
+        const id = nextApprovalId()
+        s.approvals.unshift({
+          id,
+          kind: '격리 요청',
+          title: `${asset.assetNo} 격리 요청 — AI 이상행위 탐지 (${ins.id})`,
+          requester: session.name,
+          dept: session.dept,
+          requestedAt: today(),
+          status: '대기',
+          // 발견 자산 격리와 동일한 결재선(보안담당 → IT기획팀장 2단계).
+          currentStep: '보안담당 승인',
+          refId: asset.assetNo,
+          note: ins.detail,
+        })
+        action = `대장 자산 격리 요청 상신 — ${id} (${asset.assetNo})`
+      } else if (asset?.quarantinedAt) {
+        action = `이미 격리된 자산 — ${asset.assetNo}`
+      }
     }
   } else if (ins.kind === '취약점 우선순위' && ins.refId) {
     // EOL·고위험 취약점 자산 → 교체 위해 폐기 대상으로 선정(폐기 결재 게이트를 거친다)

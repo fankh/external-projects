@@ -420,7 +420,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <td className="mute">{a.dept}</td>
                   <td className="mute">{a.location}</td>
                   <td className="tnum">{a.ip ?? '-'}</td>
-                  <td className="c"><Chip tone={STATUS_TONE[a.status]}>{a.status}</Chip></td>
+                  <td className="c"><Chip tone={STATUS_TONE[a.status]}>{a.status}</Chip>{a.quarantinedAt && <> <Chip tone="err" bare>격리</Chip></>}</td>
                   <td className="c">
                     {a.criticality === '핵심' ? <Chip tone="err" bare>핵심</Chip>
                       : a.criticality === '중요' ? <Chip tone="warn" bare>중요</Chip>
@@ -490,7 +490,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               )
             })()}
             <dl className="kv" style={{ marginTop: 14 }}>
-              <dt>상태</dt><dd><Chip tone={STATUS_TONE[sel.status]}>{sel.status}</Chip></dd>
+              <dt>상태</dt><dd><Chip tone={STATUS_TONE[sel.status]}>{sel.status}</Chip>{sel.quarantinedAt && <> <Chip tone="err" bare>NAC 격리 {sel.quarantinedAt}</Chip></>}</dd>
               <dt>소유자</dt><dd>{sel.owner} · {sel.dept}</dd>
               <dt>위치</dt><dd>{sel.location}</dd>
               <dt>업무 중요도</dt>
