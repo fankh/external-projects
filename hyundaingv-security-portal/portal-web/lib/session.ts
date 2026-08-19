@@ -29,6 +29,14 @@ export function signSession(s: Session): string {
   return `${payload}.${hmac(payload)}`
 }
 
+/** 세션 쿠키 Secure 속성 — 프로덕션은 기본 활성(HTTPS 종단 전제), `PORTAL_COOKIE_SECURE=0` 로만 해제한다.
+ *  (http 데모·게이트는 명시 해제.) 개발 모드는 기본 비활성이되 `=1` 로 활성 가능. */
+export function cookieSecure(): boolean {
+  return process.env.NODE_ENV === 'production'
+    ? process.env.PORTAL_COOKIE_SECURE !== '0'
+    : process.env.PORTAL_COOKIE_SECURE === '1'
+}
+
 export interface Session {
   login: string
   name: string

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { ACCOUNTS, SESSION_COOKIE, signSession } from '@/lib/session'
+import { ACCOUNTS, cookieSecure, SESSION_COOKIE, signSession } from '@/lib/session'
 import { ssoLoginAvailable } from '@/lib/integrations/registry'
 import { ROLE_LABEL } from '@/lib/types'
 import { PORTAL } from '@/portal.config'
@@ -15,9 +15,9 @@ async function loginAs(formData: FormData) {
   const acct = ACCOUNTS.find((a) => a.login === login)
   if (!acct) return
   const jar = await cookies()
-  // Secure 는 HTTPS 종단 배포에서 PORTAL_COOKIE_SECURE=1 로 켠다 — http 데모·게이트 실행이 있어 기본은 끔
+  // Secure 는 프로덕션 기본 활성(HTTPS 종단 전제) — http 데모·게이트만 PORTAL_COOKIE_SECURE=0 로 해제(cookieSecure)
   jar.set(SESSION_COOKIE, signSession(acct), {
-    httpOnly: true, sameSite: 'lax', path: '/', secure: process.env.PORTAL_COOKIE_SECURE === '1',
+    httpOnly: true, sameSite: 'lax', path: '/', secure: cookieSecure(),
   })
   redirect('/dashboard')
 }
