@@ -211,6 +211,10 @@ try {
   check('자산 대장: 단일 장애점(SPOF) 필터 칩 렌더(blast radius ≥2 자산 있을 때)', mgrHtml.includes('단일 장애점 '))
   const regSpof = await (await get('/assets/register?spof=1', 'ASSET_MGR')).text()
   check('자산 대장: ?spof=1 단일 장애점 필터 활성화(URL 파라미터→필터 배선)', regSpof.includes('단일 장애점 ') && regSpof.includes('✓ '))
+  // 교체 대상(수명예측 fn03) 필터 — 내용연수·보증 경과·장애 이력 자산을 AI 패널과 같은 replacementCandidates() 근거로 대장에서 브라우즈·반출(조달 계획). fn03 패널 링크로 드릴다운.
+  check('자산 대장: 교체 대상(수명예측) 필터 칩 렌더(교체 대상 있을 때)', mgrHtml.includes('교체 대상 '))
+  const regReplace = await (await get('/assets/register?replace=1', 'ASSET_MGR')).text()
+  check('자산 대장: ?replace=1 교체 대상 필터 활성화(fn03 패널→대장 드릴다운)', regReplace.includes('교체 대상 ') && regReplace.includes('✓ '))
   // 연관 자산(영향도) — 같은 계약·위치·소유자·모델 공유 자산 수 + 드릴 링크
   check('자산 대장: 상세에 연관 자산(영향도) 섹션 + 드릴 링크', regContractDetail.includes('연관 자산') && regContractDetail.includes('같은 모델'))
   check('자산 대장: 상세에 자산 카드(dossier) 인쇄 링크', regContractDetail.includes('/api/asset-card/') && regContractDetail.includes('자산 카드'))
@@ -700,6 +704,8 @@ try {
   check('AI 제안(자산담당): 교체 검토 통보 조치 버튼 노출(교체 대상 있을 때)', insAsset.includes('교체 검토 통보'))
   // 교체 검토 통보는 자산담당·Admin 조치 — 보안담당은 위험도 기준만 관할, 통보 버튼 미노출(page canNotify 게이트)
   check('AI 제안(보안담당): 교체 검토 통보 버튼 미노출(자산담당·Admin 조치)', !insHtml.includes('교체 검토 통보'))
+  // 수명예측 패널 → 대장 교체 대상 필터(?replace=1) 조회·반출 링크 — 분석(패널)과 관리·조달(대장 브라우즈)을 잇는다.
+  check('AI 제안: 수명예측 패널→대장 교체 대상 조회 링크(?replace=1)', insHtml.includes('/assets/register?replace=1'))
   const fndHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 소유자 확인·에스컬레이션 진입점', fndHtml.includes('미확인 소유자 정책') && fndHtml.includes('미응답 에스컬레이션') && fndHtml.includes('응답 대기'))
   // 지문 병합 — 화면이 '지문 병합 후'라고 주장하려면 원시 관측과 병합 근거가 있어야 한다
