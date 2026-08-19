@@ -1078,6 +1078,39 @@ def sc_sso_saml(pg, base, check):
           f'RelayState 백슬래시 오픈 리다이렉트 차단(로컬 폴백) (loc={loc[:70]})')
 
 
+def sc_sso_subject_map(pg, base, check):
+    """SSO subject 매핑(v1.5.315) — PORTAL_SSO_SUBJECT_MAP 설정 시 그 매핑이 유일한 신원 근거이고 미등재
+    subject 는 거부한다(fail-closed). IdP subject 네임스페이스가 로컬 로그인과 달라 문자열 일치만으로 권한 계정에
+    잘못 매핑되는 것을 막는다. 매핑: alice@narae.example→hw.kim(USER). 서명은 모두 유효.
+      1) 등재 subject(alice) → 매핑된 계정(hw.kim=김현우)으로 세션 발급.
+      2) 미등재 subject 이자 로컬 권한 로그인과 동일한 'admin' → 거부(세션 미발급). ← 핵심 하드닝.
+    fails-without-fix: resolveSsoAccount 를 옛 'ACCOUNTS.find(login===nameId)' 직접대응으로 되돌리면
+    admin 어설션이 그대로 ADMIN 세션을 받아 '거부' 단언이 실패한다."""
+    key = str(ROOT / 'scripts' / '.saml-test-key.pem')
+    acs = f'{base}/api/sso/acs'
+
+    def gen(name_id):
+        r = subprocess.run(['node', str(ROOT / 'scripts' / 'saml_gen.mjs'), key, name_id,
+                            'ngv-governance-portal', acs, '2030-01-01T00:00:00Z'],
+                           cwd=str(ROOT), capture_output=True, text=True, check=True)
+        return r.stdout.strip()
+
+    # 1) 등재 subject → 매핑된 계정으로 세션. 대시보드 사용자칩에 매핑 계정명(김현우)이 표시돼야 한다.
+    pg.context.clear_cookies()
+    pg.context.request.post(acs, form={'SAMLResponse': gen('alice@narae.example'), 'RelayState': '/dashboard'})
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    chip = pg.locator('.userchip .nm').first
+    check('개인별현황' in pg.content() and chip.count() == 1 and '김현우' == (chip.inner_text() or '').strip(),
+          '등재 subject(alice) → 매핑 계정(hw.kim·김현우) 세션 발급')
+
+    # 2) 미등재 subject 'admin'(로컬 권한 로그인과 동일) → 거부. 서명·조건은 유효하지만 매핑에 없으므로 fail-closed.
+    pg.context.clear_cookies()
+    pg.context.request.post(acs, form={'SAMLResponse': gen('admin'), 'RelayState': '/dashboard'})
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check('계정을 선택하세요' in pg.content(),
+          '미등재 subject(admin·권한 로그인 동명) 거부 → 세션 미발급(subject 스푸핑 차단)')
+
+
 def sc_cookie_secure(pg, base, check):
     """세션 쿠키 Secure 기본값(v1.5.313) — 프로덕션은 PORTAL_COOKIE_SECURE=0 으로 명시 해제하지 않는 한 Secure
     쿠키를 발급한다(HTTPS 종단 전제). ACS 에 유효 어설션을 POST 해 발급 Set-Cookie 원문에 Secure 속성이 실리는지
@@ -3256,6 +3289,11 @@ SCENARIOS = [
      {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
       'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
       'PORTAL_SAML_IDP_CERT_FILE': str(ROOT / 'scripts' / '.saml-test-cert.pem')}),
+    ('sso_subject_map', 'SSO subject 매핑 — 등재 subject 만 계정 해석·미등재는 거부(fail-closed, 권한 로그인 스푸핑 차단)', sc_sso_subject_map,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
+      'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
+      'PORTAL_SAML_IDP_CERT_FILE': str(ROOT / 'scripts' / '.saml-test-cert.pem'),
+      'PORTAL_SSO_SUBJECT_MAP': 'alice@narae.example=hw.kim'}),
     ('cookie_secure', '세션 쿠키 Secure 기본 — 프로덕션은 명시 해제(=0) 없이는 Secure 발급(cookieSecure, HTTPS 종단 전제)', sc_cookie_secure,
      {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
       'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
