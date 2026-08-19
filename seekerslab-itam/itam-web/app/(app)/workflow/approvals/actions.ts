@@ -103,6 +103,7 @@ export async function raiseRequest(input: {
     loanDueDate: input.kind === '대여' ? input.loanDueDate : undefined,
     desiredCategory: input.kind === '자산 신청' ? input.category : undefined,
     saasService,
+    selfSubmitted: true, // 본인이 폼으로 올린 상신 — 직무 분리상 본인 결재 불가(상신 취소만)
   })
 
   appendAudit({ actor: session.name, action: `${input.kind} 상신`, target: id })
@@ -142,6 +143,7 @@ export async function resubmitRequest(approvalId: string, note: string) {
     refId: orig.refId,
     note: trimmed,
     targetLocation: orig.targetLocation,
+    selfSubmitted: true, // 재상신도 본인 상신 — 직무 분리상 본인 결재 불가
   })
   orig.resubmitted = true // 원 반려 건은 재상신 완료 표시 — 대시보드 재상신 검토 넛지에서 제외
   appendAudit({ actor: session.name, action: `${orig.kind} 재상신 (원 ${orig.id} 반려)`, target: id })
@@ -227,6 +229,13 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
   const s = getStore()
   const a = s.approvals.find((x) => x.id === approvalId)
   if (!a || a.status !== '대기') return { ok: false, message: '처리할 결재 건이 아닙니다.' }
+  // 직무 분리 — 본인이 폼으로 올린 상신(selfSubmitted)은 본인이 승인·반려할 수 없다(상신 취소를 쓴다).
+  // '내 결재 차례' 큐(대시보드·상태바·어시스턴트)는 이미 requester!==나 로 제외하나, 이 서버 액션만 누락돼
+  // 단일 단계 결재(대여·반납·이동=자산담당, SaaS 인가=보안담당)에서 상신자가 곧바로 자기 요청을 승인·집행하던 구멍.
+  // 시스템·운영자 상신(편입·격리·라이선스 품의)은 selfSubmitted 가 없어 현 단계 담당자가 정상 결재한다.
+  if (a.selfSubmitted && a.requester === session.name) {
+    return { ok: false, message: '본인이 상신한 결재는 승인·반려할 수 없습니다 (직무 분리 — 상신 취소를 사용하세요).' }
+  }
   // 소유자 확인은 결재(decide)가 아니라 요청받은 부서 본인의 '응답'(answerOwnerConfirm)으로 처리한다.
   // decide 로 들어오면 소유자 응답 효과(발견 자산 소유·상태 반영) 없이 단계만 진행돼 상태가 어긋나므로 방어적으로 차단(UI 는 이미 제외).
   if (a.kind === '소유자 확인') return { ok: false, message: '소유자 확인은 결재가 아니라 요청받은 부서의 응답으로 처리합니다.' }
