@@ -4,6 +4,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { Icon } from '@/components/chrome/Icon'
 import { ROTATING_DOC_TYPES, WITHDRAWABLE_DOC_TYPES } from '@/lib/approvals'
 import { attachCount } from '@/lib/attachments'
+import { currentYear } from '@/lib/dates'
 import { requireMenu } from '@/lib/authz'
 import { getStore, type Store } from '@/lib/store'
 import type { Approval, ApprovalStatus } from '@/lib/types'
@@ -58,7 +59,7 @@ function refSummary(s: Store, ap: Approval): [string, string][] {
       const dept = /^\[보안서약서\] (.+?) 서약 현황/.exec(ap.title)?.[1]
       if (!dept) return []
       const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
-      const signed = new Set(s.pledges.filter((p) => p.year === '2026' && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+      const signed = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
       const members = s.people.filter((p) => p.dept === dept)
       return [
         ['부서', dept], ['대상', `${members.length}명`], ['서약 완료', `${members.filter((p) => signed.has(p.name)).length}명`],

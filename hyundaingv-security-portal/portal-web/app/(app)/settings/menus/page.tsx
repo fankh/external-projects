@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { NAV } from '@/components/chrome/menus'
 import { Icon } from '@/components/chrome/Icon'
 import { registerUpload } from '@/lib/attachments'
+import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { SCREENS } from '@/lib/screens'
 import { getStore } from '@/lib/store'
@@ -15,8 +16,11 @@ async function uploadSpec(formData: FormData) {
   const href = String(formData.get('href') ?? '')
   if (!NAV.some((g) => g.items.some((i) => i.href === href))) return
   const s = getStore()
+  const replaced = s.attachments.some((a) => a.refId === href)
   s.attachments = s.attachments.filter((a) => a.refId !== href)
   registerUpload(href, formData.get('file'), me.name)
+  // §VI 이력추적성 — 파괴적 교체(이전 정의서 삭제)를 남긴다. 형제 환경설정(forms·codes·permissions)과 정합.
+  audit(me.name, '화면 정의서 변경', `${href} 정의서 ${replaced ? '교체' : '등록'}`)
   revalidatePath('/settings/menus')
 }
 

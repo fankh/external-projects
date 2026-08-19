@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerGenerated, registerUpload } from '@/lib/attachments'
+import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { monthlyIncidentStats } from '@/lib/infra'
@@ -35,12 +36,14 @@ async function addIncident(formData: FormData) {
   const id = nextNo('FL', today().slice(0, 4), s.incidents.map((i) => i.id))
   s.incidents.unshift({ id, system, title, grade, category: category || undefined, occurredAt: today(), status: '조치중', reportStatus: '미상신' })
   registerUpload(id, formData.get('file'), me.name)
+  // §VI 이력추적성 — 장애 등록도 통제 행위(등록자·시점 추적). 인프라 형제 화면(systems·racks·operations)과 정합.
+  audit(me.name, '장애 등록', `${id} ${grade} ${system} — ${title}`)
   revalidatePath('/infra/incidents')
 }
 
 async function resolve(formData: FormData) {
   'use server'
-  await requireMenuRole('/infra/incidents', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/incidents', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const action = String(formData.get('action') ?? '').trim().slice(0, 300)
   const countermeasure = String(formData.get('countermeasure') ?? '').trim().slice(0, 300)
@@ -51,6 +54,7 @@ async function resolve(formData: FormData) {
   inc.action = action
   if (countermeasure) inc.countermeasure = countermeasure
   inc.status = '조치완료'
+  audit(me.name, '장애 조치', `${inc.id} 조치완료 — ${action.slice(0, 60)}`)
   revalidatePath('/infra/incidents')
 }
 
@@ -82,13 +86,15 @@ async function submitReport(formData: FormData) {
 
 async function addCmResult(formData: FormData) {
   'use server'
-  await requireMenuRole('/infra/incidents', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/incidents', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const cmResult = String(formData.get('cmResult') ?? '').trim().slice(0, 300)
   if (!cmResult) return
   const s = getStore()
   const inc = s.incidents.find((i) => i.id === id && i.countermeasure && !i.cmResult)
-  if (inc) inc.cmResult = cmResult
+  if (!inc) return
+  inc.cmResult = cmResult
+  audit(me.name, '장애 조치', `${inc.id} 재발방지 결과 등록`)
   revalidatePath('/infra/incidents')
 }
 
