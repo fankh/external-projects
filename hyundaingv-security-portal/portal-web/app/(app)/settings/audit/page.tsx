@@ -1,5 +1,5 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import type { AuditAction } from '@/lib/audit'
+import { filterAuditLogs, type AuditAction } from '@/lib/audit'
 import { requireMenu } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 
@@ -17,9 +17,21 @@ const ACTION_TONE: Record<AuditAction, 'ok' | 'err' | 'info' | 'neutral' | 'warn
   '복구계획 등록': 'neutral', '복구계획 변경': 'warn', '복구계획 삭제': 'warn',
 }
 
-export default async function AuditPage() {
+export default async function AuditPage({ searchParams }: { searchParams: Promise<{ actor?: string; action?: string; q?: string; from?: string; to?: string }> }) {
   await requireMenu('/settings/audit')
   const s = getStore()
+  const sp = await searchParams
+  const f = { actor: sp.actor ?? '', action: sp.action ?? '', q: sp.q ?? '', from: sp.from ?? '', to: sp.to ?? '' }
+  const active = !!(f.actor || f.action || f.q || f.from || f.to)
+
+  // 조회 결과 — 화면·export 가 filterAuditLogs 단일 원천을 공유한다(같은 필터 → 같은 행).
+  const rows = filterAuditLogs(s.auditLogs, f)
+  // 셀렉트 선택지 — 실제 로그에 존재하는 행위자·행위만(전 어휘가 아니라 관측된 값). 손상 비문자열 방어.
+  const actors = [...new Set(s.auditLogs.map((l) => l.actor).filter(Boolean))].sort()
+  const actions = [...new Set(s.auditLogs.map((l) => String(l.action ?? '')).filter(Boolean))].sort()
+  // 필터를 유지한 채 내려받도록 export 링크에 같은 쿼리를 전달(감사관: 좁혀서 증적 다운로드).
+  const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][]).toString()
+
   // '결재 상신'(v1.0.6)까지 startsWith 로 세면 상신마다 처리 건수가 부풀므로 승인·반려만 센다
   const decisions = s.auditLogs.filter((l) => l.action === '결재 승인' || l.action === '결재 반려').length
   // 손상 파일이 로그의 action 을 누락·비문자열로 남겨도 .includes 가 500 나지 않게 문자열로 방어
@@ -39,16 +51,37 @@ export default async function AuditPage() {
         <Stat value={configs} label="설정 변경" tone={configs > 0 ? 'warn' : undefined} />
       </div>
 
+      <Card title="조회">
+        <form method="get" className="hstack" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <select aria-label="행위자" className="select" name="actor" defaultValue={f.actor} style={{ minWidth: 130 }}>
+            <option value="">행위자 — 전체</option>
+            {actors.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <select aria-label="행위" className="select" name="action" defaultValue={f.action} style={{ minWidth: 150 }}>
+            <option value="">행위 — 전체</option>
+            {actions.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <input aria-label="시작일" className="input" type="date" name="from" defaultValue={f.from} title="시작일(포함)" style={{ width: 150 }} />
+          <input aria-label="종료일" className="input" type="date" name="to" defaultValue={f.to} title="종료일(포함)" style={{ width: 150 }} />
+          <input aria-label="검색어" className="input" name="q" defaultValue={f.q} placeholder="상세·행위자 검색" style={{ flex: 1, minWidth: 140 }} />
+          <button type="submit" className="btn pri">조회</button>
+          {active && <a className="btn" href="/settings/audit">초기화</a>}
+        </form>
+      </Card>
+
       <Card title="이력" pad={false}
-        actions={<a className="btn sm" href="/api/export?type=audit">엑셀 다운로드</a>}>
+        actions={<a className="btn sm" href={`/api/export?type=audit${qs ? `&${qs}` : ''}`}>엑셀 다운로드{active ? ' (조회분)' : ''}</a>}>
         {s.auditLogs.length === 0 ? (
           <div className="empty">기록이 없습니다.</div>
+        ) : rows.length === 0 ? (
+          <div className="empty">조회 조건에 맞는 기록이 없습니다.</div>
         ) : (
           <div className="tbl-wrap">
+            {active && <div className="dim" style={{ fontSize: 11.5, padding: '8px 14px 0' }}>조회 {rows.length}건 / 전체 {s.auditLogs.length}건</div>}
             <table className="tbl">
               <thead><tr><th>일시</th><th>행위자</th><th>행위</th><th>상세</th></tr></thead>
               <tbody>
-                {s.auditLogs.map((l, i) => (
+                {rows.map((l, i) => (
                   <tr key={i}>
                     <td className="tnum">{l.at}</td>
                     <td className="strong">{l.actor}</td>

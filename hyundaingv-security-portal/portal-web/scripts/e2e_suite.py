@@ -82,6 +82,7 @@ ROT_FRESH_DATA = ROOT / 'scripts' / '.e2e-rotfresh-data.json'  # 회전문서 �
 PJDONE_DATA = ROOT / 'scripts' / '.e2e-pjdone-data.json'  # 프로젝트 완료 시 재서약 할일 정리 회귀용 (v1.5.89)
 PJMEMB_DATA = ROOT / 'scripts' / '.e2e-pjmemb-data.json'  # 빈 명단 프로젝트 참여서약 집계 회귀용 (v1.5.89)
 EXECFALSE_DATA = ROOT / 'scripts' / '.e2e-execfalse-data.json'  # 집행률 거짓 100% 방지 회귀용 (v1.5.321)
+AUDITF_DATA = ROOT / 'scripts' / '.e2e-auditf-data.json'  # 감사 이력 조회 필터 회귀용 (v1.5.331)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
 AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
 QNAROLE_DATA = ROOT / 'scripts' / '.e2e-qnarole-data.json'  # QnA 담당 지정 역할 정합 회귀용 (v1.5.92)
@@ -2749,6 +2750,29 @@ def sc_incident_audit(pg, base, check):
           '감사 이력에 장애 조치(조치완료) + 행위자 기록')
 
 
+def sc_audit_search(pg, base, check):
+    """감사 이력 조회 필터(v1.5.331) — 감사관이 행위자·행위·기간·검색어로 좁혀 증적을 찾고 그 조회분을 export 로
+    내려받는다. 화면·export 가 filterAuditLogs 단일 원천 공유(같은 필터→같은 행). 데이터 3건(김현우 결재승인 08-01·
+    이수진 보안위반등록 08-10·김현우 장애등록 08-20). 단언은 표 본문(tbody)만 검사 — 필터 셀렉트 option 이 전 행위·
+    행위자를 담아 body 전체 검사는 오탐. fails-without-fix: filterAuditLogs 가 무필터면 전 건 노출로 배제 단언 실패."""
+    login(pg, base, '시스템관리자')  # ADMIN — 감사 화면
+    # 행위 필터: '장애 등록' → FL-1 만, 타 행위(보안위반) 표에서 제외
+    pg.goto(f'{base}/settings/audit?action=장애 등록', wait_until='networkidle')
+    tb = pg.locator('table.tbl tbody').inner_text()
+    check('FL-1 장애 등록 처리' in tb and '보안위반' not in tb, '행위 필터: 장애 등록만 조회(타 행위 제외)')
+    # 행위자 필터: 이수진 → 보안위반만, 김현우 건(FL-1) 제외
+    pg.goto(f'{base}/settings/audit?actor=이수진', wait_until='networkidle')
+    tb = pg.locator('table.tbl tbody').inner_text()
+    check('위반 사례 등록 처리' in tb and 'FL-1' not in tb, '행위자 필터: 이수진 행위만 조회')
+    # 기간 필터(양끝 포함): 08-05~08-15 → 이수진(08-10)만, 08-01·08-20 제외
+    pg.goto(f'{base}/settings/audit?from=2026-08-05&to=2026-08-15', wait_until='networkidle')
+    tb = pg.locator('table.tbl tbody').inner_text()
+    check('위반 사례 등록 처리' in tb and 'AP-1' not in tb and 'FL-1' not in tb, '기간 필터: 범위 내 기록만(양끝 포함)')
+    # export 도 동일 필터 — action=장애 등록 이면 CSV 에 FL-1 만, 보안위반 미포함(화면=export 단일 원천)
+    csv = pg.context.request.get(f'{base}/api/export?type=audit&action=장애 등록').text()
+    check('FL-1 장애 등록 처리' in csv and '보안위반' not in csv, 'export 도 화면과 동일 필터(조회분만 다운로드)')
+
+
 def sc_approval_line(pg, base, check):
     """결재선 변경 → 이후 상신의 결재자 변경"""
     login(pg, base, '시스템관리자')
@@ -3463,6 +3487,8 @@ SCENARIOS = [
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
     ('incident_audit', '장애 등록·조치 감사 이력 — 행위자 추적(§VI, 인프라 형제 화면 정합)', sc_incident_audit, {}),
+    ('audit_search', '감사 이력 조회 필터 — 행위자·행위·기간·검색어, 화면=export 단일 원천', sc_audit_search,
+     {'PORTAL_DATA_FILE': str(AUDITF_DATA)}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
     ('remote_overlap', '재택 경계월 인접 기간 — 당월 명단·통계 1회만(이중 집계 방지)', sc_remote_overlap,
      {'PORTAL_DATA_FILE': str(RSPAN_DATA)}),
@@ -3836,6 +3862,12 @@ def main() -> int:
         'investContracts': [{'id': 'CT-2026-90', 'kind': '투자', 'planId': 'IP-2026-90', 'vendor': '테스트벤더', 'title': '경계 계약', 'amount': 1004, 'signedAt': '2026-07-01'}],
         'settlements': [{'id': 'ST-2026-90', 'contractId': 'CT-2026-90', 'item': '착수금', 'amount': 1004, 'status': '지급완료', 'requestedBy': '김현우', 'requestedAt': '2026-07-05'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 감사 이력 조회 필터(v1.5.331) — 행위자·행위·기간으로 좁히고 export 도 동일 필터. 3건(구별되는 행위자·행위·날짜).
+    AUDITF_DATA.write_text(json.dumps({'auditLogs': [
+        {'at': '2026-08-01 09:00', 'actor': '김현우', 'action': '결재 승인', 'detail': 'AP-1 승인 처리'},
+        {'at': '2026-08-10 14:00', 'actor': '이수진', 'action': '보안위반 등록', 'detail': '위반 사례 등록 처리'},
+        {'at': '2026-08-20 10:00', 'actor': '김현우', 'action': '장애 등록', 'detail': 'FL-1 장애 등록 처리'},
+    ]}, ensure_ascii=False), encoding='utf-8')
     # 집행률 거짓 100% 방지(v1.5.321) — 확정 20000·지급 19900(99.5%, 미집행)이 Math.round 로 100% 로 올라가면 안 된다.
     EXECFALSE_DATA.write_text(json.dumps({
         'investPlans': [{'id': 'IP-2026-95', 'kind': '투자', 'year': '2026', 'title': '거짓100 집행 과제', 'owner': '김현우', 'dept': '개발1팀', 'amount': 20000, 'status': '확정'}],
@@ -4003,6 +4035,7 @@ def main() -> int:
     PJDONE_DATA.unlink(missing_ok=True)
     PJMEMB_DATA.unlink(missing_ok=True)
     EXECFALSE_DATA.unlink(missing_ok=True)
+    AUDITF_DATA.unlink(missing_ok=True)
     RMGHOST_DATA.unlink(missing_ok=True)
     AFDEFEAT_DATA.unlink(missing_ok=True)
     QNAROLE_DATA.unlink(missing_ok=True)
