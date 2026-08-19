@@ -1311,6 +1311,11 @@ try {
   await saasEscBtn.first().click()
   await p3.waitForTimeout(800)
   ok('SaaS 판정 기한 경과 에스컬레이션: 보안담당 판정 요청 통보 발송', ((await p3.textContent('body')) || '').includes('SaaS 판정 독촉') && ((await p3.textContent('body')) || '').includes('발송'))
+  // SaaS 판정 독촉 SMS 등급 게이트 — 기밀·민감 등급만 문자(SMS) 병행, 일반 등급은 이메일만(데이터 반출 위험 기준). escalate 가 sms 미지정에도 제목으로 문자를 보내 일반 등급(Miro)에도 SMS 가 새던 버그. 문자 subject '[긴급] …'로 식별: 민감(ChatGPT)엔 '[긴급] ChatGPT 미판정' 문자, 일반(Miro)엔 '[긴급] SaaS 판정 기한 경과 — Miro' 문자가 없어야 한다.
+  await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const saasSmsBody = (await p3.locator('.card', { has: p3.locator('text=알림 발송 이력') }).first().textContent()) || ''
+  ok('SaaS 판정 독촉 SMS 게이트: 민감(ChatGPT) 문자 발송 · 일반(Miro) 문자 미발송', saasSmsBody.includes('[긴급] ChatGPT 미판정') && !saasSmsBody.includes('[긴급] SaaS 판정 기한 경과 — Miro'))
+  await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' }) // 후속 테스트 컨텍스트 복원(SaaS 카탈로그 화면)
   // SaaS 카탈로그 신규 등록(create 파리티) — 발견 이전이라도 담당자가 서비스를 검토중으로 직접 등재. 그동안 카탈로그는 발견 판정·인가 결재로만 늘어 create 진입점이 없었다(공통코드엔 있는 add).
   await p3.locator('button', { hasText: /^\+ SaaS 등록$/ }).click()
   await p3.waitForTimeout(200)
@@ -2029,6 +2034,21 @@ try {
     await p4.waitForTimeout(300)
     ok('도입·검수 가드: 반품 완료 로트 체크리스트 재토글해도 채번 불가(유령 자산 방지)', await insCard.locator('button', { hasText: /^자산번호 채번/ }).isDisabled())
   }
+  // 검수 완료 감사 — toggleCheck 가 검수 완료(채번 게이트) 전이를 감사에 안 남기던 공백. 입고 대기 로트(IN-2607-02)를 검수 완료하면 감사 로그에 '검수 완료 — 로트'가 남아야 한다(누가 QC 를 통과시켰는지 추적).
+  await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  await p4.locator('tr.clickable', { has: p4.locator('td', { hasText: 'IN-2607-02' }) }).first().click()
+  await p4.waitForTimeout(200)
+  {
+    const insCard02 = p4.locator('.card', { hasText: '검수 체크리스트' })
+    const items02 = insCard02.locator('.vstack').first().locator(':scope > button')
+    const n02 = await items02.count()
+    for (let i = 0; i < n02; i++) { await items02.nth(i).click(); await p4.waitForTimeout(60) }
+    await p4.waitForTimeout(300)
+  }
+  await p4.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  await p4.locator('input[placeholder="수행자·동작·대상 검색"]').fill('IN-2607-02')
+  await p4.waitForTimeout(300)
+  ok('검수 완료 감사: toggleCheck 검수 완료 전이가 감사 로그에 기록(로트 IN-2607-02 · 채번 게이트)', ((await p4.textContent('body')) || '').includes('검수 완료 —') && ((await p4.textContent('body')) || '').includes('IN-2607-02'))
   await p4.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   const p4Dash = (await p4.textContent('body')) || ''
   ok('검수 반려 → 반품 완료: 대시보드 백로그에서 제외', !p4Dash.includes('검수 반려 (재검수 · 반품 확인)'))

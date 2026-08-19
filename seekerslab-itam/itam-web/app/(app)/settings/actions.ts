@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAdminAudit } from '@/lib/audit'
 import { codeUsage } from '@/lib/codes'
 import { today } from '@/lib/dates'
-import { escalate } from '@/lib/notify'
+import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { decideSaasStatus } from '@/lib/saas'
 import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
@@ -127,13 +127,14 @@ export async function escalateSaasReview() {
   for (const e of buildSaasReview().overdue) {
     if (sentToday.has(e.id)) continue
     const age = saasReviewAgeDays(e) ?? 0
-    escalate({
-      to: '보안담당',
-      subject: `SaaS 판정 기한 경과 — ${e.service} (데이터 등급 ${e.dataGrade} · 검토 ${age}일 경과) 인가/차단 판정 요망`,
-      kind: 'SaaS 판정 독촉',
-      ref: e.id,
-      sms: e.dataGrade !== '일반' ? `[긴급] ${e.service} 미판정 ${age}일 (등급 ${e.dataGrade}) — 데이터 반출 위험, 즉시 판정` : undefined,
-    })
+    const subject = `SaaS 판정 기한 경과 — ${e.service} (데이터 등급 ${e.dataGrade} · 검토 ${age}일 경과) 인가/차단 판정 요망`
+    if (e.dataGrade !== '일반') {
+      // 기밀·민감 등급만 데이터 반출 위험이 커 문자(SMS)를 이메일과 병행한다. escalate 가 '[긴급]' 을 붙이므로 sms 문구엔 넣지 않는다.
+      escalate({ to: '보안담당', subject, kind: 'SaaS 판정 독촉', ref: e.id, sms: `${e.service} 미판정 ${age}일 (등급 ${e.dataGrade}) — 데이터 반출 위험, 즉시 판정` })
+    } else {
+      // 일반 등급은 이메일만 — escalate 는 sms 미지정 시에도 제목으로 문자를 보내므로, 일반 등급에 문자가 새지 않도록 dispatch 로 이메일만 발송한다.
+      dispatch({ channel: '이메일', to: '보안담당', subject, kind: 'SaaS 판정 독촉', ref: e.id })
+    }
     n += 1
   }
 
