@@ -1071,6 +1071,11 @@ try {
   await pU.waitForTimeout(600)
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
   ok('반납 신청(사용자): 신청 접수 표시(반납 신청됨)', ((await pU.locator('body').textContent()) || '').includes('반납 신청됨'))
+  // ?loanret=1 필터 활성화 — 대시보드 반납 신청 큐의 드릴다운 목적지(전체 대여중 아님). 대여자 본인 화면에서 취소 전 확인(자산담당 페이지는 이 시점 미개설).
+  await pU.goto(`${BASE}/assets/register?loanret=1`, { waitUntil: 'networkidle' })
+  const loanRetBody = (await pU.locator('body').textContent()) || ''
+  ok('자산 대장: ?loanret=1 반납 신청 필터 활성화(대시보드 큐 드릴다운)', loanRetBody.includes('반납 신청 ') && loanRetBody.includes('✓ '))
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
   // 반납 신청 취소 — 반환 접수 전이라면 본인 신청을 철회한다. 취소해 자산을 연장 요청 테스트를 위한 원상태로 되돌린다.
   await pU.locator('button', { hasText: /^신청 취소$/ }).click()
   await pU.waitForTimeout(600)
@@ -1108,6 +1113,9 @@ try {
   // 대여 연장 요청 대기 대시보드 큐(자산담당) — 사용자 연장 요청이 통보만으로 놓치지 않게 대시보드에도 뜬다. pU 가 방금 AST-2024-000230 에 요청했다.
   await p3.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('대시보드(자산담당): 대여 연장 요청 대기 큐 노출', ((await p3.textContent('body')) || '').includes('대여 연장 요청 대기'))
+  // 대여 연장 요청 큐 드릴다운(count↔destination) — 전체 대여중이 아니라 ?loanext=1(연장 요청 자산만)로 연결. 큐 건수=목록.
+  const extHref = await p3.locator('a', { hasText: '대여 연장 요청 대기' }).first().getAttribute('href')
+  ok('대시보드: 대여 연장 요청 큐가 ?loanext=1 로 드릴다운(전체 대여중 아님)', !!extHref && decodeURIComponent(extHref).includes('/assets/register?loanext=1'))
   // 미등록 신규 발견(Shadow IT) KPI 클릭 → 발견 화면 이동 — 조치가 필요한 지표가 대시보드에서 상세로 바로 이어진다(비사용자만).
   ok('대시보드(비사용자): Shadow IT KPI 가 발견 화면 링크', (await p3.locator('a[href="/discovery/found"]').filter({ hasText: '미등록 신규 발견' }).count()) > 0)
   // 신청·결재 뱃지(결재자) — 결재 권한자에겐 내 결재 차례 건수가 사이드바 워크플로 뱃지로 뜬다(전사 총계 아님).
