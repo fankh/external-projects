@@ -5,6 +5,7 @@ import { CHANNELS } from '@/portal.config'
 import { nowStamp } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { mockAsset, mockHr, mockMail, mockSecdata, mockSecmon, mockSms } from './mock'
+import { restMail, restSms } from './rest'
 import type { AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SecMonAdapter, SendResult } from './types'
 
 /** 어댑터 호출 상한 시간 — 실 고객사 시스템이 응답 없이 매달리면(타임아웃 없는 fetch 등)
@@ -21,16 +22,20 @@ export function withTimeout<T>(p: Promise<T>, label: string): Promise<T> {
 }
 
 /** adapterId → 구현. 고객사 어댑터를 추가하면 여기에 등록한다.
- *  hanbit-*·erp-* 는 제조업 예시 프로필용 — 데모에서는 목업에 매핑되고,
- *  실배포에서 고객사 구현으로 교체한다. */
+ *  데모 기본 프로필은 목업(mock-*)으로 오프라인 시연이 되게 두고, 샘플 고객사 프로필(제조·공공·금융)의
+ *  메일·문자는 실동작 REST 어댑터(rest.ts)에 바인딩한다 — 요구사항의 실 전송 방식(REST API)과 일치하며,
+ *  엔드포인트·인증은 배포 환경변수로 주입한다(PORTAL_MAIL_API_URL 등). rest-mail·rest-sms 는 새 프로필이
+ *  직접 참조할 수 있는 범용 id. */
 const MESSAGING: Record<string, MessagingAdapter> = {
   'mock-mail': mockMail,
   'mock-sms': mockSms,
-  'hanbit-gw-mail': mockMail,
-  'gov-mail': mockMail,
-  'gov-sms': mockSms,
-  'fin-mail': mockMail,
-  'fin-sms': mockSms,
+  'rest-mail': restMail,
+  'rest-sms': restSms,
+  'hanbit-gw-mail': restMail,
+  'gov-mail': restMail,
+  'gov-sms': restSms,
+  'fin-mail': restMail,
+  'fin-sms': restSms,
 }
 const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr, 'hanbit-hr': mockHr, 'gov-hr': mockHr, 'fin-hr': mockHr }
 const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'erp-asset': mockAsset, 'gov-asset': mockAsset, 'fin-asset': mockAsset }
