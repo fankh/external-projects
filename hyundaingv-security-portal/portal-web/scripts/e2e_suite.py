@@ -572,6 +572,26 @@ def sc_risk_reassign(pg, base, check):
     check('위험 조치 지연 2명' in detail, f'재배정 후 폐쇄루프 복구 — 지연 위험 2명 통지 (실제: {detail[:170]})')
 
 
+def sc_risk_trend(pg, base, check):
+    """위험 추세 스냅샷 — 주기별 위험 KPI 기록으로 위험 감소 추이(ISMS 전기 대비 개선)를 본다(컴플라이언스
+    포스처 스냅샷과 대칭). 시드 스냅샷(2026-06·07) 노출 + '현황 스냅샷 기록'으로 당월(2026-08) upsert,
+    재기록해도 당월 1건(월 upsert). 시드 데이터 사용(인메모리 격리 — 매 기동 리셋)."""
+    login(pg, base, '시스템관리자')  # ADMIN — 위험 관리(BIZ 게이트)
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    trend = pg.locator('.card', has_text='위험 추세')
+    check(trend.locator('tr', has_text='2026-06').count() == 1 and trend.locator('tr', has_text='2026-07').count() == 1,
+          '시드 위험 추세 스냅샷 노출(2026-06·07)')
+    trend.locator('button:has-text("현황 스냅샷 기록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    check(pg.locator('.card', has_text='위험 추세').locator('tr', has_text='2026-08').count() == 1, '당월(2026-08) 위험 스냅샷 기록')
+    # 월 upsert — 재기록해도 당월 1건 유지
+    pg.locator('.card', has_text='위험 추세').locator('button:has-text("현황 스냅샷 기록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    check(pg.locator('.card', has_text='위험 추세').locator('tr', has_text='2026-08').count() == 1, '월 upsert — 재기록해도 당월 1건')
+
+
 def sc_settle_delete(pg, base, check):
     """정산품의 삭제(폐기) — 반려 건 삭제 + 재상신 할일 폐쇄 (요구사항 11·17행 P=삭제).
     격리(settlements·approvals 비움): 이수진 상신 → 박정호 반려(→이수진 재상신 할일) → 이수진 삭제 시 품의가
@@ -2631,6 +2651,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(RISKDEL_DATA)}),
     ('risk_reassign', '위험 담당 재배정 → 조치 지연 폐쇄루프 복구(퇴사 담당 이관)', sc_risk_reassign,
      {'PORTAL_DATA_FILE': str(RISKRA_DATA)}),
+    ('risk_trend', '위험 추세 스냅샷 — 당월 upsert 기록(위험 감소 추이, ISMS 전기 대비 개선)', sc_risk_trend, {}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),

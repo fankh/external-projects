@@ -1,7 +1,10 @@
 /** 정보보호 위험평가 단일 원천 — 위험도(=발생가능성×영향도)·등급·KPI 를 화면·export·컴플라이언스 종합이
  *  같은 술어로 공유한다(fixRate·finance 처럼 값이 아니라 '경계 처리'까지 단일화). 위험도·등급은 저장하지
  *  않고 여기서 파생한다(L·I 만 저장 → 재평가 시 한 곳만 바뀜). */
-import type { RiskItem } from './types'
+import { nowStamp, today } from './dates'
+import { nextNo } from './store'
+import type { Store } from './store'
+import type { RiskItem, RiskSnapshot } from './types'
 
 /** 위험도 점수 = 발생가능성 × 영향도 (1~25). 5×5 매트릭스. 손상 데이터(비수치·범위 밖)는 0~5 로 클램프해
  *  NaN·과대 점수가 등급·KPI 로 새지 않게 한다(스토어 정규화가 숫자 강제하나 방어적 이중화). */
@@ -54,4 +57,17 @@ export function computeRiskKpis(items: RiskItem[], today: string): RiskKpis {
   const done = items.filter(isRiskClosed).length
   const treatedRate = total > 0 ? (done >= total ? 100 : Math.min(99, Math.round((done / total) * 100))) : 0
   return { total, open: open.length, highOpen, overdue, treatedRate }
+}
+
+/** 당월 위험 추세 스냅샷 upsert — 수동 기록(위험평가 화면)·일배치 공유 단일 경로(컴플라이언스 스냅샷과 대칭).
+ *  같은 기간(월) 재기록은 갱신하므로 매일 호출돼도 당월 1건만 유지·값은 최신으로 refresh(위험 감소 추이). */
+export function upsertRiskSnapshot(s: Store, by: string): RiskSnapshot {
+  const k = computeRiskKpis(s.riskItems, today())
+  const period = today().slice(0, 7)
+  const snap = { period, at: nowStamp(), by, total: k.total, open: k.open, highOpen: k.highOpen, overdue: k.overdue, treatedRate: k.treatedRate }
+  const existing = s.riskSnapshots.find((x) => x.period === period)
+  if (existing) { Object.assign(existing, snap); return existing }
+  const created: RiskSnapshot = { id: nextNo('RS', today().slice(0, 4), s.riskSnapshots.map((x) => x.id)), ...snap }
+  s.riskSnapshots.push(created)
+  return created
 }

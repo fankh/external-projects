@@ -4,7 +4,7 @@ import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { computeRiskKpis, isRiskClosed, riskScore, riskTier } from '@/lib/risk'
+import { computeRiskKpis, isRiskClosed, riskScore, riskTier, upsertRiskSnapshot } from '@/lib/risk'
 import { getStore, nextNo } from '@/lib/store'
 import { RISK_STATUSES, RISK_TREATMENTS } from '@/lib/types'
 import type { RiskStatus, RiskTreatment } from '@/lib/types'
@@ -98,6 +98,17 @@ async function deleteRisk(formData: FormData) {
   // 참조무결성 — 위험평가 증적 첨부도 함께 정리(id 재사용 유령 첨부 방지, deleteSettlement·게시물 삭제와 동일)
   s.attachments = s.attachments.filter((a) => a.refId !== id)
   audit(me.name, '위험 삭제', `${id} ${r.title} — ${r.area}`)
+  revalidatePath('/compliance/risks')
+}
+
+/** 위험 추세 스냅샷 기록 — 현재 위험 KPI 를 당월 스냅샷으로 upsert(위험 감소 추이, ISMS 전기 대비 개선).
+ *  컴플라이언스 포스처 스냅샷과 동일 경로 — 수동 기록, 일배치도 공유(lib/risk upsertRiskSnapshot). */
+async function recordRiskSnapshot() {
+  'use server'
+  const me = await requireMenuRole('/compliance/risks', 'BIZ_MGR', 'ADMIN')
+  const s = getStore()
+  const snap = upsertRiskSnapshot(s, me.name)
+  audit(me.name, '위험 스냅샷', `${snap.period} — 전체 ${snap.total} · 미종결 ${snap.open} · 높음↑ ${snap.highOpen} · 경과 ${snap.overdue} · 종결률 ${snap.treatedRate}%`)
   revalidatePath('/compliance/risks')
 }
 
@@ -249,6 +260,39 @@ export default async function RisksPage() {
                           )}
                         </td>
                       )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Card title="위험 추세" kicker="Risk Trend" pad={false}
+        actions={<div className="hstack" style={{ gap: 6 }}>
+          {s.riskSnapshots.length > 0 && <a className="btn sm" href="/api/export?type=risk-trend">엑셀 다운로드</a>}
+          {canManage && <form action={recordRiskSnapshot}><button type="submit" className="btn sm" title="현재 위험 KPI 를 당월 스냅샷으로 기록 — 위험 감소 추이(ISMS 전기 대비 개선)">현황 스냅샷 기록</button></form>}
+        </div>}>
+        {s.riskSnapshots.length === 0 ? (
+          <div className="empty">기록된 스냅샷이 없습니다 — &lsquo;현황 스냅샷 기록&rsquo;으로 이번 달 위험 현황을 남기세요.</div>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>기간</th><th className="num">전체</th><th className="num">미종결</th><th className="num">높음↑ 미종결</th><th className="num">기한 경과</th><th className="num">종결률</th><th>기록</th></tr></thead>
+              <tbody>
+                {[...s.riskSnapshots].sort((a, b) => String(a.period).localeCompare(String(b.period))).map((snap, i, arr) => {
+                  // 높음↑ 미종결 증감 — 감소(▼)가 위험 감소(개선), 증가(▲)가 악화. 전기 대비 개선 추이 신호.
+                  const delta = i > 0 ? snap.highOpen - arr[i - 1].highOpen : 0
+                  return (
+                    <tr key={snap.id}>
+                      <td className="tnum">{snap.period}</td>
+                      <td className="num">{snap.total}</td>
+                      <td className="num">{snap.open}</td>
+                      <td className="num"><Chip tone={snap.highOpen > 0 ? 'err' : 'ok'} bare>{snap.highOpen}</Chip>{delta !== 0 && <span className="mut" style={{ fontSize: 10.5 }}> {delta < 0 ? '▼' : '▲'}{Math.abs(delta)}</span>}</td>
+                      <td className="num">{snap.overdue}</td>
+                      <td className="num">{snap.treatedRate}%</td>
+                      <td className="mut" style={{ fontSize: 11 }}>{snap.at} · {snap.by}</td>
                     </tr>
                   )
                 })}

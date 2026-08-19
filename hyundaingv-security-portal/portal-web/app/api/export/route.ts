@@ -24,7 +24,7 @@ const EXPORT_MENU: Record<string, string> = {
   batches: '/infra/operations', interfaces: '/infra/operations',
   'education-records': '/compliance/education', 'pledge-status': '/pledge/dept',
   'security-reviews': '/compliance/security-review',
-  risks: '/compliance/risks',
+  risks: '/compliance/risks', 'risk-trend': '/compliance/risks',
   'compliance-summary': '/compliance/inspection',
   'compliance-trend': '/compliance/inspection',
   'itops-summary': '/sr/manage',
@@ -253,6 +253,15 @@ export async function GET(req: Request) {
       rows.push([r.id, r.title, r.area, r.threat, r.vulnerability, Math.round(r.likelihood), Math.round(r.impact), score, riskTier(score).label, r.treatment, r.owner, r.plan, `${r.dueDate}${!isRiskClosed(r) && r.dueDate < t ? ' (경과)' : ''}`, r.status, r.identifiedAt])
     }
     return csvResponse('정보보호_위험관리대장', rows)
+  }
+
+  if (type === 'risk-trend') {
+    // 위험 추세 — 주기별 스냅샷(위험 감소 추이, ISMS 전기 대비 개선). /compliance/risks(BIZ) 게이트.
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const snaps = [...s.riskSnapshots].sort((a, b) => String(a.period).localeCompare(String(b.period)))
+    const rows: (string | number)[][] = [['기간', '전체', '미종결', '높음↑ 미종결', '기한 경과', '종결률(%)', '기록', '기록자']]
+    for (const x of snaps) rows.push([x.period, x.total, x.open, x.highOpen, x.overdue, x.treatedRate, x.at, x.by])
+    return csvResponse('정보보호_위험추세', rows)
   }
 
   if (type === 'compliance-summary') {
