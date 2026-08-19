@@ -3,6 +3,7 @@ import { daysUntil, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today
 import { isEolTarget } from '@/lib/eol'
 import { canExport } from '@/lib/exports'
 import { hasDataIssue } from '@/lib/quality'
+import { criticalDependencies } from '@/lib/cmdb'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { BulkImport } from './BulkImport'
@@ -10,9 +11,9 @@ import { RegisterView } from './RegisterView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string; maint?: string }> }) {
+export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string; maint?: string; spof?: string }> }) {
   const session = (await getSession())!
-  const { q, sel, cat, status, warranty, dq, os, crit, maint } = await searchParams
+  const { q, sel, cat, status, warranty, dq, os, crit, maint, spof } = await searchParams
   const s = getStore()
   // 화면·기능 단위 최소권한 — 사용자 권한그룹은 본인 보유 자산만 조회
   const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
@@ -36,6 +37,9 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const critNos = scoped.filter((a) => a.criticality === '핵심' || a.criticality === '중요').map((a) => a.assetNo)
   // 정기 점검 대상 — 예방 정비 예정일 도래(30일 내·경과) 자산. 대시보드 나눔 드릴다운(?maint=1)과 대장 필터가 공유.
   const maintenanceNos = scoped.filter(isMaintenanceDue).map((a) => a.assetNo)
+  // 단일 장애점(SPOF) — CMDB 의존 그래프상 blast radius 2대 이상(전체 그래프로 산출) 중 조회 범위 내 자산. 대시보드 큐(?spof=1) 드릴다운과 대장 필터가 공유.
+  const scopedNoSet = new Set(scoped.map((a) => a.assetNo))
+  const spofNos = criticalDependencies().map((x) => x.asset.assetNo).filter((no) => scopedNoSet.has(no))
   // 정기 점검 경과(미시행) 대수 — 예정일을 넘긴 자산. 자산담당 정기 점검 독촉 버튼 노출/집계용(임박은 제외).
   const maintOverdueCount = scoped.filter(isMaintenanceOverdue).length
   // 자산별 배정 라이선스(좌석) — 라이선스 화면의 좌석 배정(로56)을 자산 관점에서 역조회. 상세에서 이 자산에
@@ -61,7 +65,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       )}
       {session.role !== 'USER' && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} spofNos={spofNos} initialSpof={spof === '1'} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
       </Card>
     </>
   )
