@@ -25,6 +25,7 @@ function detectReportIntent(q: string): { kind?: ReportKind } | null {
   if (!/(생성|만들|만드|작성|뽑아|뽑|출력|발행|산출)/.test(q)) return null
   const kindMatchers: [RegExp, ReportKind][] = [
     [/월간|자산\s*현황/, '월간 자산 현황'],
+    [/정보보호\s*컴플라이언스|컴플라이언스\s*증적|증적\s*(번들|팩)|isms|iso.?27001|정보보호\s*증적/i, '정보보호 컴플라이언스 증적'],
     [/라이선스|컴플라이언스|license/i, '라이선스 컴플라이언스'],
     [/재물조사|실사|재고조사/, '재물조사 결과 요약'],
     [/감사\s*대응|감사\s*자료|감사/, '감사 대응 자료'],
