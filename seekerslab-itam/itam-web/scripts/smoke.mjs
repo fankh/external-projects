@@ -244,6 +244,11 @@ try {
   // 대시보드의 '미등록 신규 발견'은 아직 손대지 않은 건만 보여주는 처리 대기열이므로,
   // 확인요청·격리요청이 걸린 자산(DSC-2607-0041 등)은 여기서 빠지는 것이 정상이다
   check('대시보드: KPI·발견 자산·내 결재 차례·운영 대기 렌더', dashHtml.includes('미등록 신규 발견') && dashHtml.includes('DSC-2607-0042') && dashHtml.includes('내 결재 차례') && dashHtml.includes('운영 대기'))
+  // 대시보드 최근 공지 스코핑(유출 방지) — 부서 지정 공지(NTC-09 마케팅팀 전용)가 대상 밖 사용자(김민준·플랫폼개발팀) 랜딩 최근 공지에 제목이 유출되면 안 된다(게시판·전역 검색과 동일 스코핑). Admin 은 노출(스코핑이지 소실 아님 · 양성 대조).
+  const dashUserHtml = await (await get('/dashboard', 'USER')).text()
+  check('대시보드 최근 공지: 부서 지정 공지가 대상 밖 사용자에게 미노출(유출 방지)', !dashUserHtml.includes('ZZMKTGSCOPE'))
+  const dashAdminHtml = await (await get('/dashboard', 'ADMIN')).text()
+  check('대시보드 최근 공지: 부서 지정 공지가 Admin 에겐 노출(스코핑이지 소실 아님 · 양성 대조)', dashAdminHtml.includes('ZZMKTGSCOPE'))
   // 운영 대기 우선순위 — 큐가 화면마다 흩어져 20여 개로 늘어, 긴급(err)을 주의(warn)보다 위로 정렬하고 헤더에 긴급·주의 집계를 노출.
   check('대시보드: 운영 대기 긴급·주의 요약 헤더', dashHtml.includes('긴급 ') && dashHtml.includes('주의 '))
   // 긴급 우선 정렬 검증 — err 큐(라이선스 초과 사용)가 warn 큐(입고 검수 대기)보다 앞. 삽입 순서(입고가 먼저)와 반대여야 정렬이 동작.
@@ -843,6 +848,8 @@ try {
   check('대여 확인서: 대여 중 아닌 자산은 대상 아님 (400)', (await get('/api/loan-agreement/AST-2023-000112', 'ASSET_MGR')).status === 400)
   const loanAgr = await (await get('/api/loan-agreement/AST-2024-000230', 'ASSET_MGR')).text()
   check('대여 확인서: 대여자·반환 기한·대여 조건 렌더', loanAgr.includes('LOAN AGREEMENT') && loanAgr.includes('김민준') && loanAgr.includes('2026-08-20') && loanAgr.includes('대여 조건'))
+  // 대여일 회귀 — 연장 승인·반려·취소도 kind '대여'라 reverse().find('대여')만 쓰면 대여일이 최신 연장 조치일로 흐른다. AST-2024-000230: 최초 대여 2026-07-28 + 연장 반려 2026-08-12 → 대여일은 2026-07-28.
+  check('대여 확인서: 대여일은 최초 대여일(연장 조치일로 흐르지 않음)', loanAgr.includes('2026-07-28') && !loanAgr.includes('2026-08-12'))
   const loanSel = await (await get('/assets/register?sel=AST-2024-000230', 'ASSET_MGR')).text()
   check('자산 대장: 대여 중 자산 상세에 대여 확인서 인쇄 링크', loanSel.includes('/api/loan-agreement/AST-2024-000230'))
   // 수리중 자산 카드에 수리 의뢰(업체·예상반환) 행 — 상세·엑셀과 일관. 시드 AST-2024-000512(중부IT서비스)로 검증

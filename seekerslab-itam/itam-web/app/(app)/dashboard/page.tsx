@@ -47,7 +47,8 @@ export default async function DashboardPage() {
   // 최근 공지 — Main/Home 의 공지 요약(제품안내서 §01 대시보드·게시판). 발행된 공지를 필독(고정) 우선·최신순으로 노출해
   // 랜딩 시 최신 안내를 게시판까지 가지 않아도 볼 수 있게 한다(예약 발행 전 공지는 제외). 전 권한그룹.
   const recentNotices = [...s.posts]
-    .filter((p) => p.kind === '공지' && (!p.publishAt || p.publishAt <= today()))
+    // 부서 지정 공지는 대상 부서(+Admin)에게만 — 게시판·전역 검색과 동일 스코핑. 안 걸면 대상 밖 사용자 랜딩에 제목이 유출된다(unackedNotices·검색 라우트와 정합).
+    .filter((p) => p.kind === '공지' && (!p.publishAt || p.publishAt <= today()) && (session.role === 'ADMIN' || inNoticeAudience(p, session.dept)))
     .sort((a, b) => (Number(!!b.pinned) - Number(!!a.pinned)) || (b.publishAt ?? b.createdAt).localeCompare(a.publishAt ?? a.createdAt))
     .slice(0, 5)
   // 우리 부서 소유자 확인 요청 — 발견 자산이 우리 부서 자산인지 묻는 대기 건. 응답자(해당 부서)가 로그인 시 챙기게 한다
