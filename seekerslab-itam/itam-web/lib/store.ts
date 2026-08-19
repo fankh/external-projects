@@ -185,6 +185,8 @@ function seedAssets(): Asset[] {
       history: [
         { date: '2024-06-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
         { date: '2026-07-28', kind: '대여', detail: '플랫폼개발팀 김민준 출장 대여 — 반환 기한 2026-08-20', actor: '박자산' },
+        // 연장 요청 반려도 kind '대여'를 재사용 — 대여 확인서 대여일이 이 연장 조치일(2026-08-12)로 흘러선 안 되고 최초 대여일(2026-07-28)이어야 한다(회귀).
+        { date: '2026-08-12', kind: '대여', detail: '대여 연장 요청 반려 (요청자 김민준 · 2026-09-10)', actor: '박자산' },
       ] }),
     // 대여(반출) 자산 ② — 반환 기한 경과(연체) — 행사용 프로젝터 미반납
     mk({ assetNo: 'AST-2023-000450', category: '주변기기', model: 'Epson EB-2250U 프로젝터 (대여용)', status: '대여중', owner: '한지민', dept: '총무팀', location: '본사 2F 대회의실', purchaseDate: '2023-04-18', warrantyEnd: '2026-04-17', loanDueDate: '2026-07-15',
