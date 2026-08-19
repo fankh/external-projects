@@ -290,6 +290,14 @@ async function aiPeriodQuery(page) {
   const renId = decodeURIComponent((renHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const renText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(renId)}?format=xlsx`)).body()).toString('utf8')
   ok('리포트 반출: 라이선스 갱신·트루업 계획 xlsx 에 갱신 예정·트루업 권고·예산 요약 섹션 실린다', renText.includes('갱신 예정') && renText.includes('트루업 권고') && renText.includes('갱신 예산'))
+  // 단일 장애점·영향 분석 리포트(신규·CMDB) — 자연어 인텐트가 '단일 장애점'으로 신규 종류 매칭, buildSections 가 CMDB 의존 그래프에서
+  // 영향 범위 2대 이상 SPOF(시드: 방화벽 641 blast 4·스위치 640 blast 3)를 산출. 화면 대시보드 큐·자산 카드 토폴로지와 lib/cmdb 단일 소스.
+  const rSpof = await ask('단일 장애점 영향 분석 리포트 생성해줘')
+  ok('AI 장애점질의: 단일 장애점·영향 분석 생성 분기', rSpof.includes('리포트를 생성했습니다'))
+  const spofHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const spofId = decodeURIComponent((spofHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const spofText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(spofId)}?format=xlsx`)).body()).toString('utf8')
+  ok('리포트 반출: 단일 장애점·영향 분석 xlsx 에 SPOF·이중화 섹션(방화벽 641·스위치 640) 실린다', spofText.includes('단일 장애점') && spofText.includes('AST-2022-000641') && spofText.includes('AST-2022-000640') && spofText.includes('이중화'))
   // 부서별 IT 비용 배분(차지백) 리포트 — 자연어 생성 인텐트가 신규 종류를 매칭하고, buildSections 가 부서별 원가·좌석 비용 섹션을 실제 산출.
   const r4 = await ask('부서별 IT 비용 배분 리포트 생성해줘')
   ok('AI 차지백질의: 부서별 IT 비용 배분 생성 분기', r4.includes('리포트를 생성했습니다'))
