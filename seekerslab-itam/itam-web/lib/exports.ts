@@ -75,11 +75,12 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
   }
 
   if (kind === 'stock') {
-    // 재고는 집계가 본질이므로 유형별·부서별·위치별 3장으로 나눈다
+    // 재고는 집계가 본질이므로 유형별·부서별·위치별 3장으로 나눈다.
+    // 대수 집계는 화면(StockPage.aggBy)과 동일하게 전 자산을 센다 — 폐기완료를 빼면 합계가 화면 '총 보유'와 어긋나 반출본이 화면과 불일치한다(화면 불변식: 집계 합계 = 총 보유 수).
     const live = s.assets.filter((a) => a.status !== '폐기완료')
-    const agg = (key: (a: (typeof live)[number]) => string) => {
+    const agg = (key: (a: (typeof s.assets)[number]) => string) => {
       const m = new Map<string, { total: number; inUse: number; idle: number }>()
-      for (const a of live) {
+      for (const a of s.assets) {
         const k = key(a) || '-'
         const cur = m.get(k) ?? { total: 0, inUse: 0, idle: 0 }
         cur.total += 1

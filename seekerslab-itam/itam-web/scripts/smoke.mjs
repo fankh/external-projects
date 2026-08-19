@@ -1087,6 +1087,8 @@ try {
   // 재고 엑셀에 유형별 가치 시트 반출 — 취득가·잔존가치 컬럼
   const stockBuf = Buffer.from(await (await get('/api/export/stock', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
   check('재고 엑셀: 유형별 가치 시트(취득가·잔존가치) 반출', stockBuf.includes('총 취득가') && stockBuf.includes('총 잔존가치') && stockBuf.includes('감가상각률'))
+  // 재고 엑셀 대수 집계 ↔ 화면 정합 — 화면 aggBy 는 전 자산(폐기완료 포함)을 세어 합계=총 보유 불변식을 지킨다. 반출본도 동일해야 한다(폐기완료 자산 위치 '폐기 처리 완료' 행 포함). 폐기완료를 빼면 반출본이 화면과 어긋난다.
+  check('재고 엑셀: 대수 집계가 화면과 동일(위치별에 폐기완료 행 포함 · 합계=총 보유)', stockBuf.includes('폐기 처리 완료'))
   // 필터 딥링크가 자산 대장에서 실제로 유효 (cat 파라미터 수용)
   const drillHtml = await (await get('/assets/register?cat=%EC%84%9C%EB%B2%84', 'ASSET_MGR')).text()
   check('자산 대장: ?cat= 딥링크 진입 정상 렌더', drillHtml.includes('상태 — 전체') && drillHtml.includes('AST-2023-000561'))
