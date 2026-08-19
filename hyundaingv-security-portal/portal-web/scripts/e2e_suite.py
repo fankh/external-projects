@@ -2683,6 +2683,37 @@ def sc_violation_audit(pg, base, check):
     check('박정호' in row.first.inner_text(), '감사 이력이 등록자(박정호) 추적')
 
 
+def sc_incident_audit(pg, base, check):
+    """장애 등록·조치 감사 이력(v1.5.319) — 장애(사고) 등록·조치완료도 통제 행위라 감사 로그에 행위자·시점이
+    남아야 한다(§VI). 인프라 형제 화면(systems·racks·operations)은 모두 감사하나 장애관리만 무기록이었고
+    장애 레코드엔 등록자 필드도 없어 감사 로그가 유일한 추적 지점. 등록→조치완료 후 감사 화면에서 '장애 등록'·
+    '장애 조치'가 행위자와 함께 나타나는지 확인. fails-without-fix: 각 서버액션 audit() 제거 시 해당 행 미기록."""
+    login(pg, base, '시스템관리자')  # ADMIN — 장애 등록·조치 권한
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    title = 'E2E감사장애항목'
+    pg.fill('input[name="system"]', 'E2E감사시스템')
+    pg.fill('input[name="title"]', title)
+    pg.click('button:has-text("등록")')
+    pg.wait_for_load_state('networkidle')
+    # RSC 서버액션 재렌더는 networkidle 만으론 미반영 — 재네비게이션으로 최신 서버상태(새 조치중 장애) 재조회
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    # 방금 등록한 장애(조치중)를 제목으로 찾아 조치완료 — unshift 라 목록 앞이지만 제목으로 정확 타깃
+    block = pg.locator('div.stub-list > div').filter(has_text=title)
+    check(block.count() > 0, '등록한 장애가 조치중 목록에 노출(조치 대상)')
+    block.locator('input[name="action"]').first.fill('E2E 조치내역 — 원인 제거·정상화')
+    block.locator('button:has-text("조치완료")').first.click()
+    pg.wait_for_load_state('networkidle')
+
+    # 감사 이력 — 두 통제 행위가 각각 행위자(시스템관리자)와 함께 기록됐는지 행 단위로 확인(userchip 오탐 회피)
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    reg = pg.locator('tr', has_text='장애 등록')
+    check(reg.count() > 0 and '시스템관리자' in reg.first.inner_text() and 'E2E감사시스템' in reg.first.inner_text(),
+          '감사 이력에 장애 등록 + 행위자·대상 기록')
+    fix = pg.locator('tr', has_text='장애 조치')
+    check(fix.count() > 0 and '시스템관리자' in fix.first.inner_text(),
+          '감사 이력에 장애 조치(조치완료) + 행위자 기록')
+
+
 def sc_approval_line(pg, base, check):
     """결재선 변경 → 이후 상신의 결재자 변경"""
     login(pg, base, '시스템관리자')
@@ -3389,6 +3420,7 @@ SCENARIOS = [
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
+    ('incident_audit', '장애 등록·조치 감사 이력 — 행위자 추적(§VI, 인프라 형제 화면 정합)', sc_incident_audit, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
     ('remote_overlap', '재택 경계월 인접 기간 — 당월 명단·통계 1회만(이중 집계 방지)', sc_remote_overlap,
      {'PORTAL_DATA_FILE': str(RSPAN_DATA)}),
