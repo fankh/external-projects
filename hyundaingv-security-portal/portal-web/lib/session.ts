@@ -74,12 +74,15 @@ function subjectMap(): Map<string, string> | null {
  *  거부한다(fail-closed) — 스푸핑된 `NameID=admin` 도 매핑에 없으면 세션이 발급되지 않는다. 매핑 미설정(데모·
  *  기본)일 때만 NameID 를 로컬 로그인으로 직접 대응한다. */
 export function resolveSsoAccount(nameId: string): Session | null {
-  const map = subjectMap()
-  if (map) {
-    const login = map.get(nameId)
+  // 매핑 '변수가 설정됨' 자체가 운영자의 신원 제한 의도다 → 설정됐으면 매핑이 유일 근거(fail-closed).
+  // 파싱 결과가 비어도(오설정: 형식 오류로 유효 쌍 0개) NameID 직접대응으로 폴백하지 않는다 — 폴백하면
+  // 오설정이 '더 느슨한' 직접매칭으로 새어 스푸핑된 NameID(admin 등)를 허용하는 fail-open 이 된다.
+  if ((process.env.PORTAL_SSO_SUBJECT_MAP ?? '').trim()) {
+    const login = subjectMap()?.get(nameId)
     if (!login) return null
     return ACCOUNTS.find((a) => a.login === login) ?? null
   }
+  // 매핑 미설정 → NameID 를 로컬 로그인으로 직접 대응(데모·동일 네임스페이스 배포)
   return ACCOUNTS.find((a) => a.login === nameId) ?? null
 }
 

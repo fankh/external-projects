@@ -1114,6 +1114,23 @@ def sc_sso_subject_map(pg, base, check):
           '미등재 subject(admin·권한 로그인 동명) 거부 → 세션 미발급(subject 스푸핑 차단)')
 
 
+def sc_sso_subject_map_malformed(pg, base, check):
+    """SSO subject 매핑 오설정 fail-closed(v1.5.325) — PORTAL_SSO_SUBJECT_MAP 이 '설정됨' 자체가 신원 제한 의도라,
+    형식 오류로 유효 쌍이 0개여도(파싱 실패) NameID 직접대응으로 폴백하면 안 된다(폴백=오설정이 더 느슨한 매칭으로
+    새는 fail-open). 유효 서명 어설션 NameID=admin 을 ACS 에 POST → 매핑이 설정됐으므로(비록 오설정) 거부돼야 한다.
+    fails-without-fix: '설정됨'을 파싱 성공(map!=null)으로 판정하면 오설정 맵이 null 이 돼 직접매칭으로 admin 을 수용한다."""
+    key = str(ROOT / 'scripts' / '.saml-test-key.pem')
+    acs = f'{base}/api/sso/acs'
+    saml = subprocess.run(['node', str(ROOT / 'scripts' / 'saml_gen.mjs'), key, 'admin',
+                           'ngv-governance-portal', acs, '2030-01-01T00:00:00Z'],
+                          cwd=str(ROOT), capture_output=True, text=True, check=True).stdout.strip()
+    pg.context.clear_cookies()
+    pg.context.request.post(acs, form={'SAMLResponse': saml, 'RelayState': '/dashboard'})
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check('계정을 선택하세요' in pg.content(),
+          '오설정(유효 쌍 0) 매핑도 설정됐으면 거부 → 직접매칭 폴백 안 함(fail-open 방지)')
+
+
 def sc_cookie_secure(pg, base, check):
     """세션 쿠키 Secure 기본값(v1.5.313) — 프로덕션은 PORTAL_COOKIE_SECURE=0 으로 명시 해제하지 않는 한 Secure
     쿠키를 발급한다(HTTPS 종단 전제). ACS 에 유효 어설션을 POST 해 발급 Set-Cookie 원문에 Secure 속성이 실리는지
@@ -3383,6 +3400,11 @@ SCENARIOS = [
       'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
       'PORTAL_SAML_IDP_CERT_FILE': str(ROOT / 'scripts' / '.saml-test-cert.pem'),
       'PORTAL_SSO_SUBJECT_MAP': 'alice@narae.example=hw.kim'}),
+    ('sso_subject_map_malformed', 'SSO subject 매핑 오설정 fail-closed — 유효 쌍 0개여도 직접매칭 폴백 안 함(fail-open 방지)', sc_sso_subject_map_malformed,
+     {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
+      'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
+      'PORTAL_SAML_IDP_CERT_FILE': str(ROOT / 'scripts' / '.saml-test-cert.pem'),
+      'PORTAL_SSO_SUBJECT_MAP': 'malformed-no-equals-sign'}),
     ('cookie_secure', '세션 쿠키 Secure 기본 — 프로덕션은 명시 해제(=0) 없이는 Secure 발급(cookieSecure, HTTPS 종단 전제)', sc_cookie_secure,
      {'PORTAL_PROFILE': 'finance', 'PORTAL_SAML_IDP_SSO_URL': 'https://idp.narae.example/sso',
       'PORTAL_SAML_SP_ENTITY_ID': 'ngv-governance-portal',
