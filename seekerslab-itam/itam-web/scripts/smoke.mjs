@@ -867,6 +867,8 @@ try {
   // CMDB 의존 관계·영향 범위(blast radius) — 시드 그래프 스위치(640)→서버(221·561)→VM(618). 스위치 장애 시 영향 3대. 자산 카드 dossier 에 상위 의존·blast radius 표기.
   const cardSwitch = await (await get('/api/asset-card/AST-2022-000640', 'ASSET_MGR')).text()
   check('자산 카드: CMDB 의존 관계·영향 범위(스위치 640 장애 시 3대 영향)', cardSwitch.includes('상위 의존') && cardSwitch.includes('영향 범위') && cardSwitch.includes('3대'))
+  // 의존 토폴로지 다이어그램 — 인라인 SVG(상위 641 → 640 → 하위 221·561). 인쇄용 카드라 외부 라이브러리 없이 자체 렌더.
+  check('자산 카드: 의존 토폴로지 SVG 다이어그램(상위 641·하위 561 노드)', cardSwitch.includes('의존 토폴로지') && cardSwitch.includes('<svg') && cardSwitch.includes('AST-2022-000641') && cardSwitch.includes('AST-2023-000561'))
   // 정기 점검 예정 행 — 예방 정비 일정(로55)이 잡힌 자산 dossier 에 다음 점검 예정일을 남긴다(인수인계·유지보수 참고). 시드 AST-2022-000640(예정 2026-06-15).
   const cardMaint = await (await get('/api/asset-card/AST-2022-000640', 'ASSET_MGR')).text()
   check('자산 카드: 정기 점검 예정 행(예방 정비 일정)', cardMaint.includes('정기 점검 예정') && cardMaint.includes('2026-06-15'))
