@@ -522,6 +522,9 @@ try {
   const extHtml = await (await get('/discovery/external', 'SEC_MGR')).text()
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
   check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))
+  // CT(인증서 투명성) 채널 — 발급 CA·유효기간 수집 후 유효기간으로 생존 추정(§04). 유효=생존 유력, 만료=생존 불명.
+  check('외부 공격표면: CT 인증서 발급 CA·유효기간 수집·생존 추정 렌더',
+    extHtml.includes('인증서(CA·유효기간)') && extHtml.includes("Let's Encrypt") && extHtml.includes('생존 유력') && extHtml.includes('생존 불명'))
   // 위험 수용 — 편입/차단 외에 '인지된 노출' 공식 수용 처분(위험 관리 표준). 수용 시 활성 취약점 우선순위(미조치)에서 제외.
   check('외부 공격표면: 노출 자산에 위험 수용 처분 컨트롤(편입·차단 외)', extHtml.includes('위험 수용'))
   check('외부 공격표면: 위협 인텔·유출 수집 렌더', extHtml.includes('스틸러 로그'))

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
+import { certLiveness } from '@/lib/easm'
 import type { ExternalAsset, ReconcileState } from '@/lib/types'
 import { acceptExternalRisk, requestExternalAction, requestExternalActionMany, revokeExternalRisk } from './actions'
 
@@ -58,12 +59,14 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
                   onChange={(ev) => setChecked(ev.target.checked ? new Set(selectable.map((e) => e.id)) : new Set())} />
               </th>}
               <th>ID</th><th>호스트</th><th>IP</th><th>발견 방법</th><th className="c">방식</th>
-              <th className="c">생존</th><th>노출 서비스</th><th>CVE</th><th className="c">대사</th><th className="c">위험도</th>
+              <th className="c">생존</th><th>노출 서비스</th><th>CVE</th><th>인증서(CA·유효기간)</th><th className="c">대사</th><th className="c">위험도</th>
               {canAct && <th className="c">조치</th>}
             </tr>
           </thead>
           <tbody>
-            {externals.map((e) => (
+            {externals.map((e) => {
+              const cl = certLiveness(e.certValidUntil)
+              return (
               <tr key={e.id}>
                 {canAct && <td className="c" onClick={(ev) => ev.stopPropagation()}>
                   {!e.action && e.alive && <input type="checkbox" checked={checked.has(e.id)} disabled={pending} aria-label={`${e.host} 선택`} onChange={() => toggle(e.id)} />}
@@ -73,9 +76,21 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
                 <td className="tnum">{e.ip ?? '-'}</td>
                 <td className="mute">{e.method}</td>
                 <td className="c"><Chip tone={e.mode === 'Active' ? 'info' : 'neutral'} bare>{e.mode}</Chip></td>
-                <td className="c">{e.alive ? <Chip tone="ok" bare>확인</Chip> : <span className="mut">미확인</span>}</td>
+                <td className="c">{e.alive
+                  ? <Chip tone="ok" bare>확인</Chip>
+                  : cl
+                    ? <span title={cl.label}><Chip tone={cl.state === 'valid' ? 'warn' : 'neutral'} bare>{cl.aliveGuess ? '추정 생존' : '만료'}</Chip></span>
+                    : <span className="mut">미확인</span>}</td>
                 <td style={{ whiteSpace: 'normal', maxWidth: 220 }}>{e.services ?? '-'}</td>
                 <td>{e.cve ? <span className="code" style={{ color: 'var(--err)' }}>{e.cve} ({e.cvss})</span> : <span className="mut">-</span>}</td>
+                <td style={{ whiteSpace: 'normal', maxWidth: 210 }}>
+                  {e.certIssuer || e.certValidUntil ? (
+                    <span className="mut" style={{ fontSize: 12 }}>
+                      {e.certIssuer ?? '-'}
+                      {e.certValidUntil && <><br />~{e.certValidUntil} · <b style={{ color: cl?.state === 'expired' ? 'var(--err)' : 'var(--warn)' }}>{cl?.label}</b></>}
+                    </span>
+                  ) : <span className="mut">-</span>}
+                </td>
                 <td className="c"><Chip tone={STATE_TONE[e.state]}>{e.state}</Chip></td>
                 <td className="c"><RiskChip risk={e.risk} /></td>
                 {canAct && (
@@ -106,7 +121,7 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
                   </td>
                 )}
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>

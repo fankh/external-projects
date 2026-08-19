@@ -596,6 +596,10 @@ export interface ExternalAsset {
   risk: RiskLevel
   firstSeen: string
   note?: string
+  /** CT(인증서 투명성) 채널 수집 인증서 발급 CA — §04 "인증서 항목(발급 CA·유효기간)" */
+  certIssuer?: string
+  /** CT 채널 수집 인증서 유효기간(만료일, YYYY-MM-DD) — 유효기간으로 생존 여부를 추정한다 */
+  certValidUntil?: string
   /** 내부 6채널 결과와 자산 지문 통합 → 대장 대사 결과 */
   state: ReconcileState
   /** 조치 상태 — '위험 수용'은 편입/차단 대신 인지된 노출로 공식 수용한 상태(사유·감사 필수, 해제 가능). 활성 취약점 우선순위에서 제외된다. */
@@ -642,6 +646,10 @@ export interface UnseenExternal {
   cve?: string
   cvss?: number
   risk: RiskLevel
+  /** CT 채널 수집 인증서 발급 CA — 재탐지로 드러날 때 외부 노출 자산으로 승계된다 */
+  certIssuer?: string
+  /** CT 채널 수집 인증서 유효기간(만료일) — 유효기간으로 생존 여부를 추정한다 */
+  certValidUntil?: string
   note: string
 }
 
