@@ -383,6 +383,9 @@ export interface Approval {
   rejectReason?: string
   /** 재상신 완료 표시 — 반려 건을 재상신하면 원 건에 세워, 대시보드 '재상신 검토' 넛지에서 빠진다(중복 독촉 방지) */
   resubmitted?: boolean
+  /** 신청자 본인이 결재 폼(raiseRequest)으로 직접 올린 상신 — 직무 분리상 본인이 승인·반려할 수 없다(상신 취소만).
+   *  시스템·운영자 상신(편입·격리·라이선스 품의 등)은 이 플래그가 없어, 현 단계 역할 담당자가 결재한다(자기 결재 제약 없음). */
+  selfSubmitted?: boolean
   /** 결재 첨부 리포트 — 근거 문서로 첨부한 생성 리포트(GeneratedReport) ID. 결재자가 결재함에서 열람한다. */
   reportRefs?: string[]
   /** 대여 신청의 희망 반환 기한 — 승인 시 이 기한으로 대여 처리된다. */

@@ -74,6 +74,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
 
   const canDecide = (a: Approval) => {
     if (a.status !== '대기' || a.kind === '소유자 확인') return false
+    if (a.selfSubmitted && a.requester === viewer) return false // 직무 분리 — 본인 폼 상신은 결재 불가(서버 decide·큐와 정합). 취소만.
     if (role === 'ADMIN') return true
     const sr = stepRoleOf(a)
     // 매핑되면 현재 단계 역할만, 아니면 레거시(격리=보안담당·그 외=자산담당)

@@ -2179,6 +2179,26 @@ try {
   const rtPost = (await pRT.locator('tr', { has: pRT.locator('td', { hasText: 'AST-2025-000513' }) }).first().textContent()) || ''
   ok('반납 폐기 권고(홀더-상태): 접수 → 폐기예정·소유자 미지정으로 정리(떠난 보유자 오귀속 방지)', rtPost.includes('폐기예정') && rtPost.includes('미지정') && !rtPost.includes('한도윤'))
   await ctxRT.close()
+  // 직무 분리(자기 결재 차단) — 본인이 폼으로 올린 상신(selfSubmitted)은 본인이 못 밟는다. '내 결재 차례' 큐는 이미 제외하나 decide·결재함 버튼이 누락돼, 단일 단계 결재(대여=자산담당)에서 자산담당이 본인 대여 신청을 자기 승인하던 구멍. 시스템·운영자 상신(편입·격리·라이선스)은 selfSubmitted 없어 영향 없음.
+  const ctxSD = await browser.newContext(); await ctxSD.addCookies([cookie(ASSET)]); const pSD = await ctxSD.newPage()
+  await pSD.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const sdForm = pSD.locator('.card', { has: pSD.locator('.tt', { hasText: '신청 상신' }) }).first()
+  await sdForm.locator('button', { hasText: /^신청하기$/ }).click()
+  await pSD.waitForTimeout(200)
+  await sdForm.locator('select').first().selectOption('대여')
+  await pSD.waitForTimeout(300)
+  // 대여 유휴 재고 select — 첫 옵션 값을 동적으로 골라 자산번호 하드코딩(소진 시 미스) 회피
+  const loanSel = sdForm.locator('select').nth(1)
+  const loanVal = await loanSel.locator('option').first().getAttribute('value')
+  ok('직무 분리(전제): 대여 가능한 유휴 재고 존재', !!loanVal && /^AST-/.test(loanVal))
+  await loanSel.selectOption(loanVal)
+  await sdForm.locator('input[type="date"]').fill('2026-12-31')
+  await sdForm.locator('[placeholder="신청 사유"]').fill('직무분리 검증 대여')
+  await sdForm.locator('button', { hasText: /^상신$/ }).click()
+  await pSD.waitForTimeout(900)
+  const sdRow = pSD.locator('tr', { has: pSD.locator('td', { hasText: loanVal }) }).first()
+  ok('직무 분리: 자산담당 본인 대여 상신 → 결재함 본인 건에 승인 버튼 없음·취소만(자기 결재 차단)', (await sdRow.count()) > 0 && (await sdRow.locator('button', { hasText: /^승인$/ }).count()) === 0 && (await sdRow.locator('button', { hasText: /취소/ }).count()) > 0)
+  await ctxSD.close()
 
   await browser.close()
 } catch (err) {
