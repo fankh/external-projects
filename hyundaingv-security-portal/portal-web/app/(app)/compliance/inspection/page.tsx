@@ -99,6 +99,9 @@ async function addPlan(formData: FormData) {
   s.inspectionPlans.unshift({ id, itemId, target: target || undefined, month, inspector, teamLead: validLead, status: '계획' })
   // 상세점검계획표 등 계획 문서 — 계획번호(pk)로 계획·증적 첨부를 공유 (첨부 시트: 연간계획수립)
   registerUpload(id, formData.get('file'), me.name)
+  // CSV 일괄 등록(uploadPlans)은 감사에 남지만 폼 단건 등록이 무기록이면 등록 경로에 따라 추적이 갈린다 —
+  // inspectionPlan 엔 점검자 필드는 있으나 '수립자'는 없어 감사가 유일한 수립 provenance (§VI, uploadPlans 정합)
+  audit(me.name, '점검 기준 변경', `점검계획 등록 ${id} — ${itemId} ${month} ${inspector}`)
   revalidatePath('/compliance/inspection')
 }
 
@@ -134,7 +137,7 @@ async function uploadPlans(formData: FormData) {
  *  다음 해 계획이 이미 있으면 재이월하지 않는다(더블클릭·재실행 중복 방지, addPlan 과 같은 계열의 idempotent 가드). */
 async function carryOverPlans() {
   'use server'
-  await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
   const years = s.inspectionPlans.map((p) => String(p.month).slice(0, 4)).filter((y) => /^\d{4}$/.test(y))
   if (years.length === 0) return
@@ -146,6 +149,8 @@ async function carryOverPlans() {
     const id = nextNo('IS', newYear, s.inspectionPlans.map((x) => x.id))
     s.inspectionPlans.unshift({ id, itemId: p.itemId, target: p.target, month: `${newYear}-${String(p.month).slice(5, 7)}`, inspector: p.inspector, teamLead: p.teamLead, status: '계획' })
   }
+  // 이월도 계획 수립 행위 — 누가 다음 해 계획을 생성했는지 감사에 남긴다 (addPlan·uploadPlans 정합, §VI)
+  audit(me.name, '점검 기준 변경', `전년 점검계획 이월 ${src.length}건 (${srcYear}→${newYear})`)
   revalidatePath('/compliance/inspection')
 }
 
