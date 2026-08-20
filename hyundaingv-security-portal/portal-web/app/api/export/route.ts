@@ -11,6 +11,7 @@ import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra
 import { isTestOverdue, nextTestDue } from '@/lib/dr'
 import { computePolicyKpis, isReviewOverdue, nextReviewDue } from '@/lib/policy'
 import { computeRiskKpis, isRiskClosed, riskScore, riskTier } from '@/lib/risk'
+import { upcomingComplianceItems } from '@/lib/schedule'
 import { delayedSrs, srStatusLabel } from '@/lib/sr'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
@@ -440,6 +441,17 @@ export async function GET(req: Request) {
     const rows: (string | number)[][] = [['일시', '행위자', '행위', '상세']]
     for (const l of logs) rows.push([l.at, l.actor, l.action, l.detail])
     return csvResponse('감사_이력', rows)
+  }
+
+  if (type === 'compliance-schedule') {
+    // 컴플라이언스 접근 역할만 — 화면 카드와 동일 게이트(정책·재해복구·위험 중 하나라도 접근 가능).
+    const canCompliance = ['/compliance/policies', '/compliance/dr', '/compliance/risks'].some((h) => effectiveRoles(h).includes(role))
+    if (!canCompliance) return new Response('forbidden', { status: 403 })
+    // 카드는 임박 8건만 표시하지만 export 는 90일 창 전량(계획·감사 증적). upcomingComplianceItems 단일 원천 공유.
+    const items = upcomingComplianceItems(s, today(), 90)
+    const rows: (string | number)[][] = [['예정일', 'D-day', '구분', '대상']]
+    for (const it of items) rows.push([it.due, `D-${it.dday}`, it.kind, it.label])
+    return csvResponse('다가오는_컴플라이언스_일정', rows)
   }
 
   return new Response('unknown type', { status: 400 })
