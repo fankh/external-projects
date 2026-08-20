@@ -32,8 +32,9 @@ export async function GET(req: Request) {
   })
   const sheet: Sheet = {
     name: '감사 로그',
-    header: ['일시', '수행자', '동작', '대상', '결과', '접근 IP'],
-    rows: logs.map((l) => [l.at, l.actor, l.action, l.target, l.result, l.ip]),
+    // 열 순서는 화면 감사 뷰(AuditLog.tsx)와 일치시킨다 — 접근 IP · 결과 순. 감사 증적(export)이 화면과 어긋나면 대사 신뢰성이 떨어진다(§07).
+    header: ['일시', '수행자', '동작', '대상', '접근 IP', '결과'],
+    rows: logs.map((l) => [l.at, l.actor, l.action, l.target, l.ip, l.result]),
   }
   const buf = buildXlsx([sheet])
 

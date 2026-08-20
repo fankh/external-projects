@@ -991,6 +991,9 @@ try {
   const auditXlsx = await get('/api/audit-export', 'SEC_MGR')
   check('감사 로그 엑셀: 보안담당 발급 (200·xlsx)', auditXlsx.status === 200 && (auditXlsx.headers.get('content-type') ?? '').includes('spreadsheet'))
   const fullLen = Number(auditXlsx.headers.get('content-length') ?? 0)
+  // 감사 증적(export) 열 순서 = 화면 감사 뷰(AuditLog)와 일치 — 접근 IP · 결과 순. 어긋나면 감사 대사 신뢰성 저하(§07). 무압축 inlineStr라 버퍼 평문에서 헤더 순서를 검증(그전엔 결과·접근 IP 로 화면과 뒤바뀜).
+  const auditBuf = Buffer.from(await auditXlsx.arrayBuffer()).toString('utf8')
+  check('감사 로그 엑셀: 열 순서가 화면(AuditLog)과 일치 — 접근 IP · 결과 순', auditBuf.indexOf('접근 IP') > 0 && auditBuf.indexOf('접근 IP') < auditBuf.indexOf('결과'))
   const auditFiltered = await get('/api/audit-export?result=' + encodeURIComponent('실패'), 'SEC_MGR')
   const filtLen = Number(auditFiltered.headers.get('content-length') ?? 0)
   check('감사 로그 엑셀: 화면 필터 반영 반출 (결과=실패는 전체보다 작음)', auditFiltered.status === 200 && filtLen > 0 && filtLen < fullLen, `full=${fullLen} filtered=${filtLen}`)
