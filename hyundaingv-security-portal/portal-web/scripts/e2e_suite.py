@@ -3051,6 +3051,27 @@ def sc_violation_audit(pg, base, check):
     check('박정호' in row.first.inner_text(), '감사 이력이 등록자(박정호) 추적')
 
 
+def sc_flash_create_audit(pg, base, check):
+    """재무 속보(월별 지불 예상) 등록 감사 이력 — 속보 레코드엔 작성자 필드가 없고 수정(editFlash)만 감사에
+    남아, 최초 등록이 무기록이면 기준금액 provenance 사슬이 끊긴다. 등록도 감사에 남겨야 '누가 이 예상액을
+    세웠나'가 추적된다 (§VI 이력추적성, addViolation v1.5.44 선례). 수정 전이면 등록 자체가 무기록 → 대조."""
+    login(pg, base, '박정호')  # BIZ_MGR — 전사 재무(canViewFinance) 접근
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    form = pg.locator('form:has(button:has-text("속보 등록"))')
+    form.locator('input[name=vendor]').fill('E2E감사검증거래처')
+    form.locator('input[name=expected]').fill('1234')
+    form.locator('button:has-text("속보 등록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    check('E2E감사검증거래처' in pg.content(), '속보 등록 반영')
+    # 감사 이력에 '재무 속보 등록' + 등록자(박정호) — 수정 전이면 등록 무기록
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    row = pg.locator('tr', has_text='재무 속보 등록')
+    check(row.count() > 0, '감사 이력에 재무 속보 등록 기록')
+    check('박정호' in row.first.inner_text(), '감사 이력이 등록자(박정호) 추적')
+
+
 def sc_violation_dedup(pg, base, check):
     """보안위반 이중 등록 방어 — 같은 위반자·유형·내용의 징구중 건을 두 번 등록해도 한 건만 생겨야 한다(폼
     더블클릭·동시 POST 재현). 이중 생성 시 위반 집계(vTotal·징구중)가 부풀고 확인서 안내메일·SMS 가 두 번
@@ -3907,6 +3928,7 @@ SCENARIOS = [
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
+    ('flash_create_audit', '재무 속보 등록 감사 이력 — 기준금액 등록자 추적(§VI)', sc_flash_create_audit, {}),
     ('violation_dedup', '보안위반 이중 등록 방어 — 같은 위반 2회 등록 시 1건만(집계 부풀림·중복 통지 차단)', sc_violation_dedup, {}),
     ('incident_audit', '장애 등록·조치 감사 이력 — 행위자 추적(§VI, 인프라 형제 화면 정합)', sc_incident_audit, {}),
     ('audit_search', '감사 이력 조회 필터 — 행위자·행위·기간·검색어, 화면=export 단일 원천', sc_audit_search,

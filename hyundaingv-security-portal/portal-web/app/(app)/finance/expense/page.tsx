@@ -85,7 +85,7 @@ async function addContract(formData: FormData) {
 async function addFlash(formData: FormData) {
   'use server'
   // 속보(월별 지불 예상)는 전사 재무 섹션(canViewFinance)이라 USER 제외 — 섹션·액션 가드 일치(DEPT_MGR+)
-  await requireMenuRole('/finance/expense', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/finance/expense', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const month = String(formData.get('month') ?? '')
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const expected = Number(formData.get('expected'))
@@ -94,11 +94,15 @@ async function addFlash(formData: FormData) {
   // basisOf 매칭(requestedAt.slice(0,7)===month)에 영영 안 걸리고 월 정렬이 뒤틀린다(addPlan·addCourse 와 동일 정합).
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || !vendor || !Number.isFinite(expected) || expected <= 0 || expected > 1e9) return
   const s = getStore()
+  const id = nextNo('EF', today().slice(0, 4), s.expenseFlashes.map((f) => f.id))
   s.expenseFlashes.unshift({
-    id: nextNo('EF', today().slice(0, 4), s.expenseFlashes.map((f) => f.id)),
+    id,
     month, vendor, expected: Math.round(expected),
     planId: s.investPlans.some((p) => p.id === planId && p.kind === '비용') ? planId : undefined,
   })
+  // 속보 수정(editFlash)은 감사에 남지만 최초 등록이 무기록이면 기준금액 provenance 사슬이 끊긴다 —
+  // 속보 레코드엔 작성자 필드가 없어 '누가 이 예상액을 세웠나'가 등록 감사로만 추적된다(§VI 이력추적성).
+  audit(me.name, '재무 속보 등록', `속보 ${id} ${month} ${vendor} 예상액 ${Math.round(expected).toLocaleString('ko-KR')}만원`)
   revalidatePath('/finance/expense')
 }
 
