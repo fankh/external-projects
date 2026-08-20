@@ -711,9 +711,13 @@ try {
   // 미조치 외부 CVE(legacy-vpn·무action, CVE-2018-13379)는 포함, 이미 차단요청된 CVE(db-backup·action, CVE-2024-10977)는 제외 — 조치분은 '즉시 조치'가 아니다
   // (db-backup 호스트는 크리덴셜 노출로도 잡혀 화면에 남으므로, 외부 CVE 제외는 CVE 번호로 검증)
   check('AI 제안: 취약점 우선순위가 조치 요청된 외부 CVE 제외 (미조치만)', insHtml.includes('CVE-2018-13379') && !insHtml.includes('CVE-2024-10977'))
-  // 이상 자산 행위 탐지(§05 AI 기능02) — 취약점 우선순위(정적 노출도)와 다른 '행위 이탈' 관점 컴퓨티드 뷰. 미인가 SW·유휴 자산 사용·USB 대용량 반출.
-  check('AI 제안: 이상 자산 행위 탐지 컴퓨티드 뷰 렌더', insHtml.includes('이상 자산 행위 탐지') && insHtml.includes('미인가 SW 설치') && insHtml.includes('유휴 자산 사용') && insHtml.includes('USB 대용량 반출'))
+  // 이상 자산 행위 탐지(§05 AI 기능02) — 취약점 우선순위(정적 노출도)와 다른 '행위 이탈' 관점 컴퓨티드 뷰.
+  //  §05 기능02가 명시한 세 행위(미인가 SW 설치·휴면 자산의 갑작스런 활동·서버의 비정상 외부 통신) + USB 대용량 반출을 집약.
+  check('AI 제안: 이상 자산 행위 탐지 컴퓨티드 뷰 렌더(기능02 세 행위 + USB)', insHtml.includes('이상 자산 행위 탐지') && insHtml.includes('미인가 SW 설치') && insHtml.includes('유휴 자산 사용') && insHtml.includes('서버 비정상 외부 통신') && insHtml.includes('USB 대용량 반출'))
   check('AI 제안: 이상탐지 — 유휴 자산 사용(미승인 불출 DIF-04) 실측 이탈 반영', insHtml.includes('AST-2021-000432') && insHtml.includes('미승인 불출'))
+  // 서버 비정상 외부 통신(§05 기능02 세 번째 행위) — AI 비지도 이상탐지 제안(INS-2608-08, 핵심 GPU 서버 AST-2024-000377 대용량 아웃바운드)을
+  //  행위 뷰에 집약(그전엔 제안 목록에만 있고 이 컴퓨티드 뷰엔 누락). 'AST-2024-000377' 은 제안 목록에도 나오므로 뷰 전용 kind 라벨(의 없는 '서버 비정상 외부 통신')로 검증.
+  check('AI 제안: 이상탐지 — 서버 비정상 외부 통신 행위 뷰 집약(GPU 서버 AST-2024-000377)', insHtml.includes('서버 비정상 외부 통신') && insHtml.includes('AST-2024-000377'))
   // 교체수요·수명 예측(§05 AI 기능03) — 연간 교체 계획 리포트와 같은 replacementCandidates() 근거를 화면에 직접 노출. 내용연수·보증·장애 이력 결합.
   check('AI 제안: 교체수요·수명 예측 컴퓨티드 뷰 렌더', insHtml.includes('교체수요·수명 예측') && insHtml.includes('추정 교체 예산') && insHtml.includes('잔여 장부가 — 폐기손실'))
   // 라이선스 최적화(§05 AI 기능05) — 라이선스 컴플라이언스 리포트와 같은 licenseOptimization() 근거를 화면에 직접 노출. 초과·미사용 회수·만료·중복 SaaS 통합.
