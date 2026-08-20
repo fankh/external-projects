@@ -395,6 +395,8 @@ try {
   check('대시보드(보안담당): 교체 대상·미사용 라이선스 회수 큐 미노출 (자산관리 계획 큐)', !dashSec.includes('교체 대상 자산') && !dashSec.includes('미사용 라이선스 회수 후보'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
+  // 위험도 높은 순 정렬(제품안내서 §04 위험도 분류 → 우선 처리) — 시드는 위험도순이 아니라(낮음 DSC-2607-0027 이 높음 DSC-2607-0018 보다 앞), 정렬 후엔 높음이 먼저 렌더된다. 첫 등장(렌더 행)으로 순서 검증.
+  check('발견 자산: 위험도 높은 순 정렬(높음이 낮음보다 먼저)', foundHtml.includes('DSC-2607-0018') && foundHtml.includes('DSC-2607-0027') && foundHtml.indexOf('DSC-2607-0018') < foundHtml.indexOf('DSC-2607-0027'))
   // 발견 자산 상세 딥링크(?sel=) — 전역 검색·CMDB 대사에서 특정 자산 상세로 바로 진입. 위치 불일치(DSC-2607-0029)는 실측값이 구조화돼 있어 대사 확인이 곧 대장 보정(자동 반영) — 실측값 안내·보정 버튼이 노출된다(로67).
   const foundSelHtml = await (await get('/discovery/found?sel=DSC-2607-0029', 'ASSET_MGR')).text()
   check('발견 자산: ?sel= 딥링크로 상세 오픈 + 등록·불일치 실측 보정 액션 노출', foundSelHtml.includes('위치 상이') && foundSelHtml.includes('대사 확인 — 실측 보정·종결') && foundSelHtml.includes('부산 지사 3F'))
