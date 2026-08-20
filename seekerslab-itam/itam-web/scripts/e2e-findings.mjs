@@ -1518,7 +1518,7 @@ try {
   // 반납 '접수' 경로 좌석 회수(데이터 무결성 · #4107 불변식 감사) — 승인 경로는 반납대기 진입 시 회수하나, 좌석 보유 상태로 반납대기에 온 자산이
   //  receiveReturn(접수)될 때 회수가 없어 좌석이 영구 누수됐다(다른 이탈 경로는 전부 회수). 513(반납대기·위에서 좌석 회수됨)에 LIC-001 좌석을 재배정한 뒤 정상 접수 → 접수 시 회수돼야 한다(수정 전엔 배정 역조회 잔존).
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
-  const lic001Row = p3.locator('tbody tr').filter({ hasText: 'Microsoft 365 E3' }).first()
+  const lic001Row = licTable2.locator('tbody tr').filter({ hasText: 'Microsoft 365 E3' }).first() // 라이선스 테이블로 스코프(계약 테이블의 동명 행 오매칭 방지)
   await lic001Row.locator('button', { hasText: /배정 \d+\/\d+석/ }).click()
   await p3.waitForTimeout(200)
   await lic001Row.locator('input[placeholder*="자산번호"]').fill('AST-2025-000513')
