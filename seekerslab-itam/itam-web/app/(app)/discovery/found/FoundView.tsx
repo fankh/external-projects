@@ -82,6 +82,11 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
       const needle = fq.trim().toLowerCase()
       if (needle && ![d.id, d.hostname, d.ip, d.mac, d.type].some((f) => f?.toLowerCase().includes(needle))) return false
       return true
+    }).sort((a, b) => {
+      // 위험도 높은 순 → 같은 위험도면 처리 대기(미등록·미조치) 우선 → 최근 관측 순. 보안담당이 가장 급한 발견부터 조치(제품안내서 §04 위험도 분류 → 우선 처리).
+      const rw = (r: RiskLevel) => (r === '높음' ? 0 : r === '중간' ? 1 : 2)
+      const sw = (d: (typeof items)[number]) => (d.state === '미등록' && !d.action ? 0 : 1)
+      return rw(a.risk) - rw(b.risk) || sw(a) - sw(b) || (b.lastSeen ?? '').localeCompare(a.lastSeen ?? '')
     }),
     [items, channel, fstate, frisk, fq, obsBy],
   )
