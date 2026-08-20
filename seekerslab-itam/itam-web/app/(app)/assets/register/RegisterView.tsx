@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -48,6 +48,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [maintOnly, setMaintOnly] = useState(Boolean(props.initialMaint))
   const [spofOnly, setSpofOnly] = useState(Boolean(props.initialSpof))
   const [replaceOnly, setReplaceOnly] = useState(Boolean(props.initialReplace))
+  const [riskOnly, setRiskOnly] = useState(Boolean(props.initialRisk))
   const [receiptOnly, setReceiptOnly] = useState(Boolean(props.initialReceipt))
   const [loanExtOnly, setLoanExtOnly] = useState(Boolean(props.initialLoanExt))
   const [loanRetOnly, setLoanRetOnly] = useState(Boolean(props.initialLoanRet))
@@ -74,7 +75,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     setNaming(false); setViewName('')
   }
   const removeView = (name: string) => persistViews(views.filter((x) => x.name !== name))
-  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly || maintOnly || spofOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly
+  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly || maintOnly || spofOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const warrantySet = useMemo(() => new Set(props.warrantyNos ?? []), [props.warrantyNos])
   const dqSet = useMemo(() => new Set(props.dqNos ?? []), [props.dqNos])
@@ -83,6 +84,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const maintSet = useMemo(() => new Set(props.maintenanceNos ?? []), [props.maintenanceNos])
   const spofSet = useMemo(() => new Set(props.spofNos ?? []), [props.spofNos])
   const replaceSet = useMemo(() => new Set(props.replaceNos ?? []), [props.replaceNos])
+  const riskSet = useMemo(() => new Set(props.riskNos ?? []), [props.riskNos])
   const receiptSet = useMemo(() => new Set(props.receiptNos ?? []), [props.receiptNos])
   const loanExtSet = useMemo(() => new Set(props.loanExtNos ?? []), [props.loanExtNos])
   const loanRetSet = useMemo(() => new Set(props.loanRetNos ?? []), [props.loanRetNos])
@@ -153,6 +155,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       if (maintOnly && !maintSet.has(a.assetNo)) return false
       if (spofOnly && !spofSet.has(a.assetNo)) return false
       if (replaceOnly && !replaceSet.has(a.assetNo)) return false
+      if (riskOnly && !riskSet.has(a.assetNo)) return false
       if (receiptOnly && !receiptSet.has(a.assetNo)) return false
       if (loanExtOnly && !loanExtSet.has(a.assetNo)) return false
       if (loanRetOnly && !loanRetSet.has(a.assetNo)) return false
@@ -293,6 +296,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             {replaceOnly ? '✓ ' : ''}교체 대상 {replaceSet.size}
           </button>
         )}
+        {riskSet.size > 0 && (
+          <button className={`btn sm ${riskOnly ? 'err' : ''}`} onClick={() => setRiskOnly((v) => !v)}
+            title="복합 위험 — 취약·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산. 다중 이슈 우선 조치 트리아지(자산 상세 '위험 신호' 요약과 같은 7신호 단일 소스)">
+            {riskOnly ? '✓ ' : ''}복합 위험 {riskSet.size}
+          </button>
+        )}
         {receiptSet.size > 0 && (
           <button className={`btn sm ${receiptOnly ? 'warn' : ''}`} onClick={() => setReceiptOnly((v) => !v)}
             title="수령(인수) 미확인 — 불출 배정 후 사용자 인수 확인이 안 된 사용 중 자산(체인 오브 커스터디 공백). 수령 확인 독촉 대상">
@@ -338,7 +347,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             href={`/api/export/assets?${new URLSearchParams(
               // 화면 필터를 그대로 반영 — 서버 빌더가 지원하지 않는 필터(정합성·EOL·핵심중요·정기점검·단일장애점)가 켜져 있으면
               // 현재 보이는 행 번호를 nos 로 넘겨 파일이 화면 행수와 정확히 일치하게 한다(버튼이 약속한 건수와 파일이 어긋나지 않게).
-              (dqOnly || eolOnly || critOnly || maintOnly || spofOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly)
+              (dqOnly || eolOnly || critOnly || maintOnly || spofOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly)
                 ? { nos: rows.map((a) => a.assetNo).join(',') }
                 : { q: q.trim(), cat, status, ...(staleOnly ? { stale: '1' } : {}), ...(warrantyOnly ? { warranty: '1' } : {}) },
             ).toString()}`}>
