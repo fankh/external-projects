@@ -28,7 +28,7 @@ async function toggleChannel(formData: FormData) {
 async function notifyBatch() {
   'use server'
   const me = await requireMenuRole('/platform/integrations', 'ADMIN')
-  // 폐쇄 루프 — 미서약·점검 경과·SR 지연·재택 미제출을 스캔해 대상자별 안내메일 발송.
+  // 폐쇄 루프 — 서약·교육·점검·SR·재택·출력물·위험·정책·복구·산출물 등 기한 경과·미이행 항목을 스캔해 대상자별 안내메일 발송(전체 유형은 runDailyNotify 참조).
   // 스케줄러 틱과 공유하는 재진입 가드로 실행 — 이미 배치가 도는 중이면 중복 발송 없이 건너뛴다.
   const results = await runDailyNotifyOnce()
   if (results === null) return  // 진행 중인 배치와 겹침 — 중복 방지로 이번 수동 실행은 무시
