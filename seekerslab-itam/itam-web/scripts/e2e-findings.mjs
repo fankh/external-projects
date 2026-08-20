@@ -1130,6 +1130,10 @@ try {
   // 대여 연장 요청 대기 대시보드 큐(자산담당) — 사용자 연장 요청이 통보만으로 놓치지 않게 대시보드에도 뜬다. pU 가 방금 AST-2024-000230 에 요청했다.
   await p3.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('대시보드(자산담당): 대여 연장 요청 대기 큐 노출', ((await p3.textContent('body')) || '').includes('대여 연장 요청 대기'))
+  // 상단 KPI 카드 드릴다운(대시보드=업무 허브) — 지표 클릭이 상세 화면으로 이어진다(미등록 신규 발견 KPI 와 동형). 그전엔 총 등록·만료 임박·결재 대기가 dead-end.
+  ok('대시보드 KPI: 총 등록 자산 → 자산 대장 드릴다운', (await p3.locator('a[href="/assets/register"]', { hasText: '총 등록 자산' }).count()) > 0)
+  ok('대시보드 KPI: 만료 임박 → 계약·라이선스 드릴다운', (await p3.locator('a[href="/inventory/contracts"]', { hasText: '만료 임박' }).count()) > 0)
+  ok('대시보드 KPI: 결재 대기 → 결재함 드릴다운', (await p3.locator('a[href="/workflow/approvals"]', { hasText: '결재 대기' }).count()) > 0)
   // 대여 연장 요청 큐 드릴다운(count↔destination) — 전체 대여중이 아니라 ?loanext=1(연장 요청 자산만)로 연결. 큐 건수=목록.
   const extHref = await p3.locator('a', { hasText: '대여 연장 요청 대기' }).first().getAttribute('href')
   ok('대시보드: 대여 연장 요청 큐가 ?loanext=1 로 드릴다운(전체 대여중 아님)', !!extHref && decodeURIComponent(extHref).includes('/assets/register?loanext=1'))
