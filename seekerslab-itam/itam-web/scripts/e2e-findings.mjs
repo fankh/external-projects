@@ -2459,6 +2459,27 @@ try {
   ok('모바일 웹 지원(§03): 좁은 뷰포트에서 LV2 내비(modnav) 접힘', (await pMob.locator('.modnav:visible').count()) === 0)
   await ctxMob.close()
 
+  // 필수 결재선 준수(제품안내서 §01·§04: 폐기·차이조정은 필수 결재, 화면별 기본 결재선 사전 정의) —
+  //  폐기 상신은 결재선(AL-04: 자산담당 → IT기획팀장)의 첫 단계에서 시작해야 한다. 그전엔 마지막 단계(IT기획팀장)로
+  //  하드코딩돼 필수 '자산담당' 결재가 생략됐다(격리 요청은 보안담당→IT기획팀장로 옳게 동작하던 것과 불일치). 맨 끝 테스트라 DSP-02 소비 안전.
+  //  스텝 플로우는 두 단계를 모두 렌더하므로 vacuous 방지 위해 '현재:' 단계 표시로만 판정한다(ADMIN 오버라이드로 두 단계 연속 결재).
+  const ctxDL = await browser.newContext(); await ctxDL.addCookies([cookie(ADMIN)]); const pDL = await ctxDL.newPage()
+  await pDL.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  await pDL.locator('button', { hasText: /^폐기 결재 상신 \(\d+\)$/ }).click()
+  await pDL.waitForTimeout(800)
+  const dispRow = () => pDL.locator('tr', { has: pDL.locator('td', { hasText: '폐기 상신' }) }).first()
+  await pDL.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  ok('폐기 필수 결재선: 상신이 첫 단계(자산담당)에서 시작 — IT기획팀장 하드코딩 아님', ((await dispRow().textContent()) || '').includes('현재: 자산담당'))
+  await dispRow().locator('button', { hasText: /^승인$/ }).click()
+  await pDL.waitForTimeout(800)
+  await pDL.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  ok('폐기 필수 결재선: 1차(자산담당) 승인 → IT기획팀장 단계로 진행(1회 승인으로 완결 안 됨)', ((await dispRow().textContent()) || '').includes('현재: IT기획팀장'))
+  await dispRow().locator('button', { hasText: /^승인$/ }).click()
+  await pDL.waitForTimeout(800)
+  await pDL.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  ok('폐기 필수 결재선: 2차(IT기획팀장) 승인 → 소거 대기 전환(2단계 완료 후 효과 적용)', ((await pDL.locator('tr', { has: pDL.locator('td', { hasText: 'AST-2021-000432' }) }).first().textContent()) || '').includes('소거 대기'))
+  await ctxDL.close()
+
   await browser.close()
 } catch (err) {
   fail++

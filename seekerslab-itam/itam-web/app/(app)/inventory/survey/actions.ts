@@ -95,6 +95,9 @@ export async function raiseAdjustment(roundId: string) {
   if (pending.length === 0) return
 
   const round = s.inventoryRounds.find((r) => r.id === roundId)
+  // 필수 결재선(AL-07 차이 조정: 자산담당 → IT기획팀장)의 첫 결재 단계에서 시작한다 — 폐기·격리와 동형(마지막 단계 하드코딩 제거).
+  const line = s.approvalLines.find((l) => l.kind === '차이 조정')
+  const firstStep = line?.steps.find((st) => st !== '신청자' && st !== 'Discovery 엔진') ?? '자산담당'
   const aprId = nextApprovalId()
   s.approvals.unshift({
     id: aprId,
@@ -104,7 +107,7 @@ export async function raiseAdjustment(roundId: string) {
     dept: session.dept,
     requestedAt: today(),
     status: '대기',
-    currentStep: 'IT기획팀장 결재',
+    currentStep: `${firstStep} 검토`,
     refId: roundId,
   })
   for (const d of pending) d.status = '조정 상신'
