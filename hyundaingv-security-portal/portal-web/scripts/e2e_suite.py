@@ -2837,6 +2837,43 @@ def sc_action_permission(pg, base, check):
     check(pg.locator('tr', has_text='RK-2026-DEL').count() == 0, '기능권한 복원 → 업무담당 삭제 성공')
 
 
+def sc_action_permission_infra(pg, base, check):
+    """기능(Action) 권한 확장 — 인프라 자산 삭제도 requireAction 강제(operations 인터페이스). 컴플라이언스와 동일
+    기전이 다른 도메인에도 적용됨을 검증한다. ADMIN 이 인프라운영 삭제를 업무담당에 제한 → 박정호 인터페이스 삭제
+    차단(잔존), 복원 → 삭제 성공. 수정 전(deleteInterface requireMenuRole)이면 제한 무시돼 삭제됨."""
+    # 삭제할 인터페이스 이름 확보(첫 행 — 시드)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    if_card = pg.locator('.card', has_text='인터페이스관리')
+    if_name = if_card.locator('tbody tr').first.locator('td').first.inner_text().strip()
+    check(len(if_name) > 0, f'전제: 인터페이스 확보 ({if_name})')
+    # ADMIN 이 /infra/operations 삭제를 업무담당(BIZ_MGR)에 제한
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    pg.locator('.card', has_text='기능(Action) 권한 매트릭스').locator('tr', has_text='/infra/operations').locator('button').first.click()
+    pg.wait_for_load_state('networkidle')
+    # 업무담당 박정호 인터페이스 삭제 시도 → 차단(잔존)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    pg.locator('.card', has_text='인터페이스관리').locator('tr', has_text=if_name).locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    check(pg.locator('.card', has_text='인터페이스관리').locator('tr', has_text=if_name).count() == 1,
+          '기능권한 제한 → 업무담당 인프라 삭제 차단(인터페이스 잔존; 수정 전이면 삭제됨)')
+    # ADMIN 복원 → 삭제 가능
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    pg.locator('.card', has_text='기능(Action) 권한 매트릭스').locator('tr', has_text='/infra/operations').locator('button').first.click()
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    pg.locator('.card', has_text='인터페이스관리').locator('tr', has_text=if_name).locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    check(pg.locator('.card', has_text='인터페이스관리').locator('tr', has_text=if_name).count() == 0,
+          '기능권한 복원 → 업무담당 인프라 삭제 성공')
+
+
 def sc_menuauth(pg, base, check):
     """메뉴권한 런타임 제한 (요구사항 72행) — 제한 → 내비 숨김·직접 URL 차단·감사, 복원 → 접근 회복"""
     # 기준 상태 — 김현우(사용자)는 QnA 접근 가능
@@ -2865,15 +2902,16 @@ def sc_menuauth(pg, base, check):
     # 제한은 화면만이 아니라 엑셀 다운로드·액션에도 걸린다 (v1.2.2) — BIZ_MGR 를 랙 화면에서 제한
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
-    pg.locator('tr', has_text='/infra/racks').locator('button').first.click()
-    pg.wait_for_selector('tr:has-text("/infra/racks"):has-text("제한됨")', timeout=10000)
+    menu_mx = pg.locator('.card', has_text='권한 매트릭스').first  # 메뉴 매트릭스(기능 매트릭스와 구분 — 첫 카드)
+    menu_mx.locator('tr', has_text='/infra/racks').locator('button').first.click()
+    pg.wait_for_load_state('networkidle')
     login(pg, base, '박정호')
     check(pg.request.get(f'{base}/api/export?fmt=csv&type=racks').status == 403, '제한 → 엑셀 다운로드 403')
     pg.goto(f'{base}/infra/racks', wait_until='networkidle')
     check('랙관리' not in pg.content(), '제한 → 화면 차단 (BIZ_MGR)')
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
-    pg.locator('tr', has_text='/infra/racks').locator('button:has-text("제한됨")').click()
+    pg.locator('.card', has_text='권한 매트릭스').first.locator('tr', has_text='/infra/racks').locator('button:has-text("제한됨")').click()
     pg.wait_for_load_state('networkidle')
 
     # 복원 → 접근 회복 + 감사 이력
@@ -3872,6 +3910,7 @@ SCENARIOS = [
     ('incident_stats', '월별 장애 통계 export — 발생월×등급, export 계=화면 정합', sc_incident_stats, {}),
     ('incident_stats_empty_month', '월별 장애 통계 무효월 방어 — 빈 occurredAt 중복 집계 차단', sc_incident_stats_empty_month, {'PORTAL_DATA_FILE': str(INCEMPTY_DATA)}),
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
+    ('action_permission_infra', '기능(Action) 권한 확장 — 인프라 자산 삭제도 requireAction 강제(도메인 확장)', sc_action_permission_infra, {}),
     ('action_permission', '기능(Action) 단위 권한 — 삭제 기능 권한그룹별 제한·복원(requireAction 강제)', sc_action_permission,
      {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),

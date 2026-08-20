@@ -144,4 +144,9 @@ export const SCREEN_ACTIONS: Record<string, Partial<Record<ActionKey, Role[]>>> 
   '/compliance/risks': { delete: ['BIZ_MGR', 'ADMIN'] },
   '/compliance/policies': { delete: ['BIZ_MGR', 'ADMIN'] },
   '/compliance/dr': { delete: ['BIZ_MGR', 'ADMIN'] },
+  // 인프라 자산 삭제 — 랙·H/W(racks)·서버·시스템(systems)·배치·인터페이스(operations). 한 화면의 삭제 기능은
+  // 그 화면의 모든 delete 액션을 함께 통제한다(예: /infra/racks delete = 랙·H/W 삭제 공통).
+  '/infra/racks': { delete: ['BIZ_MGR', 'ADMIN'] },
+  '/infra/systems': { delete: ['BIZ_MGR', 'ADMIN'] },
+  '/infra/operations': { delete: ['BIZ_MGR', 'ADMIN'] },
 }

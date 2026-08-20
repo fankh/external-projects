@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { Hardware } from '@/lib/types'
 
@@ -27,7 +27,7 @@ async function addRack(formData: FormData) {
 /** 랙 삭제 (요구사항 28행 삭제 ◎) — H/W·서버가 장착된 랙은 삭제 불가 */
 async function deleteRack(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/infra/racks', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/infra/racks', 'delete')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const rack = s.racks.find((r) => r.id === id)
@@ -57,7 +57,7 @@ async function addHardware(formData: FormData) {
 /** H/W 삭제 (요구사항 30행 삭제 ◎) — 서버가 올라간 물리서버는 삭제 불가 */
 async function deleteHardware(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/infra/racks', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/infra/racks', 'delete')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const hw = s.hardware.find((h) => h.id === id)
