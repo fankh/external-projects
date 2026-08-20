@@ -260,6 +260,9 @@ async function aiPeriodQuery(page) {
   // 정기 점검(예방 정비) 대상 질의 — 대장 필터·대시보드 큐와 같은 lib/dates 판정으로 경과·임박을 나눠 답한다(시드 AST-2022-000640/641 경과)
   const rm = await ask('정기 점검(예방 정비) 대상 자산 알려줘')
   ok('AI 정기점검질의: 예방 정비 대상 경과·임박 분류 답변', rm.includes('정기 점검(예방 정비) 대상') && rm.includes('예정일 경과(미시행)') && rm.includes('AST-2022-000641'))
+  // 복합 위험 자산 질의(신규 역량) — 정합성·EOL·보증·점검·SPOF·교체·미실측 중 2+ 겹치는 다중 이슈 자산을 어시스턴트가 답한다. 대장 필터·도시어·대시보드 큐와 lib/risk 단일 소스. 답변이 ?risk=1 필터로 연결(count↔destination 정합).
+  const rcr = await ask('복합 위험 자산 알려줘')
+  ok('AI 복합위험질의: 다중 이슈(≥2 신호) 자산 요약 + ?risk=1 대장 필터 링크', /복합 위험 자산은 \d+건/.test(rcr) && (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?risk=1"]').count()) > 0)
   // 다가오는 일정(사전 계획) 질의 — 대시보드 '다가오는 일정' 카드와 같은 upcomingSchedule() 단일 소스. 향후 30일 예정분을 날짜순 아젠다로.
   //  전용 인텐트가 없으면 '일정' 질의가 폴백 답으로 떨어진다. 나열 날짜가 오름차순·창(≤30일) 이내인지 실행일 무관하게 자기검증.
   const rup = await ask('다가오는 일정 알려줘')
