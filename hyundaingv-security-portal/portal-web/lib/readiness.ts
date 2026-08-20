@@ -1,6 +1,7 @@
 /** 배포 준비 상태 — 실배포 전 확인해야 할 런타임 구성 신호를 한곳에 모은다.
  *  연동·인프라 화면(ADMIN)에 카드로 노출한다. 어댑터 계약 자가진단(conformance)과 짝을 이뤄,
  *  운영자가 새 고객사 배포 시 "프로덕션 준비됐는가"를 한눈에 본다. */
+import { adapterRealitySummary } from './integrations/registry'
 import { SESSION_SECRET_IS_DEFAULT } from './session'
 
 export interface ReadinessItem {
@@ -17,6 +18,11 @@ export function deployReadiness(): ReadinessItem[] {
   const notify = Number(process.env.PORTAL_NOTIFY_INTERVAL_MS)
   const cookieSecure = process.env.PORTAL_COOKIE_SECURE === '1'
   const profile = process.env.PORTAL_PROFILE || 'default'
+  // 연동 어댑터 실체 — 활성 채널이 실 시스템에 연결됐는지. 목업(mock-*)은 오프라인 데모라 실제
+  // 발송·동기화·인증이 없다. 자가진단(conformance)은 목업도 유효 어댑터로 통과하므로 '아직 목업인가'는
+  // 별도 신호가 필요하다(전량 목업 상태로 실 배포하면 안내메일·인사연동·SSO 가 조용히 동작하지 않는다).
+  const { real: adReal, mock: adMock } = adapterRealitySummary()
+  const adActive = adReal + adMock
   // SSO(SAML) 필수 구성 — IdP SSO URL(로그인 리다이렉트)·서명 인증서(어설션 검증). 둘 다 있어야
   // SP-initiated SSO 가 동작하고, 하나만 있으면 로그인·검증이 실패한다(saml.ts 소비). SP EntityID·
   // ACS 는 기본값·요청 파생이라 필수 아님. SSO 는 선택 — 미구성이면 로컬 계정 로그인.
@@ -54,6 +60,19 @@ export function deployReadiness(): ReadinessItem[] {
       level: cookieSecure ? 'ok' : (prod ? 'warn' : 'info'),
       value: cookieSecure ? 'Secure' : '미설정',
       detail: cookieSecure ? '세션 쿠키 Secure 속성' : 'HTTPS 종단 배포면 PORTAL_COOKIE_SECURE=1 권장',
+    },
+    {
+      key: '연동 어댑터',
+      // 활성 전량 실=ok, 일부라도 목업=warn(실 배포 전 교체), 활성 채널 없음=info.
+      level: adActive === 0 ? 'info' : adMock === 0 ? 'ok' : 'warn',
+      value: adActive === 0 ? '활성 채널 없음' : `실 ${adReal} / 활성 ${adActive}${adMock ? ` · 목업 ${adMock}` : ''}`,
+      detail: adActive === 0
+        ? '활성 연동 채널 없음 — 프로필 채널 구성 확인'
+        : adMock === 0
+          ? '활성 채널 전량 실 어댑터 연결 — 실 발송·동기화·인증 동작'
+          : adReal === 0
+            ? '활성 채널 전량 목업 — 오프라인 데모 상태. 실 배포는 프로필 adapterId 를 실 어댑터로 교체'
+            : `${adMock}개 채널 목업 — 해당 채널은 실제 발송·동기화 없음. 실 배포 전 실 어댑터 연결`,
     },
     {
       key: 'SSO(SAML)',

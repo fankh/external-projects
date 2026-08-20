@@ -86,6 +86,21 @@ export function channelSummary(): { on: number; total: number } {
   return { on: real.filter((c) => isEnabled(c.id)).length, total: real.length }
 }
 
+/** 목업 어댑터 판별 — 오프라인 데모용 mock 구현에 매핑되는 adapterId. mock-* 접두 + internal-approval
+ *  (mockApproval 별칭). 실 배포 준비 신호가 '아직 목업인가'를 판단하는 단일 근거. */
+export function isMockAdapter(adapterId: string): boolean {
+  return adapterId.startsWith('mock-') || adapterId === 'internal-approval'
+}
+
+/** 활성(비-planned·enabled) 채널의 실 어댑터 vs 목업 집계 — 실 배포 준비(readiness)가 '실 시스템에
+ *  연결됐는가'를 본다. 목업은 오프라인 데모라 실제 발송·동기화·인증이 없으므로, 전량/일부 목업이면
+ *  실 배포 전 프로필의 adapterId 교체가 필요하다는 신호다. */
+export function adapterRealitySummary(): { real: number; mock: number } {
+  const active = CHANNELS.filter((c) => !c.planned && isEnabled(c.id))
+  const mock = active.filter((c) => isMockAdapter(c.adapterId)).length
+  return { real: active.length - mock, mock }
+}
+
 /** 메일·문자 발송 — 발송 이력을 스토어에 남긴다 (연동·인프라 화면에서 추적) */
 export async function sendVia(channelId: string, to: string[], subject: string): Promise<SendResult> {
   const ch = channelOf(channelId)
