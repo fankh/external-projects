@@ -169,6 +169,8 @@ export function draftApproval(opts: {
     drafter: opts.drafter.name, dept: opts.drafter.dept, approver,
     status: '대기', draftedAt: today(), ref: opts.ref,
     queue: queue.length > 0 ? queue : undefined,
+    // 묶음 항목 스냅샷 — 반려로 역링크가 지워져도 상세가 상신 시점 항목을 재구성하게 한다(§VI, B2)
+    ...(opts.items && opts.items.length > 0 ? { bundledIds: opts.items } : {}),
   })
   s.todos.unshift({
     id: nextNo('TD', year, s.todos.map((t) => t.id)),

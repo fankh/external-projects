@@ -29,7 +29,10 @@ function refSummary(s: Store, ap: Approval): [string, string][] {
       return st ? [['계약', ct ? `${ct.title} (${ct.vendor})` : st.contractId], ['지급 항목', st.item], ['금액', `${st.amount.toLocaleString('ko-KR')}만원`], ['지급 상태', st.status]] : []
     }
     case '장애보고 상신': {
-      const list = s.incidents.filter((i) => i.reportRef === ref)
+      // 묶음 항목은 스냅샷(bundledIds) id 조회로 재구성 — 반려로 역링크(reportRef)가 지워져도 상세가 빈다.
+      // 구 데이터(스냅샷 없음)는 기존 역링크로 폴백(하위호환).
+      const ids = Array.isArray(ap.bundledIds) ? ap.bundledIds : null
+      const list = ids ? s.incidents.filter((i) => ids.includes(i.id)) : s.incidents.filter((i) => i.reportRef === ref)
       return [['묶인 장애', `${list.length}건`], ...list.map((i): [string, string] => [i.id, `[${i.grade}] ${i.system} — ${i.title}`])]
     }
     case '변경계획 상신':
@@ -43,7 +46,8 @@ function refSummary(s: Store, ap: Approval): [string, string][] {
       return plan ? [['점검 항목', item?.control ?? plan.itemId], ['예정월', plan.month], ['점검자', plan.inspector], ['점검 결과', plan.result ?? '-']] : []
     }
     case '출력물폐기 상신': {
-      const rows = s.printouts.filter((p) => p.approvalRef === ref)
+      const ids = Array.isArray(ap.bundledIds) ? ap.bundledIds : null
+      const rows = ids ? s.printouts.filter((p) => ids.includes(p.id)) : s.printouts.filter((p) => p.approvalRef === ref)
       return [['묶인 출력물', `${rows.length}건`], ...rows.map((p): [string, string] => [p.id, `${p.document} (${p.method ?? '-'} · ${p.discardedAt ?? '-'})`])]
     }
     case '보안위반 확인서': {
@@ -51,7 +55,8 @@ function refSummary(s: Store, ap: Approval): [string, string][] {
       return v ? [['위반 유형', v.type], ['위반 내용', v.detail], ['사실확인서', v.statement ?? '-']] : []
     }
     case '서약 현황 상신': {
-      const rows = s.companyPledges.filter((c) => c.approvalRef === ref)
+      const ids = Array.isArray(ap.bundledIds) ? ap.bundledIds : null
+      const rows = ids ? s.companyPledges.filter((c) => ids.includes(c.id)) : s.companyPledges.filter((c) => c.approvalRef === ref)
       return [['묶인 징구', `${rows.length}건`], ...rows.map((c): [string, string] => [c.id, `${c.company} — ${c.personName}`])]
     }
     case '부서서약 현황 상신': {
