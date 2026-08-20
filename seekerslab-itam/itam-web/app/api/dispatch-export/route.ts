@@ -31,8 +31,8 @@ export async function GET(req: Request) {
   })
   const sheet: Sheet = {
     name: '알림 발송 이력',
-    header: ['발송 ID', '채널', '종류', '수신', '제목', '연결 문서', '발송 시각'],
-    rows: rows.map((m) => [m.id, m.channel, m.kind, m.to, m.subject, m.ref ?? '-', m.at]),
+    header: ['발송 ID', '채널', '종류', '수신', '제목', '연결 문서', '발송 시각', '전달 상태'],
+    rows: rows.map((m) => [m.id, m.channel, m.kind, m.to, m.subject, m.ref ?? '-', m.at, m.deliveryStatus ?? '발송']),
   }
   const buf = buildXlsx([sheet])
 
