@@ -245,7 +245,9 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       {
         title: '수명주기 처리 대상',
         columns: ['자산번호', '모델', '상태', '위치'],
-        rows: s.assets.filter((a) => a.status !== '사용중').map((a) => [a.assetNo, a.model, a.status, a.location]),
+        // 수명주기 처리 대기열 화면(lifecycle/page.tsx)과 동일 필터 — 운영 중(사용중)·종결(폐기완료)은 처리 대상이 아니다.
+        //  화면은 폐기완료를 제외하나 리포트가 사용중만 제외해, 종결 자산이 '처리 대상'(할 일) 리포트에 남던 드리프트(화면=리포트 정합).
+        rows: s.assets.filter((a) => a.status !== '사용중' && a.status !== '폐기완료').map((a) => [a.assetNo, a.model, a.status, a.location]),
       },
       repairSection,
       disposalSection,

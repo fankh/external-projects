@@ -1310,6 +1310,11 @@ try {
   ok('운영 정책 다운스트림: 리포트 만료 임박 창 60일 반영', mmd.includes('만료 임박 계약 (60일 이내)') && !mmd.includes('(90일 이내)'))
   // 월간 자산 현황에 폐기 진행 현황(완료 전 파이프라인) 섹션이 포함된다 — 처분 실적(완료)의 짝
   ok('리포트: 월간 자산 현황에 폐기 진행 현황 섹션', mmd.includes('폐기 진행 현황') && mmd.includes('자산 처분 실적'))
+  // 수명주기 처리 대상 섹션 화면-리포트 정합(#4107 리포트 내용 감사) — 화면 대기열(lifecycle/page)은 종결(폐기완료)을 제외하는데 리포트가 사용중만 제외해 종결 자산이 '처리 대상'(할 일)에 남던 드리프트. 폐기완료 AST-2018-000090 은 이 섹션에만 없어야 한다(처분 실적·폐기 진행 섹션엔 정상 노출이라 섹션 스코프로 검증).
+  const lcStart = mmd.indexOf('## 수명주기 처리 대상')
+  const lcEnd = mmd.indexOf('## ', lcStart + 3)
+  const lcSec = lcStart >= 0 ? mmd.slice(lcStart, lcEnd === -1 ? undefined : lcEnd) : ''
+  ok('리포트(월간 자산 현황): 수명주기 처리 대상에 종결(폐기완료) 자산 미포함(화면 대기열 정합)', lcStart >= 0 && !lcSec.includes('AST-2018-000090') && !lcSec.includes('폐기완료'))
   // 감사 대응 자료 — '정책 이행'을 탐지 정책만이 아니라 운영·위험도·AI 거버넌스 기준 + SW·SaaS 정책 상태까지 증빙
   const rb2 = await p3.locator('.msg.assistant .bub').count()
   await p3.locator('.chat-in input').fill('감사 대응 자료 리포트 생성해줘')
