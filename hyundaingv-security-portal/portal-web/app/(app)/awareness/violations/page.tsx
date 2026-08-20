@@ -22,6 +22,10 @@ async function addViolation(formData: FormData) {
   const s = getStore()
   const person = s.people.find((p) => p.name === name)
   if (!person || !activeCodes(s, 'VIOLATION_TYPE').includes(type) || !detail) return
+  // 이중 등록 방어 — 폼 더블클릭·동시 POST 시 같은 위반자·유형·내용의 징구중 건이 두 벌 생겨 위반 집계(vTotal·
+  // 징구중)를 부풀리고 확인서 안내메일·SMS 가 두 번 발송된다(addCompanyPledge 이중 징구 방어와 동일 계열).
+  // 미제출(징구중) 동일 건이 이미 있으면 무시 — 종결 후 재발이나 내용이 다른 별개 위반은 통과한다.
+  if (s.violations.some((v) => v.name === person.name && v.type === type && v.detail === detail && v.status === '징구중')) return
 
   const id = nextNo('VL', today().slice(0, 4), s.violations.map((v) => v.id))
   s.violations.unshift({
