@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { compliancePostureScore, computeComplianceKpis, postureAxes, postureRating, weakestPostureAxis, upsertComplianceSnapshot } from '@/lib/compliance'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
@@ -47,7 +47,7 @@ async function addItem(formData: FormData) {
 /** 기준관리 삭제 (요구사항 62행 삭제 ◎) — 계획이 참조 중인 항목은 삭제 불가 */
 async function deleteItem(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/compliance/inspection', 'delete')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const item = s.inspectionItems.find((i) => i.id === id)
