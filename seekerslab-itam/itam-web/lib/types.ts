@@ -195,6 +195,8 @@ export interface OpsPolicy {
   staleVerifyDays: number
   /** 계약·보증·라이선스 만료 임박 알림 창(일) */
   expiryWindowDays: number
+  /** 정기 점검(예방 정비) 도래 임박 판정 창(일) — 예정일이 이 값 이내로 다가온 운영 자산을 점검 대상으로 큐·필터에 편성. */
+  maintenanceWindowDays: number
   /** 안전재고 기준(대수) — 불출 가능한 유형(단말·주변기기)의 가용(유휴) 재고가 이 값 미만이면 재고 부족(발주 검토) 경보. */
   safetyStock: number
 }
@@ -205,6 +207,7 @@ export const DEFAULT_OPS_POLICY: OpsPolicy = {
   approvalSlaDays: 3,
   staleVerifyDays: STALE_VERIFY_DAYS,
   expiryWindowDays: EXPIRY_WINDOW_DAYS,
+  maintenanceWindowDays: 30, // isMaintenanceDue 기본 창(lib/dates 소재라 순환참조 방지로 리터럴 명시, approvalSlaDays 와 동일 규약)
   safetyStock: 2,
 }
 
