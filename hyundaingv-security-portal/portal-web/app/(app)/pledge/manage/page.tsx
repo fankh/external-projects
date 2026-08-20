@@ -178,7 +178,7 @@ export default async function ManagePledgePage() {
               <tbody>
                 {s.pledgeForms.map((f) => (
                   <tr key={f.kind}>
-                    <td className="strong">{f.kind} 보안서약서 <span className="mut">(HTML)</span></td>
+                    <td className="strong">{f.kind} 보안서약서 <span className="mut">(온라인)</span></td>
                     <td className="tnum">{f.revisedAt.slice(0, 10)}</td>
                     <td className="c">
                       {/* 개정은 현재 시각으로 확정된다(당일 개정 전 서명도 무효화) — 날짜 입력 없이 즉시 개정 */}
