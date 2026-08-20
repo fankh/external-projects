@@ -60,6 +60,11 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
     actor: session.name,
   })
 
+  // 반납 접수로 자산이 보유자를 떠나 유휴/수리/폐기로 편성되므로 배정 라이선스 좌석을 회수한다(returnLoan·회수·폐기 등 다른 이탈 경로와 동일 불변식).
+  // 승인 경로(decide 반납)는 반납대기 진입 시 회수하나, 좌석 보유 상태로 반납대기에 온 자산(시드·반납대기 자산 직접 좌석 배정)이 접수될 때 회수가 없어 좌석이 영구 누수됐다. 멱등이라 이미 회수된 경우 무해.
+  const freed = reclaimLicenseSeats(assetNo, session.name, '반납 접수')
+  if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (반납 접수)`, actor: session.name })
+
   const next = condition === '폐기 권고' ? '폐기 절차 대상으로 전환'
     : condition === '수리 필요' ? `수리중 편성 — 수리 완료 후 유휴 풀로 (${location})`
     : `유휴 풀 편성 — ${location}`
@@ -93,6 +98,7 @@ export async function receiveReturnMany(assetNos: string[], condition: ReturnCon
     const prevOwner = asset.owner
     if (condition === '폐기 권고') {
       asset.status = '폐기예정'
+      asset.owner = '미지정'; asset.dept = '자산관리팀' // 단건 receiveReturn 과 동일 — 반납으로 보유자를 떠났으므로 소유자를 비운다(폐기 취소·반려 시 오귀속 방지)
       if (!s.disposals.some((d) => d.assetNo === asset.assetNo)) {
         s.disposals.push({ id: nextId('DSP'), assetNo: asset.assetNo, model: asset.model, reason: `반납 점검 폐기 권고${note ? ` — ${note}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
       }
@@ -103,6 +109,9 @@ export async function receiveReturnMany(assetNos: string[], condition: ReturnCon
       asset.status = '유휴'; asset.owner = '미지정'; asset.dept = '자산관리팀'; asset.location = loc
     }
     asset.history.push({ date: today(), kind: '반납', detail: `반납 접수 · 상태 점검 ${condition}${note ? ` — ${note}` : ''} (반납자 ${prevOwner}) (일괄)`, actor: session.name })
+    // 접수 시 배정 라이선스 좌석 회수(단건 receiveReturn 과 동일 불변식) — 좌석 보유 상태로 반납대기에 온 자산의 좌석 누수 방지. 멱등.
+    const freed = reclaimLicenseSeats(asset.assetNo, session.name, '반납 접수')
+    if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (반납 접수)`, actor: session.name })
     if (prevOwner && prevOwner !== '미지정' && prevOwner !== '-') {
       dispatch({ channel: '이메일', to: prevOwner, subject: `반납 접수 완료 — ${asset.assetNo} ${asset.model} · 점검 결과 ${condition}${note ? ` (${note})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
       notified += 1
@@ -266,6 +275,7 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   if (outcome === '수리 불가') {
     asset.owner = '미지정'
     asset.dept = '자산관리팀'
+    asset.receiptPending = undefined // 보유자 이탈 시 수령 미확인 플래그 해제 — 다른 이탈 경로(반납·회수·폐기·분실)와 동일 홀더-스테이트 정리(소비처가 사용중 게이트라 현재 무해하나 불변식 유지)
     const freed = reclaimLicenseSeats(assetNo, session.name, '수리 불가 폐기')
     if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (수리 불가 폐기)`, actor: session.name })
   }
