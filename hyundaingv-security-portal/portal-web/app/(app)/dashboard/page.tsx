@@ -169,7 +169,8 @@ export default async function DashboardPage() {
       )}
 
       {compUpcoming.length > 0 && (
-        <Card title="다가오는 컴플라이언스 일정" kicker={`향후 90일 · ${compUpcoming.length}건`} pad={false}>
+        <Card title="다가오는 컴플라이언스 일정" kicker={`향후 90일 · ${compUpcoming.length}건`} pad={false}
+          actions={<a className="btn sm" href="/api/export?type=compliance-schedule" title="향후 90일 재검토·훈련·조치기한 전량">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>예정일</th><th className="c">D-day</th><th>구분</th><th>대상</th></tr></thead>

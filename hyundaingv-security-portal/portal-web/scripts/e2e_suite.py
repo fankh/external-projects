@@ -1960,6 +1960,14 @@ def sc_compliance_schedule(pg, base, check):
     check('다가오는정책재검토' in ct and '다가오는복구훈련' in ct and '다가오는위험조치' in ct,
           '정책 재검토·복구훈련·위험 조치기한 도래분 통합 표시')
     check('경과위험조치' not in ct, '경과분(due<today)은 다가오는 일정에서 제외(경과 신호가 담당)')
+    # export 도 동일 산출(카드는 임박 8건, export 는 90일 창 전량) — 화면=export 단일 원천(upcomingComplianceItems)
+    csv = pg.context.request.get(f'{base}/api/export?type=compliance-schedule').text()
+    check('다가오는정책재검토' in csv and '다가오는복구훈련' in csv and '다가오는위험조치' in csv and '경과위험조치' not in csv,
+          'export 도 도래분 전량·경과분 제외(화면과 동일 필터)')
+    # 권한 게이트 — 컴플라이언스 미접근 역할(USER)은 일정 export 403(카드 게이트와 동일, export 우회 차단)
+    login(pg, base, '김현우')  # USER — 컴플라이언스 화면 미접근
+    r = pg.context.request.get(f'{base}/api/export?type=compliance-schedule')
+    check(r.status == 403, '컴플라이언스 미접근 역할(USER)은 일정 export 403(권한 정합)')
 
 
 def sc_dashboard_drilldown(pg, base, check):
