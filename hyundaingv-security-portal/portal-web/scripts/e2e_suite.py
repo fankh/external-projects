@@ -65,6 +65,7 @@ RISKDLY_DATA = ROOT / 'scripts' / '.e2e-riskdly-data.json'  # 위험 조치 지�
 RISKDEL_DATA = ROOT / 'scripts' / '.e2e-riskdel-data.json'  # 미종결 위험 은닉 삭제 서버 가드(직접 POST) 회귀용 (v1.5.265)
 ACTPERM_DATA = ROOT / 'scripts' / '.e2e-actperm-data.json'  # 기능(Action) 단위 권한 — 삭제 제한 강제 회귀용 (v1.5.377)
 FINACT_DATA = ROOT / 'scripts' / '.e2e-finact-data.json'  # 기능(Action) 권한 — 재무 '확정' 제한 강제 회귀용 (v1.5.381)
+INSPACT_DATA = ROOT / 'scripts' / '.e2e-inspact-data.json'  # 기능(Action) 권한 — 점검 기준 '삭제' 제한 강제 회귀용 (v1.5.383)
 RISKRA_DATA = ROOT / 'scripts' / '.e2e-riskra-data.json'  # 위험 담당 재배정 → 조치 지연 폐쇄루프 복구 회귀용 (v1.5.267)
 POLICY_DATA = ROOT / 'scripts' / '.e2e-policy-data.json'  # 정책·지침 생명주기 + 재검토 주기(경과 리셋) 회귀용 (v1.5.271)
 POLICYNF_DATA = ROOT / 'scripts' / '.e2e-policynf-data.json'  # 정책 재검토 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.273)
@@ -2913,6 +2914,42 @@ def sc_finance_action_permission(pg, base, check):
           '기능권한 복원 → 업무담당 확정 성공(효율화→확정)')
 
 
+def sc_inspection_action_permission(pg, base, check):
+    """기능(Action) 권한 확장 — 보안점검(ISMS) 기준 '삭제'도 requireAction 강제. 위험·정책·DR 에 이어
+    컴플라이언스 도메인 삭제 통제를 완성한다. ADMIN 이 /compliance/inspection 삭제를 업무담당(BIZ_MGR)에
+    제한하면, 화면 접근이 있는 박정호의 기준 삭제(버튼=직접 POST)가 requireAction 에서 차단된다(기준 잔존).
+    복원하면 삭제 가능. 수정 전(deleteItem requireMenuRole)이면 제한 무시돼 삭제됨 → 대조."""
+    # ADMIN 이 /compliance/inspection 삭제를 업무담당(BIZ_MGR)에 제한
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    acard = pg.locator('.card', has_text='기능(Action) 권한 매트릭스')
+    arow = acard.locator('tr', has_text='/compliance/inspection')
+    check(arow.count() == 1, '전제: 점검 기준 삭제 기능권한 행 존재')
+    arow.locator('button').first.click()  # 업무담당 delete 토글 → 삭제 제한
+    pg.wait_for_load_state('networkidle')
+    # 업무담당 박정호가 미참조 기준(CK-DEL) 삭제 시도 → 기능권한 제한으로 차단(기준 잔존)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    tcard = pg.locator('.card', has_text='기준관리 — 점검 항목')
+    tcard.locator('tr', has_text='CK-DEL').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    check(pg.locator('.card', has_text='기준관리 — 점검 항목').locator('tr', has_text='CK-DEL').count() == 1,
+          '기능권한 제한 → 업무담당 기준 삭제 차단(기준 잔존; 수정 전이면 삭제됨)')
+    # ADMIN 복원 → 삭제 가능
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    pg.locator('.card', has_text='기능(Action) 권한 매트릭스').locator('tr', has_text='/compliance/inspection').locator('button').first.click()  # 복원
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    pg.locator('.card', has_text='기준관리 — 점검 항목').locator('tr', has_text='CK-DEL').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    check(pg.locator('.card', has_text='기준관리 — 점검 항목').locator('tr', has_text='CK-DEL').count() == 0,
+          '기능권한 복원 → 업무담당 기준 삭제 성공')
+
+
 def sc_menuauth(pg, base, check):
     """메뉴권한 런타임 제한 (요구사항 72행) — 제한 → 내비 숨김·직접 URL 차단·감사, 복원 → 접근 회복"""
     # 기준 상태 — 김현우(사용자)는 QnA 접근 가능
@@ -3954,6 +3991,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
     ('finance_action_permission', '기능(Action) 권한 확장 — 재무 확정도 requireAction 강제(confirm 기능키·finance 도메인)', sc_finance_action_permission,
      {'PORTAL_DATA_FILE': str(FINACT_DATA)}),
+    ('inspection_action_permission', '기능(Action) 권한 확장 — 보안점검(ISMS) 기준 삭제도 requireAction 강제(컴플라이언스 도메인 완성)', sc_inspection_action_permission,
+     {'PORTAL_DATA_FILE': str(INSPACT_DATA)}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('scheduler_bootcatchup', '기동 밀린 배치 따라잡기 — 인터벌보다 잦은 재시작 무발송 방지', sc_scheduler_bootcatchup,
@@ -4349,6 +4388,12 @@ def main() -> int:
     FINACT_DATA.write_text(json.dumps({'investPlans': [
         {'id': 'IP-2026-CONF', 'kind': '투자', 'year': '2026', 'title': '기능권한 확정대상',
          'owner': '김현우', 'dept': '개발1팀', 'amount': 5000, 'status': '효율화'}]}, ensure_ascii=False), encoding='utf-8')
+    # 기능(Action) 권한 — 점검 기준 삭제. 계획이 참조하지 않는 기준 1건(삭제 대상, 화면 '삭제' 버튼 노출).
+    # inspectionPlans 를 비워 CK-DEL 을 미참조로 두면 '사용중' 대신 삭제 버튼이 렌더된다.
+    INSPACT_DATA.write_text(json.dumps({
+        'inspectionItems': [{'id': 'CK-DEL', 'category': '테스트', 'control': '기능권한 삭제대상 통제',
+                             'cycle': '분기', 'source': 'ISMS'}],
+        'inspectionPlans': []}, ensure_ascii=False), encoding='utf-8')
     # 위험 담당 재배정 — 지연 위험 2건(재직 김현우·퇴사 E2E퇴사담당). RK-92 를 재직자로 재평가-이관하면
     # 대장 반영 + 조치 지연 알림이 2명(폐쇄루프 복구)이어야 한다. RISKDLY 와 별도 파일(재배정 뮤테이션 격리).
     RISKRA_DATA.write_text(json.dumps({'riskItems': [_rk(1, '김현우'), _rk(2, 'E2E퇴사담당')]}, ensure_ascii=False), encoding='utf-8')

@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader } from '@/components/ui'
 import { Icon } from '@/components/chrome/Icon'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import type { Notice } from '@/lib/types'
@@ -29,7 +29,7 @@ async function addNotice(formData: FormData) {
 /** 공지 삭제 — 작성자 본인 또는 Admin (요구사항 6행 삭제 ◎). 첨부도 함께 정리한다 */
 async function deleteNotice(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/board/notices', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/board/notices', 'delete')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const n = s.notices.find((x) => x.id === id)
