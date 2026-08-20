@@ -129,7 +129,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
         <div class="brand">SEEKERSLAB · IT ASSET DOSSIER</div>
         <div class="no">${esc(a.assetNo)}</div>
         <div class="model">${esc(a.model)}</div>
-        <span class="badge">${esc(a.category)} · ${esc(a.status)}</span>
+        <span class="badge"${(() => {
+          // 상태 톤(대장 상태 칩과 동일 색) — 분실·폐기예정=위험·수리중·반납대기=주의·사용중=정상. 인쇄 카드에서도 이탈 상태가 도드라지게.
+          const st: Record<string, string> = { 분실: 'background:#fdecea;color:#c23934', 폐기예정: 'background:#fdecea;color:#c23934', 수리중: 'background:#fdf2e0;color:#b25e09', 반납대기: 'background:#fdf2e0;color:#b25e09', 사용중: 'background:#e4f5ee;color:#12805c' }
+          return st[a.status] ? ` style="${st[a.status]}"` : ''
+        })()}>${esc(a.category)} · ${esc(a.status)}</span>
       </div>
     </div>
     <div class="kv">${fields}</div>
