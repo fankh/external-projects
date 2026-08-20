@@ -22,7 +22,8 @@ export default async function UsersPage() {
     if (a.status === '사용중') bump(a.owner).inUse += 1
     else if (a.status === '대여중') bump(a.owner).loaned += 1
   }
-  for (const l of s.licenses) for (const st of l.seats ?? []) bump(st.user).seats.push({ lic: l.name, assetNo: st.assetNo })
+  // 해지 라이선스 좌석은 오프보딩 회수 대상이 아니다(라이선스 종료) — 오프보딩 확인서(offboard-sheet)는 이미 해지 제외하나 이 화면 집계가 빠뜨려 과다 계상하던 것 정합(화면=증적).
+  for (const l of s.licenses) { if (l.status === '해지') continue; for (const st of l.seats ?? []) bump(st.user).seats.push({ lic: l.name, assetNo: st.assetNo }) }
   for (const ap of s.approvals) if (ap.status === '대기' && ap.requester) bump(ap.requester).pendingReqs += 1
 
   return (
