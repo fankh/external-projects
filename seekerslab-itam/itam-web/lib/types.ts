@@ -1086,6 +1086,7 @@ export type ReportKind =
   | '정보보호 컴플라이언스 증적'
   | '라이선스 갱신·트루업 계획'
   | '단일 장애점·영향 분석'
+  | '자산 운영 리스크'
 
 export interface ReportSection {
   title: string

@@ -6,7 +6,7 @@ import { buildMaintenance } from './maintenance'
 import { buildProcurement } from './procurement'
 import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
-import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, roundProgressPct } from './dates'
+import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
 import { ACQ_COST, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
@@ -75,6 +75,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '정보보호 컴플라이언스 증적', period: '수시', desc: 'ISMS/ISO 27001 통제별 증적 번들 — 자산 인벤토리 통제·접근 통제/SW 라이선스·매체 폐기 증적·운영 보안(취약점 노출)·로깅/변경 추적을 감사 대응용 한 문서로 집약' },
   { kind: '라이선스 갱신·트루업 계획', period: '수시', desc: '만료 임박 라이선스의 예상 갱신액·트루업 권고(초과=추가 구매·미사용=감축 갱신·근거 계약 해지=재계약)·갱신 예산 및 좌석 감축 절감을 선제 계획(컴플라이언스 리포트의 시점 감사와 달리 전방 예측)' },
   { kind: '단일 장애점·영향 분석', period: '수시', desc: 'CMDB 의존 그래프 기반 단일 장애점(SPOF)·영향 범위(blast radius) 분석 — 장애 시 전이 영향이 큰 자산, 현재 저하 상태로 하위에 위험을 주는 상위 자산, 이중화 우선순위 근거' },
+  { kind: '자산 운영 리스크', period: '수시', desc: '분실·도난, 장기 미실측(유령 자산 후보), 대여 반환 연체, 수리 지연, 수령 미확인을 한 문서로 집약한 운영 리스크 현황 — 대시보드 운영 큐와 같은 판정, 항목별 조치(회수·재물조사·독촉) 연결' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -771,6 +772,38 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '자산 운영 리스크') {
+    // 운영 리스크(분실·미실측·연체·수리 지연·수령 미확인)를 한 문서로 집약 — 어시스턴트 '운영 리스크 자산' 인라인 답변의 리포트판(export).
+    //  대시보드 운영 큐·대장 필터와 같은 판정(단일 소스)을 쓴다.
+    const lost = s.assets.filter((a) => a.status === '분실')
+    const stale = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays))
+    const overdue = s.assets.filter(isLoanOverdue)
+    const repairLate = s.assets.filter((a) => a.status === '수리중' && isRepairOverdue(a))
+    const receiptPend = s.assets.filter((a) => a.receiptPending && a.status === '사용중')
+    const total = lost.length + stale.length + overdue.length + repairLate.length + receiptPend.length
+    const sec = (title: string, note: string, arr: typeof lost, detail: (a: (typeof lost)[number]) => string): ReportSection => ({
+      title,
+      note,
+      columns: ['자산번호', '유형', '모델', '소유자 · 부서', '상세'],
+      rows: arr.length ? arr.map((a) => [a.assetNo, a.category, a.model, `${a.owner} · ${a.dept}`, detail(a)]) : [['-', '-', '-', '-', '해당 없음']],
+    })
+    return [
+      sec('분실·도난 자산 (회수·폐기 확정 대상)', `분실 상태 ${lost.length}건`, lost, (a) => `상태 ${a.status} · 최종 보유 ${a.owner}`),
+      sec('장기 미실측 (유령 자산 후보 · 재물조사 편성)', `최근 실측 ${s.opsPolicy.staleVerifyDays}일 초과·없음 ${stale.length}건`, stale, (a) => `최근 실측 ${a.lastVerifiedAt ?? '없음'}`),
+      sec('대여 반환 연체 (반환 독촉)', `연체 ${overdue.length}건`, overdue, (a) => `반환 기한 ${a.loanDueDate ?? '-'} 경과 · 대여자 ${a.owner}`),
+      sec('수리 지연 (예상 반환 경과 · 업체 독촉)', `예상 반환 경과 ${repairLate.length}건`, repairLate, (a) => `${a.repair?.vendor ?? '업체 미배정'}${a.repair?.eta ? ` · 예상반환 ${a.repair.eta}` : ''}`),
+      sec('수령 미확인 (불출 후 인수 대기)', `인수 미확인 ${receiptPend.length}건`, receiptPend, (a) => `불출 후 인수 확인 대기 · ${a.owner}`),
+      {
+        title: '종합 · 조치 권고',
+        bullets: [
+          `운영 리스크 총 ${total}건 — 분실 ${lost.length} · 미실측 ${stale.length} · 연체 ${overdue.length} · 수리 지연 ${repairLate.length} · 수령 미확인 ${receiptPend.length}.`,
+          '분실은 회수·폐기 확정, 장기 미실측은 수시 재물조사 편성, 대여 연체는 반환 독촉, 수리 지연은 업체 독촉, 수령 미확인은 수령 확인 독촉으로 처리하십시오.',
+          '각 항목은 대시보드 운영 큐·자산 대장 필터(분실·장기 미실측·수령 미확인 등)에서 조치 화면으로 연결됩니다.',
+        ],
+      },
+    ]
+  }
+
   // 감사 대응 자료
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
@@ -871,6 +904,14 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   const s = getStore()
   const n = (t: string) => sections.find((x) => x.title.includes(t))?.rows?.length ?? 0
 
+  if (kind === '자산 운영 리스크') {
+    const lostN = s.assets.filter((a) => a.status === '분실').length
+    const staleN = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).length
+    const overdueN = s.assets.filter(isLoanOverdue).length
+    const repairLateN = s.assets.filter((a) => a.status === '수리중' && isRepairOverdue(a)).length
+    const receiptN = s.assets.filter((a) => a.receiptPending && a.status === '사용중').length
+    return `자산 운영 리스크는 총 ${lostN + staleN + overdueN + repairLateN + receiptN}건입니다 — 분실·도난 ${lostN}건, 장기 미실측 ${staleN}건, 대여 반환 연체 ${overdueN}건, 수리 지연 ${repairLateN}건, 수령 미확인 ${receiptN}건. 각각 회수·폐기, 재물조사 편성, 반환 독촉, 업체 독촉, 수령 확인 독촉으로 조치가 필요합니다.`
+  }
   if (kind === '단일 장애점·영향 분석') {
     const spofH = criticalDependencies()
     const degH = impactSources()
