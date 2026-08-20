@@ -902,6 +902,8 @@ try {
   check('자산 카드: 의존 토폴로지 SVG 다이어그램(상위 641·하위 561 노드)', cardSwitch.includes('의존 토폴로지') && cardSwitch.includes('<svg') && cardSwitch.includes('AST-2022-000641') && cardSwitch.includes('AST-2023-000561'))
   // 변경 이력 이벤트 종류별 색(화면 타임라인과 동일 언어) — 모든 자산은 등록 이벤트가 있어 진입(녹 #12805c) 색이 인쇄 카드에도 적용된다.
   check('자산 카드: 변경 이력 이벤트 종류별 색(등록=진입 녹)', cardSwitch.includes('변경 이력') && cardSwitch.includes('color:#12805c'))
+  // 상태 배지 톤(대장 상태 칩과 동일) — AST-2022-000640 은 사용중이라 정상(녹) 배지. 인쇄 카드에서도 상태가 색으로 도드라진다.
+  check('자산 카드: 상태 배지 종류별 색(사용중=정상 녹 배지)', cardSwitch.includes('background:#e4f5ee;color:#12805c'))
   // 정기 점검 예정 행 — 예방 정비 일정(로55)이 잡힌 자산 dossier 에 다음 점검 예정일을 남긴다(인수인계·유지보수 참고). 시드 AST-2022-000640(예정 2026-06-15).
   const cardMaint = await (await get('/api/asset-card/AST-2022-000640', 'ASSET_MGR')).text()
   check('자산 카드: 정기 점검 예정 행(예방 정비 일정)', cardMaint.includes('정기 점검 예정') && cardMaint.includes('2026-06-15'))
