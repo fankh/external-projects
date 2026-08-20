@@ -2489,7 +2489,7 @@ try {
   const ctxMob = await browser.newContext({ viewport: { width: 390, height: 844 } })
   await ctxMob.addCookies([cookie(ASSET)])
   const pMob = await ctxMob.newPage()
-  for (const [path, label] of [['/inventory/survey', '재물조사 수행(바코드/QR 실사)'], ['/assets/register', '자산 대장(필터 14종)']]) {
+  for (const [path, label] of [['/inventory/survey', '재물조사 수행(바코드/QR 실사)'], ['/assets/register', '자산 대장(필터 15종)']]) {
     await pMob.goto(`${BASE}${path}`, { waitUntil: 'networkidle' })
     const noOverflow = await pMob.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
     ok(`모바일 웹 지원(§03): ${label} 가로 오버플로 없음(390px)`, noOverflow)
