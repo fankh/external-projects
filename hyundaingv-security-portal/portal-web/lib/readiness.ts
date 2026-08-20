@@ -17,6 +17,12 @@ export function deployReadiness(): ReadinessItem[] {
   const notify = Number(process.env.PORTAL_NOTIFY_INTERVAL_MS)
   const cookieSecure = process.env.PORTAL_COOKIE_SECURE === '1'
   const profile = process.env.PORTAL_PROFILE || 'default'
+  // SSO(SAML) 필수 구성 — IdP SSO URL(로그인 리다이렉트)·서명 인증서(어설션 검증). 둘 다 있어야
+  // SP-initiated SSO 가 동작하고, 하나만 있으면 로그인·검증이 실패한다(saml.ts 소비). SP EntityID·
+  // ACS 는 기본값·요청 파생이라 필수 아님. SSO 는 선택 — 미구성이면 로컬 계정 로그인.
+  const samlIdpUrl = (process.env.PORTAL_SAML_IDP_SSO_URL ?? '').trim()
+  const samlCert = (process.env.PORTAL_SAML_IDP_CERT ?? '').trim() || (process.env.PORTAL_SAML_IDP_CERT_FILE ?? '').trim()
+  const samlSet = (samlIdpUrl ? 1 : 0) + (samlCert ? 1 : 0)
 
   return [
     {
@@ -48,6 +54,17 @@ export function deployReadiness(): ReadinessItem[] {
       level: cookieSecure ? 'ok' : (prod ? 'warn' : 'info'),
       value: cookieSecure ? 'Secure' : '미설정',
       detail: cookieSecure ? '세션 쿠키 Secure 속성' : 'HTTPS 종단 배포면 PORTAL_COOKIE_SECURE=1 권장',
+    },
+    {
+      key: 'SSO(SAML)',
+      // 둘 다=구성 완료(ok), 하나만=부분(로그인·검증 실패하므로 warn), 없음=선택 미사용(info·로컬 로그인).
+      level: samlSet === 2 ? 'ok' : samlSet === 1 ? 'warn' : 'info',
+      value: samlSet === 2 ? '구성됨' : samlSet === 1 ? '부분 구성' : '미구성 (로컬 로그인)',
+      detail: samlSet === 2
+        ? 'IdP SSO URL·서명 인증서 설정 — SP-initiated SSO 활성 (SP 메타데이터 /api/sso/metadata 임포트)'
+        : samlSet === 1
+          ? `SAML 설정 미완 — ${samlIdpUrl ? '서명 인증서(PORTAL_SAML_IDP_CERT[_FILE])' : 'IdP SSO URL(PORTAL_SAML_IDP_SSO_URL)'} 누락 시 로그인·검증 실패`
+          : 'SAML 미설정 — 로컬 계정 로그인만. IdP 연동 시 PORTAL_SAML_IDP_SSO_URL·서명 인증서 주입',
     },
     {
       key: '고객사 프로필',
