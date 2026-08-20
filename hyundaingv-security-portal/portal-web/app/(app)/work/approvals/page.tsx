@@ -79,8 +79,12 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const inbox = s.approvals.filter((a) => a.approver === me.name)
   const inboxWaiting = inbox.filter((a) => a.status === '대기')
   const outbox = s.approvals.filter((a) => a.drafter === me.name)
-  // 상세는 내가 결재자이거나 기안자인 문서만 — 타인 결재 문서 열람 차단
-  const selected = sel ? s.approvals.find((a) => a.id === sel && (a.approver === me.name || a.drafter === me.name)) : undefined
+  // 다단 중간 승인 이력 — 승인 후 다음 단계로 회부돼 현재 결재자·기안자가 아니게 된 건(§VI 추적성, B1).
+  // 이 결재자도 자기가 처리한 결재를 계속 열람·추적할 수 있어야 한다. 손상 데이터 방어로 Array.isArray 가드.
+  const wasApprover = (a: Approval) => (Array.isArray(a.approvedBy) ? a.approvedBy : []).includes(me.name)
+  const pastApproved = s.approvals.filter((a) => wasApprover(a) && a.approver !== me.name && a.drafter !== me.name)
+  // 상세는 내가 결재자·기안자이거나, 과거에 결재한(중간 승인) 문서만 — 타인 결재 문서 열람 차단
+  const selected = sel ? s.approvals.find((a) => a.id === sel && (a.approver === me.name || a.drafter === me.name || wasApprover(a))) : undefined
   const selectedFiles = selected?.ref ? s.attachments.filter((x) => x.refId === selected.ref) : []
   // 같은 참조의 이전 회차 결재 — 재상신 문서를 심사할 때 이전 반려 사유를 함께 본다.
   // 묶음 문서는 재상신마다 참조가 회전해 같은 참조가 다시 오지 않으므로, 문서 유형·기안자의 이전 상신으로 잇는다.
@@ -92,7 +96,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         // 신원 게이트(selected 는 line 81 에서 이미 본인 결재/기안만)를 이력에도 재적용: 이력 행도
         // 내가 결재자이거나 기안자였던 회차만 노출(기안자 조회 시 selected.drafter===me 라 본인 전 회차 유지).
         ? a.docType === selected.docType && a.drafter === selected.drafter && a.id < selected.id
-          && (a.approver === me.name || a.drafter === me.name)
+          && (a.approver === me.name || a.drafter === me.name || wasApprover(a))
         // 같은 ref 라도 문서 유형이 다르면 다른 문서다 — SR 신청과 적용요청 상신은 같은 SR 번호를
         // ref 로 공유하므로, docType 도 맞춰야 '이전 회차'에 다른 유형 결재가 새어들지 않는다.
         : a.ref === selected.ref && a.docType === selected.docType))
@@ -237,6 +241,26 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           </div>
         )}
       </Card>
+
+      {pastApproved.length > 0 && (
+        <Card title="처리한 결재 — 다단 중간 승인" kicker={`${pastApproved.length}건`} pad={false}>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>문서</th><th>제목</th><th>현재 단계</th><th>상태</th></tr></thead>
+              <tbody>
+                {pastApproved.map((a) => (
+                  <tr key={a.id}>
+                    <td><Chip tone="neutral" bare>{a.docType}</Chip></td>
+                    <td><Link href={`/work/approvals?sel=${a.id}`}>{a.title}</Link></td>
+                    <td className="dim">{a.status === '대기' ? `${a.approver} 결재 중` : '종결'}</td>
+                    <td><Chip tone={ST_CHIP[a.status]}>{a.status}</Chip></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <div className="cols c2">
         <Card title="수신함 — 처리 완료" pad={false}>
