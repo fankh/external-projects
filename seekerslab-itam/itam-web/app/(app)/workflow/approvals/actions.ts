@@ -226,6 +226,8 @@ export async function answerOwnerConfirm(approvalId: string, mine: boolean) {
 export async function decide(approvalId: string, verdict: '승인' | '반려', reason = '') {
   const session = await getSession()
   if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+  // verdict 열거 검증 — 승인/반려 외 값(위조 POST)은 반려-사유·중간단계 분기를 건너뛰고 a.status 에 잘못된 값이 써져 대기 결재가 효과 없이 무력화되고 필수 반려사유를 우회한다. 조기 차단.
+  if (verdict !== '승인' && verdict !== '반려') return { ok: false, message: '결재 판정은 승인 또는 반려만 가능합니다.' }
   const s = getStore()
   const a = s.approvals.find((x) => x.id === approvalId)
   if (!a || a.status !== '대기') return { ok: false, message: '처리할 결재 건이 아닙니다.' }
