@@ -353,6 +353,8 @@ try {
   check('대시보드(보안담당): 수집 커넥터 지연·오류 운영 큐 노출', dashSec.includes('수집 커넥터 지연·오류') && dashSec.includes('Discovery 저하'))
   // 외부 공격표면 재탐지 기한 경과(§04 재탐지 자동 반복) — 도메인 주기 경과·미실행이면 노출 관측 사각. 시드 3개 도메인 재탐지 기한 경과.
   check('대시보드(보안담당): 외부 공격표면 재탐지 기한 경과 큐 노출', dashSec.includes('외부 공격표면 재탐지 기한 경과') && dashSec.includes('Discovery 사각'))
+  // 알림 전달 실패 큐(§06 발송 신뢰성) — 미도달 통지(시드 MSG-4004)를 대시보드에서 선제 노출, 클릭 시 발송 이력에서 재발송. 통합 화면 안 열어도 놓치지 않게.
+  check('대시보드(보안담당): 알림 전달 실패 큐 → 발송 이력 드릴다운', dashSec.includes('알림 전달 실패') && dashSec.includes('/platform/integrations'))
   check('대시보드(자산담당): 재탐지 기한 경과 큐 미노출 (보안 운영 큐)', !dashHtml.includes('외부 공격표면 재탐지 기한 경과'))
   // 내부 수집 채널 재탐지 주기 경과 — EASM 재탐지 지연과 동형의 Discovery 사각 신호. 보안 운영 큐(자산담당 미노출).
   check('대시보드(보안담당): 탐지 채널 재탐지 주기 경과 큐 노출', dashSec.includes('탐지 채널 재탐지 주기 경과') && dashSec.includes('수집 지연'))
