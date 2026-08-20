@@ -1515,22 +1515,6 @@ try {
   await p3.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
   const relBody = (await p3.locator('body').textContent()) || ''
   ok('반납 결재 승인 → 라이선스 좌석 자동 회수(이력 적재·역조회 소멸)', relBody.includes('라이선스 좌석 회수') && !relBody.includes('배정 라이선스'))
-  // 반납 '접수' 경로 좌석 회수(데이터 무결성 · #4107 불변식 감사) — 승인 경로는 반납대기 진입 시 회수하나, 좌석 보유 상태로 반납대기에 온 자산이
-  //  receiveReturn(접수)될 때 회수가 없어 좌석이 영구 누수됐다(다른 이탈 경로는 전부 회수). 513(반납대기·위에서 좌석 회수됨)에 LIC-001 좌석을 재배정한 뒤 정상 접수 → 접수 시 회수돼야 한다(수정 전엔 배정 역조회 잔존).
-  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
-  const lic001Row = licTable2.locator('tbody tr').filter({ hasText: 'Microsoft 365 E3' }).first() // 라이선스 테이블로 스코프(계약 테이블의 동명 행 오매칭 방지)
-  await lic001Row.locator('button', { hasText: /배정 \d+\/\d+석/ }).click()
-  await p3.waitForTimeout(200)
-  await lic001Row.locator('input[placeholder*="자산번호"]').fill('AST-2025-000513')
-  await lic001Row.locator('button', { hasText: /^좌석 배정$/ }).click()
-  await p3.waitForTimeout(700)
-  await p3.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
-  ok('반납 접수 좌석 회수 준비: 513 에 LIC-001 좌석 재배정(배정 라이선스 역조회 노출)', ((await p3.locator('body').textContent()) || '').includes('배정 라이선스') && ((await p3.locator('body').textContent()) || '').includes('Microsoft 365'))
-  await p3.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
-  await p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2025-000513' }) }).first().locator('button', { hasText: /^접수$/ }).click()
-  await p3.waitForTimeout(700)
-  await p3.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
-  ok('반납 접수 → 라이선스 좌석 회수(접수 경로도 회수 · 좌석 누수 방지 · 승인 경로와 대칭)', !((await p3.locator('body').textContent()) || '').includes('배정 라이선스'))
   // 스테일 반납 방어 — 상신(이서연) 후 자산이 회수·재배정되어 보유자가 오세훈으로 바뀐 반납 결재(APR-2607-118)는 승인해도 반납대기로 되돌리지 않는다(대여 승인·차이 조정 스테일 방어와 동형). 재배정 무효화·새 보유자 좌석 회수 방지.
   await p3.goto(`${BASE}/workflow/approvals?sel=APR-2607-118`, { waitUntil: 'networkidle' })
   await p3.locator('tr', { has: p3.locator('td', { hasText: 'APR-2607-118' }) }).first().locator('button', { hasText: /^승인$/ }).click()
@@ -2425,6 +2409,14 @@ try {
   const ctxRT = await browser.newContext(); await ctxRT.addCookies([cookie(ADMIN)]); const pRT = await ctxRT.newPage()
   await pRT.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
   ok('반납 폐기 권고(홀더-상태): 접수 전 반납대기 자산 소유자 존재(한도윤)', ((await pRT.locator('tr', { has: pRT.locator('td', { hasText: 'AST-2025-000513' }) }).first().textContent()) || '').includes('한도윤'))
+  // 반납 '접수' 경로 좌석 회수(데이터 무결성 · #4107 불변식 감사) — 승인 경로는 반납대기 진입 시 회수하나, 좌석 보유 상태로 반납대기에 온 자산이 receiveReturn(접수)될 때 회수가 없어 좌석이 영구 누수됐다(다른 이탈 경로는 전부 회수). 513(반납대기·로56에서 좌석 회수됨)에 LIC-001 좌석을 재배정한 뒤 폐기 권고 접수 → 소유자 정리 + 좌석 회수를 함께 검증(수정 전엔 접수 후에도 배정 역조회 잔존).
+  await pRT.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const rtLic = pRT.locator('table', { has: pRT.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first().locator('tbody tr').filter({ hasText: 'Microsoft 365 E3' }).first()
+  await rtLic.locator('button', { hasText: /배정 \d+\/\d+석/ }).click()
+  await pRT.waitForTimeout(200)
+  await rtLic.locator('input[placeholder*="자산번호"]').fill('AST-2025-000513')
+  await rtLic.locator('button', { hasText: /^좌석 배정$/ }).click()
+  await pRT.waitForTimeout(700)
   await pRT.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const rtRow = pRT.locator('tr', { has: pRT.locator('td', { hasText: 'AST-2025-000513' }) }).first()
   await rtRow.locator('select').first().selectOption('폐기 권고')
@@ -2434,6 +2426,7 @@ try {
   await pRT.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
   const rtPost = (await pRT.locator('tr', { has: pRT.locator('td', { hasText: 'AST-2025-000513' }) }).first().textContent()) || ''
   ok('반납 폐기 권고(홀더-상태): 접수 → 폐기예정·소유자 미지정으로 정리(떠난 보유자 오귀속 방지)', rtPost.includes('폐기예정') && rtPost.includes('미지정') && !rtPost.includes('한도윤'))
+  ok('반납 접수(폐기 권고) → 라이선스 좌석 회수(접수 경로도 회수 · 좌석 누수 방지 · 승인 경로와 대칭)', !((await pRT.locator('body').textContent()) || '').includes('배정 라이선스'))
   await ctxRT.close()
   // 직무 분리(자기 결재 차단) — 본인이 폼으로 올린 상신(selfSubmitted)은 본인이 못 밟는다. '내 결재 차례' 큐는 이미 제외하나 decide·결재함 버튼이 누락돼, 단일 단계 결재(대여=자산담당)에서 자산담당이 본인 대여 신청을 자기 승인하던 구멍. 시스템·운영자 상신(편입·격리·라이선스)은 selfSubmitted 없어 영향 없음.
   const ctxSD = await browser.newContext(); await ctxSD.addCookies([cookie(ASSET)]); const pSD = await ctxSD.newPage()
