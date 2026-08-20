@@ -3095,6 +3095,30 @@ def sc_change_register_audit(pg, base, check):
     check('박정호' in row.first.inner_text(), '감사 이력이 등록자(박정호) 추적')
 
 
+def sc_plan_register_audit(pg, base, check):
+    """점검계획 등록 감사 이력 — 계획 CSV 일괄 등록(uploadPlans)은 감사에 남지만 폼 단건 등록(addPlan)·전년
+    이월(carryOverPlans)은 무기록이었다. inspectionPlan 엔 점검자(inspector) 필드는 있으나 '누가 이 계획을
+    수립했나'(수립자)는 없어 등록 경로에 따라 추적이 갈렸다(§VI). 단건 등록도 감사에 남긴다. 수정 전이면 무기록."""
+    login(pg, base, '박정호')  # BIZ_MGR — 점검계획 수립 권한
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    card = pg.locator('.card', has_text='점검계획 수립')
+    card.locator('select[name=itemId]').select_option(index=0)   # 첫 점검 항목(플레이스홀더 없음)
+    card.locator('select[name=inspector]').select_option(index=0)  # 첫 점검자(비-USER 계정)
+    card.locator('input[name=target]').fill('E2E감사검증 점검대상')
+    # 플렉스 행 레이아웃에서 버튼 좌표가 인접 표 셀에 가려 click 이 인터셉트된다 — 서버액션 폼을
+    # requestSubmit() 로 직접 제출(HTML required 검증·React action 바인딩 동일 경로).
+    card.locator('form:has(button:has-text("계획 등록"))').evaluate('f => f.requestSubmit()')
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    check('E2E감사검증 점검대상' in pg.content(), '점검계획 등록 반영')
+    # 감사 이력에 '점검계획 등록'(상세) + 등록자(박정호) — 수정 전이면 등록 무기록
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    row = pg.locator('tr', has_text='점검계획 등록')
+    check(row.count() > 0, '감사 이력에 점검계획 등록 기록')
+    check('박정호' in row.first.inner_text(), '감사 이력이 등록자(박정호) 추적')
+
+
 def sc_violation_dedup(pg, base, check):
     """보안위반 이중 등록 방어 — 같은 위반자·유형·내용의 징구중 건을 두 번 등록해도 한 건만 생겨야 한다(폼
     더블클릭·동시 POST 재현). 이중 생성 시 위반 집계(vTotal·징구중)가 부풀고 확인서 안내메일·SMS 가 두 번
@@ -3953,6 +3977,7 @@ SCENARIOS = [
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
     ('flash_create_audit', '재무 속보 등록 감사 이력 — 기준금액 등록자 추적(§VI)', sc_flash_create_audit, {}),
     ('change_register_audit', '인프라변경 등록 감사 이력 — 등록자 추적(§VI)', sc_change_register_audit, {}),
+    ('plan_register_audit', '점검계획 등록 감사 이력 — 수립자 추적(§VI)', sc_plan_register_audit, {}),
     ('violation_dedup', '보안위반 이중 등록 방어 — 같은 위반 2회 등록 시 1건만(집계 부풀림·중복 통지 차단)', sc_violation_dedup, {}),
     ('incident_audit', '장애 등록·조치 감사 이력 — 행위자 추적(§VI, 인프라 형제 화면 정합)', sc_incident_audit, {}),
     ('audit_search', '감사 이력 조회 필터 — 행위자·행위·기간·검색어, 화면=export 단일 원천', sc_audit_search,
