@@ -29,6 +29,11 @@ const STATUSES: (AssetStatus | '전체')[] = ['전체', '검수중', '사용중'
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
+// 변경 이력 타임라인 이벤트 종류별 톤(제품안내서 §03 변경 이력) — 폐기·분실은 위험(적), 점검·수리는 정비(황),
+//  등록·편입은 진입(녹), 나머지 운영(불출·이동·반납·대여·구성변경·보증연장)은 기본. 수명주기 중대 이벤트가 타임라인에서 도드라지게 한다.
+const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
+  폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
+}
 
 export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
@@ -831,7 +836,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             <div className="kicker mute" style={{ margin: '18px 0 10px' }}>변경 이력 타임라인</div>
             <div className="tl">
               {[...sel.history].reverse().map((h, i) => (
-                <div className="ev" key={i}>
+                <div className="ev" data-tone={EVENT_TONE[h.kind]} key={i}>
                   <div className="d">{h.date} · {h.actor}</div>
                   <div className="t">{h.kind}</div>
                   <div className="x">{h.detail}</div>

@@ -207,6 +207,8 @@ try {
   const regCmdb = await (await get('/assets/register?sel=AST-2022-000640', 'ASSET_MGR')).text()
   check('자산 대장 상세: CMDB 의존 관계·영향 범위(blast radius) 인라인 표기', regCmdb.includes('의존 관계 (CMDB)') && regCmdb.includes('영향 범위(blast radius)') && regCmdb.includes('상위 의존'))
   check('자산 대장 상세: 의존 토폴로지 다이어그램(SVG·화살표) 인라인 렌더', regCmdb.includes('의존 토폴로지') && regCmdb.includes('url(#ahi)'))
+  // 변경 이력 타임라인 이벤트 종류별 색 구분(제품안내서 §03) — 등록·편입=진입(ok), 폐기·분실=위험(err), 점검·수리=정비(warn). 모든 자산은 등록 이벤트가 있어 ok 톤 마커가 렌더된다.
+  check('자산 대장 상세: 변경 이력 타임라인 이벤트 종류별 색 마커(등록=ok)', regCmdb.includes('변경 이력 타임라인') && regCmdb.includes('data-tone="ok"'))
   // 단일 장애점(SPOF) 필터 — CMDB blast radius ≥2 자산(시드 방화벽 641·스위치 640)을 대장 필터 칩으로 노출. 대시보드 영향 집중 큐(?spof=1) 드릴다운과 공유.
   check('자산 대장: 단일 장애점(SPOF) 필터 칩 렌더(blast radius ≥2 자산 있을 때)', mgrHtml.includes('단일 장애점 '))
   const regSpof = await (await get('/assets/register?spof=1', 'ASSET_MGR')).text()
