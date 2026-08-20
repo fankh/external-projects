@@ -3072,6 +3072,29 @@ def sc_flash_create_audit(pg, base, check):
     check('박정호' in row.first.inner_text(), '감사 이력이 등록자(박정호) 추적')
 
 
+def sc_change_register_audit(pg, base, check):
+    """인프라변경 등록 감사 이력 — 변경(ChangeWork) 레코드엔 등록자 필드가 없어(registeredAt=시점만) 등록이
+    무기록이면 '누가 이 변경을 등록했나'가 추적 불가. 인프라 형제(장애 등록·자산 변경)는 등록을 감사에 남기는데
+    변경관리만 누락이었다 — 상신(submitPlan)은 결재로 추적되나 등록·상신은 별개 시점·행위자일 수 있다(§VI).
+    수정 전이면 등록 자체가 무기록 → 대조."""
+    login(pg, base, '박정호')  # BIZ_MGR — 변경 등록 권한
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    card = pg.locator('.card', has_text='인프라변경 등록')
+    card.locator('input[name=title]').fill('E2E감사검증 변경작업')
+    card.locator('input[name=plan]').fill('작업계획 검증')
+    card.locator('input[name=rollbackPlan]').fill('원복계획 검증')
+    card.locator('button:has-text("등록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    check('E2E감사검증 변경작업' in pg.content(), '변경 등록 반영')
+    # 감사 이력에 '변경 등록' + 등록자(박정호) — 수정 전이면 등록 무기록
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    row = pg.locator('tr', has_text='변경 등록')
+    check(row.count() > 0, '감사 이력에 변경 등록 기록')
+    check('박정호' in row.first.inner_text(), '감사 이력이 등록자(박정호) 추적')
+
+
 def sc_violation_dedup(pg, base, check):
     """보안위반 이중 등록 방어 — 같은 위반자·유형·내용의 징구중 건을 두 번 등록해도 한 건만 생겨야 한다(폼
     더블클릭·동시 POST 재현). 이중 생성 시 위반 집계(vTotal·징구중)가 부풀고 확인서 안내메일·SMS 가 두 번
@@ -3929,6 +3952,7 @@ SCENARIOS = [
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
     ('flash_create_audit', '재무 속보 등록 감사 이력 — 기준금액 등록자 추적(§VI)', sc_flash_create_audit, {}),
+    ('change_register_audit', '인프라변경 등록 감사 이력 — 등록자 추적(§VI)', sc_change_register_audit, {}),
     ('violation_dedup', '보안위반 이중 등록 방어 — 같은 위반 2회 등록 시 1건만(집계 부풀림·중복 통지 차단)', sc_violation_dedup, {}),
     ('incident_audit', '장애 등록·조치 감사 이력 — 행위자 추적(§VI, 인프라 형제 화면 정합)', sc_incident_audit, {}),
     ('audit_search', '감사 이력 조회 필터 — 행위자·행위·기간·검색어, 화면=export 단일 원천', sc_audit_search,
