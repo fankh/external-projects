@@ -1105,6 +1105,10 @@ try {
   await pU.waitForTimeout(700)
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
   ok('대여 연장 요청(사용자): 요청 접수 표시(연장 요청·요청 날짜)', ((await pU.locator('body').textContent()) || '').includes('연장 요청') && ((await pU.locator('body').textContent()) || '').includes('2026-09-30'))
+  // 반납·연장 상호배제(모순 상태·이중 큐 방지) — 연장 요청 중이면 반납 신청이 서버에서 차단된다(대칭 가드). 상태 변화 없이 차단만.
+  await pU.locator('button', { hasText: /^반납 신청$/ }).click()
+  await pU.waitForTimeout(500)
+  ok('대여 셀프서비스: 연장 요청 중 반납 신청 차단(상호배제)', ((await pU.locator('body').textContent()) || '').includes('연장 요청 중인 자산입니다'))
   // 대여 연장 요청 취소(요청자 셀프서비스) — 자산담당 처리 전이라면 본인 요청을 철회할 수 있다. 취소 후 다시 신청해 p3 승인 테스트를 위한 요청을 남긴다.
   await pU.locator('button', { hasText: /^요청 취소$/ }).click()
   await pU.waitForTimeout(600)
