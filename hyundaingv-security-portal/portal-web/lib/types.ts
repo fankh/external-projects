@@ -364,6 +364,10 @@ export interface Approval {
   rejectReason?: string
   /** 다단 결재 잔여 결재자 큐 — 승인마다 하나씩 회부되고, 비면 최종 승인으로 전파된다 */
   queue?: string[]
+  /** 다단 결재 중간 승인자 이력 — 승인 후 다음 단계로 회부되면 approver 스칼라가 덮여 중간 결재자가
+   *  자기 처리 흔적을 잃으므로(§VI 추적성), 승인한 단계 결재자를 순서대로 기록한다. inbox·상세 열람이
+   *  현재 결재자·기안자 외에 '과거 결재한 사람'도 포함하게 하는 근거. */
+  approvedBy?: string[]
   /** 외부 전자결재(그룹웨어) 연동 추적 id — 상신 푸시(approval 어댑터) 성공 시 채워진다. 결재는 그룹웨어에서 확인 */
   externalRef?: string
 }

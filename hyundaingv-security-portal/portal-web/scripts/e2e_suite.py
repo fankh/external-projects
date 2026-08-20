@@ -85,6 +85,7 @@ EXECFALSE_DATA = ROOT / 'scripts' / '.e2e-execfalse-data.json'  # 집행률 거�
 AUDITF_DATA = ROOT / 'scripts' / '.e2e-auditf-data.json'  # 감사 이력 조회 필터 회귀용 (v1.5.331)
 SRCH_DATA = ROOT / 'scripts' / '.e2e-srch-data.json'  # 통합 검색 커버리지(결재 신원 스코핑) 회귀용 (v1.5.333)
 CSCHED_DATA = ROOT / 'scripts' / '.e2e-csched-data.json'  # 다가오는 컴플라이언스 일정(경과분 제외) 회귀용 (v1.5.339)
+MSTAGE_DATA = ROOT / 'scripts' / '.e2e-mstage-data.json'  # 다단 중간 승인자 추적성(B1) 회귀용 (v1.5.347)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
 AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
 QNAROLE_DATA = ROOT / 'scripts' / '.e2e-qnarole-data.json'  # QnA 담당 지정 역할 정합 회귀용 (v1.5.92)
@@ -2808,6 +2809,31 @@ def sc_search_coverage(pg, base, check):
     check('VL-SRCH-2' in body, '보안위반 검색: 관리자(BIZ/ADMIN)는 전체 위반 열람')
 
 
+def sc_multistage_approver_trace(pg, base, check):
+    """다단 중간 승인자 추적성(v1.5.347, B1) — 다단 결재의 중간 결재자가 승인하면 approver 스칼라가 다음 단계로
+    덮여 자기 처리 흔적을 잃던 것(§VI 추적성)을 approvedBy 이력으로 보존한다. 승인 후에도 '처리한 결재' 목록
+    노출·상세 열람이 유지된다. 점검결과 상신(시드 다단: 이수진 1차 → 시스템관리자 2차). fails-without-fix:
+    approvedBy 기록 없으면 이수진이 중간 승인 후 처리목록·상세 접근을 모두 잃는다."""
+    login(pg, base, '이수진')  # 점검결과 상신 1차 결재자
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    check(pg.locator('tr', has_text='점검결과').count() >= 1, '이수진 수신함에 점검결과 상신 대기')
+    # 상세 직접 이동(AP-MS-1) — 1차 결재자라 열람 가능
+    pg.goto(f'{base}/work/approvals?sel=AP-MS-1', wait_until='networkidle')
+    check('문서 상세' in pg.content(), '점검결과 상신 상세 열람(이수진 1차 결재자)')
+    pg.locator('button:has-text("승인")').first.click()  # 중간(1차) 승인 → 시스템관리자 회부
+    pg.wait_for_load_state('networkidle')
+    # 이수진은 이제 현재 결재자가 아니다 — 그래도 '처리한 결재'로 추적되고 상세도 계속 열람 가능해야 한다
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    past = pg.locator('.card', has_text='처리한 결재 — 다단 중간 승인')
+    check(past.count() >= 1 and '점검결과' in past.first.inner_text(),
+          '중간 승인 후 처리한 결재 목록에 노출(추적성 보존)')
+    # 상세 접근 유지 — approvedBy 기반(현재 결재자 아님에도)
+    pg.goto(f'{base}/work/approvals?sel=AP-MS-1', wait_until='networkidle')
+    body = pg.content()
+    check('문서 상세' in body and '시스템관리자' in body,
+          '중간 승인자도 승인 후 상세 열람 유지(approvedBy 접근·현재 시스템관리자 단계)')
+
+
 def sc_audit_search(pg, base, check):
     """감사 이력 조회 필터(v1.5.331) — 감사관이 행위자·행위·기간·검색어로 좁혀 증적을 찾고 그 조회분을 export 로
     내려받는다. 화면·export 가 filterAuditLogs 단일 원천 공유(같은 필터→같은 행). 데이터 3건(김현우 결재승인 08-01·
@@ -3547,6 +3573,8 @@ SCENARIOS = [
     ('incident_audit', '장애 등록·조치 감사 이력 — 행위자 추적(§VI, 인프라 형제 화면 정합)', sc_incident_audit, {}),
     ('audit_search', '감사 이력 조회 필터 — 행위자·행위·기간·검색어, 화면=export 단일 원천', sc_audit_search,
      {'PORTAL_DATA_FILE': str(AUDITF_DATA)}),
+    ('multistage_approver_trace', '다단 중간 승인자 추적성 — 승인 후 처리한 결재·상세 열람 유지(§VI, B1)', sc_multistage_approver_trace,
+     {'PORTAL_DATA_FILE': str(MSTAGE_DATA)}),
     ('search_coverage', '통합 검색 커버리지 — 전자결재(신원 스코핑)·위험·정책 편입, 무관 결재 유출 차단', sc_search_coverage,
      {'PORTAL_DATA_FILE': str(SRCH_DATA)}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
@@ -3925,6 +3953,11 @@ def main() -> int:
         'investContracts': [{'id': 'CT-2026-90', 'kind': '투자', 'planId': 'IP-2026-90', 'vendor': '테스트벤더', 'title': '경계 계약', 'amount': 1004, 'signedAt': '2026-07-01'}],
         'settlements': [{'id': 'ST-2026-90', 'contractId': 'CT-2026-90', 'item': '착수금', 'amount': 1004, 'status': '지급완료', 'requestedBy': '김현우', 'requestedAt': '2026-07-05'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 다단 중간 승인자 추적성(v1.5.347, B1) — 점검결과 상신(2단: 이수진 1차 → 시스템관리자 2차) 대기 1건.
+    MSTAGE_DATA.write_text(json.dumps({'approvals': [
+        {'id': 'AP-MS-1', 'docType': '점검결과 상신', 'title': '점검결과 다단테스트 상신', 'drafter': '박정호', 'dept': 'IT운영팀',
+         'approver': '이수진', 'status': '대기', 'draftedAt': '2026-08-01', 'ref': 'IR-MS-1', 'queue': ['시스템관리자']},
+    ]}, ensure_ascii=False), encoding='utf-8')
     # 다가오는 컴플라이언스 일정(v1.5.339) — 정책 재검토(D~26)·복구훈련(D~42)·위험 조치기한(D~61) 도래분 + 경과 위험 1건.
     # 오늘(~2026-08-20) 기준 90일 창 내 도래분만 카드에 뜨고, 경과분(2026-06)은 제외돼야 한다.
     CSCHED_DATA.write_text(json.dumps({
@@ -4130,6 +4163,7 @@ def main() -> int:
     AUDITF_DATA.unlink(missing_ok=True)
     SRCH_DATA.unlink(missing_ok=True)
     CSCHED_DATA.unlink(missing_ok=True)
+    MSTAGE_DATA.unlink(missing_ok=True)
     RMGHOST_DATA.unlink(missing_ok=True)
     AFDEFEAT_DATA.unlink(missing_ok=True)
     QNAROLE_DATA.unlink(missing_ok=True)

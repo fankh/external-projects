@@ -35,6 +35,9 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
     audit(me.name, '결재 승인', `${ap.id} ${ap.docType} — ${ap.title} (중간 승인 → ${next} 회부)`)
     const myTodo = s.todos.find((t) => t.owner === me.name && t.kind === '결재' && t.title.startsWith(`${id} `) && !t.done)
     if (myTodo) myTodo.done = true
+    // 중간 승인자 이력 기록 — approver 를 next 로 덮기 전에 이 단계 결재자를 남긴다(§VI 추적성, B1).
+    // 이후 이 결재자는 inbox·상세에서 자기가 처리한 결재를 계속 볼 수 있다(현재 approver 가 아니어도).
+    ap.approvedBy = [...(Array.isArray(ap.approvedBy) ? ap.approvedBy : []), me.name]
     ap.approver = next
     s.todos.unshift({
       id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
