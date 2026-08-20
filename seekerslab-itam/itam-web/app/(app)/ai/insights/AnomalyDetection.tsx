@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, RiskChip, Stat } from '@/components/ui'
 import { buildAnomalies } from '@/lib/anomaly'
 
-const KIND_TONE = { '미인가 SW 설치': 'err', '유휴 자산 사용': 'warn', 'USB 대용량 반출': 'err' } as const
+const KIND_TONE = { '미인가 SW 설치': 'err', '유휴 자산 사용': 'warn', '서버 비정상 외부 통신': 'err', 'USB 대용량 반출': 'err' } as const
 
 /** 이상 자산 행위 탐지 — 프로파일 대비 이탈(설치 SW·상태·데이터 반출)(§05 AI 기능 02). 읽기 전용 합성 뷰. */
 export function AnomalyDetection() {
@@ -51,9 +51,9 @@ export function AnomalyDetection() {
         <div className="dim" style={{ margin: 14, fontSize: 11.5 }}>… 외 {items.length - top.length}건 (심각도 내림차순)</div>
       )}
       <div className="callout" style={{ margin: 14 }}>
-        <b>행위 이탈 관점.</b> 취약점 우선순위(노출도)와 달리, 자산별 평시 프로파일(설치 SW·상태·데이터 반출 패턴) 대비
-        이탈을 모읍니다 — 미인가 SW 설치, 유휴(휴면) 자산의 갑작스런 사용, 이상 데이터 반출. 각 항목은 해당 조치 화면
-        (발견 자산·재물조사)으로 연결되며, 판정·조치는 기존 폐쇄 루프를 따릅니다.
+        <b>행위 이탈 관점.</b> 취약점 우선순위(노출도)와 달리, 자산별 평시 프로파일(설치 SW·상태·외부 통신·데이터 반출 패턴) 대비
+        이탈을 모읍니다 — 미인가 SW 설치, 유휴(휴면) 자산의 갑작스런 사용, 서버의 비정상 외부 통신, 이상 데이터 반출. 각 항목은 해당 조치 화면
+        (발견 자산·재물조사·분석 제안)으로 연결되며, 판정·조치는 기존 폐쇄 루프를 따릅니다.
       </div>
     </Card>
   )

@@ -4,7 +4,7 @@
 import { getStore } from './store'
 import type { RiskLevel } from './types'
 
-export type AnomalyKind = '미인가 SW 설치' | '유휴 자산 사용' | 'USB 대용량 반출'
+export type AnomalyKind = '미인가 SW 설치' | '유휴 자산 사용' | '서버 비정상 외부 통신' | 'USB 대용량 반출'
 
 export interface AnomalyItem {
   id: string
@@ -40,12 +40,19 @@ export function buildAnomalies(): AnomalyResult {
     items.push({ id: `AN-${d.id}`, kind: '유휴 자산 사용', target: d.assetNo, detail: `대장 '${d.expected}' / 실사 '${d.actual}'`, severity: '높음', basis: `재물조사 실사 상태 이탈 · ${d.roundId}`, href: '/inventory/survey' })
   }
 
-  // 3) USB 대용량 반출 — 정상 사용 패턴 대비 이상 데이터 반출(EDR 장치 제어·DLP). 미조치분.
+  // 3) 서버 비정상 외부 통신 — 평시(내부 통신) 프로파일 대비 외부 아웃바운드 이탈(C2 의심). §05 기능02가 명시한 세 번째 행위.
+  //    AI 비지도 이상탐지가 직접 산출한 '이상탐지' 제안을 행위 뷰에 집약한다(반려=오탐은 제외). 제안→확인 루프는 /ai/insights.
+  for (const n of s.insights.filter((x) => x.kind === '이상탐지' && x.status !== '반려')) {
+    const tgt = n.refId ?? (n.title.includes('—') ? n.title.split('—').pop()!.trim() : n.title)
+    items.push({ id: `AN-${n.id}`, kind: '서버 비정상 외부 통신', target: tgt, detail: n.title.split('—')[0].trim(), severity: n.severity, basis: `AI 비지도 이상탐지 · 평시 프로파일 이탈 · ${n.evidence}`, href: '/ai/insights' })
+  }
+
+  // 4) USB 대용량 반출 — 정상 사용 패턴 대비 이상 데이터 반출(EDR 장치 제어·DLP). 미조치분.
   for (const u of s.usbFindings.filter((x) => !x.action && x.kind === '대용량 반출 의심')) {
     items.push({ id: `AN-${u.id}`, kind: 'USB 대용량 반출', target: u.assetNo, detail: `${u.device}${u.note ? ` · ${u.note}` : ''}`, severity: u.risk, basis: `EDR 장치 제어 로그 이탈 · 최초 ${u.firstSeen}`, href: '/discovery/found' })
   }
 
   items.sort((a, b) => W[b.severity] - W[a.severity] || a.kind.localeCompare(b.kind))
-  const KINDS: AnomalyKind[] = ['미인가 SW 설치', '유휴 자산 사용', 'USB 대용량 반출']
+  const KINDS: AnomalyKind[] = ['미인가 SW 설치', '유휴 자산 사용', '서버 비정상 외부 통신', 'USB 대용량 반출']
   return { items, byKind: KINDS.map((kind) => ({ kind, count: items.filter((i) => i.kind === kind).length })) }
 }
