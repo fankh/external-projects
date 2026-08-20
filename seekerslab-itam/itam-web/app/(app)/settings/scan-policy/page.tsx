@@ -23,7 +23,7 @@ export default async function ScanPolicyPage() {
         <Stat value={`${on.length}/${s.scanPolicies.length}`} label="활성 탐지 채널" tone="ok" />
         <Stat value={active.length} label="능동 스캔 채널" tone="warn" delta={{ text: '시간대·강도 정책 적용 대상', dir: 'flat' }} />
         <Stat value={s.scanPolicies.filter((p) => p.enabled && p.kind !== '능동').length} label="무중단 수집 채널" delta={{ text: '패시브 · API · 로그', dir: 'flat' }} />
-        <Stat value={s.discovered.length} label="현재 발견 자산" tone="accent" />
+        <Stat value={s.discovered.length} label="현재 발견 자산" tone="accent" href="/discovery/found" />
       </div>
 
       <div className="callout warn">
