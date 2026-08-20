@@ -732,7 +732,7 @@ try {
   await p2.waitForTimeout(700)
   const replBody = (await p2.locator('body').textContent()) || ''
   ok('교체 검토 통보: 발송 성공(소유 부서 교체 검토 요청·발송 이력)', replBody.includes('교체 검토 통보') && replBody.includes('발송'))
-  // 위험 신호 요약(#4107 신규 역량 — 자산별 복합 위험 트리아지) — 대장 필터로 흩어진 주의 신호(취약·EOL·보증·점검·SPOF·교체·미실측)를 자산 도시어 한 곳에 집약, 2+ 이면 복합 위험(우선 조치). 각 필터 셋 단일 소스 재사용.
+  // 위험 신호 요약(#4107 신규 역량 — 자산별 복합 위험 트리아지) — 대장 필터로 흩어진 주의 신호(정합성·EOL·보증·점검·SPOF·교체·미실측)를 자산 도시어 한 곳에 집약, 2+ 이면 복합 위험(우선 조치). 각 필터 셋 단일 소스 재사용.
   //  AST-2021-000432(유휴·Win10 EOL·내용연수/보증 경과 교체 대상)는 EOL+교체 등 2+ 신호 → 복합 위험.
   await p2.goto(`${BASE}/assets/register?sel=AST-2021-000432`, { waitUntil: 'networkidle' })
   const riskBody = (await p2.locator('body').textContent()) || ''
