@@ -241,6 +241,8 @@ async function aiPeriodQuery(page) {
   // 운영 리스크 답변↔링크 정합 — '장기 미실측 필터' 링크가 실제 ?stale=1 로 연결(그전엔 bare /assets/register 로 전체 대장). 분실 링크도 ?status=분실.
   const rRisk = await ask('운영 리스크 자산 알려줘')
   ok('AI 운영리스크질의: 분실·미실측·연체·수리 요약', rRisk.includes('운영 리스크 자산 현황') && rRisk.includes('장기 미실측'))
+  // 인라인 답변 ↔ 자산 운영 리스크 리포트 정합 — 리포트에 있는 수령 미확인(체인 오브 커스터디)이 인라인 답변에도 포함돼야 한다(단일 소스·같은 집합).
+  ok('AI 운영리스크질의: 수령 미확인 포함(리포트와 같은 집합)', rRisk.includes('수령 미확인'))
   ok('AI 운영리스크질의: 장기 미실측 링크가 ?stale=1 로 연결(전체 대장 아님)', (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?stale=1"]').count()) > 0)
   // 취약점 우선순위·이상 탐지 인라인 질의(AI 기능 04·02) — 컴퓨티드 산출을 자연어로 조회(리포트 생성과 별개)
   const rv = await ask('취약점 조치 우선순위 알려줘')
