@@ -331,6 +331,14 @@ async function aiPeriodQuery(page) {
   const riskId = decodeURIComponent((riskHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const riskText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(riskId)}?format=xlsx`)).body()).toString('utf8')
   ok('리포트 반출: 자산 운영 리스크 xlsx 에 5개 리스크 섹션 실린다', riskText.includes('분실·도난 자산') && riskText.includes('장기 미실측') && riskText.includes('대여 반환 연체') && riskText.includes('수리 지연') && riskText.includes('수령 미확인'))
+  // 복합 위험 자산 리포트(신규 역량) — 정합성·EOL·보증·정기점검·SPOF·교체·미실측 중 2+ 신호가 겹치는 자산을 결재·감사 첨부용으로 반출.
+  //  lib/risk 단일 소스(대장 ?risk=1 필터·대시보드 복합 위험 큐와 같은 판정). 생성 인텐트가 '복합 위험'으로 신규 종류를 매칭(운영 리스크와 구분).
+  const rCompRisk = await ask('복합 위험 자산 리포트 생성해줘')
+  ok('AI 복합위험질의: 복합 위험 자산 리포트 생성 분기(운영 리스크와 구분)', rCompRisk.includes('리포트를 생성했습니다') && rCompRisk.includes('복합 위험 자산'))
+  const crHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const crId = decodeURIComponent((crHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const crText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(crId)}?format=xlsx`)).body()).toString('utf8')
+  ok('리포트 반출: 복합 위험 자산 xlsx 에 중첩 신호·신호별 빈도·부서별 분포 섹션 실린다', crText.includes('복합 위험 자산 (주의 신호 2개 이상 중첩)') && crText.includes('신호별 출현 빈도') && crText.includes('부서별 분포') && crText.includes('중첩 신호'))
   // 부서별 IT 비용 배분(차지백) 리포트 — 자연어 생성 인텐트가 신규 종류를 매칭하고, buildSections 가 부서별 원가·좌석 비용 섹션을 실제 산출.
   const r4 = await ask('부서별 IT 비용 배분 리포트 생성해줘')
   ok('AI 차지백질의: 부서별 IT 비용 배분 생성 분기', r4.includes('리포트를 생성했습니다'))

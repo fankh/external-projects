@@ -14,6 +14,9 @@ import { getStore } from './store'
 import { buildVulnPriority } from './vuln-priority'
 import { buildAnomalies } from './anomaly'
 import { criticalDependencies, impactSources } from './cmdb'
+// 복합 위험 단일 소스 — risk.ts 는 이 파일의 replacementCandidates 를 참조하므로 상호 import 이나
+// 양쪽 모두 함수 본문에서만 서로를 호출(모듈 최상위 미참조)해 순환이 안전하다.
+import { compositeRiskAssetNos, riskSignals } from './risk'
 import type { Sheet } from './xlsx'
 import type { ReportKind, ReportSchedule, ReportSection, SaasUsage } from './types'
 
@@ -76,6 +79,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '라이선스 갱신·트루업 계획', period: '수시', desc: '만료 임박 라이선스의 예상 갱신액·트루업 권고(초과=추가 구매·미사용=감축 갱신·근거 계약 해지=재계약)·갱신 예산 및 좌석 감축 절감을 선제 계획(컴플라이언스 리포트의 시점 감사와 달리 전방 예측)' },
   { kind: '단일 장애점·영향 분석', period: '수시', desc: 'CMDB 의존 그래프 기반 단일 장애점(SPOF)·영향 범위(blast radius) 분석 — 장애 시 전이 영향이 큰 자산, 현재 저하 상태로 하위에 위험을 주는 상위 자산, 이중화 우선순위 근거' },
   { kind: '자산 운영 리스크', period: '수시', desc: '분실·도난, 장기 미실측(유령 자산 후보), 대여 반환 연체, 수리 지연, 수령 미확인을 한 문서로 집약한 운영 리스크 현황 — 대시보드 운영 큐와 같은 판정, 항목별 조치(회수·재물조사·독촉) 연결' },
+  { kind: '복합 위험 자산', period: '수시', desc: '정합성 이슈·EOL OS·보증 임박·정기 점검 도래·단일 장애점(SPOF)·교체 대상·장기 미실측 중 2개 이상이 겹치는 자산 — 신호가 중첩된 우선 조치 대상을 자산별 신호 조합·부서별 분포로 집약(대장 ?risk=1 필터·대시보드 복합 위험 큐와 같은 판정)' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -806,6 +810,59 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '복합 위험 자산') {
+    // 정합성·EOL·보증·정기점검·SPOF·교체·미실측 중 2+ 신호가 겹치는 자산 — 대장 ?risk=1 필터·대시보드 복합 위험 큐와
+    //  같은 판정(lib/risk 단일 소스). '자산 운영 리스크'(분실·연체 등 보유상태)와 달리 기술·수명주기 신호의 중첩을 본다.
+    const t = today()
+    const liveR = s.assets.filter((a) => a.status !== '폐기완료')
+    const riskNos = new Set(compositeRiskAssetNos(liveR))
+    const rows = liveR
+      .map((a) => ({ a, sigs: riskSignals(a) }))
+      .filter((x) => riskNos.has(x.a.assetNo))
+      .sort((x, y) => y.sigs.length - x.sigs.length)
+    // 신호별 출현 빈도 — 복합 위험 자산에서 어떤 신호가 가장 자주 겹치는지(선제 개선 포인트)
+    const SIGNALS = ['정합성 이슈', 'EOL OS', '보증 임박', '정기 점검 도래', '단일 장애점', '교체 대상', '장기 미실측']
+    const freq = SIGNALS.map((sig) => [sig, String(rows.filter((x) => x.sigs.includes(sig)).length)]).filter((r) => r[1] !== '0')
+    // 부서별 분포
+    const byDept = [...new Set(rows.map((x) => x.a.dept || '미지정'))]
+      .map((d) => ({ d, n: rows.filter((x) => (x.a.dept || '미지정') === d).length }))
+      .sort((p, q) => q.n - p.n)
+    const three = rows.filter((x) => x.sigs.length >= 3).length
+    return [
+      {
+        title: '복합 위험 자산 (주의 신호 2개 이상 중첩)',
+        note: rows.length === 0
+          ? `운영 자산 ${liveR.length}건 중 복합 위험 없음 — 신호가 2개 이상 겹치는 자산이 없습니다`
+          : `운영 자산 ${liveR.length}건 중 복합 위험 ${rows.length}건 (신호 3개 이상 ${three}건) — 신호 수 내림차순`,
+        columns: ['자산번호', '유형', '모델', '소유자 · 부서', '신호 수', '중첩 신호'],
+        rows: rows.length
+          ? rows.map((x) => [x.a.assetNo, x.a.category, x.a.model, `${x.a.owner} · ${x.a.dept}`, String(x.sigs.length), x.sigs.join(', ')])
+          : [['-', '-', '-', '-', '-', '해당 없음']],
+      },
+      {
+        title: '신호별 출현 빈도 (선제 개선 포인트)',
+        note: '복합 위험 자산에서 자주 겹치는 신호 — 근본 원인을 먼저 줄이면 복합 위험이 함께 낮아진다',
+        columns: ['위험 신호', '해당 자산'],
+        rows: freq.length ? freq : [['-', '해당 없음']],
+      },
+      {
+        title: '부서별 분포',
+        columns: ['부서', '복합 위험 자산'],
+        rows: byDept.length ? byDept.map((x) => [x.d, String(x.n)]) : [['-', '해당 없음']],
+      },
+      {
+        title: '종합 · 조치 권고',
+        bullets: rows.length === 0
+          ? ['복합 위험(주의 신호 2개 이상 중첩) 자산이 없습니다. 단일 신호는 각 화면(교체 대상·보증 임박·정기 점검 등)에서 개별 관리하십시오.']
+          : [
+              `복합 위험 총 ${rows.length}건 — 신호 3개 이상 ${three}건을 최우선 조치 대상으로 봅니다.`,
+              '신호가 중첩된 자산은 단일 조치로 여러 위험을 동시에 해소할 수 있어(예: 교체 시 EOL·보증·정기 점검 동시 해소) 우선순위가 높습니다.',
+              '대장 복합 위험 필터(?risk=1)·대시보드 복합 위험 큐에서 자산별 조치 화면(교체 검토·재물조사 편성·정합성 보정)으로 연결됩니다.',
+            ],
+      },
+    ]
+  }
+
   // 감사 대응 자료
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
@@ -913,6 +970,15 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const repairLateN = s.assets.filter((a) => a.status === '수리중' && isRepairOverdue(a)).length
     const receiptN = s.assets.filter((a) => a.receiptPending && a.status === '사용중').length
     return `자산 운영 리스크는 총 ${lostN + staleN + overdueN + repairLateN + receiptN}건입니다 — 분실·도난 ${lostN}건, 장기 미실측 ${staleN}건, 대여 반환 연체 ${overdueN}건, 수리 지연 ${repairLateN}건, 수령 미확인 ${receiptN}건. 각각 회수·폐기, 재물조사 편성, 반환 독촉, 업체 독촉, 수령 확인 독촉으로 조치가 필요합니다.`
+  }
+  if (kind === '복합 위험 자산') {
+    const liveH = s.assets.filter((a) => a.status !== '폐기완료')
+    const riskH = new Set(compositeRiskAssetNos(liveH))
+    const rowsH = liveH.map((a) => riskSignals(a)).filter((sig, i) => riskH.has(liveH[i].assetNo))
+    const threeH = rowsH.filter((sig) => sig.length >= 3).length
+    return rowsH.length === 0
+      ? `복합 위험(주의 신호 2개 이상 중첩) 자산이 없습니다. 단일 신호 자산은 교체 대상·보증 임박·정기 점검 등 각 화면에서 개별 관리하십시오.`
+      : `복합 위험 자산은 ${rowsH.length}건입니다 — 정합성·EOL·보증·정기 점검·단일 장애점·교체·미실측 중 2개 이상이 겹칩니다. 신호 3개 이상 ${threeH}건이 최우선 조치 대상이며, 중첩 자산은 단일 조치(예: 교체)로 여러 위험을 동시에 해소할 수 있어 우선순위가 높습니다.`
   }
   if (kind === '단일 장애점·영향 분석') {
     const spofH = criticalDependencies()
