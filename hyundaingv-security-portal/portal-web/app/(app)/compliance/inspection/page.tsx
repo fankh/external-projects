@@ -102,6 +102,26 @@ async function addPlan(formData: FormData) {
   revalidatePath('/compliance/inspection')
 }
 
+/** 전년 불러오기 (요구사항 62행·제품안내서 IV장 '점검계획 — 전년 불러오기') — 연간 점검계획은 해마다 대동소이하므로
+ *  최신 연도 계획을 다음 해로 복제해 초안을 만든다. 월은 그대로(연도만 +1), 상태는 '계획'으로 리셋(결과·결재 제외).
+ *  다음 해 계획이 이미 있으면 재이월하지 않는다(더블클릭·재실행 중복 방지, addPlan 과 같은 계열의 idempotent 가드). */
+async function carryOverPlans() {
+  'use server'
+  await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
+  const s = getStore()
+  const years = s.inspectionPlans.map((p) => String(p.month).slice(0, 4)).filter((y) => /^\d{4}$/.test(y))
+  if (years.length === 0) return
+  const srcYear = years.reduce((a, b) => (a > b ? a : b))       // 최신 연도 = 새 계획의 '전년'
+  const newYear = String(Number(srcYear) + 1)
+  if (s.inspectionPlans.some((p) => String(p.month).startsWith(newYear))) return  // 이미 이월됨 — 중복 방지
+  const src = s.inspectionPlans.filter((p) => String(p.month).startsWith(srcYear))
+  for (const p of src) {
+    const id = nextNo('IS', newYear, s.inspectionPlans.map((x) => x.id))
+    s.inspectionPlans.unshift({ id, itemId: p.itemId, target: p.target, month: `${newYear}-${String(p.month).slice(5, 7)}`, inspector: p.inspector, teamLead: p.teamLead, status: '계획' })
+  }
+  revalidatePath('/compliance/inspection')
+}
+
 async function registerResult(formData: FormData) {
   'use server'
   const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
@@ -301,7 +321,12 @@ export default async function InspectionPage() {
       </Card>
 
       <div className="cols c2">
-        <Card title="점검계획 수립">
+        <Card title="점검계획 수립"
+          actions={
+            <form action={carryOverPlans}>
+              <button type="submit" className="btn sm" title="최신 연도 점검계획을 다음 해로 복제해 초안 생성 (연도만 +1, 상태 계획으로 리셋)">전년 불러오기</button>
+            </form>
+          }>
           {/* 컨트롤 4개를 한 줄에 두면 c2 그리드 반폭에서 카드를 넘쳐 옆 카드 sticky 헤더에 가려진다 — 2행으로 나눈다 */}
           <form action={addPlan} className="vstack" style={{ gap: 7 }}>
             <select aria-label="점검 항목" className="select" name="itemId" required style={{ width: '100%' }}>
@@ -322,7 +347,7 @@ export default async function InspectionPage() {
             </div>
           </form>
           <div className="dim" style={{ fontSize: 11.5, marginTop: 8 }}>
-            항목·주기는 기준관리(Template)에서 온다 — 전년 자료 복사·엑셀 업로드는 이후 버전.
+            항목·주기는 기준관리(Template)에서 온다 — 전년 계획은 상단 '전년 불러오기'로 복제(엑셀 업로드는 이후 버전).
           </div>
         </Card>
 
