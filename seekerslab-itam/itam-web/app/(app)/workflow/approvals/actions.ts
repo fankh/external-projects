@@ -433,7 +433,8 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     // 라이선스 조치 품의 승인 — 초과는 추가 구매로 보유↑, 미사용은 회수로 보유↓ → 보유=사용(대사 적정)
     if (a.kind === '자산 신청' && a.refId.startsWith('LIC-') && verdict === '승인') {
       const lic = s.licenses.find((l) => l.id === a.refId)
-      if (lic) lic.purchased = lic.used
+      // 회수(석 감축) 스테일 방어 — 상신 후 used 가 0 으로 떨어졌으면(전량 좌석 회수 등) purchased 를 0 으로 만들지 않는다(0/0=NaN·컴플라이언스 오분류 방지). 전량 미사용은 해지 대상.
+      if (lic && lic.used > 0) lic.purchased = lic.used
       // 라이선스 조치 품의는 물리 자산 불출 대상이 아니다 — 승인 즉시 집행 완료로 표시해
       // 불출 대기 큐(movement·returns·대시보드 issueDue, 모두 !fulfilled 기준)로 새지 않게 한다.
       a.fulfilled = true
