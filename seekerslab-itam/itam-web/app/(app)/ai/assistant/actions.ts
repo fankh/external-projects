@@ -587,6 +587,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const overdue = s.assets.filter(isLoanOverdue)
     const repairing = s.assets.filter((a) => a.status === '수리중')
     const repairLate = s.assets.filter(isRepairOverdue)
+    const receiptPend = s.assets.filter((a) => a.receiptPending && a.status === '사용중')
     const sec = (label: string, arr: typeof lost, fmt: (a: (typeof lost)[number]) => string) =>
       `· ${label}: ${arr.length}건${arr.length ? `\n${arr.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}`
     return {
@@ -596,10 +597,12 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         sec('장기 미실측(유령 후보)', stale, (a) => `${a.assetNo} — ${a.model} · 최근 실측 ${a.lastVerifiedAt ?? '없음'}`),
         sec('대여 반환 연체', overdue, (a) => `${a.assetNo} — ${a.model} · ${a.owner} (기한 ${a.loanDueDate})`),
         sec(`수리중 (예상 반환 경과 ${repairLate.length}건)`, repairing, (a) => `${a.assetNo} — ${a.model}${a.repair ? ` · ${a.repair.vendor}${a.repair.eta ? ` (예상반환 ${a.repair.eta}${isRepairOverdue(a) ? ' · 지연' : ''})` : ''}` : ' · 의뢰 전'}`),
-      ].join('\n\n')}\n\n분실은 회수·폐기 확정, 장기 미실측은 수시 재물조사 편성, 대여 연체는 반환 독촉, 수리 지연은 업체 독촉으로 처리합니다.`,
+        sec('수령 미확인(불출 후 인수 대기)', receiptPend, (a) => `${a.assetNo} — ${a.model} · ${a.owner} (${a.dept})`),
+      ].join('\n\n')}\n\n분실은 회수·폐기 확정, 장기 미실측은 수시 재물조사 편성, 대여 연체는 반환 독촉, 수리 지연은 업체 독촉, 수령 미확인은 수령 확인 독촉으로 처리합니다.`,
       evidence: [
         { label: '자산 대장 (장기 미실측 필터)', href: '/assets/register?stale=1' },
         { label: '자산 대장 (분실·도난)', href: '/assets/register?status=분실' },
+        { label: '자산 대장 (수령 미확인)', href: '/assets/register?receipt=1' },
         { label: '재물조사 계획', href: '/inventory/survey-plan' },
       ],
     }
