@@ -755,6 +755,30 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 )}
                 {ctMsg && <div className="mut" style={{ fontSize: 11, marginTop: 3 }}>{ctMsg}</div>}
               </dd>
+              {(() => {
+                // 위험 신호 요약 — 대장 필터로 흩어진 자산별 주의 신호(취약·EOL·보증·점검·SPOF·교체·미실측)를 이 자산 관점에서 한 곳에 모아 트리아지를 돕는다.
+                //  각 필터 셋(단일 소스)을 재사용해 임계값을 재계산하지 않는다. 2개 이상이면 '복합 위험'으로 우선 조치 대상.
+                const risks = [
+                  dqSet.has(sel.assetNo) && '취약점',
+                  eolSet.has(sel.assetNo) && 'EOL OS',
+                  warrantySet.has(sel.assetNo) && '보증 임박',
+                  maintSet.has(sel.assetNo) && '정기 점검 도래',
+                  spofSet.has(sel.assetNo) && '단일 장애점',
+                  replaceSet.has(sel.assetNo) && '교체 대상',
+                  staleSet.has(sel.assetNo) && '장기 미실측',
+                ].filter(Boolean) as string[]
+                if (risks.length === 0) return null
+                const multi = risks.length >= 2
+                return (
+                  <>
+                    <dt>위험 신호 <span className="dim" style={{ fontWeight: 400 }}>({risks.length})</span></dt>
+                    <dd className="hstack" style={{ gap: 4, flexWrap: 'wrap' }}>
+                      {risks.map((r) => <Chip key={r} tone={multi ? 'err' : 'warn'} bare>{r}</Chip>)}
+                      {multi && <span className="mut" style={{ fontSize: 11 }}>복합 위험 — 우선 조치 검토</span>}
+                    </dd>
+                  </>
+                )
+              })()}
               {(props.licenseSeatsByAsset?.[sel.assetNo]?.length ?? 0) > 0 && (
                 <>
                   {/* 배정 라이선스 — 라이선스 좌석 배정(로56)을 자산 관점에서 역조회. 오프보딩·감사 시 이 자산에 물린 SW 라이선스(회수·재배정 대상)를 한눈에. */}
