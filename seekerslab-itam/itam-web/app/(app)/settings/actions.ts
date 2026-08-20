@@ -8,7 +8,8 @@ import { getSession } from '@/lib/session'
 import { decideSaasStatus } from '@/lib/saas'
 import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
 import { getStore, nextId } from '@/lib/store'
-import { SCAN_INTERVALS, type Channel, type SaasCatalogEntry } from '@/lib/types'
+import { PERM_ACTIONS } from '@/lib/perm'
+import { SCAN_INTERVALS, type Channel, type PermAction, type SaasCatalogEntry } from '@/lib/types'
 
 /** 정책 변경은 전량 추적 (§07 감사) — 적재는 lib/audit 로 일원화 */
 const audit = appendAdminAudit
@@ -35,6 +36,25 @@ export async function toggleScanChannel(channel: Channel) {
   p.enabled = !p.enabled
   audit(session.name, `탐지 채널 ${p.enabled ? '활성화' : '비활성화'}`, channel)
   revalidatePath('/', 'layout')
+}
+
+/** STEP2 기능 부여/회수 — 화면이 선언하는 기능(menuDefs.actions)을 편집한다. 부여하면 권한 매트릭스에서
+ *  그 (화면×기능) 셀이 편집 가능해지고(na 해소), 회수하면 na 로 잠긴다. 서버 강제 기능(enforced)은
+ *  코드 바인딩이라 회수 불가. can() 은 매트릭스 셀만 읽으므로(menuDefs.actions 비참조) 이 편집은 매트릭스
+ *  가용성만 바꾸는 선언 편집이며 접근 상승 경로를 만들지 않는다 — 실제 접근은 매트릭스+코드가 결정(§02). Admin 전용. */
+export async function toggleMenuAction(code: string, action: PermAction) {
+  const session = await requireAdmin()
+  if (!session) return { ok: false, message: '메뉴·기능 관리는 Admin 만 가능합니다.' }
+  const s = getStore()
+  const def = s.menuDefs.find((d) => d.code === code)
+  if (!def) return { ok: false, message: '화면 정의를 찾을 수 없습니다.' }
+  if (def.enforced.includes(action)) return { ok: false, message: `'${action}'은 서버가 직접 강제하는 기능이라 회수할 수 없습니다 (코드 바인딩·API 403).` }
+  const has = def.actions.includes(action)
+  // PERM_ACTIONS 순서 유지 — 매트릭스 열 순서와 일치하도록 부여 시 정렬 삽입
+  def.actions = has ? def.actions.filter((a) => a !== action) : PERM_ACTIONS.filter((a) => def.actions.includes(a) || a === action)
+  audit(session.name, `메뉴 기능 ${has ? '회수' : '부여'} — ${def.menu} × ${action}`, code)
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${def.menu} · '${action}' 기능 ${has ? '회수(매트릭스 na 잠금)' : '부여(매트릭스 편집 가능)'}` }
 }
 
 /** 스캔 강도 조정 — 능동 스캔의 운영망 영향 통제 (스캔 안전장치) */
