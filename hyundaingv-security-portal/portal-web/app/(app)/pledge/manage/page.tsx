@@ -84,12 +84,15 @@ async function reviseForm(formData: FormData) {
 /** 스캔본 업로드 — 그룹웨어 계정이 없는 재직자의 서면 서약을 대리 등록 (부서현황에 자동 반영) */
 async function uploadScan(formData: FormData) {
   'use server'
-  await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '')
   const s = getStore()
   const person = s.people.find((p) => p.name === name)
   if (!person || !unsignedOf(s).some((p) => p.name === name)) return
   s.pledges.push({ name: person.name, dept: person.dept, year: currentYear(), kind: '일반', signedAt: nowStampSec(), method: '서면(스캔)' })
+  // 이력추적성(§VI) — 서면 서약 대리등록은 담당자가 타 재직자의 서약률(컴플라이언스 지표)을 올리는 대리 행위이고,
+  // 서약 레코드에 등록자 필드가 없어 '누가 대리등록했나'의 유일 추적 지점이 감사 로그다(협력업체 서약 징구와 동일 정책).
+  audit(me.name, '보안서약 대리등록', `${person.name}(${person.dept}) 서면(스캔) — ${currentYear()}년 일반 보안서약`)
   const todo = s.todos.find((t) => t.owner === name && t.kind === '보안서약서' && t.title.includes('일반 보안서약서') && !t.done)
   if (todo) todo.done = true
   revalidatePath('/', 'layout')

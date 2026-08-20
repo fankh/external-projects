@@ -1722,6 +1722,14 @@ def sc_education_todo_exact(pg, base, check):
     check('상반기 정보보호 교육' in pg.locator('.card', has_text='미처리 할일').inner_text(),
           '콜리전 과정 이수가 상반기 교육 할일을 오마감하지 않음(앵커드-클로즈)')
 
+    # 이수 대리등록 추적성(§VI) — 담당자(박정호)가 타 인원(김현우) 이수를 대리등록한 사실이 감사 로그에 남는가.
+    # 이수 레코드에 등록자 필드가 없어 감사 로그가 유일 추적점(보안서약 대리등록과 동일 정책). 무-로깅이면 이 행이 없다.
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    erow = pg.locator('tr', has_text='교육 이수 등록').first
+    check(erow.count() > 0 and '박정호' in erow.inner_text() and '김현우' in erow.inner_text(),
+          '교육 이수 대리등록 감사 기록 (등록자·대상)')
+
 
 def sc_autoform_upload_defeat(pg, base, check):
     """필수 자동양식 파일명충돌 우회(v1.5.91) — registerGenerated 중복판정이 '양식이름_v버전_' 접두 startsWith
@@ -2025,6 +2033,14 @@ def sc_revision(pg, base, check):
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
     check('7' in pg.locator('.stat', has_text='미서약').inner_text(), '스캔본 등록 → 미서약 감소')
+
+    # 대리등록 추적성(§VI) — 서면 서약 대리등록이 감사 로그에 등록자(박정호)·대상(강도윤)과 함께 남는가.
+    # 서약 레코드에 등록자 필드가 없어 감사 로그가 유일 추적점(협력업체 서약 징구와 동일 정책). 무-로깅이면 이 행이 없다.
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    row = pg.locator('tr', has_text='보안서약 대리등록').first
+    check(row.count() > 0 and '박정호' in row.inner_text() and '강도윤' in row.inner_text(),
+          '서면 서약 대리등록 감사 기록 (등록자·대상)')
 
 
 def sc_project_pledge(pg, base, check):

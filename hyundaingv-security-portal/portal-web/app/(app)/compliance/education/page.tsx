@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
+import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { eligibleForCourse, getStore, nextNo } from '@/lib/store'
@@ -37,12 +38,14 @@ async function registerAttendees(formData: FormData) {
   registerUpload(courseId, formData.get('file'), me.name)
 
   const eligibleNames = new Set(eligibleForCourse(s, course.target).map((p) => p.name))
+  const added: string[] = []
   for (const name of names) {
     const person = s.people.find((p) => p.name === name)
     // 과정 대상 스코프 밖 인원은 이수 기록 대상이 아니다 — 화면은 대상자만 체크박스로 노출하나 서버액션은
     // 임의 POST 가능하므로 재검증한다(비대상 기록이 들어가면 완료 확정·이수율이 왜곡된다, v1.5.51 단일 원천).
     if (!person || !eligibleNames.has(name) || s.educationRecords.some((r) => r.courseId === courseId && r.name === name)) continue
     s.educationRecords.push({ courseId, name: person.name, dept: person.dept, completedAt: today() })
+    added.push(person.name)
 
     // 폐쇄 루프 — 명단 등록이 '해당 과정의' 보안교육 할일을 닫는다. 유형만으로 닫으면 다른 과정을
     // 이수해도 무관한 과정의 교육 의무 할일이 닫혀 실제 미이수가 대시보드에서 숨는다(할일-이수 괴리).
@@ -55,6 +58,9 @@ async function registerAttendees(formData: FormData) {
   // 유효(대상) 이수자가 한 명도 없는 과정은 완료로 확정하지 않는다 — 대상 밖 기록만으론 완료가 되지 않게
   // 대상 스코프 이수자 존재를 확인한다(빈/왜곡 완료 과정이 이수율 집계를 흔드는 것을 방지).
   if (eligibleNames.size > 0 && s.educationRecords.some((r) => r.courseId === courseId && eligibleNames.has(r.name))) course.status = '완료'
+  // 이력추적성(§VI) — 이수 대리등록은 담당자가 타 인원의 이수율(컴플라이언스 지표)을 올리고 과정을 완료 확정하는
+  // 대리 행위이고, 이수 레코드에 등록자 필드가 없어 감사 로그가 '누가 등록했나'의 유일 추적 지점이다(보안서약 대리등록과 동일 정책).
+  if (added.length > 0) audit(me.name, '교육 이수 등록', `${course.id} ${course.title} — ${added.length}명 이수 등록 (${added.join(', ')})`)
   revalidatePath('/', 'layout')
 }
 
