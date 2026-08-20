@@ -511,7 +511,7 @@ def sc_risk_register(pg, base, check):
     pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
     check('등록된 위험이 없습니다' in pg.inner_text('body'), '초기 빈 위험관리대장')
     # 종합현황 export — 빈 위험 대장은 종결률 0% 아닌 '해당없음'(타 무분모 라인과 정합, 감사 0% 오독 방지)
-    csv = pg.request.get(f'{base}/api/export?type=compliance-summary').text()
+    csv = pg.request.get(f'{base}/api/export?fmt=csv&type=compliance-summary').text()
     riskline = csv.split('정보보호 위험평가')[1][:20] if '정보보호 위험평가' in csv else ''
     check('해당없음' in riskline, f'빈 위험 대장 종합현황 = 해당없음(0% 아님) (실제: {riskline!r})')
     card = pg.locator('.card', has_text='위험 등록')
@@ -657,7 +657,7 @@ def sc_policy_lifecycle(pg, base, check):
     reg = reload()
     check('경과' in reg.locator('tr', has_text='PL-2026-91').inner_text(), '재검토 예정일 경과 정책 = 경과 표시')
     # ISMS 종합현황 export 에 정책 라인 포함(위험 라인과 함께) — 관리체계 종합 근거 완결
-    csv = pg.request.get(f'{base}/api/export?type=compliance-summary').text()
+    csv = pg.request.get(f'{base}/api/export?fmt=csv&type=compliance-summary').text()
     check('정책·지침 관리' in csv and '재검토 경과 1건' in csv, '종합현황 export = 정책 재검토 경과 라인(시행 정책 1·경과 1)')
     # 재검토 완료 → 최근검토일 today 갱신 → nextReviewDue 미래 → 경과 해소(시계 리셋)
     reg.locator('tr', has_text='PL-2026-91').locator('button:has-text("재검토")').click()
@@ -1581,7 +1581,7 @@ def sc_security_review(pg, base, check):
     check('그룹웨어 웹 취약점 점검' in pg.content(), '전제: 조치중 검토(발견5·조치2)가 목록에 있음')
     check('고위험 2' in row_txt, f'고위험(심각+높음) 미조치 2 마커 표시 (실제 …{row_txt[-24:]})')
     # export(보안성검토 관리대장)도 화면 우선신호(고위험 미조치)를 담아야 한다 — ISMS 산출물 정합
-    csv_lines = pg.request.get(f'{base}/api/export?type=security-reviews').text().splitlines()
+    csv_lines = pg.request.get(f'{base}/api/export?fmt=csv&type=security-reviews').text().splitlines()
     hdr = csv_lines[0].lstrip('﻿').split(',') if csv_lines else []
     sec_row = next((l for l in csv_lines if l.startswith('SEC-2026-02,')), '')
     idx = hdr.index('고위험 미조치') if '고위험 미조치' in hdr else -1
@@ -1825,7 +1825,7 @@ def sc_project_emptymembers_signcount(pg, base, check):
           f"빈 명단 프로젝트도 참여서약 전원 집계 ([]를 미지정과 동일 취급; 버그면 0건; 실제 …{txt[-30:]})")
     # 화면-export 정합(v1.5.321) — PMO 대장 export 도 빈 명단을 화면과 동일 length 판정해야 한다.
     # 버그(bare `p.members ?`)면 []는 truthy 라 [].filter=0 을 내보내 화면(1)과 어긋난다. 참여 서약=CSV 5열(idx4).
-    csv = pg.context.request.get(f'{base}/api/export?type=projects').text()
+    csv = pg.context.request.get(f'{base}/api/export?fmt=csv&type=projects').text()
     line = next((l for l in csv.splitlines() if '빈명단집계테스트' in l), '')
     cols = line.split(',')
     check(len(cols) > 4 and cols[4] == '1',
@@ -2001,12 +2001,12 @@ def sc_compliance_schedule(pg, base, check):
           '정책 재검토·복구훈련·위험 조치기한 도래분 통합 표시')
     check('경과위험조치' not in ct, '경과분(due<today)은 다가오는 일정에서 제외(경과 신호가 담당)')
     # export 도 동일 산출(카드는 임박 8건, export 는 90일 창 전량) — 화면=export 단일 원천(upcomingComplianceItems)
-    csv = pg.context.request.get(f'{base}/api/export?type=compliance-schedule').text()
+    csv = pg.context.request.get(f'{base}/api/export?fmt=csv&type=compliance-schedule').text()
     check('다가오는정책재검토' in csv and '다가오는복구훈련' in csv and '다가오는위험조치' in csv and '경과위험조치' not in csv,
           'export 도 도래분 전량·경과분 제외(화면과 동일 필터)')
     # 권한 게이트 — 컴플라이언스 미접근 역할(USER)은 일정 export 403(카드 게이트와 동일, export 우회 차단)
     login(pg, base, '김현우')  # USER — 컴플라이언스 화면 미접근
-    r = pg.context.request.get(f'{base}/api/export?type=compliance-schedule')
+    r = pg.context.request.get(f'{base}/api/export?fmt=csv&type=compliance-schedule')
     check(r.status == 403, '컴플라이언스 미접근 역할(USER)은 일정 export 403(권한 정합)')
 
 
@@ -2197,6 +2197,28 @@ def sc_flash_invalid_month(pg, base, check):
     check('E2E무효월벤더' not in pg.content(), '무효월(2026-13) 속보는 서버가 거부 — 저장 안 됨(약한 정규식이면 저장돼 대조 실패)')
 
 
+def sc_export_xlsx(pg, base, check):
+    """엑셀 다운로드 네이티브 xlsx(요구사항 '엑셀 ◎', 로드맵 V장) — 기본 export 는 실제 .xlsx OOXML 워크북이고,
+    ?fmt=csv 는 같은 rows 의 CSV 를 준다(단일 rows 원천·포맷만 분기, 수치 드리프트 없음). 관리자(전 export 접근)로 검증.
+    수정 전(csvResponse 고정)이면 기본 export 가 text/csv 라 xlsx MIME 단언 실패."""
+    login(pg, base, '시스템관리자')  # ADMIN — 전 export 접근
+    # 기본(fmt 미지정) = 네이티브 xlsx 워크북
+    r = pg.request.get(f'{base}/api/export?type=systems')
+    ct = r.headers.get('content-type', '')
+    cd = r.headers.get('content-disposition', '')
+    body = r.body()
+    check(r.status == 200 and 'spreadsheetml.sheet' in ct, f'기본 export = 네이티브 xlsx MIME (실제 {ct[:45]})')
+    check('.xlsx' in cd, f'기본 export 파일명 .xlsx (실제 {cd[:60]})')
+    check(body[:2] == b'PK', 'xlsx 는 ZIP(PK) 매직으로 시작 — 유효 OOXML 패키지')
+    check(b'[Content_Types].xml' in body and b'xl/worksheets/sheet1.xml' in body, 'OOXML 필수 파트(Content_Types·worksheet) 포함')
+    # 무압축(STORED) 이라 셀 텍스트가 바이트에 평문 — 시트 rows 직렬화 검증
+    check('시스템'.encode('utf-8') in body, '시트 셀 텍스트(헤더 시스템)가 xlsx 바이트에 포함(rows 직렬화)')
+    # ?fmt=csv = 같은 데이터의 CSV (단일 rows 원천, 포맷만 분기)
+    rc = pg.request.get(f'{base}/api/export?fmt=csv&type=systems')
+    check('text/csv' in rc.headers.get('content-type', '') and '시스템' in rc.text(),
+          'fmt=csv 는 같은 rows 의 CSV(포맷 분기, 데이터 동일)')
+
+
 def sc_year_filter(pg, base, check):
     """일반 서약 집계 year 필터 (v1.5.32) — 대시보드가 개정본 유효 판정에 year 를 반영해야
     레거시 데이터(year≠2026 서약)를 서명으로 오인하지 않는다. 데이터: 재직자C 가 2025 서약만
@@ -2282,7 +2304,7 @@ def sc_export_kind_scope(pg, base, check):
     1000 + 비용계약(투자계획 참조) 지급 500 → 투자 집행률 100%, kind 미필터(수정 전)면 150%."""
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/finance/invest', wait_until='networkidle')  # 세션 쿠키 확보
-    csv = pg.request.get(f'{base}/api/export?type=invest-actual').text()
+    csv = pg.request.get(f'{base}/api/export?fmt=csv&type=invest-actual').text()
     # P1 행: 수정 시 계약/집행/집행률 1000·1000·100, 미수정 시 크로스 비용 산입으로 1500·1500·150
     check('150' not in csv, '투자 export 가 크로스-kind 비용 지급을 제외 (수정 전이면 150 등장)')
 
@@ -2551,7 +2573,7 @@ def sc_infracrud(pg, base, check):
     if_card.locator('input[name=to]').fill('E2E 테스트시스템')
     if_card.get_by_role('button', name='등록', exact=True).click()
     pg.wait_for_selector('tr:has-text("E2E 연계 테스트")', timeout=10000)
-    csv_text = pg.request.get(f'{base}/api/export?type=interfaces').text()
+    csv_text = pg.request.get(f'{base}/api/export?fmt=csv&type=interfaces').text()
     check("'=E2E 연계 테스트" in csv_text, "CSV 수식 주입 무력화 ('= 접두)")
     pg.locator('tr', has_text='E2E 연계 테스트').locator('button:has-text("삭제")').click()
     pg.wait_for_load_state('networkidle')
@@ -2593,7 +2615,7 @@ def sc_infra_health(pg, base, check):
     check(db_fail == ops_fail and db_if == ops_if and db_disk == sys_disk,
           f'대시보드 인프라 타일=출처 화면(단일원천) 배치{db_fail}/{ops_fail}·IF{db_if}/{ops_if}·디스크{db_disk}/{sys_disk}')
     # IT 운영 종합 현황 export 에 인프라 운영 행(BIZ_MGR 권한)
-    csv_text = pg.request.get(f'{base}/api/export?type=itops-summary').text()
+    csv_text = pg.request.get(f'{base}/api/export?fmt=csv&type=itops-summary').text()
     check('인프라 운영' in csv_text and '디스크 경고' in csv_text,
           'IT 운영 종합 export 에 인프라 헬스 행 포함(배치·인터페이스·디스크)')
 
@@ -2623,7 +2645,7 @@ def sc_finance_exec(pg, base, check):
     check(inv_dash == inv_screen and exp_dash == exp_screen,
           f'대시보드 집행률=재무 화면(단일원천) 투자{inv_dash}/{inv_screen}·비용{exp_dash}/{exp_screen}')
     # IT 운영 종합 export 행 — 화면 값과 일치
-    csv_text = pg.request.get(f'{base}/api/export?type=itops-summary').text()
+    csv_text = pg.request.get(f'{base}/api/export?fmt=csv&type=itops-summary').text()
     inv_csv = csv_val(csv_text, '투자 집행률')
     exp_csv = csv_val(csv_text, '비용 집행률')
     check(inv_csv == inv_screen and exp_csv == exp_screen,
@@ -2647,8 +2669,8 @@ def sc_project_pmo(pg, base, check):
     check(db_open == scr_open and db_risk == scr_risk,
           f'대시보드 프로젝트 신호=schedule 화면(단일원천) 오픈{db_open}/{scr_open}·리스크{db_risk}/{scr_risk}')
     # 이슈·리스크 / 산출물 대장 export (PMO 보고 근거)
-    pi_csv = pg.request.get(f'{base}/api/export?type=project-issues').text()
-    dl_csv = pg.request.get(f'{base}/api/export?type=deliverables').text()
+    pi_csv = pg.request.get(f'{base}/api/export?fmt=csv&type=project-issues').text()
+    dl_csv = pg.request.get(f'{base}/api/export?fmt=csv&type=deliverables').text()
     check('이슈 · 리스크' in pi_csv and '레거시 리포트 데이터 정합성 오류' in pi_csv, '이슈·리스크 대장 export (PMO 보고 근거)')
     check('산출물' in dl_csv and '통합테스트 결과서' in dl_csv, '산출물 대장 export (기한 경과 포함)')
 
@@ -2664,7 +2686,7 @@ def sc_incident_stats(pg, base, check):
     scr_month = cells[0].strip()
     scr_total = cells[-2].strip()  # 컬럼: 발생월 · [등급...] · 계 · 조치완료 → 계는 뒤에서 둘째
     # export CSV 의 같은 월 행 '계'와 대조
-    csv_text = pg.request.get(f'{base}/api/export?type=incident-stats').text()
+    csv_text = pg.request.get(f'{base}/api/export?fmt=csv&type=incident-stats').text()
     check('발생월' in csv_text, '월별 장애 통계 export 헤더(발생월)')
     row = next((l for l in csv_text.splitlines() if l.startswith(scr_month + ',')), None)
     csv_total = row.split(',')[-2].strip().strip('"') if row else None
@@ -2676,7 +2698,7 @@ def sc_incident_stats_empty_month(pg, base, check):
     '' 월 행을 만들어 전체 장애를 중복 집계하던 결함. 8월 2건 + 무날짜 1건 주입 → '' 월 행 없이 2026-08 계=2
     (무날짜 건 제외). PORTAL_DATA_FILE 로 occurredAt '' 인 장애 주입."""
     login(pg, base, '박정호')  # BIZ_MGR — 월별 장애 통계 export
-    csv_text = pg.request.get(f'{base}/api/export?type=incident-stats').text()
+    csv_text = pg.request.get(f'{base}/api/export?fmt=csv&type=incident-stats').text()
     data = [l for l in csv_text.splitlines() if l.strip()][1:]  # 헤더 제외
     check(not any(l.lstrip('﻿').startswith(',') for l in data), '무효월(빈 발생월) 통계 행 없음 — 중복 집계 방지')
     aug = next((l for l in data if l.startswith('2026-08,')), None)
@@ -2765,7 +2787,7 @@ def sc_menuauth(pg, base, check):
     pg.locator('tr', has_text='/infra/racks').locator('button').first.click()
     pg.wait_for_selector('tr:has-text("/infra/racks"):has-text("제한됨")', timeout=10000)
     login(pg, base, '박정호')
-    check(pg.request.get(f'{base}/api/export?type=racks').status == 403, '제한 → 엑셀 다운로드 403')
+    check(pg.request.get(f'{base}/api/export?fmt=csv&type=racks').status == 403, '제한 → 엑셀 다운로드 403')
     pg.goto(f'{base}/infra/racks', wait_until='networkidle')
     check('랙관리' not in pg.content(), '제한 → 화면 차단 (BIZ_MGR)')
     login(pg, base, '시스템관리자')
@@ -2963,7 +2985,7 @@ def sc_audit_search(pg, base, check):
     tb = pg.locator('table.tbl tbody').inner_text()
     check('위반 사례 등록 처리' in tb and 'AP-1' not in tb and 'FL-1' not in tb, '기간 필터: 범위 내 기록만(양끝 포함)')
     # export 도 동일 필터 — action=장애 등록 이면 CSV 에 FL-1 만, 보안위반 미포함(화면=export 단일 원천)
-    csv = pg.context.request.get(f'{base}/api/export?type=audit&action=장애 등록').text()
+    csv = pg.context.request.get(f'{base}/api/export?fmt=csv&type=audit&action=장애 등록').text()
     check('FL-1 장애 등록 처리' in csv and '보안위반' not in csv, 'export 도 화면과 동일 필터(조회분만 다운로드)')
 
 
@@ -3312,7 +3334,7 @@ def sc_inspection_teamlead(pg, base, check):
     detail = row.inner_text()
     check('점검 경과 2명' in detail, f'점검 경과 알림 = 담당자+팀장 2명 (실제: {detail[:120]})')
     # 점검계획 export(ISMS 산출물)도 화면과 같이 팀장 열을 담아야 한다 — 새로 드러낸 팀장이 감사 가능해야 함
-    csv_text = pg.request.get(f'{base}/api/export?type=inspection-plans').text()
+    csv_text = pg.request.get(f'{base}/api/export?fmt=csv&type=inspection-plans').text()
     header = csv_text.splitlines()[0] if csv_text.strip() else ''
     plan_line = next((l for l in csv_text.splitlines() if 'IS-2026-9301' in l), '')
     check('팀장' in header and '시스템관리자' in plan_line, f'inspection-plans export — 팀장 열·값(시스템관리자) 포함 실제:{plan_line[:80]}')
@@ -3359,7 +3381,7 @@ def sc_sr_status_label(pg, base, check):
     dt = pg.locator('tr', has_text='SR-2026-9501').inner_text()
     check('처리중' in dt and '개발중' not in dt, 'sr/delayed 지연내역 — 계정권한 SR 처리중 표기(개발중 아님)')
     # export(SR 신청내역)도 화면과 같은 라벨 단일원천 — ISMS 산출물이 개발중으로 어긋나지 않아야 한다
-    csv_text = pg.request.get(f'{base}/api/export?type=sr-requests').text()
+    csv_text = pg.request.get(f'{base}/api/export?fmt=csv&type=sr-requests').text()
     sr_line = next((l for l in csv_text.splitlines() if 'SR-2026-9501' in l), '')
     check('처리중' in sr_line and '개발중' not in sr_line, f'sr-requests export — 계정권한 SR 처리중 표기(개발중 아님) 실제:{sr_line[:80]}')
 
@@ -3650,6 +3672,7 @@ SCENARIOS = [
     ('flash_invalid_month', '비용 속보 무효월 저장 차단 — 임의 POST 2026-13 서버 재검증(addPlan·addCourse 정합)', sc_flash_invalid_month, {}),
     ('finance_exec_false100', '집행률 거짓 100% 방지 — 99.5% 미집행이 100% 로 올림 안 됨(거짓 완전집행 방지)', sc_finance_exec_false100,
      {'PORTAL_DATA_FILE': str(EXECFALSE_DATA)}),
+    ('export_xlsx', '엑셀 다운로드 네이티브 xlsx — 기본 xlsx 워크북·fmt=csv 대체(로드맵 V장, 단일 rows 원천)', sc_export_xlsx, {}),
     ('year_filter', '일반 서약 집계 year 필터(레거시 데이터 오인 방지)', sc_year_filter,
      {'PORTAL_DATA_FILE': str(FYEAR_DATA)}),
     ('export_kind_scope', 'export 투자 집계 kind 스코프(크로스-kind 오염 제외)', sc_export_kind_scope,

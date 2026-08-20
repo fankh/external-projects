@@ -3,6 +3,7 @@
 import { filterAuditLogs } from '@/lib/audit'
 import { effectiveRoles } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
+import { xlsxResponse } from '@/lib/xlsx'
 import { currentYear, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
@@ -43,6 +44,10 @@ export async function GET(req: Request) {
   const s = getStore()
   const role: Role = session.role
   const isMgr = role === 'BIZ_MGR' || role === 'ADMIN'
+  // 기본 산출물은 네이티브 xlsx — UI '엑셀 다운로드' 링크가 실제 Excel 워크북(.xlsx)을 받는다. 프로그램·게이트
+  // 접근은 ?fmt=csv 로 같은 rows 의 평문 CSV 를 받는다(수치·스코핑은 단일 rows 원천, 포맷만 분기 — 드리프트 없음).
+  const fmt = new URL(req.url).searchParams.get('fmt')
+  const out = (name: string, rows: (string | number)[][]) => (fmt === 'csv' ? csvResponse(name, rows) : xlsxResponse(name, rows))
 
   const ownerHref = EXPORT_MENU[type]
   if (ownerHref && !effectiveRoles(ownerHref).includes(role)) return new Response('forbidden', { status: 403 })
@@ -68,7 +73,7 @@ export async function GET(req: Request) {
         .reduce((sm, x) => sm + x.amount, 0), 0)
       rows.push([p.id, p.title, `${p.owner}(${p.dept})`, p.amount, contracted, paid, p.amount ? Math.round((paid / p.amount) * 100) : 0])
     }
-    return csvResponse(`${kind}_계획대비실적`, rows)
+    return out(`${kind}_계획대비실적`, rows)
   }
 
   if (type === 'education-records') {
@@ -86,7 +91,7 @@ export async function GET(req: Request) {
       // (감사용 이수현황에서 '전원 이수 완료'와 '이수 의무 없음'을 이수율 열만으로 구분 가능하게 한다).
       rows.push([p.name, p.dept, ...marks, req ? (n >= req ? 100 : Math.min(99, Math.round((n / req) * 100))) : '해당없음'])
     }
-    return csvResponse('보안교육_이수현황', rows)
+    return out('보안교육_이수현황', rows)
   }
 
   if (type === 'pledge-status') {
@@ -100,7 +105,7 @@ export async function GET(req: Request) {
       const sig = signed.get(p.name)
       rows.push([p.name, p.dept, sig ? '서약 완료' : '미서약', sig?.signedAt?.slice(0, 10) ?? '-', sig?.method ?? '-'])
     }
-    return csvResponse('보안서약_현황', rows)
+    return out('보안서약_현황', rows)
   }
 
   if (type === 'remote-status') {
@@ -121,7 +126,7 @@ export async function GET(req: Request) {
       const r = submitted.find((x) => x.name === t.name)
       rows.push([t.name, t.dept, `${t.startDate} ~ ${t.endDate ?? '계속'}`, r ? '제출' : '미제출', r?.submittedAt ?? '-'])
     }
-    return csvResponse('재택근무_체크리스트_현황', rows)
+    return out('재택근무_체크리스트_현황', rows)
   }
 
   // ── 엑셀 ◎ 확대 (요구사항 15·22~27·36~44·55·56·63행) — 각 화면과 동일 권한·스코핑 ──
@@ -141,7 +146,7 @@ export async function GET(req: Request) {
       const plan = f.planId ? s.investPlans.find((p) => p.id === f.planId && p.kind === '비용') : undefined
       rows.push([f.month, f.vendor, plan?.title ?? '-', f.expected, basis, basis === '정산' ? paid : f.expected])
     }
-    return csvResponse('비용_속보', rows)
+    return out('비용_속보', rows)
   }
 
   if (type === 'sr-requests') {
@@ -151,21 +156,21 @@ export async function GET(req: Request) {
       role === 'DEPT_MGR' ? r.dept === session.dept : true)
     const rows: (string | number)[][] = [['SR번호', '유형', '제목', '시스템', '신청자', '부서', '상태', '공수(MD)', '신청일', '완료예정', '완료일']]
     for (const r of scope) rows.push([r.srNo, r.kind, r.title, r.system, r.requester, r.dept, srStatusLabel(r), r.manHours ?? '-', r.requestedAt, r.dueDate ?? '-', r.completedAt ?? '-'])
-    return csvResponse('SR_신청내역', rows)
+    return out('SR_신청내역', rows)
   }
 
   if (type === 'ci-srs') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['번호', '구분', '제목', '요청자', '접수자', '상태', '접수일', '완료일', '처리 내용']]
     for (const c of s.ciSrs) rows.push([c.id, c.category, c.title, c.requester, c.receivedBy, c.status, c.receivedAt, c.completedAt ?? '-', c.result ?? '-'])
-    return csvResponse('CI_SR_처리이력', rows)
+    return out('CI_SR_처리이력', rows)
   }
 
   if (type === 'incidents') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['장애번호', '등급', '시스템', '제목', '발생일', '조치상태', '조치내역', '향후대책', '대책결과', '보고상태']]
     for (const i of s.incidents) rows.push([i.id, i.grade, i.system, i.title, i.occurredAt, i.status, i.action ?? '-', i.countermeasure ?? '-', i.cmResult ?? '-', i.reportStatus])
-    return csvResponse('장애_관리대장', rows)
+    return out('장애_관리대장', rows)
   }
 
   if (type === 'incident-stats') {
@@ -174,14 +179,14 @@ export async function GET(req: Request) {
     const { grades, months } = monthlyIncidentStats(s)
     const rows: (string | number)[][] = [['발생월', ...grades, '계', '조치완료']]
     for (const m of months) rows.push([m.month, ...grades.map((g) => m.byGrade[g] ?? 0), m.total, m.resolved])
-    return csvResponse('장애_월별통계', rows)
+    return out('장애_월별통계', rows)
   }
 
   if (type === 'changes') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['변경번호', '구분', '제목', '매칭 SR', '상태', '등록일', '작업계획', '원복계획', '작업결과']]
     for (const c of s.changes) rows.push([c.id, c.kind, c.title, c.srNo ?? '-', c.status, c.registeredAt, c.plan ?? '-', c.rollbackPlan ?? '-', c.result ?? '-'])
-    return csvResponse('변경_관리대장', rows)
+    return out('변경_관리대장', rows)
   }
 
   if (type === 'projects') {
@@ -196,7 +201,7 @@ export async function GET(req: Request) {
       const signs = p.members && p.members.length > 0 ? p.members.filter((m) => names.has(m)).length : names.size
       rows.push([p.id, p.title, p.manager, p.headcount, signs, p.start, p.end, p.progress, p.status])
     }
-    return csvResponse('프로젝트_진행현황', rows)
+    return out('프로젝트_진행현황', rows)
   }
 
   if (type === 'project-issues') {
@@ -205,7 +210,7 @@ export async function GET(req: Request) {
     const projectOf = (id: string) => s.projects.find((p) => p.id === id)
     const rows: (string | number)[][] = [['번호', '프로젝트', '이슈 · 리스크', '리스크', '상태', '등록일']]
     for (const i of s.projectIssues) rows.push([i.id, projectOf(i.projectId)?.title ?? i.projectId, i.title, i.risk, i.status, i.raisedAt])
-    return csvResponse('프로젝트_이슈리스크', rows)
+    return out('프로젝트_이슈리스크', rows)
   }
 
   if (type === 'deliverables') {
@@ -215,7 +220,7 @@ export async function GET(req: Request) {
     const projectOf = (id: string) => s.projects.find((p) => p.id === id)
     const rows: (string | number)[][] = [['번호', '프로젝트', '산출물', '기한', '상태']]
     for (const d of s.deliverables) rows.push([d.id, projectOf(d.projectId)?.title ?? d.projectId, d.name, d.due, d.done ? '완료' : (d.due < t ? '기한경과' : '미완')])
-    return csvResponse('프로젝트_산출물', rows)
+    return out('프로젝트_산출물', rows)
   }
 
   if (type === 'printouts') {
@@ -225,7 +230,7 @@ export async function GET(req: Request) {
       role === 'DEPT_MGR' ? p.dept === session.dept : true)
     const rows: (string | number)[][] = [['번호', '출력일', '출력자', '부서', '문서', '개인정보', '폐기방법', '폐기일', '상태']]
     for (const p of scope) rows.push([p.id, p.printedAt, p.name, p.dept, p.document, p.personalInfo ? 'Y' : 'N', p.method ?? '-', p.discardedAt ?? '-', p.status])
-    return csvResponse('출력물_폐기현황', rows)
+    return out('출력물_폐기현황', rows)
   }
 
   if (type === 'violations') {
@@ -233,7 +238,7 @@ export async function GET(req: Request) {
     const scope = s.violations.filter((v) => (isMgr ? true : v.name === session.name))
     const rows: (string | number)[][] = [['번호', '위반자', '부서', '유형', '내용', '발생일', '상태', '처리구분']]
     for (const v of scope) rows.push([v.id, v.name, v.dept, v.type, v.detail, v.occurredAt, v.status, v.exempt ? '결재제외(별도관리)' : '결재'])
-    return csvResponse('보안위반_관리대장', rows)
+    return out('보안위반_관리대장', rows)
   }
 
   if (type === 'security-reviews') {
@@ -246,7 +251,7 @@ export async function GET(req: Request) {
       // 고위험(심각+높음) 미조치 — 화면(우선 조치 신호)과 같은 store 단일 원천 highSevOpen 으로 감사 산출물에도 노출
       rows.push([r.id, r.kind, r.title, r.target, r.reviewer, r.plannedAt, r.completedAt ?? '', r.findings, r.fixed, highSevOpen(r), rate, r.status])
     }
-    return csvResponse('보안성검토_관리대장', rows)
+    return out('보안성검토_관리대장', rows)
   }
 
   if (type === 'risks') {
@@ -259,7 +264,7 @@ export async function GET(req: Request) {
       const score = riskScore(r)
       rows.push([r.id, r.title, r.area, r.threat, r.vulnerability, Math.round(r.likelihood), Math.round(r.impact), score, riskTier(score).label, r.treatment, r.owner, r.plan, `${r.dueDate}${!isRiskClosed(r) && r.dueDate < t ? ' (경과)' : ''}`, r.status, r.identifiedAt])
     }
-    return csvResponse('정보보호_위험관리대장', rows)
+    return out('정보보호_위험관리대장', rows)
   }
 
   if (type === 'policies') {
@@ -271,7 +276,7 @@ export async function GET(req: Request) {
       rows.push([p.id, p.title, p.category, p.version, p.owner, p.status, p.effectiveAt, p.reviewCycleMonths, p.lastReviewedAt,
         p.status === '폐지' ? '-' : nextReviewDue(p), isReviewOverdue(p, t) ? 'Y' : ''])
     }
-    return csvResponse('정보보호_정책지침_관리대장', rows)
+    return out('정보보호_정책지침_관리대장', rows)
   }
 
   if (type === 'dr-plans') {
@@ -283,7 +288,7 @@ export async function GET(req: Request) {
       rows.push([p.id, p.system, p.title, p.tier, p.rtoHours, p.rpoHours, p.owner, p.testCycleMonths,
         p.lastResult === '미실시' ? '-' : p.lastTestedAt, p.lastResult, nextTestDue(p), isTestOverdue(p, t) ? 'Y' : ''])
     }
-    return csvResponse('재해복구_업무연속성_관리대장', rows)
+    return out('재해복구_업무연속성_관리대장', rows)
   }
 
   if (type === 'risk-trend') {
@@ -292,7 +297,7 @@ export async function GET(req: Request) {
     const snaps = [...s.riskSnapshots].sort((a, b) => String(a.period).localeCompare(String(b.period)))
     const rows: (string | number)[][] = [['기간', '전체', '미종결', '높음↑ 미종결', '기한 경과', '종결률(%)', '기록', '기록자']]
     for (const x of snaps) rows.push([x.period, x.total, x.open, x.highOpen, x.overdue, x.treatedRate, x.at, x.by])
-    return csvResponse('정보보호_위험추세', rows)
+    return out('정보보호_위험추세', rows)
   }
 
   if (type === 'compliance-summary') {
@@ -317,7 +322,7 @@ export async function GET(req: Request) {
       ['정보보호 위험평가', rk.total > 0 ? `종결률 ${rk.treatedRate}% (${s.riskItems.filter(isRiskClosed).length}/${rk.total})` : '해당없음', `높음↑ 미종결 ${rk.highOpen}건 · 기한경과 ${rk.overdue}건`],
       ['정책·지침 관리', pk.total > 0 ? `시행 ${pk.active} / 전체 ${pk.total}` : '해당없음', `재검토 경과 ${pk.overdue}건 · 개정중 ${pk.revising}건`],
     ]
-    return csvResponse('보안컴플라이언스_종합현황', rows)
+    return out('보안컴플라이언스_종합현황', rows)
   }
 
   if (type === 'compliance-trend') {
@@ -326,7 +331,7 @@ export async function GET(req: Request) {
     const snaps = [...s.complianceSnapshots].sort((a, b) => String(a.period ?? '').localeCompare(String(b.period ?? '')))
     const rows: (string | number)[][] = [['기간', '포스처 점수', '서약률(%)', '이수율(%)', '조치율(%)', '점검 완료', '점검 전체', '고위험 미조치', '미조치 취약점', '위반 완료', '위반 전체', '기록', '기록자']]
     for (const x of snaps) rows.push([x.period, x.score, x.pledgeRate, x.eduRate, x.fixRate, x.inspDone, x.inspTotal, x.highVulns, x.openVulns, x.vDone, x.vTotal, x.at, x.by])
-    return csvResponse('보안컴플라이언스_추세', rows)
+    return out('보안컴플라이언스_추세', rows)
   }
 
   if (type === 'itops-summary') {
@@ -362,14 +367,14 @@ export async function GET(req: Request) {
       ['투자 집행률', `${inv.execRate}%`, `확정계획 ${inv.planTotal.toLocaleString('ko-KR')}만원`],
       ['비용 집행률', `${exp.execRate}%`, `확정계획 ${exp.planTotal.toLocaleString('ko-KR')}만원`],
     ]
-    return csvResponse('IT운영_종합현황', rows)
+    return out('IT운영_종합현황', rows)
   }
 
   if (type === 'servers') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['서버번호', '호스트명', 'IP', '용도', 'OS', 'CPU', '메모리(GB)', '랙', 'H/W', '디스크(%)']]
     for (const v of s.servers) rows.push([v.id, v.hostname, v.ip, v.purpose, v.os, v.cpu ?? '-', v.memoryGb ?? '-', v.rack, v.hwId ?? '-', v.diskUsedPct])
-    return csvResponse('서버_관리대장', rows)
+    return out('서버_관리대장', rows)
   }
 
   if (type === 'systems') {
@@ -378,21 +383,21 @@ export async function GET(req: Request) {
     for (const x of s.systems) {
       rows.push([x.id, x.name, x.env, x.url, x.serverIds.map((id) => s.servers.find((v) => v.id === id)?.hostname ?? id).join(' · '), x.owner])
     }
-    return csvResponse('시스템_관리대장', rows)
+    return out('시스템_관리대장', rows)
   }
 
   if (type === 'batches') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['잡번호', '이름', '대상 시스템', '주기', '최근 실행', '결과']]
     for (const b of s.batchJobs) rows.push([b.id, b.name, b.system, b.schedule, b.lastRun ?? '-', b.lastResult ?? '-'])
-    return csvResponse('배치_관리대장', rows)
+    return out('배치_관리대장', rows)
   }
 
   if (type === 'interfaces') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['번호', '인터페이스', 'From', 'To', '방식', '상태']]
     for (const i of s.interfaces) rows.push([i.id, i.name, i.from, i.to, i.method, i.status])
-    return csvResponse('인터페이스_관리대장', rows)
+    return out('인터페이스_관리대장', rows)
   }
 
   if (type === 'racks') {
@@ -402,14 +407,14 @@ export async function GET(req: Request) {
       rows.push([r.id, r.location, r.sizeU, r.assetNo,
         s.hardware.filter((h) => h.rackId === r.id).length, s.servers.filter((v) => v.rack === r.id).length])
     }
-    return csvResponse('랙_관리대장', rows)
+    return out('랙_관리대장', rows)
   }
 
   if (type === 'hardware') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['번호', '구분', '모델', '랙', '자산번호']]
     for (const h of s.hardware) rows.push([h.id, h.kind, h.model, h.rackId, h.assetNo])
-    return csvResponse('HW_관리대장', rows)
+    return out('HW_관리대장', rows)
   }
 
   if (type === 'inspection-plans') {
@@ -419,7 +424,7 @@ export async function GET(req: Request) {
       const item = s.inspectionItems.find((i) => i.id === p.itemId)
       rows.push([p.id, item?.control ?? p.itemId, p.month, p.inspector, p.teamLead ?? '-', p.status, p.result ?? '-'])
     }
-    return csvResponse('보안점검_계획', rows)
+    return out('보안점검_계획', rows)
   }
 
   if (type === 'inspection-items') {
@@ -427,7 +432,7 @@ export async function GET(req: Request) {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['코드', '대분류', '중분류', '통제 항목', '주기', '구분']]
     for (const i of s.inspectionItems) rows.push([i.id, i.category, i.subCategory ?? '-', i.control, i.cycle, i.source])
-    return csvResponse('보안점검_기준', rows)
+    return out('보안점검_기준', rows)
   }
 
   if (type === 'audit') {
@@ -440,7 +445,7 @@ export async function GET(req: Request) {
     })
     const rows: (string | number)[][] = [['일시', '행위자', '행위', '상세']]
     for (const l of logs) rows.push([l.at, l.actor, l.action, l.detail])
-    return csvResponse('감사_이력', rows)
+    return out('감사_이력', rows)
   }
 
   if (type === 'compliance-schedule') {
@@ -451,7 +456,7 @@ export async function GET(req: Request) {
     const items = upcomingComplianceItems(s, today(), 90)
     const rows: (string | number)[][] = [['예정일', 'D-day', '구분', '대상']]
     for (const it of items) rows.push([it.due, `D-${it.dday}`, it.kind, it.label])
-    return csvResponse('다가오는_컴플라이언스_일정', rows)
+    return out('다가오는_컴플라이언스_일정', rows)
   }
 
   return new Response('unknown type', { status: 400 })
