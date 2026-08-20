@@ -10,6 +10,7 @@ import { computeProjectPmo } from '@/lib/projects'
 import { computeDrKpis } from '@/lib/dr'
 import { computePolicyKpis } from '@/lib/policy'
 import { computeRiskKpis } from '@/lib/risk'
+import { upcomingComplianceItems } from '@/lib/schedule'
 import { delayedSrs } from '@/lib/sr'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
@@ -41,6 +42,10 @@ export default async function DashboardPage() {
     financeExec: canSee('/sr/manage'),
   }
   const showOps = Object.values(opsVis).some(Boolean)
+  // 다가오는 컴플라이언스 일정 — 정책 재검토·복구훈련·위험 조치기한이 향후 90일 내 도래(경과 전). 사전 계획용
+  // (경과분은 위 스냅샷 경과 타일이 담당). 접근 가능한 컴플라이언스 화면이 하나라도 있을 때만 산출·노출.
+  const canSeeCompliance = canSee('/compliance/policies') || canSee('/compliance/dr') || canSee('/compliance/risks')
+  const compUpcoming = canSeeCompliance ? upcomingComplianceItems(s, today(), 90) : []
   // 공지사항 카드도 출처 화면(/board/notices) 유효권한을 따른다 — 기본 roles:ALL 이라 평상시 전원 노출이나,
   // ADMIN 이 공지 메뉴를 특정 역할에서 제한하면 그 역할은 게시판에서 리다이렉트되므로 대시보드 미리보기도
   // 함께 숨겨 런타임 제한을 일관 적용한다(v1.5.87 교차도메인 게이트 클래스 완결).
@@ -160,6 +165,29 @@ export default async function DashboardPage() {
             {opsVis.financeExec && <Stat href="/finance/invest" value={`${finExec('투자')}%`} label="투자 집행률" note="계획 대비" />}
             {opsVis.financeExec && <Stat href="/finance/expense" value={`${finExec('비용')}%`} label="비용 집행률" note="계획 대비" />}
           </div>
+        </Card>
+      )}
+
+      {compUpcoming.length > 0 && (
+        <Card title="다가오는 컴플라이언스 일정" kicker={`향후 90일 · ${compUpcoming.length}건`} pad={false}>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>예정일</th><th className="c">D-day</th><th>구분</th><th>대상</th></tr></thead>
+              <tbody>
+                {compUpcoming.slice(0, 8).map((it, i) => (
+                  <tr key={i}>
+                    <td className="tnum">{it.due}</td>
+                    <td className="c"><Chip tone={it.dday <= 14 ? 'warn' : 'neutral'} bare>D-{it.dday}</Chip></td>
+                    <td><Chip tone="info" bare>{it.kind}</Chip></td>
+                    <td className="strong"><Link href={it.href}>{it.label}</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {compUpcoming.length > 8 && (
+            <div className="dim" style={{ fontSize: 11.5, padding: '8px 14px' }}>기한 임박 8건 표시 · 전체 {compUpcoming.length}건</div>
+          )}
         </Card>
       )}
 

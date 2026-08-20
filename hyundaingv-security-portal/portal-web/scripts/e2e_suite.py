@@ -84,6 +84,7 @@ PJMEMB_DATA = ROOT / 'scripts' / '.e2e-pjmemb-data.json'  # 빈 명단 프로젝
 EXECFALSE_DATA = ROOT / 'scripts' / '.e2e-execfalse-data.json'  # 집행률 거짓 100% 방지 회귀용 (v1.5.321)
 AUDITF_DATA = ROOT / 'scripts' / '.e2e-auditf-data.json'  # 감사 이력 조회 필터 회귀용 (v1.5.331)
 SRCH_DATA = ROOT / 'scripts' / '.e2e-srch-data.json'  # 통합 검색 커버리지(결재 신원 스코핑) 회귀용 (v1.5.333)
+CSCHED_DATA = ROOT / 'scripts' / '.e2e-csched-data.json'  # 다가오는 컴플라이언스 일정(경과분 제외) 회귀용 (v1.5.339)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
 AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
 QNAROLE_DATA = ROOT / 'scripts' / '.e2e-qnarole-data.json'  # QnA 담당 지정 역할 정합 회귀용 (v1.5.92)
@@ -1946,6 +1947,21 @@ def sc_dashboard_ops_scope(pg, base, check):
           'ADMIN 은 제한 예외 — 장애 타일 정상 노출(게이트가 역할별로 동작)')
 
 
+def sc_compliance_schedule(pg, base, check):
+    """다가오는 컴플라이언스 일정(v1.5.339) — 정책 재검토·복구훈련·위험 조치기한이 향후 90일 내 도래(경과 전)인
+    항목을 대시보드 카드에 기한순 통합 표시(사전 계획용). 경과분(due<today)은 제외 — 그건 대시보드 경과 신호가
+    담당한다. 데이터: 정책(D~26)·DR(D~42)·위험(D~61) 도래 + 위험 1건 경과(2026-06). fails-without-fix:
+    upcomingComplianceItems 가 경과 필터(due<today 제외)를 빼면 경과분이 다가오는 일정에 섞인다."""
+    login(pg, base, '시스템관리자')  # 컴플라이언스 접근 역할
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    card = pg.locator('.card', has_text='다가오는 컴플라이언스 일정')
+    check(card.count() >= 1, '다가오는 컴플라이언스 일정 카드 노출')
+    ct = card.first.inner_text()
+    check('다가오는정책재검토' in ct and '다가오는복구훈련' in ct and '다가오는위험조치' in ct,
+          '정책 재검토·복구훈련·위험 조치기한 도래분 통합 표시')
+    check('경과위험조치' not in ct, '경과분(due<today)은 다가오는 일정에서 제외(경과 신호가 담당)')
+
+
 def sc_dashboard_drilldown(pg, base, check):
     """대시보드 드릴다운(v1.5.337) — 운영 스냅샷·개인 타일이 순수 표시가 아니라 출처 화면 링크(a.stat.link)로
     렌더돼 신호에서 바로 조치 화면으로 이동한다. 개인 타일(나의 할일→/work/todo)·운영 타일(조치중 장애→
@@ -3577,6 +3593,8 @@ SCENARIOS = [
     ('secprint_system_registered', '보안·출력물 시스템 정식 등록 — BJ-02 토폴로지 과소집계 해소', sc_secprint_system_registered, {}),
     ('remote_cycle_config', '재택 등록 주기 변경 — 매일·월·분기·반기(요구사항 54행)', sc_remote_cycle_config, {}),
     ('dashboard_drilldown', '대시보드 타일 드릴다운 — 운영 신호·개인 타일에서 출처 화면으로 이동', sc_dashboard_drilldown, {}),
+    ('compliance_schedule', '다가오는 컴플라이언스 일정 — 재검토·훈련·조치기한 도래분 통합(경과분 제외)', sc_compliance_schedule,
+     {'PORTAL_DATA_FILE': str(CSCHED_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -3899,6 +3917,20 @@ def main() -> int:
         'investContracts': [{'id': 'CT-2026-90', 'kind': '투자', 'planId': 'IP-2026-90', 'vendor': '테스트벤더', 'title': '경계 계약', 'amount': 1004, 'signedAt': '2026-07-01'}],
         'settlements': [{'id': 'ST-2026-90', 'contractId': 'CT-2026-90', 'item': '착수금', 'amount': 1004, 'status': '지급완료', 'requestedBy': '김현우', 'requestedAt': '2026-07-05'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 다가오는 컴플라이언스 일정(v1.5.339) — 정책 재검토(D~26)·복구훈련(D~42)·위험 조치기한(D~61) 도래분 + 경과 위험 1건.
+    # 오늘(~2026-08-20) 기준 90일 창 내 도래분만 카드에 뜨고, 경과분(2026-06)은 제외돼야 한다.
+    CSCHED_DATA.write_text(json.dumps({
+        'securityPolicies': [{'id': 'PL-SCHED', 'title': '다가오는정책재검토', 'category': '정책', 'version': 'v1.0', 'owner': '박정호',
+                              'status': '시행', 'effectiveAt': '2025-09-15', 'reviewCycleMonths': 12, 'lastReviewedAt': '2025-09-15'}],
+        'drPlans': [{'id': 'DR-SCHED', 'system': '테스트시스템', 'title': '다가오는복구훈련', 'tier': '중요', 'rtoHours': 4, 'rpoHours': 1,
+                     'owner': '박정호', 'testCycleMonths': 12, 'lastTestedAt': '2025-10-01', 'lastResult': '성공'}],
+        'riskItems': [
+            {'id': 'RK-SCHED-UP', 'title': '다가오는위험조치', 'area': '영역', 'threat': '위협', 'vulnerability': '취약점', 'likelihood': 3,
+             'impact': 3, 'treatment': '완화', 'owner': '박정호', 'plan': '계획', 'dueDate': '2026-10-20', 'status': '조치중', 'identifiedAt': '2026-08-01'},
+            {'id': 'RK-SCHED-OVER', 'title': '경과위험조치', 'area': '영역', 'threat': '위협', 'vulnerability': '취약점', 'likelihood': 3,
+             'impact': 3, 'treatment': '완화', 'owner': '박정호', 'plan': '계획', 'dueDate': '2026-06-15', 'status': '조치중', 'identifiedAt': '2026-05-01'},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
     # 통합 검색 커버리지(v1.5.333) — 결재 신원 스코핑 검증용. 본인문서(김현우 기안)·무관문서(박정호 기안, 김현우 무관) + 위험 1건.
     SRCH_DATA.write_text(json.dumps({
         'approvals': [
@@ -4089,6 +4121,7 @@ def main() -> int:
     EXECFALSE_DATA.unlink(missing_ok=True)
     AUDITF_DATA.unlink(missing_ok=True)
     SRCH_DATA.unlink(missing_ok=True)
+    CSCHED_DATA.unlink(missing_ok=True)
     RMGHOST_DATA.unlink(missing_ok=True)
     AFDEFEAT_DATA.unlink(missing_ok=True)
     QNAROLE_DATA.unlink(missing_ok=True)
