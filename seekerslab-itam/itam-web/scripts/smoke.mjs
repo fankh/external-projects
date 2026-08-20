@@ -714,6 +714,8 @@ try {
   check('AI 제안: 교체수요·수명 예측 컴퓨티드 뷰 렌더', insHtml.includes('교체수요·수명 예측') && insHtml.includes('추정 교체 예산') && insHtml.includes('잔여 장부가 — 폐기손실'))
   // 라이선스 최적화(§05 AI 기능05) — 라이선스 컴플라이언스 리포트와 같은 licenseOptimization() 근거를 화면에 직접 노출. 초과·미사용 회수·만료·중복 SaaS 통합.
   check('AI 제안: 라이선스 최적화 컴퓨티드 뷰 렌더', insHtml.includes('라이선스 최적화 — 회수·증설·통합 근거') && insHtml.includes('미사용 회수 후보') && insHtml.includes('회수 시 연간 절감'))
+  // 라이선스 최적화 조치 드릴다운(검출→조치) — 다른 4개 AI 패널처럼 계약·라이선스 화면으로 연결. 보안담당은 접근 밖이라 링크 미노출(dead-end 방지).
+  check('AI 제안(보안담당): 라이선스 최적화 조치 링크 미노출(접근 밖 dead-end 방지)', !insHtml.includes('/inventory/contracts?sel=') && !insHtml.includes('/inventory/contracts?lic='))
   // 위험도 기준 관리(제품안내서 §01 보안담당 책무) — P1/P2 컷오프를 보안담당이 설정. 기본 P1≥67·P2≥34.
   check('AI 제안: 위험도 기준 패널 렌더 (기본 P1≥67·P2≥34)', insHtml.includes('위험도 기준 — 취약점 우선순위 판정 컷오프') && insHtml.includes('67') && insHtml.includes('34~66'))
   check('AI 제안: 보안담당에 위험도 기준 변경 노출', insHtml.includes('기준 변경'))
@@ -722,6 +724,8 @@ try {
   check('AI 제안(자산담당): 위험도 기준 조회 전용 (변경 미노출)', insAsset.includes('위험도 기준 — 취약점 우선순위 판정 컷오프') && insAsset.includes('보안담당·Admin 이 관리') && !insAsset.includes('기준 변경'))
   // 수명예측(fn03) 교체 검토 통보 — 교체 대상 자산의 소유 부서에 발송하는 조치 접점(EOL 업그레이드 통보의 수명예측 판). 그동안 패널이 읽기 전용 표로 dead-end 였다.
   check('AI 제안(자산담당): 교체 검토 통보 조치 버튼 노출(교체 대상 있을 때)', insAsset.includes('교체 검토 통보'))
+  // 라이선스 최적화 패널 조치 드릴다운 — 자산담당은 계약·라이선스 화면으로 회수·증설·갱신 조치(초과·미사용·만료 판정별). fn02/04 조치 링크와 동형.
+  check('AI 제안(자산담당): 라이선스 최적화 조치 드릴다운(계약·라이선스)', insAsset.includes('/inventory/contracts?sel=') || insAsset.includes('/inventory/contracts?lic='))
   // 교체 검토 통보는 자산담당·Admin 조치 — 보안담당은 위험도 기준만 관할, 통보 버튼 미노출(page canNotify 게이트)
   check('AI 제안(보안담당): 교체 검토 통보 버튼 미노출(자산담당·Admin 조치)', !insHtml.includes('교체 검토 통보'))
   // 수명예측 패널 → 대장 교체 대상 필터(?replace=1) 조회·반출 링크 — 분석(패널)과 관리·조달(대장 브라우즈)을 잇는다.

@@ -87,7 +87,7 @@ export default async function InsightsPage() {
 
       <VulnPriority />
 
-      <LicenseOptimization />
+      <LicenseOptimization canManage={['ASSET_MGR', 'ADMIN'].includes(session.role)} />
 
       <Card kicker="Feedback Loop" title="기능별 판정 현황 — 재학습 신호" pad={false}>
         <div className="tbl-wrap">
