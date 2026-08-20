@@ -326,6 +326,8 @@ try {
   check('대시보드(사용자): 내 대여 자산 반환 기한 노출', dashUser.includes('내 대여 자산') && dashUser.includes('AST-2024-000230') && dashUser.includes('까지'))
   // 운영 큐(라이선스 초과 사용 등)는 담당자 전용 — 사용자에겐 미노출
   check('대시보드(사용자): 라이선스 초과 사용 큐 미노출 (운영 큐 담당자 전용)', !dashUser.includes('라이선스 초과 사용'))
+  // KPI 드릴다운 권한 게이트 — 만료 임박 KPI 는 계약·라이선스 화면(자산담당·Admin)으로 이어지므로 USER 엔 링크를 주지 않는다(접근 불가 화면 dead-end 링크 방지).
+  check('대시보드(사용자): 계약·라이선스 화면 드릴다운 링크 없음 (접근 밖·dead-end 방지)', !dashUser.includes('/inventory/contracts'))
   // 미확인 필독 공지 넛지 — 사용자가 로그인 시 미확인 필독 공지를 스스로 챙기게 한다(관리자 독촉·명단의 사용자 측 짝). NTC-01(필독, 0 acks)로 검증.
   check('대시보드(사용자): 미확인 필독 공지 넛지 + 특정 공지 딥링크', dashUser.includes('미확인 필독 공지') && dashUser.includes('2026 하반기 재물조사') && dashUser.includes('/board/notices?sel=NTC-01'))
   // 최근 공지 위젯(Main/Home 공지 요약) — 필독 넛지와 별개로, 발행된 공지를 최신순으로 상시 노출(전 권한). NTC-02(비고정) 등 일반 공지도 포함.
