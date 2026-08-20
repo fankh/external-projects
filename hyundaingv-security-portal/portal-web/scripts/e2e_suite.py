@@ -2834,6 +2834,28 @@ def sc_violation_audit(pg, base, check):
     check('박정호' in row.first.inner_text(), '감사 이력이 등록자(박정호) 추적')
 
 
+def sc_violation_dedup(pg, base, check):
+    """보안위반 이중 등록 방어 — 같은 위반자·유형·내용의 징구중 건을 두 번 등록해도 한 건만 생겨야 한다(폼
+    더블클릭·동시 POST 재현). 이중 생성 시 위반 집계(vTotal·징구중)가 부풀고 확인서 안내메일·SMS 가 두 번
+    발송된다(addCompanyPledge 이중 징구 방어와 동일 계열). 가드 없으면(수정 전) 같은 내용 2행 → 대조 실패."""
+    login(pg, base, '박정호')  # BIZ_MGR — 위반 등록 권한
+    detail = 'E2E 이중등록 방어 검증 항목'
+
+    def register():
+        pg.goto(f'{base}/awareness/violations', wait_until='networkidle')
+        pg.select_option('select[name=name]', '김현우')
+        pg.select_option('select[name=type]', index=0)
+        pg.fill('input[name=detail]', detail)
+        pg.click('button:has-text("등록 · 안내메일 발송")')
+        pg.wait_for_load_state('networkidle')
+
+    register()
+    register()  # 동일 내용 재등록 — 가드가 있으면 무시된다
+    pg.goto(f'{base}/awareness/violations', wait_until='networkidle')
+    rows = pg.locator('tr', has_text=detail)
+    check(rows.count() == 1, f'같은 위반 2회 등록 → 1건만 (이중 등록 방어; 가드 없으면 2건; 실제 {rows.count()}건)')
+
+
 def sc_incident_audit(pg, base, check):
     """장애 등록·조치 감사 이력(v1.5.319) — 장애(사고) 등록·조치완료도 통제 행위라 감사 로그에 행위자·시점이
     남아야 한다(§VI). 인프라 형제 화면(systems·racks·operations)은 모두 감사하나 장애관리만 무기록이었고
@@ -3667,6 +3689,7 @@ SCENARIOS = [
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
+    ('violation_dedup', '보안위반 이중 등록 방어 — 같은 위반 2회 등록 시 1건만(집계 부풀림·중복 통지 차단)', sc_violation_dedup, {}),
     ('incident_audit', '장애 등록·조치 감사 이력 — 행위자 추적(§VI, 인프라 형제 화면 정합)', sc_incident_audit, {}),
     ('audit_search', '감사 이력 조회 필터 — 행위자·행위·기간·검색어, 화면=export 단일 원천', sc_audit_search,
      {'PORTAL_DATA_FILE': str(AUDITF_DATA)}),
