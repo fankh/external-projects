@@ -310,6 +310,13 @@ async function aiPeriodQuery(page) {
   const spofId = decodeURIComponent((spofHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const spofText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(spofId)}?format=xlsx`)).body()).toString('utf8')
   ok('리포트 반출: 단일 장애점·영향 분석 xlsx 에 SPOF·이중화 섹션(방화벽 641·스위치 640) 실린다', spofText.includes('단일 장애점') && spofText.includes('AST-2022-000641') && spofText.includes('AST-2022-000640') && spofText.includes('이중화'))
+  // 자산 운영 리스크 리포트(신규) — 자연어 인텐트 '운영 리스크' 매칭, buildSections 가 분실·미실측·연체·수리 지연·수령 미확인 5개 섹션을 대시보드 운영 큐와 같은 판정으로 산출.
+  const rOpsRep = await ask('자산 운영 리스크 리포트 생성해줘')
+  ok('AI 운영리스크질의: 자산 운영 리스크 생성 분기', rOpsRep.includes('리포트를 생성했습니다'))
+  const riskHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const riskId = decodeURIComponent((riskHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const riskText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(riskId)}?format=xlsx`)).body()).toString('utf8')
+  ok('리포트 반출: 자산 운영 리스크 xlsx 에 5개 리스크 섹션 실린다', riskText.includes('분실·도난 자산') && riskText.includes('장기 미실측') && riskText.includes('대여 반환 연체') && riskText.includes('수리 지연') && riskText.includes('수령 미확인'))
   // 부서별 IT 비용 배분(차지백) 리포트 — 자연어 생성 인텐트가 신규 종류를 매칭하고, buildSections 가 부서별 원가·좌석 비용 섹션을 실제 산출.
   const r4 = await ask('부서별 IT 비용 배분 리포트 생성해줘')
   ok('AI 차지백질의: 부서별 IT 비용 배분 생성 분기', r4.includes('리포트를 생성했습니다'))
