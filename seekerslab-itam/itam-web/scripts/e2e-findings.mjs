@@ -732,6 +732,10 @@ try {
   await p2.waitForTimeout(700)
   const replBody = (await p2.locator('body').textContent()) || ''
   ok('교체 검토 통보: 발송 성공(소유 부서 교체 검토 요청·발송 이력)', replBody.includes('교체 검토 통보') && replBody.includes('발송'))
+  // 보유자 없는 자산(EOL·교체 대상 유휴 AST-2021-000432·owner '-') 통보 수신자 정합(#4107 알림 감사) — notifyReplacement·notifyEolUpgrade·remindMaintenance 가
+  //  다른 owner 발송 사이트의 미지정/- 가드를 빠뜨려 '- (자산관리팀)' 아무에게도 아닌 발송이 나가던 것을, 보유자 없으면 관리 부서(자산관리팀) 앞으로 정합.
+  await p2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('교체·EOL 통보 수신자: 보유자 없는 자산은 관리 부서 앞으로(- 아무에게도 아닌 발송 방지)', !((await p2.locator('body').textContent()) || '').includes('- (자산관리팀)'))
   // EOL 대상 운영 상태 게이트(회귀) — 대장 EOL 필터가 비운영(수리중·분실·반납대기) 자산을 제외하는지. 시드 AST-2021-000556(수리중·Win10 EOL)은 빠지고, AST-2021-000432(유휴·Win10 EOL)은 남아야 한다(표시·통보 게이트 일치).
   // 렌더된 표 셀(td)로만 검사 — body 텍스트에는 RSC 플라이트 페이로드(전체 자산 직렬화)가 섞여 필터와 무관하게 모든 자산번호가 잡힌다.
   await p2.goto(`${BASE}/assets/register?os=eol`, { waitUntil: 'networkidle' })

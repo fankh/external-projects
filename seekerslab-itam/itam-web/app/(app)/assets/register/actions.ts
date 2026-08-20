@@ -817,7 +817,9 @@ export async function remindMaintenance() {
   let n = 0
   for (const a of s.assets) {
     if (!isMaintenanceOverdue(a) || sentToday.has(a.assetNo)) continue
-    dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `정기 점검(예방 정비) 독촉 — ${a.assetNo} ${a.model} 예정 ${a.maintenanceDue} 경과, 점검 시행 부탁드립니다`, kind: '정기 점검 독촉', ref: a.assetNo })
+    // 보유자 없는 자산(유휴·검수중)은 관리 부서 앞으로 — '- (부서)' 아무에게도 아닌 발송 방지(다른 owner 발송 사이트와 동일 가드).
+    const to = a.owner && a.owner !== '미지정' && a.owner !== '-' ? `${a.owner} (${a.dept})` : a.dept
+    dispatch({ channel: '이메일', to, subject: `정기 점검(예방 정비) 독촉 — ${a.assetNo} ${a.model} 예정 ${a.maintenanceDue} 경과, 점검 시행 부탁드립니다`, kind: '정기 점검 독촉', ref: a.assetNo })
     a.history.push({ date: t, kind: '점검', detail: `정기 점검 독촉 발송 — 예정 ${a.maintenanceDue} 경과 (${a.owner})`, actor: session.name })
     n += 1
   }
@@ -843,7 +845,9 @@ export async function notifyEolUpgrade() {
     // 운영 중 EOL 자산만 — 분실·수리중·반납대기·폐기 경로 자산 제외(대장 필터·대시보드 큐와 동일 게이트). 실물이 없거나 운영 중이 아닌 자산에 교체 통보가 나가지 않게.
     if (!isEolTarget(a.status, a.os, t) || sentToday.has(a.assetNo)) continue
     const eol = eolOsOf(a.os, t)!
-    dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `EOL OS 업그레이드·교체 검토 요청 — ${a.assetNo} ${a.model} (${eol.label} 지원 종료 ${eol.eol}), 미패치 취약점 상시 노출`, kind: 'EOL 업그레이드 통보', ref: a.assetNo })
+    // 보유자 없는 자산(유휴·검수중)은 관리 부서 앞으로 — '- (부서)' 아무에게도 아닌 발송 방지(다른 owner 발송 사이트와 동일 가드).
+    const to = a.owner && a.owner !== '미지정' && a.owner !== '-' ? `${a.owner} (${a.dept})` : a.dept
+    dispatch({ channel: '이메일', to, subject: `EOL OS 업그레이드·교체 검토 요청 — ${a.assetNo} ${a.model} (${eol.label} 지원 종료 ${eol.eol}), 미패치 취약점 상시 노출`, kind: 'EOL 업그레이드 통보', ref: a.assetNo })
     a.history.push({ date: t, kind: '구성변경', detail: `EOL OS 업그레이드·교체 통보 발송 — ${eol.label} 지원 종료 ${eol.eol} (${a.owner} · ${a.dept})`, actor: session.name })
     n += 1
   }
