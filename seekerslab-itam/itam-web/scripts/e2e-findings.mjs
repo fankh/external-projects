@@ -258,6 +258,13 @@ async function aiPeriodQuery(page) {
   // 정기 점검(예방 정비) 대상 질의 — 대장 필터·대시보드 큐와 같은 lib/dates 판정으로 경과·임박을 나눠 답한다(시드 AST-2022-000640/641 경과)
   const rm = await ask('정기 점검(예방 정비) 대상 자산 알려줘')
   ok('AI 정기점검질의: 예방 정비 대상 경과·임박 분류 답변', rm.includes('정기 점검(예방 정비) 대상') && rm.includes('예정일 경과(미시행)') && rm.includes('AST-2022-000641'))
+  // 다가오는 일정(사전 계획) 질의 — 대시보드 '다가오는 일정' 카드와 같은 upcomingSchedule() 단일 소스. 향후 30일 예정분을 날짜순 아젠다로.
+  //  전용 인텐트가 없으면 '일정' 질의가 폴백 답으로 떨어진다. 나열 날짜가 오름차순·창(≤30일) 이내인지 실행일 무관하게 자기검증.
+  const rup = await ask('다가오는 일정 알려줘')
+  ok('AI 다가오는일정질의: 향후 30일 예정 아젠다·유형별 집계(리포트 배포 포함)', /향후 30일 다가오는 일정은 \d+건입니다/.test(rup) && rup.includes('유형별:') && rup.includes('리포트 배포'))
+  const upDates = [...rup.matchAll(/· (\d{4}-\d{2}-\d{2}) \(D-(\d+)\)/g)]
+  ok('AI 다가오는일정질의: 나열 항목 날짜 오름차순·창(≤30일) 이내', upDates.length > 0 && upDates.every((m) => Number(m[2]) <= 30) && upDates.map((m) => m[1]).every((d, i, a) => i === 0 || a[i - 1] <= d))
+  ok('AI 다가오는일정질의: 답변이 대시보드 다가오는 일정 카드로 연결', (await page.locator('.msg.assistant').last().locator('.refs a[href="/dashboard"]').count()) > 0)
   // 안전재고 부족 질의 — 재고 화면·대시보드와 같은 lib/stock 판정. 주변기기(유휴 1대)는 안전재고 2 미만이라 항상 부족(단말은 폐기 반려 복원 타이밍에 따라 가변이라 주변기기로 검증).
   const rs = await ask('안전재고 부족한 유형 알려줘')
   ok('AI 안전재고질의: 발주 검토 대상 유형·부족 수량 답변', rs.includes('안전재고 미달(발주 검토)') && rs.includes('주변기기') && rs.includes('부족'))
