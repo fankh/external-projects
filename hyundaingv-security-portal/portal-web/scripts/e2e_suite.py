@@ -197,7 +197,7 @@ def sc_sr(pg, base, check):
     pg.locator('a', has_text='[재상신] E2E 데이터 추출').first.click()
     pg.wait_for_selector('text=문서 상세', timeout=10000)
     detail = pg.locator('.card', has_text='문서 상세')
-    check('이전 회차 결재' in detail.inner_text(), '재상신 상세에 이전 회차 이력')
+    check('이전 상신 이력' in detail.inner_text(), '재상신 상세에 이전 회차 이력')
     check('근거 보완 필요' in detail.inner_text(), '이전 회차 반려 사유 표시')
     detail.locator('button:has-text("승인")').click()
     pg.wait_for_load_state('networkidle')
@@ -3040,7 +3040,7 @@ def sc_batchref(pg, base, check):
     waiting.locator('a', has_text='[장애보고]').first.click()
     pg.wait_for_selector('text=문서 상세', timeout=10000)
     detail = pg.locator('.card', has_text='문서 상세')
-    check('이전 회차 결재' in detail.inner_text(), '재상신 묶음 상세에 이전 회차 이력(회전 참조)')
+    check('이전 상신 이력' in detail.inner_text(), '재상신 묶음 상세에 이전 회차 이력(회전 참조)')
     check('IR-2026-0001' in detail.inner_text() and '취합 기간 오류' in detail.inner_text(), '이전 묶음 참조·반려 사유 표시')
     check('장애보고 취합 양식' in detail.inner_text(), '상세 첨부에 자동첨부 양식 표시')
     # 상세를 닫고 목록으로 — 아래 단계는 '문서 상세' 부재를 전제로 wait_for_selector 한다
