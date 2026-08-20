@@ -1287,9 +1287,14 @@ try {
   await p3.waitForTimeout(250)
   await opsCard.locator('input[type="number"]').nth(0).fill('5')   // 소유자 확인 기한
   await opsCard.locator('input[type="number"]').nth(3).fill('60')  // 만료 알림 창
+  await opsCard.locator('input[type="number"]').nth(4).fill('45')  // 정기 점검 창 (신규 — 하드코딩 30 승격)
   await opsCard.locator('button', { hasText: /^저장$/ }).click()
   await p3.waitForTimeout(700)
   ok('운영 정책: 변경 성공(확인기한 5일·만료창 60일)', (await p3.textContent('body')).includes('운영 정책 갱신'))
+  // 정기 점검 창(신규 임계값) — 하드코딩 30 을 opsPolicy 로 승격, 설정값이 setter·표시에 반영된다(isMaintenanceDue 가 이 값을 창으로 사용).
+  ok('운영 정책: 정기 점검 창 편집 반영(하드코딩 30 → 설정 45)', (await p3.textContent('body')).includes('점검창 45'))
+  await p3.goto(`${BASE}/settings/ai-policy`, { waitUntil: 'networkidle' })
+  ok('운영 정책: 정기 점검 창 설정값(45일) 표시 유지', (await opsCard.textContent()).includes('정기 점검 창') && (await opsCard.textContent()).includes('45일'))
   await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
   ok('운영 정책 다운스트림: 발견 처리 에스컬레이션 기한 5일 반영', (await p3.textContent('body')).includes('기한(5일)'))
   // 리포트도 운영 정책을 따른다 — 월간 자산 현황의 만료 임박 섹션이 60일 창으로 산출된다(하드코딩 90 제거)

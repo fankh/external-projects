@@ -11,6 +11,7 @@ const FIELDS: { key: keyof OpsPolicy; label: string; desc: string; min: number; 
   { key: 'approvalSlaDays', label: '결재 SLA', desc: '결재 대기 SLA — 초과 시 대시보드·결재함에 지연 표기', min: 1, max: 14, unit: '일' },
   { key: 'staleVerifyDays', label: '장기 미실측 기준', desc: '최근 실측 경과 기준 — 초과·미실측 시 유령 자산 후보(재물조사 편성)', min: 30, max: 730, unit: '일' },
   { key: 'expiryWindowDays', label: '만료 알림 창', desc: '계약·보증·라이선스 만료 임박 알림 대상 기준', min: 30, max: 365, unit: '일' },
+  { key: 'maintenanceWindowDays', label: '정기 점검 창', desc: '예방 정비 예정일 도래 임박 판정 창 — 대시보드 정기 점검 큐·대장 필터·어시스턴트 기준', min: 7, max: 180, unit: '일' },
   { key: 'safetyStock', label: '안전재고 기준', desc: '불출형 유형(단말·주변기기) 가용 재고 최소 보유 — 미만 시 재고 부족(발주 검토) 경보', min: 0, max: 50, unit: '대' },
 ]
 
@@ -22,6 +23,7 @@ export function OpsPolicyPanel({ policy }: { policy: OpsPolicy }) {
     approvalSlaDays: String(policy.approvalSlaDays),
     staleVerifyDays: String(policy.staleVerifyDays),
     expiryWindowDays: String(policy.expiryWindowDays),
+    maintenanceWindowDays: String(policy.maintenanceWindowDays),
     safetyStock: String(policy.safetyStock),
   })
   const [msg, setMsg] = useState<string | null>(null)
@@ -32,6 +34,7 @@ export function OpsPolicyPanel({ policy }: { policy: OpsPolicy }) {
       approvalSlaDays: String(policy.approvalSlaDays),
       staleVerifyDays: String(policy.staleVerifyDays),
       expiryWindowDays: String(policy.expiryWindowDays),
+      maintenanceWindowDays: String(policy.maintenanceWindowDays),
       safetyStock: String(policy.safetyStock),
     })
     setMsg(null); setEditing(true)
@@ -42,6 +45,7 @@ export function OpsPolicyPanel({ policy }: { policy: OpsPolicy }) {
       approvalSlaDays: Number(vals.approvalSlaDays),
       staleVerifyDays: Number(vals.staleVerifyDays),
       expiryWindowDays: Number(vals.expiryWindowDays),
+      maintenanceWindowDays: Number(vals.maintenanceWindowDays),
       safetyStock: Number(vals.safetyStock),
     })
     setMsg(r.message); if (r.ok) setEditing(false)

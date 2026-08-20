@@ -1209,6 +1209,8 @@ try {
   check('AI 정책: 감사 로그 보존 기간 관리 컨트롤', aiHtml.includes('감사 로그 보존 기간') && aiHtml.includes('보존 기간 관리'))
   // 운영 정책(임계값) — 코드 상수로 고정돼 표시만 되던 기한·SLA·판정 기준을 스토어로 승격해 Admin 이 설정(화면·리포트·스케줄러 공용)
   check('AI 정책: 운영 정책(기한·SLA·판정 기준) 관리 컨트롤', aiHtml.includes('운영 정책 — 기한 · SLA · 판정 기준') && aiHtml.includes('소유자 확인 기한') && aiHtml.includes('장기 미실측 기준'))
+  // 정기 점검 창(신규 임계값) — isMaintenanceDue 하드코딩 30 을 opsPolicy 로 승격해 Admin 이 예방 정비 도래 창을 설정(대시보드 큐·대장 필터·어시스턴트 공용). 기존 5개 임계값과 동일 규약 완성.
+  check('AI 정책: 운영 정책에 정기 점검 창(예방 정비 도래) 편집 필드 렌더', aiHtml.includes('정기 점검 창') && aiHtml.includes('예방 정비 예정일 도래'))
   const usrHtml = await (await get('/settings/users', 'ADMIN')).text()
   check('사용자 · 결재선: 결재선·필수 결재·단계 편집 렌더', usrHtml.includes('IT기획팀장') && usrHtml.includes('필수 결재') && usrHtml.includes('편집'))
   check('사용자 · 결재선: STEP 4 권한그룹 배정 컨트롤 렌더', usrHtml.includes('사용자 · 권한그룹 배정') && usrHtml.includes('select'))

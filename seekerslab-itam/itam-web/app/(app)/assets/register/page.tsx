@@ -42,7 +42,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   // 핵심·중요 자산 — 운영자가 지정한 업무 중요도(§05 자산 중요도 축). DR·패치 우선순위·감사 대상 식별.
   const critNos = scoped.filter((a) => a.criticality === '핵심' || a.criticality === '중요').map((a) => a.assetNo)
   // 정기 점검 대상 — 예방 정비 예정일 도래(30일 내·경과) 자산. 대시보드 나눔 드릴다운(?maint=1)과 대장 필터가 공유.
-  const maintenanceNos = scoped.filter(isMaintenanceDue).map((a) => a.assetNo)
+  const maintenanceNos = scoped.filter((a) => isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays)).map((a) => a.assetNo)
   // 단일 장애점(SPOF) — CMDB 의존 그래프상 blast radius 2대 이상(전체 그래프로 산출) 중 조회 범위 내 자산. 대시보드 큐(?spof=1) 드릴다운과 대장 필터가 공유.
   const scopedNoSet = new Set(scoped.map((a) => a.assetNo))
   const spofNos = criticalDependencies().map((x) => x.asset.assetNo).filter((no) => scopedNoSet.has(no))

@@ -99,7 +99,7 @@ export default async function DashboardPage() {
       { label: '수리 진행 · 완료 확인', count: s.assets.filter((a) => a.status === '수리중').length, href: '/assets/returns', tone: 'warn' },
       { label: '수리 예상 반환 경과 (업체 독촉)', count: s.assets.filter(isRepairOverdue).length, href: '/assets/returns', tone: 'err' },
       // 정기 점검 대상 — 예방 정비 예정일 도래(30일 내·경과) 운영 자산. 반응형 수리와 별개의 사전 정비(§03 유지보수).
-      { label: '정기 점검 대상 (예방 정비 도래)', count: s.assets.filter(isMaintenanceDue).length, href: '/assets/register?maint=1', tone: 'warn' },
+      { label: '정기 점검 대상 (예방 정비 도래)', count: s.assets.filter((a) => isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays)).length, href: '/assets/register?maint=1', tone: 'warn' },
       // 영향 집중 자산(단일 장애점·CMDB blast radius) — 이 자산 장애 시 전이적으로 2대 이상 영향. 이중화·우선 정비 대상. 현재 저하(수리중·분실 등) 상태면 즉시 리스크(err).
       { label: `영향 집중 자산 (blast radius ≥2 · 단일 장애점${spof.some((x) => x.degraded) ? ' · 저하 포함' : ''})`, count: spof.length, href: spof.length ? `/assets/register?spof=1` : '/assets/register', tone: spof.some((x) => x.degraded) ? 'err' : 'warn' },
       { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal', tone: 'err' },

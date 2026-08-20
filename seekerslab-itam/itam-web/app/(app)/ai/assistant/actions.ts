@@ -566,7 +566,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   // 정기 점검(예방 정비) 대상 — 예정일이 도래·경과한 자산을 경과(미시행)·임박으로 나눠 답한다 (자산팀 사전 정비 대상).
   //  대장 필터·대시보드 큐·독촉과 같은 lib/dates 판정(isMaintenanceDue/Overdue)을 쓴다 — 어시스턴트가 별도 임계값을 만들지 않는다.
   if (canAsset && (q.includes('정기 점검') || q.includes('예방 정비') || q.includes('점검 대상') || q.includes('점검 밀린') || q.includes('점검 경과') || q.includes('정비'))) {
-    const due = s.assets.filter(isMaintenanceDue)
+    const due = s.assets.filter((a) => isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays))
     const overdue = due.filter(isMaintenanceOverdue).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? ''))
     const soon = due.filter((a) => !isMaintenanceOverdue(a)).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? ''))
     const fmt = (a: (typeof due)[number]) => `${a.assetNo} — ${a.model} · ${a.owner} (${a.dept}) · 예정 ${a.maintenanceDue}${isMaintenanceOverdue(a) ? ` · 경과 ${-(daysUntil(a.maintenanceDue!) ?? 0)}일` : ` · D-${daysUntil(a.maintenanceDue!) ?? 0}`}`
