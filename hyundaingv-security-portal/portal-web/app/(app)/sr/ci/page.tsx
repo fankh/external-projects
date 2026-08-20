@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { requireAction, requireMenu } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
@@ -9,7 +9,7 @@ import { SR_CHIP, srStatusLabel } from '../chips'
 
 async function assignCi(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/sr/ci', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/sr/ci', 'save')
   const srNo = String(formData.get('srNo') ?? '')
   const ci = String(formData.get('ci') ?? '').trim().slice(0, 40)
   const dueDate = String(formData.get('dueDate') ?? '')
@@ -37,7 +37,7 @@ async function assignCi(formData: FormData) {
 
 async function baReject(formData: FormData) {
   'use server'
-  await requireMenuRole('/sr/ci', 'BIZ_MGR', 'ADMIN')
+  await requireAction('/sr/ci', 'save')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo && r.status === 'CI배정')
@@ -53,7 +53,7 @@ async function baReject(formData: FormData) {
 /** 결재 없는 CI 직접 접수 (요구사항 25행) — 전화·메일 등으로 들어온 건을 보안/업무 구분으로 접수한다 */
 async function receiveCiSr(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/sr/ci', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/sr/ci', 'save')
   const category = String(formData.get('category') ?? '')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const requester = String(formData.get('requester') ?? '').trim().slice(0, 60)
@@ -73,7 +73,7 @@ async function receiveCiSr(formData: FormData) {
 /** CI SR 처리 전이 — 접수 → 처리중 → 완료(처리 내용 기록) */
 async function advanceCiSr(formData: FormData) {
   'use server'
-  await requireMenuRole('/sr/ci', 'BIZ_MGR', 'ADMIN')
+  await requireAction('/sr/ci', 'save')
   const id = String(formData.get('id') ?? '')
   const result = String(formData.get('result') ?? '').trim().slice(0, 300)
   const s = getStore()
