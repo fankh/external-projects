@@ -8,7 +8,7 @@ type Verdict = keyof typeof VERDICT_TONE
 
 /** 라이선스 최적화 — 초과 사용·미사용 회수·만료 경과·중복 SaaS 통합(§05 AI 기능05). 읽기 전용 합성 뷰.
  *  라이선스 컴플라이언스 리포트와 같은 licenseOptimization() 근거를 재사용해 화면·리포트가 어긋나지 않게 한다. */
-export function LicenseOptimization() {
+export function LicenseOptimization({ canManage }: { canManage?: boolean }) {
   const { active, over, under, expired, isExpired, saving, overCost, saasCons } = licenseOptimization()
 
   const verdictOf = (l: (typeof active)[number]): Verdict =>
@@ -31,10 +31,10 @@ export function LicenseOptimization() {
       actions={<span className="dim" style={{ fontSize: 11.5 }}>사용 패턴 분석 · 활성 {active.length}종</span>}
     >
       <div className="stat-row" style={{ margin: 14 }}>
-        <Stat value={over.length} label="초과 사용 — 감사 리스크" tone={over.length ? 'err' : 'ok'} delta={{ text: `추가 구매 시 연 ${fmtAmount(overCost)}원`, dir: 'flat' }} />
-        <Stat value={under.length} label="미사용 회수 후보" tone={under.length ? 'warn' : 'ok'} />
-        <Stat value={`${fmtAmount(saving)}원`} label="회수 시 연간 절감" tone={saving ? 'ok' : undefined} />
-        <Stat value={expired.length} label="만료 경과 — 갱신 판단" tone={expired.length ? 'warn' : 'ok'} />
+        <Stat value={over.length} label="초과 사용 — 감사 리스크" tone={over.length ? 'err' : 'ok'} delta={{ text: `추가 구매 시 연 ${fmtAmount(overCost)}원`, dir: 'flat' }} href={canManage && over.length ? '/inventory/contracts?lic=over' : undefined} />
+        <Stat value={under.length} label="미사용 회수 후보" tone={under.length ? 'warn' : 'ok'} href={canManage && under.length ? '/inventory/contracts?lic=under' : undefined} />
+        <Stat value={`${fmtAmount(saving)}원`} label="회수 시 연간 절감" tone={saving ? 'ok' : undefined} href={canManage && saving ? '/inventory/contracts?lic=under' : undefined} />
+        <Stat value={expired.length} label="만료 경과 — 갱신 판단" tone={expired.length ? 'warn' : 'ok'} href={canManage && expired.length ? '/inventory/contracts?lic=expired' : undefined} />
       </div>
 
       <div className="tbl-wrap">
@@ -42,7 +42,7 @@ export function LicenseOptimization() {
           <thead>
             <tr>
               <th>라이선스</th><th>공급사</th><th className="num">보유/사용</th><th className="num">사용률</th>
-              <th className="c">판정</th><th>권고 조치</th>
+              <th className="c">판정</th><th>권고 조치</th><th className="c">조치</th>
             </tr>
           </thead>
           <tbody>
@@ -56,10 +56,15 @@ export function LicenseOptimization() {
                   <td className="num tnum">{Math.round((l.used / l.purchased) * 100)}%</td>
                   <td className="c"><Chip tone={VERDICT_TONE[v]}>{v}</Chip></td>
                   <td style={{ whiteSpace: 'normal', maxWidth: 320 }}>{recOf(l)}</td>
+                  <td className="c">
+                    {v === '적정' || !canManage
+                      ? <span className="mute">-</span>
+                      : <Link className="btn sm ghost" href={`/inventory/contracts?sel=${l.id}`} title="계약·라이선스 화면에서 회수·증설·갱신 조치">조치 →</Link>}
+                  </td>
                 </tr>
               )
             })}
-            {active.length === 0 && <tr><td colSpan={6}><div className="empty">활성 라이선스가 없습니다</div></td></tr>}
+            {active.length === 0 && <tr><td colSpan={7}><div className="empty">활성 라이선스가 없습니다</div></td></tr>}
           </tbody>
         </table>
       </div>
