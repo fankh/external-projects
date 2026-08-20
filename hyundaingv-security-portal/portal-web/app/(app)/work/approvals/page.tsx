@@ -185,8 +185,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
             <>
               <div className="dim" style={{ margin: '12px 0 5px', fontSize: 11.5 }}>
                 {rotating
-                  ? <>이전 회차 결재 — {selected.drafter} 기안 {selected.docType} 이전 묶음(회차별 참조 상이). 반려 사유를 확인하고 보완 내용을 심사한다.</>
-                  : <>이전 회차 결재 — 같은 참조({selected.ref})로 상신된 문서. 반려 사유를 확인하고 보완 내용을 심사한다.</>}
+                  ? <>이전 상신 이력 — {selected.drafter} 기안 {selected.docType} 이전 상신 건(같은 기안·유형, 별개 배치 포함). 반려 사유를 확인하고 보완 내용을 심사한다.</>
+                  : <>이전 상신 이력 — 같은 참조({selected.ref})로 상신된 재상신 회차. 반려 사유를 확인하고 보완 내용을 심사한다.</>}
               </div>
               <table className="tbl">
                 <thead><tr><th>결재번호</th><th>참조</th><th>제목</th><th>상태</th><th>처리일</th><th>반려 사유</th></tr></thead>
