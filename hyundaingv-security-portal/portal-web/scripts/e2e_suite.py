@@ -2709,6 +2709,26 @@ def sc_incident_stats_empty_month(pg, base, check):
     check(aug is not None and aug.split(',')[-2].strip() == '2', f'2026-08 계=2 (무날짜 장애 제외) 실제 {aug}')
 
 
+def sc_inspection_carryover(pg, base, check):
+    """전년 불러오기 (제품안내서 IV장 '점검계획 — 전년 불러오기') — 최신 연도(시드 2026) 점검계획을 다음 해(2027)로
+    복제해 초안 생성한다. 연간 점검계획은 해마다 대동소이해 재입력 없이 이월한다. 재클릭은 중복 생성 안 함(idempotent).
+    수정 전이면 '전년 불러오기' 버튼 부재로 클릭 실패."""
+    login(pg, base, '시스템관리자')  # ADMIN — 점검계획 관리
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    check(pg.content().count('IS-2027') == 0, '전제: 다음 해(2027) 점검계획 없음')
+    pg.locator('.card', has_text='점검계획 수립').locator('button:has-text("전년 불러오기")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    n1 = pg.content().count('IS-2027')
+    check(n1 > 0, f'전년 불러오기 → 다음 해(2027) 점검계획 생성 (실제 {n1}건)')
+    # 재클릭 idempotent — 다음 해 계획이 이미 있으면 재이월 안 함
+    pg.locator('.card', has_text='점검계획 수립').locator('button:has-text("전년 불러오기")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    n2 = pg.content().count('IS-2027')
+    check(n2 == n1, f'재클릭 idempotent — 2027 계획 중복 생성 안 함 ({n1}→{n2})')
+
+
 def sc_criteria(pg, base, check):
     """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
     login(pg, base, '박정호')
@@ -3785,6 +3805,7 @@ SCENARIOS = [
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
      {'PORTAL_DATA_FILE': str(DPLG_DATA)}),
     ('criteria', '점검 기준관리 — 등록·업로드·삭제·사용중 가드', sc_criteria, {}),
+    ('inspection_carryover', '점검계획 전년 불러오기 — 최신 연도 계획을 다음 해로 복제(idempotent)', sc_inspection_carryover, {}),
     ('racks', '랙·H/W 관리 — 등록·구성도·삭제 가드', sc_racks, {}),
     ('infracrud', '인프라 CRUD — 서버·시스템·배치·인터페이스', sc_infracrud, {}),
     ('infra_health', '인프라 운영 헬스 — 배치·인터페이스·디스크 단일원천(화면·대시보드·export 정합)', sc_infra_health, {}),
