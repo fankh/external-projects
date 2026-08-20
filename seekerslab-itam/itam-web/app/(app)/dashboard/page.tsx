@@ -4,6 +4,7 @@ import { canDecideApproval } from '@/lib/approval'
 import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isQnaOverdue, isRepairOverdue, isStaleVerify, nowMinute, roundProgressPct, today } from '@/lib/dates'
 import { isEasmRescanOverdue } from '@/lib/easm'
 import { criticalDependencies } from '@/lib/cmdb'
+import { upcomingSchedule } from '@/lib/upcoming'
 import { overdueScanChannels } from '@/lib/scan-policy'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { isEolTarget } from '@/lib/eol'
@@ -33,6 +34,8 @@ export default async function DashboardPage() {
   const maint = buildMaintenance()
   // 교체 대상(내용연수 초과·보증 경과·장애 이력)은 수명예측 패널·연간 교체 계획 리포트와 동일한 replacementCandidates() 단일 소스.
   const replCands = replacementCandidates().cands
+  // 다가오는 일정(향후 14일 아젠다) — 계약·라이선스 링크가 자산담당·Admin 화면이라 그 역할에만 산출(SEC_MGR 은 dead-end 방지).
+  const upcoming = ['ASSET_MGR', 'ADMIN'].includes(session.role) ? upcomingSchedule(14) : []
   const pendingApr = s.approvals.filter((a) => a.status === '대기')
   // 결재 지연 — SLA(3일) 초과한 대기 결재(정체). 상신 후 오래 방치된 결재를 드러낸다.
   const overdueApr = pendingApr.filter((a) => isApprovalOverdue(a, today(), s.opsPolicy.approvalSlaDays)).length
@@ -453,6 +456,24 @@ export default async function DashboardPage() {
                     <span className="hstack" style={{ gap: 6 }}><Chip tone={q.tone}>{q.count}</Chip><span className="mut">→</span></span>
                   </Link>
                 )) : <div className="mut">처리 대기 중인 운영 작업이 없습니다.</div>}
+              </div>
+            </Card>
+          )}
+
+          {['ASSET_MGR', 'ADMIN'].includes(session.role) && (
+            <Card kicker="Planning" title="다가오는 일정 (향후 14일)"
+              actions={upcoming.length > 0 ? <Chip tone="info" bare>{upcoming.length}건</Chip> : undefined}>
+              <div className="vstack" style={{ gap: 7 }}>
+                {upcoming.length > 0 ? upcoming.slice(0, 8).map((u, i) => (
+                  <Link key={i} href={u.href} className="hstack"
+                    style={{ justifyContent: 'space-between', gap: 10, color: 'inherit', textDecoration: 'none', alignItems: 'baseline' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                      <span className="mut tnum" style={{ fontSize: 11 }}>{u.date.slice(5)}</span> <Chip tone={u.tone} bare>{u.kind}</Chip> <span style={{ fontSize: 12 }}>{u.label}</span>
+                    </span>
+                    <span className="hstack" style={{ gap: 6 }}><span className="mut tnum" style={{ fontSize: 11 }}>D-{u.dday}</span><span className="mut">→</span></span>
+                  </Link>
+                )) : <div className="mut">향후 14일 예정된 정비·갱신·조사·리포트 일정이 없습니다.</div>}
+                {upcoming.length > 8 && <div className="dim" style={{ fontSize: 11.5 }}>… 외 {upcoming.length - 8}건 (날짜순)</div>}
               </div>
             </Card>
           )}

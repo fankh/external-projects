@@ -315,6 +315,8 @@ try {
   check('대시보드: 영향 집중 자산(blast radius ≥2 단일 장애점) 큐 (자산담당)', dashHtml.includes('영향 집중 자산') && dashHtml.includes('blast radius'))
   // 영향 집중 큐는 첫 자산(?sel=)만 열던 것을 전체 SPOF 목록(?spof=1)으로 드릴다운 — 큐 건수 N 과 목록이 일치.
   check('대시보드: 영향 집중 자산 큐가 단일 장애점 목록(?spof=1)으로 드릴다운', dashHtml.includes('/assets/register?spof=1'))
+  // 다가오는 일정 아젠다(사전 계획) — 반응형 큐(카운트)와 별개로, 향후 14일 예정 작업을 날짜순 아젠다로. 정례 리포트 배포는 주간 주기라 항상 창 이내(D-day 표기).
+  check('대시보드(자산담당): 다가오는 일정 아젠다 카드(정례 리포트 배포 예정 포함)', dashHtml.includes('다가오는 일정') && dashHtml.includes('리포트 배포') && dashHtml.includes('D-'))
   // 수령 미확인 큐도 전체 대장으로 떨어지던 것을 ?receipt=1 로 드릴다운 — 큐 건수=목록(체인 오브 커스터디 추적).
   check('대시보드: 수령 미확인 큐가 인수 미확인 목록(?receipt=1)으로 드릴다운', dashHtml.includes('/assets/register?receipt=1'))
   // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다
@@ -355,6 +357,8 @@ try {
   check('대시보드(보안담당): 외부 공격표면 재탐지 기한 경과 큐 노출', dashSec.includes('외부 공격표면 재탐지 기한 경과') && dashSec.includes('Discovery 사각'))
   // 알림 전달 실패 큐(§06 발송 신뢰성) — 미도달 통지(시드 MSG-4004)를 대시보드에서 선제 노출, 클릭 시 발송 이력에서 재발송. 통합 화면 안 열어도 놓치지 않게.
   check('대시보드(보안담당): 알림 전달 실패 큐 → 발송 이력 드릴다운', dashSec.includes('알림 전달 실패') && dashSec.includes('/platform/integrations'))
+  // 다가오는 일정 카드는 계약·라이선스 링크를 담아 자산담당·Admin 전용 — 보안담당엔 미노출(접근 밖 dead-end 방지)
+  check('대시보드(보안담당): 다가오는 일정 카드 미노출 (계약·라이선스 접근 밖)', !dashSec.includes('다가오는 일정'))
   check('대시보드(자산담당): 재탐지 기한 경과 큐 미노출 (보안 운영 큐)', !dashHtml.includes('외부 공격표면 재탐지 기한 경과'))
   // 내부 수집 채널 재탐지 주기 경과 — EASM 재탐지 지연과 동형의 Discovery 사각 신호. 보안 운영 큐(자산담당 미노출).
   check('대시보드(보안담당): 탐지 채널 재탐지 주기 경과 큐 노출', dashSec.includes('탐지 채널 재탐지 주기 경과') && dashSec.includes('수집 지연'))
