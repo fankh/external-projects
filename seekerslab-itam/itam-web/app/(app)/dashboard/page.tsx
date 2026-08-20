@@ -237,8 +237,10 @@ export default async function DashboardPage() {
 
       <div className="cols main-side">
         <div className="vstack">
+          {/* 미등록 발견(Shadow IT) 상세 목록은 발견 화면 권한(비-USER)에만 — USER 는 상단 요약 카운트만 보고 상세·드릴다운은 차단(discovery/found requireRole·전역 검색·어시스턴트와 동일 스코핑). 카드 본문이 tile href·action 과 달리 게이트를 빠뜨려 USER 에 호스트·위험도까지 유출되던 것을 닫는다. */}
+          {session.role !== 'USER' && (
           <Card kicker="Discovery" title="미등록 자산 신규 발견" pad={false}
-            actions={session.role !== 'USER' ? <Link className="btn sm" href="/discovery/found">전체 보기</Link> : undefined}>
+            actions={<Link className="btn sm" href="/discovery/found">전체 보기</Link>}>
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead>
@@ -260,9 +262,12 @@ export default async function DashboardPage() {
               </table>
             </div>
           </Card>
+          )}
 
+          {/* 만료 임박(계약·라이선스) 상세도 계약 화면 권한(자산담당·Admin)에만 — USER·보안담당은 상단 카운트만. 계약 화면 requireRole·action 링크와 동일 스코핑(카드 본문 게이트 누락으로 USER 에 계약·라이선스명·만료일 유출되던 것 차단). */}
+          {['ASSET_MGR', 'ADMIN'].includes(session.role) && (
           <Card kicker="Contracts · Licenses" title="만료 임박" pad={false}
-            actions={['ASSET_MGR', 'ADMIN'].includes(session.role) ? <Link className="btn sm" href="/inventory/contracts">계약 · 라이선스</Link> : undefined}>
+            actions={<Link className="btn sm" href="/inventory/contracts">계약 · 라이선스</Link>}>
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead>
@@ -286,6 +291,7 @@ export default async function DashboardPage() {
               </table>
             </div>
           </Card>
+          )}
         </div>
 
         <div className="vstack">
