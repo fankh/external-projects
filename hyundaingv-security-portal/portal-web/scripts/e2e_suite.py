@@ -2729,6 +2729,29 @@ def sc_inspection_carryover(pg, base, check):
     check(n2 == n1, f'재클릭 idempotent — 2027 계획 중복 생성 안 함 ({n1}→{n2})')
 
 
+def sc_inspection_plan_upload(pg, base, check):
+    """점검계획 엑셀(CSV) 업로드 (제품안내서 IV장 '점검계획 — 엑셀 업로드') — 계획 다건 CSV 일괄 등록. 유효 행만
+    반영(미등록 항목·무효월 스킵)하고 같은 항목·월 중복은 스킵한다. 수정 전이면 '계획 업로드' 폼 부재로 실패."""
+    login(pg, base, '시스템관리자')  # ADMIN — 점검계획 관리
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    item_code = pg.locator('.card', has_text='기준관리 — 점검 항목').locator('td.code').first.inner_text().strip()
+    check(item_code.startswith('CK'), f'전제: 점검 항목코드 확보 ({item_code})')
+    # CSV: 유효행(항목,2027-03,박정호) + 무효월(2027-13) + 미등록코드(BAD-CODE) — 유효 1건만 반영
+    csv_path = ROOT / 'scripts' / '.e2e-planupload.csv'
+    csv_path.write_text(f'{item_code},2027-03,박정호\n{item_code},2027-13,박정호\nBAD-CODE,2027-04,박정호\n', encoding='utf-8')
+    try:
+        card = pg.locator('.card', has_text='점검계획 수립')
+        form = card.locator('form:has(button:has-text("계획 업로드"))')
+        form.locator('input[type=file]').set_input_files(str(csv_path))
+        form.locator('button:has-text("계획 업로드")').click()
+        pg.wait_for_selector('td:has-text("2027-03")', timeout=10000)  # 유효 행 반영 대기(서버액션 후 재조회 아님)
+        check('2027-03' in pg.content(), '유효 행(2027-03) 계획 반영')
+        check('2027-13' not in pg.content(), '무효월(2027-13) 행 스킵(검증)')
+        check(pg.content().count('BAD-CODE') == 0, '미등록 항목코드(BAD-CODE) 행 스킵')
+    finally:
+        csv_path.unlink(missing_ok=True)
+
+
 def sc_criteria(pg, base, check):
     """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
     login(pg, base, '박정호')
@@ -3806,6 +3829,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(DPLG_DATA)}),
     ('criteria', '점검 기준관리 — 등록·업로드·삭제·사용중 가드', sc_criteria, {}),
     ('inspection_carryover', '점검계획 전년 불러오기 — 최신 연도 계획을 다음 해로 복제(idempotent)', sc_inspection_carryover, {}),
+    ('inspection_plan_upload', '점검계획 CSV 업로드 — 다건 일괄 등록(유효행만·무효월·미등록코드 스킵)', sc_inspection_plan_upload, {}),
     ('racks', '랙·H/W 관리 — 등록·구성도·삭제 가드', sc_racks, {}),
     ('infracrud', '인프라 CRUD — 서버·시스템·배치·인터페이스', sc_infracrud, {}),
     ('infra_health', '인프라 운영 헬스 — 배치·인터페이스·디스크 단일원천(화면·대시보드·export 정합)', sc_infra_health, {}),
