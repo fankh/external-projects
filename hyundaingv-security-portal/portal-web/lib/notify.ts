@@ -231,6 +231,17 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
     s.drPlans.filter((p) => isTestOverdue(p, t)).map((p) => p.owner).filter((name) => people.some((pp) => pp.name === name)),
     '[재해복구] 복구훈련 예정일 경과 안내')
 
+  // 10) 프로젝트 산출물 기한 경과 — 미완료(기한 < 오늘) 산출물의 소속 프로젝트 PM 에게 통지(PMO 일정 관리,
+  // 제품안내서 III장). SR 지연(3)과 같은 프로젝트 트랙 기한 알림 — 컴플라이언스 축은 아니나 SR 처럼 지연 산출물도
+  // 책임자(PM)에게 경과를 민다(화면에 이미 보이지만 배치는 능동 통지). 술어는 lib/projects dlLate 와 동일
+  // (!done && due < t) — PMO 신호 단일 원천과 정합. 재직자 교집합 — PM 퇴사 시 유령 독촉 방지(타 person 경로 동일).
+  const overdueDeliverableOwners = [...new Set(
+    s.deliverables.filter((d) => !d.done && d.due < t)
+      .map((d) => s.projects.find((p) => p.id === d.projectId)?.manager)
+      .filter((name): name is string => !!name))]
+    .filter((name) => people.some((p) => p.name === name))
+  await send('산출물 기한 경과', overdueDeliverableOwners, '[프로젝트] 산출물 기한 경과 안내')
+
   const total = results.reduce((sum, r) => sum + r.targets, 0)
   const allOk = results.every((r) => r.ok)
   recordBatch(`일일 알림 배치 (${results.length}종 · ${total}명)`, nowStamp(), results.length === 0 || allOk ? '성공' : '실패')

@@ -70,6 +70,7 @@ POLICYRA_DATA = ROOT / 'scripts' / '.e2e-policyra-data.json'  # 정책 담당 �
 DR_DATA = ROOT / 'scripts' / '.e2e-dr-data.json'  # 재해복구 복구훈련 주기(경과 리셋)·담당 재배정·삭제 커버리지용 (v1.5.279)
 DRNF_DATA = ROOT / 'scripts' / '.e2e-drnf-data.json'  # 복구훈련 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.281)
 EDUNF_DATA = ROOT / 'scripts' / '.e2e-edunf-data.json'  # 보안교육 미이수 알림 — 예정월 경과 미완료 과정 대상자 통지 회귀용 (v1.5.357)
+DLNF_DATA = ROOT / 'scripts' / '.e2e-dlnf-data.json'  # 산출물 기한 경과 알림 — 미완료 산출물 소속 PM 통지(퇴사 PM 유령 독촉 방지) 회귀용 (v1.5.359)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 SECFT_DATA = ROOT / 'scripts' / '.e2e-secft-data.json'  # secdata throw 내성용 security-db 채널 ON (v1.5.317)
@@ -569,6 +570,20 @@ def sc_edu_overdue_notify(pg, base, check):
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
     detail = pg.locator('tr', has_text='알림 배치 실행').first.inner_text()
     check('보안교육 미이수 1명' in detail, f'보안교육 미이수 알림 = 미완료 과정 대상 1명(이수자·완료과정 제외) (실제: {detail[:180]})')
+
+
+def sc_deliverable_overdue_notify(pg, base, check):
+    """산출물 기한 경과 알림 — 미완료(기한 경과) 산출물의 소속 프로젝트 PM 통지(PMO 일정, SR 지연과 같은 프로젝트
+    트랙 알림 계열). 격리(DLNF): DL-91(PJ-91→김현우 재직)·DL-92(PJ-92→E2E퇴사담당 퇴사) 경과, DL-93(완료) 제외.
+    배치 '산출물 기한 경과 1명'(재직 PM 김현우만) 이어야 한다 — 배치에 유형 자체가 없으면 부재로 단언 실패(fails-without-fix).
+    완료 산출물(DL-93) 미제외 또는 퇴사 PM 교집합 미적용이면 2명 이상으로 대조 실패."""
+    login(pg, base, '시스템관리자')  # ADMIN — 수동 배치 실행
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.locator('button:has-text("알림 배치 실행")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    detail = pg.locator('tr', has_text='알림 배치 실행').first.inner_text()
+    check('산출물 기한 경과 1명' in detail, f'산출물 기한 경과 알림 = 재직 PM 1명(완료·퇴사 PM 제외) (실제: {detail[:180]})')
 
 
 def sc_risk_delete_guard(pg, base, check):
@@ -3518,6 +3533,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(RISKDLY_DATA)}),
     ('edu_overdue_notify', '보안교육 미이수 알림 — 예정월 경과 미완료 과정 대상 통지(이수율 축 사각지대 해소)', sc_edu_overdue_notify,
      {'PORTAL_DATA_FILE': str(EDUNF_DATA)}),
+    ('deliverable_overdue_notify', '산출물 기한 경과 알림 — 미완료 산출물 소속 PM 통지(PMO 일정, 퇴사 PM 유령 독촉 방지)', sc_deliverable_overdue_notify,
+     {'PORTAL_DATA_FILE': str(DLNF_DATA)}),
     ('risk_delete_guard', '미종결 위험 은닉 삭제 방지 — 위조 삭제 POST 서버 가드(ISMS 감사 트레일 보존)', sc_risk_delete_guard,
      {'PORTAL_DATA_FILE': str(RISKDEL_DATA)}),
     ('risk_reassign', '위험 담당 재배정 → 조치 지연 폐쇄루프 복구(퇴사 담당 이관)', sc_risk_reassign,
@@ -4122,6 +4139,20 @@ def main() -> int:
             {'courseId': 'ED-2026-91', 'name': '김현우', 'dept': '개발1팀', 'completedAt': '2026-05-20'},
             {'courseId': 'ED-2026-91', 'name': '이수진', 'dept': '경영지원팀', 'completedAt': '2026-05-20'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 산출물 기한 경과 알림 — 미완료(기한 경과) 산출물 소속 프로젝트 PM 통지(SR 지연과 같은 프로젝트 트랙 알림).
+    # DL-91(PJ-91→김현우 재직)·DL-92(PJ-92→E2E퇴사담당 퇴사) 경과, DL-93(완료) 제외. 배치 '산출물 기한 경과 1명'
+    # 이어야 한다(재직 PM 1명만; 완료 제외·퇴사 PM 교집합 드롭). 유형 미구현이면 '산출물 기한 경과' 부재로 실패.
+    DLNF_DATA.write_text(json.dumps({
+        'projects': [
+            {'id': 'PJ-2026-91', 'title': '지연산출물 프로젝트', 'manager': '김현우', 'headcount': 1, 'members': ['김현우'],
+             'start': '2026-06-01', 'end': '2026-12-31', 'progress': 30, 'status': '진행중'},
+            {'id': 'PJ-2026-92', 'title': '퇴사PM 프로젝트', 'manager': 'E2E퇴사담당', 'headcount': 1, 'members': [],
+             'start': '2026-06-01', 'end': '2026-12-31', 'progress': 30, 'status': '진행중'}],
+        'deliverables': [
+            {'id': 'DL-2026-91', 'projectId': 'PJ-2026-91', 'name': '지연 산출물', 'due': '2026-07-01', 'done': False},
+            {'id': 'DL-2026-92', 'projectId': 'PJ-2026-92', 'name': '퇴사PM 지연 산출물', 'due': '2026-07-01', 'done': False},
+            {'id': 'DL-2026-93', 'projectId': 'PJ-2026-91', 'name': '완료 산출물', 'due': '2026-07-01', 'done': True}],
+    }, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
@@ -4251,6 +4282,7 @@ def main() -> int:
     DTNAN_DATA.unlink(missing_ok=True)
     SRSUSP_DATA.unlink(missing_ok=True)
     EDUNF_DATA.unlink(missing_ok=True)
+    DLNF_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
