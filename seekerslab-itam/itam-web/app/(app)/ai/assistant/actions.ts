@@ -9,6 +9,7 @@ import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf } from '@/lib/eol'
 import { lowStockCategories } from '@/lib/stock'
+import { upcomingSchedule } from '@/lib/upcoming'
 import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { buildAnomalies } from '@/lib/anomaly'
@@ -603,6 +604,30 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         { label: '자산 대장 (장기 미실측 필터)', href: '/assets/register?stale=1' },
         { label: '자산 대장 (분실·도난)', href: '/assets/register?status=분실' },
         { label: '자산 대장 (수령 미확인)', href: '/assets/register?receipt=1' },
+        { label: '재물조사 계획', href: '/inventory/survey-plan' },
+      ],
+    }
+  }
+  // 다가오는 일정(사전 계획) — 대시보드 '다가오는 일정' 카드와 같은 upcomingSchedule() 단일 소스를 공유한다.
+  //  반응형 큐(경과·미조치 카운트)가 아니라, 아직 도래하지 않은 예정 작업을 날짜순 아젠다로 답해 주/월 계획을 돕는다.
+  //  자산담당·Admin 관점(계약·라이선스 갱신 포함) — canAsset 게이트. 어시스턴트는 대시보드(14일)보다 넓게 30일 본다.
+  if (canAsset && (q.includes('다가오는') || q.includes('다가올') || q.includes('예정 작업') || q.includes('향후 일정') || q.includes('사전 계획') || q.includes('갱신 예정') || q.includes('정비 예정') || q.includes('일정 알려'))) {
+    const up = upcomingSchedule(30)
+    const byKind = (k: string) => up.filter((u) => u.kind === k).length
+    return {
+      role: 'assistant',
+      text: [
+        `향후 30일 다가오는 일정은 ${up.length}건입니다 (날짜순 · 미경과 예정분).`,
+        ...(up.length === 0 ? ['', '향후 30일 예정된 정기 점검·계약/라이선스/보증 갱신·재물조사 마감·리포트 배포가 없습니다.'] : []),
+        ...(up.length ? [''] : []),
+        ...up.slice(0, 14).map((u) => `· ${u.date} (D-${u.dday}) — [${u.kind}] ${u.label}`),
+        up.length > 14 ? `… 외 ${up.length - 14}건` : '',
+        '',
+        `유형별: 정기 점검 ${byKind('정기 점검')} · 계약 만료 ${byKind('계약 만료')} · 라이선스 만료 ${byKind('라이선스 만료')} · 보증 만료 ${byKind('보증 만료')} · 재물조사 마감 ${byKind('재물조사 마감')} · 리포트 배포 ${byKind('리포트 배포')}.`,
+      ].filter(Boolean).join('\n'),
+      evidence: [
+        { label: '대시보드 (다가오는 일정)', href: '/dashboard' },
+        { label: '계약 · 라이선스', href: '/inventory/contracts' },
         { label: '재물조사 계획', href: '/inventory/survey-plan' },
       ],
     }
