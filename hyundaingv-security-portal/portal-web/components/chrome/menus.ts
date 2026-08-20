@@ -132,10 +132,10 @@ export const TITLE_BY_HREF: Record<string, { group: string; title: string; hue: 
 /** 기능(Action) 단위 권한 (제품안내서 §II '권한은 메뉴 × 기능 단위로 부여'·요구사항 69·71행) — 조회는 열람 자체라
  *  항상 허용, 쓰기 기능(저장·삭제·엑셀·업로드·결재)만 역할로 제한한다. 여기 정의가 requireAction(강제)과
  *  권한 매트릭스(표시·편집)의 단일 원천이라 표시와 강제가 어긋나지 않는다(드리프트 방지). */
-export const ACTION_KEYS = ['save', 'delete', 'excel', 'upload', 'approve'] as const
+export const ACTION_KEYS = ['save', 'delete', 'excel', 'upload', 'confirm', 'approve'] as const
 export type ActionKey = (typeof ACTION_KEYS)[number]
 export const ACTION_LABEL: Record<ActionKey, string> = {
-  save: '저장', delete: '삭제', excel: '엑셀', upload: '업로드', approve: '결재',
+  save: '저장', delete: '삭제', excel: '엑셀', upload: '업로드', confirm: '확정', approve: '결재',
 }
 
 /** 화면×기능 기본 권한 — 미등록 (href,action) 은 기능 게이트 없음(화면 권한만). 현 단계는 거버넌스 레코드
@@ -149,4 +149,12 @@ export const SCREEN_ACTIONS: Record<string, Partial<Record<ActionKey, Role[]>>> 
   '/infra/racks': { delete: ['BIZ_MGR', 'ADMIN'] },
   '/infra/systems': { delete: ['BIZ_MGR', 'ADMIN'] },
   '/infra/operations': { delete: ['BIZ_MGR', 'ADMIN'] },
+  // 재무 확정 — 경영계획 최종 확정(투자·비용). 취합·효율화 우회 없이 예산을 굳히는 통제점. 소유자 스코프인
+  // 임시저장·상신(submitPlanDraft)과 달리 confirmPlan 은 관리자급 역할 게이트라 기능 권한에 적합.
+  '/finance/invest': { confirm: ['BIZ_MGR', 'ADMIN'] },
+  '/finance/expense': { confirm: ['BIZ_MGR', 'ADMIN'] },
+  // SR 관리 저장 — CI 배정·접수·처리(ci)와 SR 진행·상신·중지/재개(manage)의 관리자 처리. 신청·재상신(본인 스코프)은
+  // 별개로 기존 가드 유지. 한 화면의 저장 기능이 그 화면 관리 액션을 함께 통제한다.
+  '/sr/ci': { save: ['BIZ_MGR', 'ADMIN'] },
+  '/sr/manage': { save: ['BIZ_MGR', 'ADMIN'] },
 }

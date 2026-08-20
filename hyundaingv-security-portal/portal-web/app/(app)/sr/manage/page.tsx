@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { requireAction, requireMenu } from '@/lib/authz'
 import { daysBetween, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { SR_FLOW, type SrRequest, type SrStatus } from '@/lib/types'
@@ -21,7 +21,7 @@ function nextOf(sr: SrRequest): SrStatus | undefined {
 
 async function advance(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/sr/manage', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/sr/manage', 'save')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo)
@@ -41,7 +41,7 @@ async function advance(formData: FormData) {
  *  테스트 완료 건만, 첨부 추가 가능(본문 자동첨부 없음). 승인 → 적용요청, 반려·회수 → 테스트. */
 async function submitApply(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/sr/manage', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/sr/manage', 'save')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo && r.kind === '시스템개발' && r.status === '테스트')
@@ -67,7 +67,7 @@ const SUSPENDABLE: SrStatus[] = ['CI배정', '개발중', '테스트', '적용�
  *  빠지고(가드), 직전 상태를 suspendedFrom 에 남겨 재개 시 복원한다. */
 async function suspendSr(formData: FormData) {
   'use server'
-  await requireMenuRole('/sr/manage', 'BIZ_MGR', 'ADMIN')
+  await requireAction('/sr/manage', 'save')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo)
@@ -84,7 +84,7 @@ async function suspendSr(formData: FormData) {
 /** SR 중지 해제 — 직전 진행 상태로 복원(누락 시 CI배정 폴백). */
 async function resumeSr(formData: FormData) {
   'use server'
-  await requireMenuRole('/sr/manage', 'BIZ_MGR', 'ADMIN')
+  await requireAction('/sr/manage', 'save')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo && r.status === '중지')

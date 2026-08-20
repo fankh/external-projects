@@ -4,7 +4,7 @@ import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
 import { deleteSettlement, resubmitSettlement } from '../actions'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { computeFinanceKpis } from '@/lib/finance'
 import { activeCodes, getStore, nextNo } from '@/lib/store'
@@ -52,7 +52,7 @@ async function optimizePlan(formData: FormData) {
 
 async function confirmPlan(formData: FormData) {
   'use server'
-  await requireMenuRole('/finance/expense', 'BIZ_MGR', 'ADMIN')
+  await requireAction('/finance/expense', 'confirm')
   const s = getStore()
   const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? '') && x.kind === '비용')
   // 효율화를 거친 계획만 확정한다 — 취합·효율화 단계 우회 차단 (제품안내서 III장)
