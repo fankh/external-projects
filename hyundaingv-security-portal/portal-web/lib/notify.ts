@@ -5,7 +5,7 @@ import { audit } from './audit'
 import { upsertComplianceSnapshot } from './compliance'
 import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
-import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
+import { eligibleForCourse, getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
 import { ACCOUNTS } from './session'
 import { isTestOverdue } from './dr'
 import { isReviewOverdue } from './policy'
@@ -122,6 +122,19 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   // 인원에게 안내메일·집계가 갔다 → 미서약·재택 미제출 등 타 유형과 동일하게 현재 재직자로 교집합한다.
   const reSignOwners = [...new Set(reSign.map((x) => x.owner))].filter((name) => people.some((p) => p.name === name))
   await send('비일반 재서약', reSignOwners, '[보안서약서] 개정 재서약 안내')
+
+  // 1-c) 보안교육 미이수 — 예정월이 지난 미완료 과정(status '완료' 아님)의 대상자 중 이수 기록 없는 인원.
+  // 서약(미서약)과 같은 컴플라이언스 포스처 축(이수율)인데 5축 중 유일하게 알림이 없어 사각지대였다. 완료 과정은
+  // 종결로 제외하고, 대상은 eligibleForCourse 로 과정별 스코프(비대상 유령 통지 방지) — export/화면 이수 판정과 동일 술어.
+  // 예정월 경과 판정은 점검 경과(p.month < month)와 같은 문자열 비교(당월 계획은 아직 경과 아님). 재직자 교집합 —
+  // 대상자가 퇴사해 s.people 에서 빠지면 이수할 수 없으므로(유령 독촉) 타 person 경로(미서약·재택·확인서)와 동일.
+  const overdueEduTargets = s.educationCourses
+    .filter((c) => c.plannedMonth < month && c.status !== '완료')
+    .flatMap((c) => eligibleForCourse(s, c.target)
+      .filter((p) => !s.educationRecords.some((r) => r.courseId === c.id && r.name === p.name))
+      .map((p) => p.name))
+    .filter((name) => people.some((p) => p.name === name))
+  await send('보안교육 미이수', overdueEduTargets, '[보안교육] 이수 기한 경과 안내')
 
   // 2) 보안점검 경과 — 예정월이 지났는데 완료·결재중이 아닌 항목의 점검자
   // 재직자 교집합 — 점검자가 퇴사해 s.people 에서 빠지면 점검을 수행·등록할 수 없으므로(유령 독촉) 타 person
