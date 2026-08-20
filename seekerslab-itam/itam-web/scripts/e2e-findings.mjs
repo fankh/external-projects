@@ -2411,6 +2411,18 @@ try {
   ok('직무 분리: 자산담당 본인 대여 상신 → 결재함 본인 건에 승인 버튼 없음·취소만(자기 결재 차단)', (await sdRow.count()) > 0 && (await sdRow.locator('button', { hasText: /^승인$/ }).count()) === 0 && (await sdRow.locator('button', { hasText: /취소/ }).count()) > 0)
   await ctxSD.close()
 
+  // ── 모바일 웹 지원(제품안내서 §03) 회귀 가드 — 좁은 뷰포트(390px)에서 가로 오버플로가 없고 LV2 내비가 접힌다 ──
+  const ctxMob = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  await ctxMob.addCookies([cookie(ASSET)])
+  const pMob = await ctxMob.newPage()
+  for (const [path, label] of [['/inventory/survey', '재물조사 수행(바코드/QR 실사)'], ['/assets/register', '자산 대장(필터 14종)']]) {
+    await pMob.goto(`${BASE}${path}`, { waitUntil: 'networkidle' })
+    const noOverflow = await pMob.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
+    ok(`모바일 웹 지원(§03): ${label} 가로 오버플로 없음(390px)`, noOverflow)
+  }
+  ok('모바일 웹 지원(§03): 좁은 뷰포트에서 LV2 내비(modnav) 접힘', (await pMob.locator('.modnav:visible').count()) === 0)
+  await ctxMob.close()
+
   await browser.close()
 } catch (err) {
   fail++
