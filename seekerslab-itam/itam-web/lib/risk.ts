@@ -6,21 +6,27 @@ import { criticalDependencies } from './cmdb'
 import { replacementCandidates } from './reports'
 import type { Asset } from './types'
 
-/** 자산별 복합 위험(≥2 주의 신호) 판정 — 대장 필터(?risk=1)·자산 상세 '위험 신호' 요약·대시보드 큐가 공유하는 단일 소스.
+/** 자산별 복합 위험(≥2 주의 신호) 판정 — 대장 필터(?risk=1)·자산 상세 '위험 신호' 요약·대시보드 큐·어시스턴트·복합 위험 리포트가 공유하는 단일 소스.
  *  7 신호: 정합성 이슈(hasDataIssue) · EOL OS · 보증 임박(≤90일) · 정기 점검 도래 · 단일 장애점(SPOF) · 교체 대상 · 장기 미실측.
- *  각 신호는 대장 필터·패널과 같은 lib 빌더를 재사용해 임계값을 재계산하지 않는다(화면 간 정합 보장). 서버 전용. */
-export function riskSignalCount(a: Asset): number {
+ *  각 신호는 대장 필터·패널과 같은 lib 빌더를 재사용해 임계값을 재계산하지 않는다(화면 간 정합 보장). 서버 전용.
+ *  라벨 순서는 대장 상세 도시어 '위험 신호' 요약과 동일(정합성→EOL→보증→점검→SPOF→교체→미실측). */
+export function riskSignals(a: Asset): string[] {
   const s = getStore()
   const t = today()
-  let n = 0
-  if (isStaleVerify(a, s.opsPolicy.staleVerifyDays)) n += 1
-  if (!['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90) n += 1
-  if (hasDataIssue(a)) n += 1
-  if (isEolTarget(a.status, a.os, t)) n += 1
-  if (isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays)) n += 1
-  if (SPOF_SET().has(a.assetNo)) n += 1
-  if (REPLACE_SET().has(a.assetNo)) n += 1
-  return n
+  const out: string[] = []
+  if (hasDataIssue(a)) out.push('정합성 이슈')
+  if (isEolTarget(a.status, a.os, t)) out.push('EOL OS')
+  if (!['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90) out.push('보증 임박')
+  if (isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays)) out.push('정기 점검 도래')
+  if (SPOF_SET().has(a.assetNo)) out.push('단일 장애점')
+  if (REPLACE_SET().has(a.assetNo)) out.push('교체 대상')
+  if (isStaleVerify(a, s.opsPolicy.staleVerifyDays)) out.push('장기 미실측')
+  return out
+}
+
+/** 자산별 주의 신호 개수 — riskSignals 라벨 수와 동일(판정 정의는 riskSignals 한 곳). */
+export function riskSignalCount(a: Asset): number {
+  return riskSignals(a).length
 }
 
 // SPOF·교체 대상은 그래프/리스트 기반 전역 산출이라 자산별 반복 호출 시 캐시(한 요청 내 동일 스토어 스냅샷).
