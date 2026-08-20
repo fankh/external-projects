@@ -213,7 +213,7 @@ try {
   check('자산 대장: 단일 장애점(SPOF) 필터 칩 렌더(blast radius ≥2 자산 있을 때)', mgrHtml.includes('단일 장애점 '))
   const regSpof = await (await get('/assets/register?spof=1', 'ASSET_MGR')).text()
   check('자산 대장: ?spof=1 단일 장애점 필터 활성화(URL 파라미터→필터 배선)', regSpof.includes('단일 장애점 ') && regSpof.includes('✓ '))
-  // 복합 위험(≥2 신호) 필터 — 취약·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산을 한 필터로 트리아지(도시어 '위험 신호' 요약과 같은 7신호 단일 소스). AST-2021-000432(EOL+교체)가 복합 위험.
+  // 복합 위험(≥2 신호) 필터 — 정합성·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산을 한 필터로 트리아지(도시어 '위험 신호' 요약과 같은 7신호 단일 소스). AST-2021-000432(EOL+교체)가 복합 위험.
   const regRisk = await (await get('/assets/register?risk=1', 'ASSET_MGR')).text()
   check('자산 대장: ?risk=1 복합 위험(≥2 신호) 필터 활성화 · 다중 이슈 자산 노출(AST-2021-000432)', regRisk.includes('복합 위험 ') && regRisk.includes('✓ ') && regRisk.includes('AST-2021-000432'))
   // 교체 대상(수명예측 fn03) 필터 — 내용연수·보증 경과·장애 이력 자산을 AI 패널과 같은 replacementCandidates() 근거로 대장에서 브라우즈·반출(조달 계획). fn03 패널 링크로 드릴다운.
