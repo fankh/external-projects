@@ -10,6 +10,7 @@ import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf } from '@/lib/eol'
 import { lowStockCategories } from '@/lib/stock'
 import { upcomingSchedule } from '@/lib/upcoming'
+import { compositeRiskAssetNos, riskSignalCount } from '@/lib/risk'
 import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { buildAnomalies } from '@/lib/anomaly'
@@ -579,6 +580,18 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         { label: '자산 대장 (정기 점검 대상)', href: '/assets/register?maint=1' },
         { label: '대시보드', href: '/dashboard' },
       ],
+    }
+  }
+  // 복합 위험 자산 — 정합성·EOL·보증·점검·SPOF·교체·미실측 중 2개 이상 겹치는 다중 이슈 자산. 대장 필터(?risk=1)·상세 '위험 신호' 요약·대시보드 큐와 lib/risk 단일 소스(임계값 재계산 없음, 신호별 판정은 각 lib 빌더 재사용).
+  if (canAsset && (q.includes('복합 위험') || q.includes('복합위험') || q.includes('다중 이슈') || q.includes('위험 신호') || q.includes('여러 위험') || q.includes('겹치는 위험'))) {
+    const nos = new Set(compositeRiskAssetNos(s.assets))
+    const at = s.assets.filter((a) => nos.has(a.assetNo)).sort((a, b) => riskSignalCount(b) - riskSignalCount(a))
+    return {
+      role: 'assistant',
+      text: at.length === 0
+        ? '복합 위험(주의 신호 2개 이상 겹치는) 자산이 없습니다.'
+        : `복합 위험 자산은 ${at.length}건입니다 (정합성·EOL·보증·점검·SPOF·교체·미실측 중 2개 이상 겹침 · 다중 이슈 우선 조치).\n\n${at.slice(0, 8).map((a) => `· ${a.assetNo} — ${a.model} · ${a.owner} (${a.dept}) · 위험 신호 ${riskSignalCount(a)}개`).join('\n')}${at.length > 8 ? `\n… 외 ${at.length - 8}건` : ''}\n\n한 자산에 문제가 몰린 순입니다. 대장 상세의 '위험 신호' 요약에서 어떤 신호가 걸렸는지 확인하고 우선 조치하세요.`,
+      evidence: [{ label: '자산 대장 (복합 위험 ≥2 신호 필터)', href: '/assets/register?risk=1' }],
     }
   }
   // 운영 리스크 자산 — 분실·도난, 장기 미실측(유령 후보), 대여 반환 연체, 수리(지연)를 한 번에 훑는다 (자산팀 조치 대상)
