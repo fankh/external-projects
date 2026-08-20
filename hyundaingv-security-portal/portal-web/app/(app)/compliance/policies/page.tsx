@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { computePolicyKpis, isReviewOverdue, nextReviewDue } from '@/lib/policy'
 import { getStore, nextNo } from '@/lib/store'
@@ -99,7 +99,7 @@ async function retirePolicy(formData: FormData) {
 
 async function deletePolicy(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/compliance/policies', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/compliance/policies', 'delete')  // 기능(삭제) 단위 권한 — 매트릭스 제한이 직접 POST 에도 적용
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const p = s.securityPolicies.find((x) => x.id === id)

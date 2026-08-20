@@ -63,6 +63,7 @@ CFIX_DATA = ROOT / 'scripts' / '.e2e-cfix-data.json'  # 취약점 조치율 no-f
 RISK_DATA = ROOT / 'scripts' / '.e2e-risk-data.json'  # 정보보호 위험평가 등록→재평가→종결→삭제 커버리지용 (v1.5.259)
 RISKDLY_DATA = ROOT / 'scripts' / '.e2e-riskdly-data.json'  # 위험 조치 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.261)
 RISKDEL_DATA = ROOT / 'scripts' / '.e2e-riskdel-data.json'  # 미종결 위험 은닉 삭제 서버 가드(직접 POST) 회귀용 (v1.5.265)
+ACTPERM_DATA = ROOT / 'scripts' / '.e2e-actperm-data.json'  # 기능(Action) 단위 권한 — 삭제 제한 강제 회귀용 (v1.5.377)
 RISKRA_DATA = ROOT / 'scripts' / '.e2e-riskra-data.json'  # 위험 담당 재배정 → 조치 지연 폐쇄루프 복구 회귀용 (v1.5.267)
 POLICY_DATA = ROOT / 'scripts' / '.e2e-policy-data.json'  # 정책·지침 생명주기 + 재검토 주기(경과 리셋) 회귀용 (v1.5.271)
 POLICYNF_DATA = ROOT / 'scripts' / '.e2e-policynf-data.json'  # 정책 재검토 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.273)
@@ -2803,6 +2804,39 @@ def sc_criteria(pg, base, check):
     check('완료' in pg.locator('tr', has_text='IS-2026-22').inner_text(), '2차 최종 승인 → 완료 전파')
 
 
+def sc_action_permission(pg, base, check):
+    """기능(Action) 단위 권한 (요구사항 69·71행·제품안내서 §II '권한은 메뉴 × 기능 단위') — 화면 접근과 별개로
+    '삭제' 기능을 권한그룹별로 제한한다. ADMIN 이 컴플라이언스 위험 삭제를 업무담당(BIZ_MGR)에 제한하면,
+    화면 접근이 있는 박정호의 삭제(버튼 클릭=직접 POST)가 requireAction 에서 차단된다(위험 잔존). 복원하면 삭제 가능.
+    수정 전(requireMenuRole 유지)이면 기능 제한이 무시돼 삭제됨 → 대조."""
+    # ADMIN 이 /compliance/risks 삭제 기능을 업무담당(BIZ_MGR)에 제한
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    acard = pg.locator('.card', has_text='기능(Action) 권한 매트릭스')
+    arow = acard.locator('tr', has_text='/compliance/risks')
+    check(arow.count() == 1, '전제: 위험 삭제 기능권한 행 존재')
+    arow.locator('button').first.click()  # 업무담당만 토글 버튼 보유(사용자·부서담당=－, ADMIN=●) → 삭제 제한
+    pg.wait_for_load_state('networkidle')
+    # 업무담당 박정호가 완료 위험 삭제 시도 → 기능권한 제한으로 차단(위험 잔존)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    pg.locator('.card', has_text='위험관리대장').locator('tr', has_text='RK-2026-DEL').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    check(pg.locator('tr', has_text='RK-2026-DEL').count() == 1, '기능권한 제한 → 업무담당 삭제 차단(위험 잔존; 수정 전이면 삭제됨)')
+    # ADMIN 복원 → 삭제 가능
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    pg.locator('.card', has_text='기능(Action) 권한 매트릭스').locator('tr', has_text='/compliance/risks').locator('button').first.click()  # 복원
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    pg.locator('.card', has_text='위험관리대장').locator('tr', has_text='RK-2026-DEL').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
+    check(pg.locator('tr', has_text='RK-2026-DEL').count() == 0, '기능권한 복원 → 업무담당 삭제 성공')
+
+
 def sc_menuauth(pg, base, check):
     """메뉴권한 런타임 제한 (요구사항 72행) — 제한 → 내비 숨김·직접 URL 차단·감사, 복원 → 접근 회복"""
     # 기준 상태 — 김현우(사용자)는 QnA 접근 가능
@@ -3838,6 +3872,8 @@ SCENARIOS = [
     ('incident_stats', '월별 장애 통계 export — 발생월×등급, export 계=화면 정합', sc_incident_stats, {}),
     ('incident_stats_empty_month', '월별 장애 통계 무효월 방어 — 빈 occurredAt 중복 집계 차단', sc_incident_stats_empty_month, {'PORTAL_DATA_FILE': str(INCEMPTY_DATA)}),
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
+    ('action_permission', '기능(Action) 단위 권한 — 삭제 기능 권한그룹별 제한·복원(requireAction 강제)', sc_action_permission,
+     {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('scheduler_bootcatchup', '기동 밀린 배치 따라잡기 — 인터벌보다 잦은 재시작 무발송 방지', sc_scheduler_bootcatchup,
@@ -4223,6 +4259,11 @@ def main() -> int:
                               'likelihood': 3, 'impact': 3, 'treatment': '완화', 'owner': '김현우', 'plan': 'p',
                               'dueDate': '2026-09-30', 'status': status, 'identifiedAt': '2026-06-01'}
     RISKDEL_DATA.write_text(json.dumps({'riskItems': [_rkd(1, '완료'), _rkd(2, '식별')]}, ensure_ascii=False), encoding='utf-8')
+    # 기능(Action) 단위 권한 — 종결(완료) 위험 1건(삭제 대상). ADMIN 이 위험 삭제를 업무담당에 제한하면 박정호 삭제 차단.
+    ACTPERM_DATA.write_text(json.dumps({'riskItems': [
+        {'id': 'RK-2026-DEL', 'title': '기능권한 삭제대상', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
+         'likelihood': 3, 'impact': 3, 'treatment': '완화', 'owner': '김현우', 'plan': 'p',
+         'dueDate': '2026-09-30', 'status': '완료', 'identifiedAt': '2026-06-01'}]}, ensure_ascii=False), encoding='utf-8')
     # 위험 담당 재배정 — 지연 위험 2건(재직 김현우·퇴사 E2E퇴사담당). RK-92 를 재직자로 재평가-이관하면
     # 대장 반영 + 조치 지연 알림이 2명(폐쇄루프 복구)이어야 한다. RISKDLY 와 별도 파일(재배정 뮤테이션 격리).
     RISKRA_DATA.write_text(json.dumps({'riskItems': [_rk(1, '김현우'), _rk(2, 'E2E퇴사담당')]}, ensure_ascii=False), encoding='utf-8')
@@ -4405,6 +4446,7 @@ def main() -> int:
     QNAROLE_DATA.unlink(missing_ok=True)
     DTNAN_DATA.unlink(missing_ok=True)
     SRSUSP_DATA.unlink(missing_ok=True)
+    ACTPERM_DATA.unlink(missing_ok=True)
     EDUNF_DATA.unlink(missing_ok=True)
     DLNF_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):

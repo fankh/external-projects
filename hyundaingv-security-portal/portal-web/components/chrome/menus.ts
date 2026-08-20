@@ -128,3 +128,20 @@ export const NAV: NavGroup[] = [
 export const TITLE_BY_HREF: Record<string, { group: string; title: string; hue: string }> = Object.fromEntries(
   NAV.flatMap((g) => g.items.map((i) => [i.href, { group: g.label, title: i.label, hue: g.hue }])),
 )
+
+/** 기능(Action) 단위 권한 (제품안내서 §II '권한은 메뉴 × 기능 단위로 부여'·요구사항 69·71행) — 조회는 열람 자체라
+ *  항상 허용, 쓰기 기능(저장·삭제·엑셀·업로드·결재)만 역할로 제한한다. 여기 정의가 requireAction(강제)과
+ *  권한 매트릭스(표시·편집)의 단일 원천이라 표시와 강제가 어긋나지 않는다(드리프트 방지). */
+export const ACTION_KEYS = ['save', 'delete', 'excel', 'upload', 'approve'] as const
+export type ActionKey = (typeof ACTION_KEYS)[number]
+export const ACTION_LABEL: Record<ActionKey, string> = {
+  save: '저장', delete: '삭제', excel: '엑셀', upload: '업로드', approve: '결재',
+}
+
+/** 화면×기능 기본 권한 — 미등록 (href,action) 은 기능 게이트 없음(화면 권한만). 현 단계는 거버넌스 레코드
+ *  삭제(가장 파괴적 기능)를 컴플라이언스 도메인에 우선 적용해 소진; 인프라는 requireAction 확장 시 추가한다. */
+export const SCREEN_ACTIONS: Record<string, Partial<Record<ActionKey, Role[]>>> = {
+  '/compliance/risks': { delete: ['BIZ_MGR', 'ADMIN'] },
+  '/compliance/policies': { delete: ['BIZ_MGR', 'ADMIN'] },
+  '/compliance/dr': { delete: ['BIZ_MGR', 'ADMIN'] },
+}
