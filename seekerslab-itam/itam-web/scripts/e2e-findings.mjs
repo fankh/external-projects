@@ -2415,6 +2415,23 @@ try {
   ok('직무 분리: 자산담당 본인 대여 상신 → 결재함 본인 건에 승인 버튼 없음·취소만(자기 결재 차단)', (await sdRow.count()) > 0 && (await sdRow.locator('button', { hasText: /^승인$/ }).count()) === 0 && (await sdRow.locator('button', { hasText: /취소/ }).count()) > 0)
   await ctxSD.close()
 
+  // ── 메뉴·기능 관리 STEP2 기능 부여/회수(#GAP1) — 매트릭스 na→'메뉴 관리에서 부여 필요' 데드엔드 해소 ──
+  const ctxMn = await browser.newContext(); await ctxMn.addCookies([cookie(ADMIN)]); const pMn = await ctxMn.newPage()
+  await pMn.goto(`${BASE}/settings/menus`, { waitUntil: 'networkidle' })
+  // 대시보드는 저장 미부여(actions=['조회','엑셀']) — 저장 부여 버튼이 노출되고, 부여하면 ✓ 로 바뀐다(매트릭스에서 편집 가능해짐).
+  const dashRow = () => pMn.locator('tr', { has: pMn.locator('td', { hasText: /^대시보드$/ }) }).first()
+  ok('메뉴 관리(STEP2): 대시보드 미부여 기능(저장) 부여 버튼 노출', (await dashRow().locator('button', { hasText: /^저장$/ }).count()) > 0)
+  await dashRow().locator('button', { hasText: /^저장$/ }).click()
+  await pMn.waitForTimeout(600)
+  await pMn.goto(`${BASE}/settings/menus`, { waitUntil: 'networkidle' })
+  ok('메뉴 관리(STEP2): 저장 부여 후 ✓ 표기(매트릭스 na 해소)', (await dashRow().locator('button', { hasText: /^✓ 저장$/ }).count()) > 0)
+  // 회수로 원복 — 좌석 오염 방지(다른 검증에 영향 없게 원 상태로)
+  await dashRow().locator('button', { hasText: /^✓ 저장$/ }).click()
+  await pMn.waitForTimeout(600)
+  await pMn.goto(`${BASE}/settings/menus`, { waitUntil: 'networkidle' })
+  ok('메뉴 관리(STEP2): 회수 후 부여 버튼 복귀', (await dashRow().locator('button', { hasText: /^저장$/ }).count()) > 0)
+  await ctxMn.close()
+
   // ── 모바일 웹 지원(제품안내서 §03) 회귀 가드 — 좁은 뷰포트(390px)에서 가로 오버플로가 없고 LV2 내비가 접힌다 ──
   const ctxMob = await browser.newContext({ viewport: { width: 390, height: 844 } })
   await ctxMob.addCookies([cookie(ASSET)])

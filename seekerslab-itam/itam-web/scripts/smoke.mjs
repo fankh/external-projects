@@ -545,6 +545,8 @@ try {
   const menuHtml = await (await get('/settings/menus', 'ADMIN')).text()
   check('메뉴 관리: STEP 1 기능 사전 렌더', menuHtml.includes('기능 정의') && menuHtml.includes('/api/export/[kind]'))
   check('메뉴 관리: STEP 2 메뉴 레지스트리 렌더', menuHtml.includes('화면번호') && menuHtml.includes('DSC-010') && menuHtml.includes('/discovery/found'))
+  // STEP2 기능 부여/회수 편집(#GAP1) — 그동안 조회 전용이라 매트릭스 na→'메뉴 관리에서 부여 필요'가 dead-end 였다. Admin 에 편집 UI 노출.
+  check('메뉴 관리(STEP2): 기능 부여·회수 편집 UI 노출 (Admin)', menuHtml.includes('클릭해 부여·회수'))
   // STEP 1 이 정의한 '엑셀' 기능을 이 화면 자체가 제공한다 — 메뉴·기능 정의(STEP 1·2)를 엑셀로 반출(감사·거버넌스 문서)
   check('메뉴 관리: 엑셀 내보내기 버튼 노출 (STEP 1 엑셀 기능 자기제공)', menuHtml.includes('/api/export/menus') && menuHtml.includes('엑셀 내보내기'))
   const menuXlsx = Buffer.from(await (await get('/api/export/menus', 'ADMIN')).arrayBuffer()).toString('utf8')
