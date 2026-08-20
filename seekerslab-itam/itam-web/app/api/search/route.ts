@@ -4,7 +4,7 @@ import { assetHref, contractHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
-/** 전역 통합 검색 — 자산·계약·발견·Shadow SaaS·사용자·결재·게시판·폐기·입고를 한 번에 훑어 해당 화면으로 점프한다.
+/** 전역 통합 검색 — 자산·계약·발견·Shadow SaaS·위협·노출·사용자·결재·게시판·폐기·입고를 한 번에 훑어 해당 화면으로 점프한다.
  *  권한 스코핑은 각 화면 가드와 동일하게 적용한다: 사용자(USER)는 본인 자산·본인 결재만,
  *  계약·발견·사용자 목록은 그 화면 접근 권한이 있는 역할에게만 노출된다(제품안내서 §02 최소권한). */
 export async function GET(req: Request) {
@@ -52,6 +52,22 @@ export async function GET(req: Request) {
     const saas = s.saas.filter((x) => hit(x.service, x.category, x.dept)).slice(0, LIMIT)
       .map((x) => ({ label: x.service, sub: `${x.category} · ${x.dept} · ${x.sanctioned ? '인가' : '미인가'}`, href: '/discovery/saas' }))
     if (saas.length) groups.push({ kind: 'Shadow SaaS', items: saas })
+  }
+
+  // 위협·노출 — 외부 공격표면·IOC 상관·크리덴셜 노출·다크웹 유출(외부 위협 화면 권한: 자산담당·보안담당·Admin).
+  //  보안 분석가가 호스트·IOC 값·CVE 로 찾아 조치 화면으로 점프한다. 어시스턴트 컨텍스트(외부 위협)·전용 화면은 이미
+  //  다루나 전역 검색만 이 도메인을 빠뜨렸던 정합 공백을 닫는다(발견·Shadow SaaS 는 검색되는데 위협만 누락됐던 부분 커버리지).
+  if (can(['ASSET_MGR', 'SEC_MGR', 'ADMIN'])) {
+    const ext = s.external.filter((e) => hit(e.host, e.ip, e.cve, e.method)).slice(0, LIMIT)
+      .map((e) => ({ label: e.host, sub: `외부 노출 · ${e.method}${e.cve ? ` · ${e.cve}` : ''} · ${e.risk}`, href: '/discovery/external' }))
+    const iocs = s.iocMatches.filter((i) => hit(i.id, i.iocValue, i.threatActor, i.matchedAsset)).slice(0, LIMIT)
+      .map((i) => ({ label: `${i.id} · ${i.iocValue}`, sub: `IOC 상관 · ${i.threatActor} · ${i.matchedAsset}`, href: '/discovery/external' }))
+    const creds = s.credentials.filter((c) => hit(c.id, c.host, c.issue)).slice(0, LIMIT)
+      .map((c) => ({ label: `${c.id} · ${c.host}:${c.port}`, sub: `크리덴셜 노출 · ${c.service} · ${c.issue}`, href: '/discovery/external' }))
+    const leaks = s.leaks.filter((l) => hit(l.id, l.detail, l.source, l.kind)).slice(0, LIMIT)
+      .map((l) => ({ label: `${l.id} · ${l.kind}`, sub: `다크웹 · ${l.detail}`, href: '/discovery/external' }))
+    const merged = [...ext, ...iocs, ...creds, ...leaks].slice(0, LIMIT)
+    if (merged.length) groups.push({ kind: '위협·노출', items: merged })
   }
 
   // 사용자 — 사용자 관리 화면 권한(Admin)

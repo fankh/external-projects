@@ -957,6 +957,11 @@ try {
   check('통합 검색: 보안담당이 Shadow SaaS를 교차 검색(Notion)', srchSaas.groups.some((g) => g.kind === 'Shadow SaaS' && g.items.some((i) => i.href.includes('/discovery/saas'))))
   const srchSaasUser = await (await get('/api/search?q=Notion', 'USER')).json()
   check('통합 검색: 사용자에겐 Shadow SaaS 그룹 미노출(권한 스코핑)', !srchSaasUser.groups.some((g) => g.kind === 'Shadow SaaS'))
+  // 위협·노출 교차 검색 — 외부 공격표면·IOC·크리덴셜·다크웹을 IOC IP(시드 IOC-02 185.220.101.44)로 찾아 외부 위협 화면으로. 발견·Shadow SaaS 는 검색되는데 위협만 누락됐던 부분 커버리지 보완.
+  const srchThreat = await (await get('/api/search?q=' + encodeURIComponent('185.220.101.44'), 'SEC_MGR')).json()
+  check('통합 검색: 보안담당이 위협·노출(IOC 상관)을 교차 검색(외부 위협 화면)', srchThreat.groups.some((g) => g.kind === '위협·노출' && g.items.some((i) => i.href.includes('/discovery/external'))))
+  const srchThreatUser = await (await get('/api/search?q=' + encodeURIComponent('185.220.101.44'), 'USER')).json()
+  check('통합 검색: 사용자에겐 위협·노출 그룹 미노출(권한 스코핑 · 위협 도메인 밖)', !srchThreatUser.groups.some((g) => g.kind === '위협·노출'))
   const srchUser = await (await get('/api/search?q=' + encodeURIComponent('CT-2023-014'), 'USER')).json()
   check('통합 검색: 사용자에겐 계약 그룹 미노출(권한 스코핑)', !srchUser.groups.some((g) => g.kind === '계약·라이선스'))
   const srchAsset = await (await get('/api/search?q=AST-2023-000112', 'ASSET_MGR')).json()
