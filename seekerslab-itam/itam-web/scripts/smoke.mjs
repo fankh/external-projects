@@ -264,6 +264,8 @@ try {
   // 대시보드의 '미등록 신규 발견'은 아직 손대지 않은 건만 보여주는 처리 대기열이므로,
   // 확인요청·격리요청이 걸린 자산(DSC-2607-0041 등)은 여기서 빠지는 것이 정상이다
   check('대시보드: KPI·발견 자산·내 결재 차례·운영 대기 렌더', dashHtml.includes('미등록 신규 발견') && dashHtml.includes('DSC-2607-0042') && dashHtml.includes('내 결재 차례') && dashHtml.includes('운영 대기'))
+  // 자산담당은 두 상세 카드(발견·계약/라이선스) 모두 노출 — 카드 본문 스코핑이 소실이 아니라 권한 스코핑임을 대조(만료 임박 카드 kicker 로 검증).
+  check('대시보드(자산담당): 발견·만료 임박 상세 카드 모두 노출(스코핑 양성 대조)', dashHtml.includes('DSC-2607-0042') && dashHtml.includes('Contracts · Licenses'))
   // 대시보드 최근 공지 스코핑(유출 방지) — 부서 지정 공지(NTC-09 마케팅팀 전용)가 대상 밖 사용자(김민준·플랫폼개발팀) 랜딩 최근 공지에 제목이 유출되면 안 된다(게시판·전역 검색과 동일 스코핑). Admin 은 노출(스코핑이지 소실 아님 · 양성 대조).
   const dashUserHtml = await (await get('/dashboard', 'USER')).text()
   check('대시보드 최근 공지: 부서 지정 공지가 대상 밖 사용자에게 미노출(유출 방지)', !dashUserHtml.includes('ZZMKTGSCOPE'))
@@ -330,6 +332,10 @@ try {
   check('대시보드(사용자): 라이선스 초과 사용 큐 미노출 (운영 큐 담당자 전용)', !dashUser.includes('라이선스 초과 사용'))
   // KPI 드릴다운 권한 게이트 — 만료 임박 KPI 는 계약·라이선스 화면(자산담당·Admin)으로 이어지므로 USER 엔 링크를 주지 않는다(접근 불가 화면 dead-end 링크 방지).
   check('대시보드(사용자): 계약·라이선스 화면 드릴다운 링크 없음 (접근 밖·dead-end 방지)', !dashUser.includes('/inventory/contracts'))
+  // 대시보드 카드 본문 역할 스코핑(유출 방지 · #4107 5차 깊이감사) — tile href·action 은 게이트됐으나 카드 '본문'이 게이트를 빠뜨려
+  //  USER 에 Shadow IT 발견 상세(호스트·위험도)·계약/라이선스 상세(명·만료일)가 유출되던 것을 닫음. USER 는 상단 요약 카운트만, 상세는 미노출(discovery/found·contracts requireRole 과 정합).
+  check('대시보드(사용자): 미등록 발견(Shadow IT) 상세 카드 본문 미노출(DSC 유출 방지)', !dashUser.includes('DSC-2607-0042'))
+  check('대시보드(사용자): 만료 임박(계약·라이선스) 상세 카드 본문 미노출', !dashUser.includes('Contracts · Licenses'))
   // 미확인 필독 공지 넛지 — 사용자가 로그인 시 미확인 필독 공지를 스스로 챙기게 한다(관리자 독촉·명단의 사용자 측 짝). NTC-01(필독, 0 acks)로 검증.
   check('대시보드(사용자): 미확인 필독 공지 넛지 + 특정 공지 딥링크', dashUser.includes('미확인 필독 공지') && dashUser.includes('2026 하반기 재물조사') && dashUser.includes('/board/notices?sel=NTC-01'))
   // 최근 공지 위젯(Main/Home 공지 요약) — 필독 넛지와 별개로, 발행된 공지를 최신순으로 상시 노출(전 권한). NTC-02(비고정) 등 일반 공지도 포함.
@@ -353,6 +359,8 @@ try {
   // 수집 커넥터 지연·오류 운영 큐 — 시드 프록시 커넥터(지연)로 보안담당 대시보드에 Discovery 저하 신호가 뜬다
   const dashSec = await (await get('/dashboard', 'SEC_MGR')).text()
   check('대시보드(보안담당): 수집 커넥터 지연·오류 운영 큐 노출', dashSec.includes('수집 커넥터 지연·오류') && dashSec.includes('Discovery 저하'))
+  // 카드 본문 스코핑 양성/음성 대조 — 보안담당은 발견(미등록) 카드는 보되(Discovery 권한), 만료 임박(계약·라이선스) 상세는 미노출(계약 접근 밖 — 본문 게이트 누락 시 보안담당에도 유출됐음).
+  check('대시보드(보안담당): 미등록 발견 카드는 노출(Discovery 권한) · 만료 임박 상세는 미노출(계약 접근 밖)', dashSec.includes('DSC-2607-0042') && !dashSec.includes('Contracts · Licenses'))
   // 외부 공격표면 재탐지 기한 경과(§04 재탐지 자동 반복) — 도메인 주기 경과·미실행이면 노출 관측 사각. 시드 3개 도메인 재탐지 기한 경과.
   check('대시보드(보안담당): 외부 공격표면 재탐지 기한 경과 큐 노출', dashSec.includes('외부 공격표면 재탐지 기한 경과') && dashSec.includes('Discovery 사각'))
   // 알림 전달 실패 큐(§06 발송 신뢰성) — 미도달 통지(시드 MSG-4004)를 대시보드에서 선제 노출, 클릭 시 발송 이력에서 재발송. 통합 화면 안 열어도 놓치지 않게.
