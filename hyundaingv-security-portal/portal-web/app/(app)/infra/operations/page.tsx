@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { computeInfraHealth } from '@/lib/infra'
 import { getStore, recordBatch } from '@/lib/store'
@@ -34,7 +34,7 @@ async function addBatch(formData: FormData) {
 /** 배치 잡 삭제 (요구사항 33행 삭제 ◎) */
 async function deleteBatch(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/infra/operations', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/infra/operations', 'delete')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const b = s.batchJobs.find((x) => x.id === id)
@@ -63,7 +63,7 @@ async function addInterface(formData: FormData) {
 /** 인터페이스 삭제 (요구사항 34행 삭제 ◎) */
 async function deleteInterface(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/infra/operations', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/infra/operations', 'delete')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const i = s.interfaces.find((x) => x.id === id)

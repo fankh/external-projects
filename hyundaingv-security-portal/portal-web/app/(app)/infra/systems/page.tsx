@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { effectiveRoles, requireMenu, requireMenuRole } from '@/lib/authz'
+import { effectiveRoles, requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { computeInfraHealth, DISK_WARN } from '@/lib/infra'
 import { getStore } from '@/lib/store'
 import type { ServerInfo, SystemInfo } from '@/lib/types'
@@ -44,7 +44,7 @@ async function addServer(formData: FormData) {
 /** 서버 삭제 (요구사항 31행 삭제 ◎) — 시스템이 매핑된 서버는 삭제 불가 */
 async function deleteServer(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/infra/systems', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/infra/systems', 'delete')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const sv = s.servers.find((v) => v.id === id)
@@ -75,7 +75,7 @@ async function addSystem(formData: FormData) {
 /** 시스템 삭제 (요구사항 32행 삭제 ◎) — 배치·인터페이스가 참조 중이면 삭제 불가 */
 async function deleteSystem(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/infra/systems', 'BIZ_MGR', 'ADMIN')
+  const me = await requireAction('/infra/systems', 'delete')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const x = s.systems.find((y) => y.id === id)
