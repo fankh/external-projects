@@ -86,6 +86,7 @@ AUDITF_DATA = ROOT / 'scripts' / '.e2e-auditf-data.json'  # 감사 이력 조회
 SRCH_DATA = ROOT / 'scripts' / '.e2e-srch-data.json'  # 통합 검색 커버리지(결재 신원 스코핑) 회귀용 (v1.5.333)
 CSCHED_DATA = ROOT / 'scripts' / '.e2e-csched-data.json'  # 다가오는 컴플라이언스 일정(경과분 제외) 회귀용 (v1.5.339)
 MSTAGE_DATA = ROOT / 'scripts' / '.e2e-mstage-data.json'  # 다단 중간 승인자 추적성(B1) 회귀용 (v1.5.347)
+BSNAP_DATA = ROOT / 'scripts' / '.e2e-bsnap-data.json'  # 묶음 반려 상세 스냅샷 재구성(B2) 회귀용 (v1.5.349)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
 AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
 QNAROLE_DATA = ROOT / 'scripts' / '.e2e-qnarole-data.json'  # QnA 담당 지정 역할 정합 회귀용 (v1.5.92)
@@ -2809,6 +2810,19 @@ def sc_search_coverage(pg, base, check):
     check('VL-SRCH-2' in body, '보안위반 검색: 관리자(BIZ/ADMIN)는 전체 위반 열람')
 
 
+def sc_batch_snapshot(pg, base, check):
+    """묶음 반려 상세 재구성(v1.5.349, B2) — 장애보고·출력물·서약현황 묶음 상세는 역링크(reportRef·approvalRef)로
+    재구성하는데, 반려 시 역링크가 초기화돼 상세가 'N건'→0건으로 빈다(§VI 감사 완결성 — 반려된 결재가 무엇을
+    담았는지 못 본다). 상신 시점 항목 스냅샷(bundledIds)으로 역링크 없이 재구성한다. 데이터: 반려된 장애보고
+    (bundledIds 2건, 인시던트 역링크는 이미 초기화). fails-without-fix: 역링크로만 재구성하면 반려분이 0건으로 빈다."""
+    login(pg, base, '시스템관리자')  # AP-BSNAP 결재자
+    pg.goto(f'{base}/work/approvals?sel=AP-BSNAP', wait_until='networkidle')
+    body = pg.content()
+    check('문서 상세' in body, '반려된 장애보고 상세 열람')
+    check('묶인 장애' in body and '2건' in body and '스냅샷장애A' in body and '스냅샷장애B' in body,
+          '반려 후에도 묶음 항목 2건 재구성(스냅샷 기반, 역링크 없이)')
+
+
 def sc_multistage_approver_trace(pg, base, check):
     """다단 중간 승인자 추적성(v1.5.347, B1) — 다단 결재의 중간 결재자가 승인하면 approver 스칼라가 다음 단계로
     덮여 자기 처리 흔적을 잃던 것(§VI 추적성)을 approvedBy 이력으로 보존한다. 승인 후에도 '처리한 결재' 목록
@@ -3036,7 +3050,11 @@ def sc_batchref(pg, base, check):
     pg.wait_for_selector('text=문서 상세', timeout=10000)
     detail = pg.locator('.card', has_text='문서 상세')
     check('IR-2026-0001' in detail.inner_text(), '반려 문서는 1차 묶음 참조 유지')
-    check('0건' in detail.inner_text(), '반려 문서 상세가 새 묶음을 가리키지 않음(0건)')
+    # v1.5.349(B2): 반려 문서 상세는 상신 시점 스냅샷(bundledIds)으로 자기 묶음 항목을 보존 재구성한다 — 역링크가
+    # 초기화되고 항목이 새 묶음(IR-0002)으로 넘어가도, 반려된 결재가 무엇을 담았는지 보인다(§VI 감사 완결성).
+    # 새 묶음 번호(IR-0002)를 가리키지 않는 것(재사용 금지)은 유지하되, '0건'으로 비지 않고 자기 항목을 보존한다.
+    check('IR-2026-0002' not in detail.inner_text() and '0건' not in detail.inner_text(),
+          '반려 문서 상세가 새 묶음(IR-0002)을 가리키지 않고 자기 스냅샷 항목 보존(§VI, B2)')
 
 
 def sc_rebundle_multi(pg, base, check):
@@ -3575,6 +3593,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(AUDITF_DATA)}),
     ('multistage_approver_trace', '다단 중간 승인자 추적성 — 승인 후 처리한 결재·상세 열람 유지(§VI, B1)', sc_multistage_approver_trace,
      {'PORTAL_DATA_FILE': str(MSTAGE_DATA)}),
+    ('batch_snapshot', '묶음 반려 상세 재구성 — 역링크 초기화돼도 스냅샷으로 항목 표기(§VI, B2)', sc_batch_snapshot,
+     {'PORTAL_DATA_FILE': str(BSNAP_DATA)}),
     ('search_coverage', '통합 검색 커버리지 — 전자결재(신원 스코핑)·위험·정책 편입, 무관 결재 유출 차단', sc_search_coverage,
      {'PORTAL_DATA_FILE': str(SRCH_DATA)}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
@@ -3953,6 +3973,19 @@ def main() -> int:
         'investContracts': [{'id': 'CT-2026-90', 'kind': '투자', 'planId': 'IP-2026-90', 'vendor': '테스트벤더', 'title': '경계 계약', 'amount': 1004, 'signedAt': '2026-07-01'}],
         'settlements': [{'id': 'ST-2026-90', 'contractId': 'CT-2026-90', 'item': '착수금', 'amount': 1004, 'status': '지급완료', 'requestedBy': '김현우', 'requestedAt': '2026-07-05'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 묶음 반려 상세 스냅샷 재구성(v1.5.349, B2) — 반려된 장애보고(bundledIds 2건). 인시던트 역링크(reportRef)는
+    # 반려 전파로 이미 초기화된 상태 모사(미상신). 상세가 스냅샷으로 2건을 재구성해야 한다(역링크로는 0건).
+    BSNAP_DATA.write_text(json.dumps({
+        'incidents': [
+            {'id': 'FL-B1', 'system': '시스템A', 'title': '스냅샷장애A', 'grade': '1등급', 'occurredAt': '2026-08-01', 'status': '조치완료', 'reportStatus': '미상신'},
+            {'id': 'FL-B2', 'system': '시스템B', 'title': '스냅샷장애B', 'grade': '2등급', 'occurredAt': '2026-08-02', 'status': '조치완료', 'reportStatus': '미상신'},
+        ],
+        'approvals': [
+            {'id': 'AP-BSNAP', 'docType': '장애보고 상신', 'title': '[장애보고] 2건 스냅샷테스트', 'drafter': '박정호', 'dept': 'IT운영팀',
+             'approver': '시스템관리자', 'status': '반려', 'draftedAt': '2026-08-01', 'decidedAt': '2026-08-03', 'rejectReason': '보완 필요',
+             'ref': 'IR-BSNAP', 'bundledIds': ['FL-B1', 'FL-B2']},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
     # 다단 중간 승인자 추적성(v1.5.347, B1) — 점검결과 상신(2단: 이수진 1차 → 시스템관리자 2차) 대기 1건.
     MSTAGE_DATA.write_text(json.dumps({'approvals': [
         {'id': 'AP-MS-1', 'docType': '점검결과 상신', 'title': '점검결과 다단테스트 상신', 'drafter': '박정호', 'dept': 'IT운영팀',
@@ -4164,6 +4197,7 @@ def main() -> int:
     SRCH_DATA.unlink(missing_ok=True)
     CSCHED_DATA.unlink(missing_ok=True)
     MSTAGE_DATA.unlink(missing_ok=True)
+    BSNAP_DATA.unlink(missing_ok=True)
     RMGHOST_DATA.unlink(missing_ok=True)
     AFDEFEAT_DATA.unlink(missing_ok=True)
     QNAROLE_DATA.unlink(missing_ok=True)
