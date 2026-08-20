@@ -75,6 +75,10 @@ export async function raiseDisposalApproval() {
   const s = getStore()
   const targets = s.disposals.filter((d) => d.status === '대상 선정')
   if (targets.length === 0) return
+  // 필수 결재선(AL-04 폐기: 자산담당 → IT기획팀장)의 첫 결재 단계에서 시작한다 — 격리 요청(보안담당→IT기획팀장)과 동형.
+  //  그전엔 마지막 단계(IT기획팀장)로 하드코딩돼 필수 자산담당 결재가 생략되고, 관리자가 결재선을 편집해도 반영되지 않았다.
+  const line = s.approvalLines.find((l) => l.kind === '폐기')
+  const firstStep = line?.steps.find((st) => st !== '신청자' && st !== 'Discovery 엔진') ?? '자산담당'
   const aprId = nextApprovalId()
   s.approvals.unshift({
     id: aprId,
@@ -84,7 +88,7 @@ export async function raiseDisposalApproval() {
     dept: session.dept,
     requestedAt: today(),
     status: '대기',
-    currentStep: 'IT기획팀장 결재',
+    currentStep: `${firstStep} 검토`,
     refId: targets[0].assetNo,
   })
   for (const d of targets) { d.status = '결재 대기'; d.approvalId = aprId }
