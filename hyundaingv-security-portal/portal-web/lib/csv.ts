@@ -1,5 +1,5 @@
-/** 엑셀 다운로드 — BOM 포함 CSV (Excel 이 UTF-8 한글을 바로 연다).
- *  실서비스에서는 엑셀양식관리 기반 xlsx 생성으로 대체된다. */
+/** BOM 포함 CSV (Excel 이 UTF-8 한글을 바로 연다) — 프로그램·게이트용 대체 포맷(?fmt=csv).
+ *  기본 산출물은 네이티브 xlsx(lib/xlsx)이며 같은 rows 를 공유한다(export route). */
 
 function esc(v: string | number): string {
   let s = String(v)
