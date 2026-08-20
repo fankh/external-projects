@@ -1175,6 +1175,12 @@ try {
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const auditAi = await p3.textContent('body')
   ok('감사 로그: AI 모델·프롬프트 버전 관리 적재', auditAi.includes('AI 모델·프롬프트 버전 관리') && auditAi.includes('claude-opus-5'))
+  // 알림 재발송(#GAP3·§06 발송 신뢰성) — 전달 실패한 긴급 격리 문자(시드 MSG-4004)를 재발송하면 전달 완료로 전환·재발송 버튼이 사라진다.
+  const failRow = () => p3.locator('tr', { has: p3.locator('td', { hasText: 'MSG-4004' }) }).first()
+  ok('연동: 전달 실패 알림에 재발송 버튼(Admin)', (await failRow().locator('button', { hasText: /^재발송$/ }).count()) > 0)
+  await failRow().locator('button', { hasText: /^재발송$/ }).click()
+  await p3.waitForTimeout(700)
+  ok('연동: 재발송 → 전달 완료(발송) 전환', ((await p3.textContent('body')) || '').includes('전달 완료') && (await failRow().locator('button', { hasText: /^재발송$/ }).count()) === 0)
   await aiPeriodQuery(p3)
 
   // ── 순수 로직 불변식(회귀 방지) — 상태를 바꾸지 않는 읽기 검증 ──
