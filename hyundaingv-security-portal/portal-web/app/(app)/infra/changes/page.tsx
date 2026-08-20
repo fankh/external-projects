@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerGenerated, registerUpload } from '@/lib/attachments'
+import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -23,7 +24,7 @@ function closeChangeResignTodo(s: ReturnType<typeof getStore>, docType: string, 
 
 async function addInfraChange(formData: FormData) {
   'use server'
-  await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const plan = String(formData.get('plan') ?? '').trim().slice(0, 500)
   // 원복계획 — 작업계획과 별개의 필수 산출물 (요구사항: "작업계획, 원복계획 필요")
@@ -33,26 +34,33 @@ async function addInfraChange(formData: FormData) {
   // 이중 등록 방어 — 서버액션 폼은 제출 후 자동 비활성화되지 않아 더블클릭으로 같은 변경이 두 벌 생긴다
   // (createSr·receiveCiSr 와 동일 클래스). 같은 제목의 미상신(작업등록) 인프라 변경이 이미 있으면 직전 제출의 중복으로 무시.
   if (s.changes.some((c) => c.kind === '인프라' && c.title === title && c.status === '작업등록')) return
+  // 변경 레코드엔 등록자 필드가 없어(registeredAt=시점만) 등록 provenance 는 감사가 유일한 추적점 — 인프라
+  // 형제 화면(장애 등록·자산 변경)과 정합하게 등록도 통제 행위로 기록한다(§VI 이력추적성). 상신(submitPlan)은
+  // 결재로 추적되지만 등록과 상신은 별개 시점·행위자일 수 있다.
+  const id = nextNo('CW', today().slice(0, 4), s.changes.map((c) => c.id))
   s.changes.unshift({
-    id: nextNo('CW', today().slice(0, 4), s.changes.map((c) => c.id)),
+    id,
     kind: '인프라', title, plan, rollbackPlan, status: '작업등록', registeredAt: today(),
   })
+  audit(me.name, '변경 등록', `${id} 인프라 — ${title}`)
   revalidatePath('/infra/changes')
 }
 
 async function addDevChange(formData: FormData) {
   'use server'
-  await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo && r.status === '적용요청')
   if (!sr || s.changes.some((c) => c.srNo === srNo)) return
   // 폐쇄 루프 — SR 적용요청 건이 변경 목록으로 편입된다 (요구사항: 적용요청 결재완료건 바로 목록 추가)
+  const id = nextNo('CW', today().slice(0, 4), s.changes.map((c) => c.id))
   s.changes.unshift({
-    id: nextNo('CW', today().slice(0, 4), s.changes.map((c) => c.id)),
+    id,
     kind: '시스템개발', title: `[${sr.system}] ${sr.title}`, srNo, status: '작업등록', registeredAt: today(),
     plan: `SR ${srNo} 운영계 반영`,
   })
+  audit(me.name, '변경 등록', `${id} 시스템개발 — [${sr.system}] ${sr.title} (SR ${srNo})`)
   revalidatePath('/infra/changes')
 }
 
