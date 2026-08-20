@@ -332,6 +332,7 @@ export async function extendLoan(assetNo: string, newDueDate: string) {
 
   asset.loanDueDate = newDueDate
   asset.loanExtendRequest = undefined // 담당자 직접 연장 시 대기 중이던 연장 요청도 해제
+  asset.returnRequest = undefined // 연장은 대여 처분을 확정 — 대기 중이던 반납 신청도 함께 해제(스테일 신청·이중 큐 방지)
   asset.history.push({ date: today(), kind: '대여', detail: `대여 반환 기한 연장 ${cur || '-'} → ${newDueDate}`, actor: session.name })
   appendAudit({ actor: session.name, action: `대여 반환 기한 연장 — ${cur || '-'} → ${newDueDate}`, target: assetNo })
   revalidatePath('/', 'layout')
@@ -348,6 +349,8 @@ export async function requestLoanExtension(assetNo: string, rawNewDueDate: strin
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (asset.status !== '대여중' || asset.owner !== session.name) return { ok: false, message: '본인 대여 중인 자산만 연장 요청할 수 있습니다.' }
+  // 연장과 반납은 상반된 처분 — 반납 신청 중이면 연장 요청 불가(모순 상태·이중 큐 방지). 반납 신청을 먼저 취소해야 한다.
+  if (asset.returnRequest) return { ok: false, message: '반납 신청 중인 자산입니다 — 반납 신청을 취소한 뒤 연장 요청하세요.' }
   const newDueDate = rawNewDueDate.trim()
   if (!/^\d{4}-\d{2}-\d{2}$/.test(newDueDate) || newDueDate <= (asset.loanDueDate ?? today())) {
     return { ok: false, message: `연장 기한은 현재 반환 기한(${asset.loanDueDate ?? '-'}) 이후로 지정하세요.` }
@@ -377,6 +380,7 @@ export async function grantLoanExtension(assetNo: string) {
   const cur = asset.loanDueDate ?? '-'
   asset.loanDueDate = req.newDueDate
   asset.loanExtendRequest = undefined
+  asset.returnRequest = undefined // 연장 승인은 대여 처분을 확정 — 대기 중이던 반납 신청도 함께 해제(스테일 신청·이중 큐 방지)
   asset.history.push({ date: today(), kind: '대여', detail: `대여 연장 요청 승인 — ${cur} → ${req.newDueDate} (요청자 ${req.by} · ${req.reason})`, actor: session.name })
   dispatch({ channel: '이메일', to: req.by, subject: `대여 연장 승인 — ${asset.assetNo} ${asset.model} 반환 기한 ${req.newDueDate}로 연장`, kind: '자산 대여', ref: asset.assetNo })
   appendAudit({ actor: session.name, action: `대여 연장 요청 승인 — ${cur} → ${req.newDueDate} (요청자 ${req.by})`, target: assetNo })
@@ -430,6 +434,8 @@ export async function requestReturn(assetNo: string, rawNote = '') {
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (asset.status !== '대여중' || asset.owner !== session.name) return { ok: false, message: '본인 대여 중인 자산만 반납 신청할 수 있습니다.' }
   if (asset.returnRequest) return { ok: false, message: '이미 반납 신청된 자산입니다.' }
+  // 반납과 연장은 상반된 처분 — 연장 요청 중이면 반납 신청 불가(모순 상태·이중 큐 방지). 연장 요청을 먼저 취소해야 한다.
+  if (asset.loanExtendRequest) return { ok: false, message: '연장 요청 중인 자산입니다 — 연장 요청을 취소한 뒤 반납 신청하세요.' }
   const note = rawNote.trim()
   asset.returnRequest = { by: session.name, at: today(), note: note || undefined }
   dispatch({ channel: '이메일', to: '자산관리팀', subject: `대여 반납 신청 — ${asset.assetNo} ${asset.model} (${session.name})${note ? ` · ${note}` : ''}`, kind: '반납 접수', ref: asset.assetNo })
