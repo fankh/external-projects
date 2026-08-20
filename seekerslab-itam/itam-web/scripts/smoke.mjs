@@ -732,6 +732,8 @@ try {
   check('발견 자산: 병합 후보 카드', fndHtml.includes('병합 후보') && fndHtml.includes('DSC-2607-0045') && fndHtml.includes('호스트명 동일'))
   const intHtml2 = await (await get('/platform/integrations', 'ADMIN')).text()
   check('연동: 알림 발송 이력(검색·필터) 렌더', intHtml2.includes('알림 발송 이력') && intHtml2.includes('MSG-4001') && intHtml2.includes('만료 임박') && intHtml2.includes('수신·제목·연결 문서 검색'))
+  // 전달 상태·재발송(§06 발송 신뢰성) — 전달 실패(시드 MSG-4004 긴급 격리 문자 미도달) 상태 표기 + 보안담당·Admin 재발송 버튼. 그동안 발송 이력은 상태·재시도가 없었다.
+  check('연동: 전달 실패 알림 상태 표기 + 재발송 버튼 (보안담당·Admin)', intHtml2.includes('전달 실패') && intHtml2.includes('재발송') && intHtml2.includes('MSG-4004'))
   // 긴급 보안 에스컬레이션 문자(SMS) 병행 정책 안내 (제품안내서 §06 이메일·문자 발송)
   check('연동: 긴급 보안 에스컬레이션 문자(SMS) 병행 정책 안내', intHtml2.includes('긴급 보안 에스컬레이션은 문자(SMS) 병행') && intHtml2.includes('이중 발송'))
   // 연결 문서(ref) 딥링크 — 시드 발송 이력의 계약·결재 ref 가 대상 화면 링크로 렌더된다
