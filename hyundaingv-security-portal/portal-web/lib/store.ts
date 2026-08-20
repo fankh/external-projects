@@ -64,6 +64,8 @@ export interface Store {
   /** 메뉴권한 런타임 제한 (href → 허용 권한그룹 부분집합) — menus.ts 기본 권한의 축소만 가능,
    *  권한 상승 불가·ADMIN 제한 불가 (요구사항 72행 메뉴권한 할당) */
   menuOverrides: Record<string, Role[]>
+  /** 기능(Action) 단위 런타임 제한 — 키 `${href}#${action}`, 값 허용 역할(축소만). menuOverrides 의 기능 버전. */
+  actionOverrides: Record<string, Role[]>
   /** 연동 채널 활성 상태 (channelId → on/off) — 정의는 portal.config.ts, 상태는 런타임 */
   channelStates: Record<string, boolean>
   sendLog: SendLogEntry[]
@@ -340,6 +342,7 @@ function seed(): Store {
       { name: '박정호', dept: 'IT운영팀', year: '2026', kind: '관리책임자', signedAt: '2026-07-10', method: '온라인' },
     ],
     menuOverrides: {},
+    actionOverrides: {},
     channelStates: Object.fromEntries(CHANNELS.map((c) => [c.id, c.enabledByDefault])),
     sendLog: [],
     assetAcquisitions: [],
@@ -470,6 +473,11 @@ function loadFromFile(): Store | null {
       Object.entries(merged.menuOverrides ?? {}).filter(([, v]) =>
         Array.isArray(v) && v.every((r) => ROLES.includes(r))),
     ) as Store['menuOverrides']
+    // 기능 단위 제한도 동일 형태 검증 — 비배열 값은 effectiveActionRoles 가드에서 500 을 유발한다(menuOverrides 와 동일 계열)
+    merged.actionOverrides = Object.fromEntries(
+      Object.entries(merged.actionOverrides ?? {}).filter(([, v]) =>
+        Array.isArray(v) && v.every((r) => ROLES.includes(r))),
+    ) as Store['actionOverrides']
     // 다단 결재 큐도 형태 검증 — 비배열·비문자열 큐는 결재함 상세 렌더·decide() 를 깨뜨린다 (F2)
     for (const a of merged.approvals ?? []) {
       if (a.queue !== undefined && (!Array.isArray(a.queue) || !a.queue.every((n) => typeof n === 'string'))) a.queue = undefined

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { NAV } from '@/components/chrome/menus'
+import { NAV, SCREEN_ACTIONS, type ActionKey } from '@/components/chrome/menus'
 import { getSession, type Session } from './session'
 import { getStore } from './store'
 import type { Role } from './types'
@@ -36,4 +36,23 @@ export async function requireMenu(href: string): Promise<Session> {
 export async function requireMenuRole(href: string, ...roles: Role[]): Promise<Session> {
   const eff = effectiveRoles(href)
   return requireRole(...roles.filter((r) => eff.includes(r)))
+}
+
+/** 화면×기능 유효 권한 — SCREEN_ACTIONS 기본 ∩ 화면 유효권한 ∩ 기능 런타임 제한(actionOverrides).
+ *  기본 원천이 SCREEN_ACTIONS 하나라 requireAction(강제)과 권한 매트릭스(표시)가 어긋나지 않는다. 축소만
+ *  가능해 권한 상승 불가, ADMIN 은 잠금 방지로 제한 대상 제외. 카탈로그 미등록 기능은 빈 배열(=아무도 불가). */
+export function effectiveActionRoles(href: string, action: ActionKey): Role[] {
+  const base = SCREEN_ACTIONS[href]?.[action]
+  if (!base) return []
+  const eff = new Set(effectiveRoles(href))
+  const scoped = base.filter((r) => eff.has(r))
+  const override = getStore().actionOverrides[`${href}#${action}`]
+  if (!override) return scoped
+  return scoped.filter((r) => r === 'ADMIN' || override.includes(r))
+}
+
+/** 화면×기능 서버 액션 가드 — requireMenuRole 의 기능 버전. SCREEN_ACTIONS 에 등록된 기능만 이 가드로 보호되며,
+ *  오버라이드가 없으면 기본 역할 집합과 동일하게 동작(마이그레이션 시 회귀 없음). 직접 POST 도 기능 제한이 걸린다. */
+export async function requireAction(href: string, action: ActionKey): Promise<Session> {
+  return requireRole(...effectiveActionRoles(href, action))
 }
