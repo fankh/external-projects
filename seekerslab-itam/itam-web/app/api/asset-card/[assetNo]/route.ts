@@ -74,9 +74,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
       + `<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8494ac"/></marker></defs>`
       + p.join('') + '</svg>'
   })()
-  const timeline = [...a.history].reverse().map((h) =>
-    `<tr><td class="d">${esc(h.date)}</td><td class="k">${esc(h.kind)}</td><td>${esc(h.detail)}</td><td class="ac">${esc(h.actor)}</td></tr>`,
-  ).join('')
+  // 이벤트 종류별 색(화면 변경 이력 타임라인과 동일 언어) — 폐기·분실=위험(적)·점검·수리=정비(황)·등록·편입=진입(녹). 인쇄 기록도 중대 이벤트가 도드라지게.
+  const evColor: Record<string, string> = { 폐기: '#c23934', 분실: '#c23934', 점검: '#b25e09', 수리: '#b25e09', 등록: '#12805c', 편입: '#12805c' }
+  const timeline = [...a.history].reverse().map((h) => {
+    const c = evColor[h.kind]
+    return `<tr><td class="d">${esc(h.date)}</td><td class="k"${c ? ` style="color:${c};font-weight:700"` : ''}>${esc(h.kind)}</td><td>${esc(h.detail)}</td><td class="ac">${esc(h.actor)}</td></tr>`
+  }).join('')
   // 배정 라이선스 좌석 — 이 자산에 배정된 SW 라이선스(로56·57). 인수인계·감사 dossier 에 어떤 SW 를 물고 있는지 남긴다(회수·재배정 대상).
   const seats = getStore().licenses
     .filter((l) => l.status !== '해지')
