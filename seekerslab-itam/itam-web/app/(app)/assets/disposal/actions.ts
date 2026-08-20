@@ -106,7 +106,7 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
   if (!d) return { ok: false, message: '폐기 건을 찾을 수 없습니다.' }
   if (d.status !== '소거 대기') return { ok: false, message: '폐기 결재 승인 후 소거할 수 있습니다.' }
 
-  const proceeds = disposition === '매각' ? Math.max(0, Math.round(rawProceeds)) : 0
+  const proceeds = disposition === '매각' && Number.isFinite(rawProceeds) ? Math.max(0, Math.round(rawProceeds)) : 0 // 비유한(Infinity/NaN) 방어 — 매각 대금이 ∞/NaN 로 리포트·집계를 오염하지 않게
 
   s.seq += 1
   d.wipeMethod = method

@@ -215,7 +215,7 @@ export async function sendToRepair(assetNo: string, rawVendor: string, eta: stri
   if (!vendor) return { ok: false, message: '수리 업체를 입력해 주세요.' }
   if (eta && (!/^\d{4}-\d{2}-\d{2}$/.test(eta) || eta < today())) return { ok: false, message: '예상 반환일을 오늘 이후로 지정해 주세요.' }
 
-  asset.repair = { vendor, sentAt: today(), eta: eta || undefined, estCost: estCost > 0 ? Math.round(estCost) : undefined }
+  asset.repair = { vendor, sentAt: today(), eta: eta || undefined, estCost: Number.isFinite(estCost) && estCost > 0 ? Math.round(estCost) : undefined }
   asset.history.push({ date: today(), kind: '수리', detail: `수리 의뢰 — ${vendor}${eta ? ` · 예상 반환 ${eta}` : ''}${estCost > 0 ? ` · 견적 ${estCost.toLocaleString()}원` : ''}`, actor: session.name })
   appendAudit({ actor: session.name, action: `수리 의뢰 (${vendor})`, target: assetNo })
   revalidatePath('/', 'layout')
@@ -247,7 +247,7 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   const priorDept = asset.dept
   const stillOwned = outcome === '수리 완료' && !!asset.owner && asset.owner !== '미지정' && asset.owner !== '-'
   asset.status = outcome === '수리 완료' ? (stillOwned ? '사용중' : '유휴') : '폐기예정'
-  const cost = Math.max(0, Math.round(actualCost))
+  const cost = Number.isFinite(actualCost) ? Math.max(0, Math.round(actualCost)) : 0 // 비유한(Infinity/NaN) 방어 — repairCosts 합산이 ∞/NaN 로 오염되지 않게(add* 액션과 동일 규약)
   const repairVendor = asset.repair?.vendor ?? '-' // asset.repair 는 아래에서 해제되므로 먼저 캡처
   const repairEta = asset.repair?.eta // 예상 반환일 — 업체 SLA(정시 반환) 판정 근거, 해제 전 캡처
   asset.history.push({
