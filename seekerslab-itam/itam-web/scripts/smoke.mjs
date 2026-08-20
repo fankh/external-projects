@@ -320,6 +320,8 @@ try {
   check('대시보드: 영향 집중 자산(blast radius ≥2 단일 장애점) 큐 (자산담당)', dashHtml.includes('영향 집중 자산') && dashHtml.includes('blast radius'))
   // 영향 집중 큐는 첫 자산(?sel=)만 열던 것을 전체 SPOF 목록(?spof=1)으로 드릴다운 — 큐 건수 N 과 목록이 일치.
   check('대시보드: 영향 집중 자산 큐가 단일 장애점 목록(?spof=1)으로 드릴다운', dashHtml.includes('/assets/register?spof=1'))
+  // 복합 위험 자산 큐 — 정합성·EOL·보증·점검·SPOF·교체·미실측 중 2+ 겹치는 다중 이슈 자산을 사전에 드러내고 ?risk=1 로 드릴다운(개별 신호 큐가 놓치는 '한 자산에 문제 몰림'). 대장 필터·도시어 요약과 lib/risk 단일 소스.
+  check('대시보드: 복합 위험 자산(≥2 신호) 큐 + ?risk=1 드릴다운 (자산담당)', dashHtml.includes('복합 위험 자산') && dashHtml.includes('/assets/register?risk=1'))
   // 다가오는 일정 아젠다(사전 계획) — 반응형 큐(카운트)와 별개로, 향후 14일 예정 작업을 날짜순 아젠다로. 정례 리포트 배포는 주간 주기라 항상 창 이내(D-day 표기).
   check('대시보드(자산담당): 다가오는 일정 아젠다 카드(정례 리포트 배포 예정 포함)', dashHtml.includes('다가오는 일정') && dashHtml.includes('리포트 배포') && dashHtml.includes('D-'))
   // 수령 미확인 큐도 전체 대장으로 떨어지던 것을 ?receipt=1 로 드릴다운 — 큐 건수=목록(체인 오브 커스터디 추적).

@@ -5,6 +5,7 @@ import { canExport } from '@/lib/exports'
 import { hasDataIssue } from '@/lib/quality'
 import { criticalDependencies } from '@/lib/cmdb'
 import { replacementCandidates } from '@/lib/reports'
+import { compositeRiskAssetNos } from '@/lib/risk'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { BulkImport } from './BulkImport'
@@ -50,10 +51,8 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const replaceNos = replacementCandidates().cands.map((x) => x.a.assetNo).filter((no) => scopedNoSet.has(no))
   // 정기 점검 경과(미시행) 대수 — 예정일을 넘긴 자산. 자산담당 정기 점검 독촉 버튼 노출/집계용(임박은 제외).
   const maintOverdueCount = scoped.filter(isMaintenanceOverdue).length
-  // 복합 위험(≥2 신호) — 정합성 이슈·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산. 다중 이슈 우선 트리아지(도시어 '위험 신호' 요약과 같은 7신호 단일 소스 재사용).
-  const riskTally = new Map<string, number>()
-  for (const set of [staleNos, warrantyNos, dqNos, eolNos, maintenanceNos, spofNos, replaceNos]) for (const no of set) riskTally.set(no, (riskTally.get(no) ?? 0) + 1)
-  const riskNos = [...riskTally.entries()].filter(([, c]) => c >= 2).map(([no]) => no)
+  // 복합 위험(≥2 신호) — 정합성 이슈·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산. 대장 필터·도시어 요약·대시보드 큐가 lib/risk 단일 소스 공유(임계값 재계산 없음).
+  const riskNos = compositeRiskAssetNos(scoped)
   // 자산별 배정 라이선스(좌석) — 라이선스 화면의 좌석 배정(로56)을 자산 관점에서 역조회. 상세에서 이 자산에
   //  어떤 SW 라이선스가 배정됐는지 보여준다(오프보딩·감사: 회수·재배정 대상 식별). 해지 라이선스는 제외.
   const licenseSeatsByAsset: Record<string, { id: string; name: string; vendor: string }[]> = {}

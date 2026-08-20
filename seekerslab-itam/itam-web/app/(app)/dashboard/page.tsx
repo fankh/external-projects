@@ -16,6 +16,7 @@ import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { buildSaasReview, SAAS_REVIEW_SLA_DAYS } from '@/lib/saas-review'
 import { isScheduleOverdue, licenseOptimization, replacementCandidates } from '@/lib/reports'
+import { compositeRiskAssetNos } from '@/lib/risk'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { lowStockCategories } from '@/lib/stock'
@@ -82,6 +83,7 @@ export default async function DashboardPage() {
     const issueDue = s.approvals.filter((a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.refId?.startsWith('DSC-')).length
     const moveDue = s.approvals.filter((a) => a.kind === '이동' && a.status === '승인' && !a.fulfilled).length
     const spof = criticalDependencies() // 영향 집중 자산(단일 장애점) — 이 자산 장애 시 blast radius ≥2
+    const compositeRiskNos = compositeRiskAssetNos(s.assets) // 복합 위험(≥2 주의 신호) — 대장 필터·도시어 요약과 lib/risk 단일 소스
     opsQueues.push(
       { label: '입고 검수 대기', count: s.intakeLots.filter((l) => l.status === '입고 대기' || l.status === '검수 중').length, href: '/assets/intake', tone: 'warn' },
       // 도입 예정 입고 지연 — 도착 예정일이 지났는데 미입고(§06 ITSM·구매 연동). 발주처 독촉·납기 관리 대상.
@@ -102,6 +104,8 @@ export default async function DashboardPage() {
       { label: '정기 점검 대상 (예방 정비 도래)', count: s.assets.filter((a) => isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays)).length, href: '/assets/register?maint=1', tone: 'warn' },
       // 영향 집중 자산(단일 장애점·CMDB blast radius) — 이 자산 장애 시 전이적으로 2대 이상 영향. 이중화·우선 정비 대상. 현재 저하(수리중·분실 등) 상태면 즉시 리스크(err).
       { label: `영향 집중 자산 (blast radius ≥2 · 단일 장애점${spof.some((x) => x.degraded) ? ' · 저하 포함' : ''})`, count: spof.length, href: spof.length ? `/assets/register?spof=1` : '/assets/register', tone: spof.some((x) => x.degraded) ? 'err' : 'warn' },
+      // 복합 위험 자산 — 정합성·EOL·보증·점검·SPOF·교체·미실측 중 2개 이상이 겹치는 다중 이슈 자산. 개별 신호 큐가 놓치는 '한 자산에 문제가 몰린' 우선 조치 대상을 사전에 드러낸다(?risk=1 드릴다운 → 상세 '위험 신호' 요약).
+      { label: '복합 위험 자산 (≥2 신호 · 다중 이슈 우선 조치)', count: compositeRiskNos.length, href: compositeRiskNos.length ? '/assets/register?risk=1' : '/assets/register', tone: 'warn' },
       { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal', tone: 'err' },
       { label: '분실 · 도난 자산 (회수·폐기 확정)', count: s.assets.filter((a) => a.status === '분실').length, href: '/assets/register?status=분실', tone: 'err' },
       { label: '대여 반환 연체 (반환 독촉)', count: s.assets.filter(isLoanOverdue).length, href: '/assets/returns', tone: 'err' },
