@@ -37,13 +37,21 @@ async function waitReady() {
 
 async function main() {
   if (!existsSync(path.join(ROOT, '.next'))) { console.error('✗ .next 빌드 없음 — npm run build 먼저'); process.exit(1) }
-  // 커스텀 SESSION_SECRET 으로 서버 기동
+  // 커스텀 SESSION_SECRET 으로 서버 기동 (기동 로그 캡처 — 배포 준비 경고 검증에 사용)
+  let bootLog = ''
   const server = spawn(`npx next start -p ${PORT}`, {
-    cwd: ROOT, shell: true, stdio: 'ignore',
+    cwd: ROOT, shell: true, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, SESSION_SECRET: CUSTOM },
   })
+  server.stdout?.on('data', (d) => { bootLog += d })
+  server.stderr?.on('data', (d) => { bootLog += d })
   try {
     await waitReady()
+
+    // 기동 배포 준비 경고 — 기본 프로필(전량 목업)로 프로덕션 기동 시 준비 경고가 로그에 남는가.
+    // 관리자 '배포 준비 상태' 카드는 로그인 후에만 보이므로, 운영자·CI 가 로그에서 오구성을 즉시 인지하게 한다.
+    check(bootLog.includes('배포 준비 경고') && bootLog.includes('연동 어댑터'),
+      '기동 로그에 배포 준비 경고(연동 어댑터 목업 등) 노출')
     const okCustom = await get(CUSTOM)
     check(okCustom.status === 200, `커스텀 키 서명 세션 → 인증 통과 (got ${okCustom.status})`)
 

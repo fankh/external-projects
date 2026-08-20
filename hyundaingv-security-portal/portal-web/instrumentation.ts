@@ -17,6 +17,17 @@ export async function register() {
       console.error('='.repeat(72) + '\n')
       process.exit(1)
     }
+    // 배포 준비 경고(비-치명) — 세션 키 외 준비 항목 중 warn 을 기동 로그에 남긴다. 관리자 '배포 준비 상태'
+    // 카드는 로그인 후에만 보이므로, 운영자·CI 가 배포 직후 로그에서 오구성(전량 목업 어댑터·비영속·HTTP
+    // 쿠키 등)을 즉시 인지하게 한다. fail-closed 아님 — 파일럿에서 일부러 목업·비영속으로 띄울 수 있다.
+    try {
+      const { deployReadiness } = await import('./lib/readiness')
+      const warns = deployReadiness().filter((r) => r.level === 'warn')
+      if (warns.length) {
+        console.warn(`[portal] ⚠ 배포 준비 경고 ${warns.length}건 (관리자 '배포 준비 상태' 카드 참조):`)
+        for (const w of warns) console.warn(`[portal]   · ${w.key}: ${w.value} — ${w.detail}`)
+      }
+    } catch { /* 준비 신호 산출 실패가 기동을 막지 않는다 */ }
   }
 
   const intervalMs = Number(process.env.PORTAL_NOTIFY_INTERVAL_MS)
