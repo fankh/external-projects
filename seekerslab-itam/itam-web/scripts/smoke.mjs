@@ -555,6 +555,8 @@ try {
   const extHtml = await (await get('/discovery/external', 'SEC_MGR')).text()
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
   check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))
+  // 노출 위험 높은 순 정렬(제품안내서 §04 위험도 분류 → 우선 처리) — 시드는 CVSS순 아님(무CVE dev-api 가 CVSS 8.1 db-backup 보다 앞). 정렬 후 CVSS 높은 db-backup 이 먼저 렌더.
+  check('외부 공격표면: CVSS 높은 순 정렬(고CVSS가 무CVE보다 먼저)', extHtml.includes('db-backup.seekerslab.co.kr') && extHtml.includes('dev-api.seekerslab.co.kr') && extHtml.indexOf('db-backup.seekerslab.co.kr') < extHtml.indexOf('dev-api.seekerslab.co.kr'))
   // CT(인증서 투명성) 채널 — 발급 CA·유효기간 수집 후 유효기간으로 생존 추정(§04). 유효=생존 유력, 만료=생존 불명.
   check('외부 공격표면: CT 인증서 발급 CA·유효기간 수집·생존 추정 렌더',
     extHtml.includes('인증서(CA·유효기간)') && extHtml.includes("Let's Encrypt") && extHtml.includes('생존 유력') && extHtml.includes('생존 불명'))
