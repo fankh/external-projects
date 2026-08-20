@@ -37,3 +37,19 @@ export async function testConnector(id: string) {
   revalidatePath('/', 'layout')
   return { ok: true, message: `${conn.system} ${activated ? '연동 활성화' : '재연동'} 완료 — 상태 정상 · 최근 수집 ${conn.lastSync}` }
 }
+
+/** 알림 재발송 — 전달 실패(반송·게이트웨이 오류)한 통지를 배치·연동 서버로 다시 보낸다(§06 이메일·문자 발송 신뢰성).
+ *  긴급 격리·에스컬레이션 문자가 미도달하면 야간·현장 대응이 지연되므로, 실패 건을 재발송으로 닫는다. 보안담당·Admin. */
+export async function resendDispatch(id: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '알림 재발송 권한이 없습니다 (보안담당·Admin).' }
+  const s = getStore()
+  const msg = s.dispatches.find((m) => m.id === id)
+  if (!msg) return { ok: false, message: '발송 이력을 찾을 수 없습니다.' }
+  if (msg.deliveryStatus !== '실패') return { ok: false, message: '전달 실패 건만 재발송할 수 있습니다.' }
+  msg.deliveryStatus = '발송'
+  msg.at = nowMinute()
+  appendAudit({ actor: session.name, action: `알림 재발송 — ${msg.channel} ${msg.kind} (${msg.to})`, target: id, result: '성공' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${msg.channel} 알림 재발송 — ${id} 전달 완료` }
+}

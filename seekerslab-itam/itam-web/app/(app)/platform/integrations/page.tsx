@@ -60,7 +60,7 @@ export default async function IntegrationsPage() {
         시간 임계 조치는 상세 근거를 이메일로, 즉시 알림을 <span className="chip warn bare">문자</span>로 이중 발송해 야간·현장 대응 지연을 줄입니다. 두 발송 모두 발송 이력에 남습니다.
       </div>
 
-      <NotificationLog dispatches={s.dispatches} canExport={canManage} />
+      <NotificationLog dispatches={s.dispatches} canExport={canManage} canManage={canManage} />
 
       <div className="cols c2">
         <div className="callout"><b>인증.</b> SAML 기반 SSO — 그룹웨어 IdP 어설션으로 로그인하며, 부여된 메뉴·기능만 렌더링됩니다.</div>

@@ -22,6 +22,7 @@ export function dispatch(entry: {
     subject: entry.subject,
     kind: entry.kind,
     ref: entry.ref,
+    deliveryStatus: '발송', // 배치·연동 서버 발송 성공(데모). 재발송도 이 경로로 성공 처리된다.
   }
   s.dispatches.unshift(row)
   return row

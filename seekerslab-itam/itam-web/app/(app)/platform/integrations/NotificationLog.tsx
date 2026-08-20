@@ -1,12 +1,18 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { entityHref } from '@/lib/reflink'
 import type { Dispatch } from '@/lib/types'
+import { resendDispatch } from './actions'
 
 /** 알림 발송 이력 — 발송이 쌓이므로 그대로 나열하면 스캔이 불가능하다.
- *  수신·제목·연결문서 검색 + 종류·채널 필터로 발송 증적 추적을 실사용 가능하게 한다. */
-export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatch[]; canExport?: boolean }) {
+ *  수신·제목·연결문서 검색 + 종류·채널 필터로 발송 증적 추적을 실사용 가능하게 한다.
+ *  전달 실패(반송·게이트웨이 오류) 건은 상태로 드러내고 재발송으로 닫는다(§06 이메일·문자 발송 신뢰성). */
+export function NotificationLog({ dispatches, canExport, canManage }: { dispatches: Dispatch[]; canExport?: boolean; canManage?: boolean }) {
+  const [msg, setMsg] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+  const resend = (id: string) => startTransition(async () => setMsg((await resendDispatch(id)).message))
+  const failed = dispatches.filter((m) => m.deliveryStatus === '실패').length
   const [q, setQ] = useState('')
   const [channel, setChannel] = useState<'전체' | '이메일' | '문자'>('전체')
   const [kind, setKind] = useState('전체')
@@ -33,7 +39,7 @@ export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatc
   const filtered = q.trim() !== '' || channel !== '전체' || kind !== '전체' || from !== '' || to !== ''
 
   return (
-    <Card kicker="Notifications" title={`알림 발송 이력 ${dispatches.length}건`} pad={false}
+    <Card kicker="Notifications" title={`알림 발송 이력 ${dispatches.length}건${failed > 0 ? ` · 전달 실패 ${failed}` : ''}`} pad={false}
       actions={canExport && dispatches.length > 0
         ? <a className="btn sm" href={exportHref} download>발송 이력 엑셀{filtered ? ` (${rows.length}건)` : ''}</a>
         : undefined}>
@@ -41,6 +47,7 @@ export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatc
         <div className="empty">발송 이력이 없습니다.</div>
       ) : (
         <>
+          {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
           <div className="hstack" style={{ gap: 8, padding: '12px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
             <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="수신·제목·연결 문서 검색"
               value={q} onChange={(e) => setQ(e.target.value)} />
@@ -62,7 +69,7 @@ export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatc
           </div>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>발송 ID</th><th className="c">채널</th><th className="c">종류</th><th>수신</th><th>제목</th><th>연결 문서</th><th>발송 시각</th></tr></thead>
+              <thead><tr><th>발송 ID</th><th className="c">채널</th><th className="c">종류</th><th>수신</th><th>제목</th><th>연결 문서</th><th>발송 시각</th><th className="c">전달</th></tr></thead>
               <tbody>
                 {rows.map((m) => (
                   <tr key={m.id}>
@@ -82,9 +89,17 @@ export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatc
                       })()}
                     </td>
                     <td className="tnum">{m.at}</td>
+                    <td className="c" style={{ whiteSpace: 'nowrap' }}>
+                      {m.deliveryStatus === '실패' ? (
+                        <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                          <Chip tone="err">전달 실패</Chip>
+                          {canManage && <button className="btn sm" disabled={pending} onClick={() => resend(m.id)} title="배치·연동 서버로 다시 발송합니다">재발송</button>}
+                        </span>
+                      ) : <Chip tone="ok">발송</Chip>}
+                    </td>
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan={7}><div className="empty">조건에 맞는 발송 이력이 없습니다</div></td></tr>}
+                {rows.length === 0 && <tr><td colSpan={8}><div className="empty">조건에 맞는 발송 이력이 없습니다</div></td></tr>}
               </tbody>
             </table>
           </div>
