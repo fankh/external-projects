@@ -19,6 +19,8 @@ export function raiseLicenseApproval(
   const gap = l.used - l.purchased
   if (kind === '추가 구매' && gap <= 0) return { ok: false, message: `초과 사용 상태가 아닙니다 — ${l.name}` }
   if (kind === '회수' && gap >= 0) return { ok: false, message: `회수할 여유 석이 없습니다 — ${l.name}` }
+  // 전량 미사용(used=0)은 석 감축(회수)이 아니라 해지 대상 — 회수하면 purchased=0 이 되어 사용률(used/purchased)이 0/0=NaN 로 무너진다(컴플라이언스·리포트·좌석 카드 오염). 해지로 유도.
+  if (kind === '회수' && l.used === 0) return { ok: false, message: `전량 미사용 라이선스는 회수가 아니라 해지 대상입니다 — ${l.name} (보유 ${l.purchased}석 전량 미사용)` }
 
   const dup = s.approvals.find((a) => a.status === '대기' && a.refId === l.id)
   if (dup) return { ok: false, message: `이미 결재 대기 중인 조치가 있습니다 — ${dup.id}`, approvalId: dup.id }

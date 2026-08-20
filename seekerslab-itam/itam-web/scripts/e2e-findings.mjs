@@ -1410,6 +1410,11 @@ try {
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const drvFinal = (await drvRow().textContent()) || ''
   ok('라이선스 좌석 파생 used 하향 정합: 전량 회수 후 used 갇힘 없음(미배정 사용 팬텀 제거)', drvFinal.includes('배정 0/3석') && !drvFinal.includes('미배정 사용'))
+  // 전량 미사용(used=0) 라이선스 회수 차단(데이터 무결성 · #4107 계산 감사) — 회수 승인은 purchased=used 로 감축하는데 used=0 이면 purchased=0 → 사용률 0/0=NaN 로
+  //  컴플라이언스·리포트·좌석 카드가 무너진다(회수 게이트가 used>0 을 요구 안 하던 공백). 전량 미사용은 해지 대상으로 유도. 위 좌석파생 라이선스는 전량 회수로 used=0·purchased=3.
+  await drvRow().locator('button', { hasText: /^회수 3석$/ }).click()
+  await p3.waitForTimeout(500)
+  ok('전량 미사용 라이선스 회수 차단(purchased=0 → NaN 방지 · 해지 유도)', ((await drvRow().textContent()) || '').includes('해지 대상'))
   // 라이선스 STEP2 사용 수집(§03) — EDR 설치 SW 인벤토리를 배정 좌석과 대사. 배정 밖 설치(무단 사용)·미설치 좌석 식별 + 수집 실행.
   //  LIC-004: 좌석 2(871·112) vs 설치 2(871·432) → AST-2021-000432 배정 밖 설치, AST-2023-000112 미설치 좌석.
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
