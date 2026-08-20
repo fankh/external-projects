@@ -2169,6 +2169,34 @@ def sc_finance_exec_false100(pg, base, check):
     check(rate == '99%', f'미집행 99.5% 는 99% 로 표기(거짓 100 방지; 버그면 100%; 실제 {rate})')
 
 
+def sc_flash_invalid_month(pg, base, check):
+    """비용 속보 무효월 저장 차단(임의 POST) — addFlash 가 달력상 유효월(01~12)만 허용해야 한다. 화면
+    <input type=month>는 2026-13 을 막지만 서버는 임의 POST 대비 재검증해야 한다(inspection addPlan·education
+    addCourse 와 동일 정합). positive: 유효월(2026-09)은 등록돼 폼 경로가 동작함을 증명(negative 의 vacuous 통과
+    방지). negative: month 입력을 text 로 바꿔 2026-13 강제 제출 → 서버 거부로 속보가 안 생겨야 한다. 약한
+    정규식(수정 전)이면 2026-13 이 저장돼 대조 실패."""
+    login(pg, base, '시스템관리자')  # ADMIN — 재무 속보 등록
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    form = pg.locator('form:has(button:has-text("속보 등록"))')
+    # positive control — 유효월은 등록되어 폼 경로가 동작함을 증명
+    form.locator('input[name=month]').fill('2026-09')
+    form.locator('input[name=vendor]').fill('E2E유효월벤더')
+    form.locator('input[name=expected]').fill('500')
+    form.locator('button:has-text("속보 등록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    check('E2E유효월벤더' in pg.content(), '유효월(2026-09) 속보 등록 — 폼 경로 동작(positive control)')
+    # negative — month 입력 type 을 text 로 바꿔 무효월 2026-13 강제 제출(임의 POST 재현)
+    form = pg.locator('form:has(button:has-text("속보 등록"))')
+    form.locator('input[name=month]').evaluate("el => { el.type = 'text'; el.value = '2026-13' }")
+    form.locator('input[name=vendor]').fill('E2E무효월벤더')
+    form.locator('input[name=expected]').fill('600')
+    form.locator('button:has-text("속보 등록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    check('E2E무효월벤더' not in pg.content(), '무효월(2026-13) 속보는 서버가 거부 — 저장 안 됨(약한 정규식이면 저장돼 대조 실패)')
+
+
 def sc_year_filter(pg, base, check):
     """일반 서약 집계 year 필터 (v1.5.32) — 대시보드가 개정본 유효 판정에 year 를 반영해야
     레거시 데이터(year≠2026 서약)를 서명으로 오인하지 않는다. 데이터: 재직자C 가 2025 서약만
@@ -3597,6 +3625,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(EDU_DATA)}),
     ('finance_exec_rate', '집행률 — 확정 계획 스코프(계획외 지급 미산입)', sc_finance_exec_rate,
      {'PORTAL_DATA_FILE': str(FIN_DATA)}),
+    ('flash_invalid_month', '비용 속보 무효월 저장 차단 — 임의 POST 2026-13 서버 재검증(addPlan·addCourse 정합)', sc_flash_invalid_month, {}),
     ('finance_exec_false100', '집행률 거짓 100% 방지 — 99.5% 미집행이 100% 로 올림 안 됨(거짓 완전집행 방지)', sc_finance_exec_false100,
      {'PORTAL_DATA_FILE': str(EXECFALSE_DATA)}),
     ('year_filter', '일반 서약 집계 year 필터(레거시 데이터 오인 방지)', sc_year_filter,

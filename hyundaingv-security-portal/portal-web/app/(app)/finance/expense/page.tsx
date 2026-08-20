@@ -90,7 +90,9 @@ async function addFlash(formData: FormData) {
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const expected = Number(formData.get('expected'))
   const planId = String(formData.get('planId') ?? '')
-  if (!/^\d{4}-\d{2}$/.test(month) || !vendor || !Number.isFinite(expected) || expected <= 0 || expected > 1e9) return
+  // 월은 달력상 유효월(01~12)만 — /^\d{4}-\d{2}$/ 는 2026-13·2026-00 을 통과시켜, 임의 POST 로 무효월이 저장되면
+  // basisOf 매칭(requestedAt.slice(0,7)===month)에 영영 안 걸리고 월 정렬이 뒤틀린다(addPlan·addCourse 와 동일 정합).
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || !vendor || !Number.isFinite(expected) || expected <= 0 || expected > 1e9) return
   const s = getStore()
   s.expenseFlashes.unshift({
     id: nextNo('EF', today().slice(0, 4), s.expenseFlashes.map((f) => f.id)),
