@@ -2213,6 +2213,10 @@ def sc_export_xlsx(pg, base, check):
     check(b'[Content_Types].xml' in body and b'xl/worksheets/sheet1.xml' in body, 'OOXML 필수 파트(Content_Types·worksheet) 포함')
     # 무압축(STORED) 이라 셀 텍스트가 바이트에 평문 — 시트 rows 직렬화 검증
     check('시스템'.encode('utf-8') in body, '시트 셀 텍스트(헤더 시스템)가 xlsx 바이트에 포함(rows 직렬화)')
+    # 산출물 품질 — 헤더 볼드 스타일·열 너비(styles.xml·cols). 바닐라 시트가 아니라 제출 가능한 워크북.
+    check(b'xl/styles.xml' in body and b'<b/>' in body, 'styles.xml·볼드 폰트 포함(헤더 볼드 스타일)')
+    check(b'<cols>' in body and b'customWidth="1"' in body, '열 너비 지정(cols) 포함 — 헤더 잘림 방지')
+    check(b's="1"' in body, '헤더 행 셀이 볼드 스타일(s=1) 참조')
     # ?fmt=csv = 같은 데이터의 CSV (단일 rows 원천, 포맷만 분기)
     rc = pg.request.get(f'{base}/api/export?fmt=csv&type=systems')
     check('text/csv' in rc.headers.get('content-type', '') and '시스템' in rc.text(),

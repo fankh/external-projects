@@ -108,18 +108,35 @@ function zip(files: { name: string; data: Buffer }[]): Buffer {
 }
 
 function sheetXml(rows: (string | number)[][]): string {
+  const ncols = rows.reduce((m, r) => Math.max(m, r.length), 0)
+  // 열 너비 — 열별 최장 셀 기준(전각/한글은 약 1.7배 폭 가중), 8~60 클램프. 헤더 잘림·과폭 방지로 산출물 가독.
+  const widths: number[] = []
+  for (let c = 0; c < ncols; c++) {
+    let maxLen = 0
+    for (const r of rows) {
+      const cell = r[c]
+      if (cell === undefined) continue
+      const len = [...String(cell)].reduce((s, ch) => s + (ch.charCodeAt(0) > 0x2e80 ? 1.7 : 1), 0)
+      if (len > maxLen) maxLen = len
+    }
+    widths.push(Math.min(60, Math.max(8, Math.ceil(maxLen) + 2)))
+  }
+  const cols = ncols > 0
+    ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`
+    : ''
   const rowsXml = rows.map((r, ri) => {
+    const style = ri === 0 ? ' s="1"' : ''  // 첫 행(헤더)은 볼드 스타일(cellXfs 인덱스 1)
     const cells = r.map((cell, ci) => {
       const ref = `${colLetter(ci)}${ri + 1}`
-      if (typeof cell === 'number' && Number.isFinite(cell)) return `<c r="${ref}"><v>${cell}</v></c>`
+      if (typeof cell === 'number' && Number.isFinite(cell)) return `<c r="${ref}"${style}><v>${cell}</v></c>`
       const text = xmlEscape(guardFormula(cell))
-      return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${text}</t></is></c>`
+      return `<c r="${ref}"${style} t="inlineStr"><is><t xml:space="preserve">${text}</t></is></c>`
     }).join('')
     return `<row r="${ri + 1}">${cells}</row>`
   }).join('')
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
     + `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`
-    + `<sheetData>${rowsXml}</sheetData></worksheet>`
+    + `${cols}<sheetData>${rowsXml}</sheetData></worksheet>`
 }
 
 /** rows → 완결된 .xlsx 워크북 바이트(단일 시트 '데이터') */
@@ -129,7 +146,8 @@ export function xlsxBuffer(rows: (string | number)[][]): Buffer {
     + `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`
     + `<Default Extension="xml" ContentType="application/xml"/>`
     + `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`
-    + `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`
+    + `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+    + `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`
   const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
     + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
     + `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`
@@ -138,12 +156,23 @@ export function xlsxBuffer(rows: (string | number)[][]): Buffer {
     + `<sheets><sheet name="데이터" sheetId="1" r:id="rId1"/></sheets></workbook>`
   const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
     + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
-    + `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`
+    + `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>`
+    + `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`
+  // 스타일 — 헤더(첫 행) 볼드 하나. OOXML 필수 요소(fills 는 예약 인덱스 2개, borders/cellStyleXfs 기본) 충족.
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`
+    + `<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>`
+    + `<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>`
+    + `<borders count="1"><border/></borders>`
+    + `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>`
+    + `<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>`
+    + `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>`
   const parts: { name: string; data: Buffer }[] = [
     { name: '[Content_Types].xml', data: Buffer.from(contentTypes, 'utf8') },
     { name: '_rels/.rels', data: Buffer.from(rootRels, 'utf8') },
     { name: 'xl/workbook.xml', data: Buffer.from(workbook, 'utf8') },
     { name: 'xl/_rels/workbook.xml.rels', data: Buffer.from(workbookRels, 'utf8') },
+    { name: 'xl/styles.xml', data: Buffer.from(styles, 'utf8') },
     { name: 'xl/worksheets/sheet1.xml', data: Buffer.from(sheetXml(rows), 'utf8') },
   ]
   return zip(parts)
