@@ -102,6 +102,33 @@ async function addPlan(formData: FormData) {
   revalidatePath('/compliance/inspection')
 }
 
+/** 점검계획 엑셀(CSV) 업로드 (요구사항 62행·제품안내서 IV장 '점검계획 — 엑셀 업로드') — 계획 다건을 CSV 로 일괄
+ *  등록한다. 행: 점검항목코드,예정월(YYYY-MM),점검자[,팀장][,대상]. addPlan 과 동일 검증(미등록 항목·무효월·
+ *  미등록 점검자 스킵)으로 임의 데이터 유입을 막고, 같은 항목·월 계획이 이미 있으면 스킵(재업로드 중복 방지).
+ *  uploadItems 와 같은 계열(File 가드·1MB·500행 상한). */
+async function uploadPlans(formData: FormData) {
+  'use server'
+  const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0 || file.size > 1024 * 1024) return
+  const s = getStore()
+  let applied = 0
+  for (const line of (await file.text()).split(/\r?\n/).slice(0, 500)) {
+    const [itemId = '', month = '', inspector = '', teamLead = '', target = ''] = line.split(',').map((x) => x.trim())
+    if (!s.inspectionItems.some((i) => i.id === itemId)) continue                      // 미등록 항목 스킵
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) continue                               // 무효월 스킵(2026-13 등 임의 POST 대비)
+    if (!ACCOUNTS.some((a) => a.role !== 'USER' && a.name === inspector)) continue     // 미등록 점검자 스킵
+    if (s.inspectionPlans.some((p) => p.itemId === itemId && p.month === month)) continue  // 같은 항목·월 중복 스킵
+    const validLead = teamLead && ACCOUNTS.some((a) => a.role !== 'USER' && a.name === teamLead) ? teamLead : undefined
+    const id = nextNo('IS', month.slice(0, 4), s.inspectionPlans.map((p) => p.id))
+    s.inspectionPlans.unshift({ id, itemId, target: target.slice(0, 60) || undefined, month, inspector, teamLead: validLead, status: '계획' })
+    applied += 1
+  }
+  if (applied === 0) return
+  audit(me.name, '점검 기준 변경', `점검계획 업로드 ${applied}건 (${file.name.slice(0, 60)})`)
+  revalidatePath('/compliance/inspection')
+}
+
 /** 전년 불러오기 (요구사항 62행·제품안내서 IV장 '점검계획 — 전년 불러오기') — 연간 점검계획은 해마다 대동소이하므로
  *  최신 연도 계획을 다음 해로 복제해 초안을 만든다. 월은 그대로(연도만 +1), 상태는 '계획'으로 리셋(결과·결재 제외).
  *  다음 해 계획이 이미 있으면 재이월하지 않는다(더블클릭·재실행 중복 방지, addPlan 과 같은 계열의 idempotent 가드). */
@@ -346,8 +373,13 @@ export default async function InspectionPage() {
               <button type="submit" className="btn">계획 등록</button>
             </div>
           </form>
+          <form action={uploadPlans} className="hstack" style={{ gap: 5, marginTop: 6 }}>
+            <input className="input" type="file" name="file" required accept=".csv,.txt" style={{ flex: 1, height: 26, fontSize: 11, paddingTop: 3 }}
+              title="CSV 업로드 — 점검항목코드,예정월(YYYY-MM),점검자[,팀장][,대상]" />
+            <button type="submit" className="btn sm">계획 업로드</button>
+          </form>
           <div className="dim" style={{ fontSize: 11.5, marginTop: 8 }}>
-            항목·주기는 기준관리(Template)에서 온다 — 전년 계획은 상단 '전년 불러오기'로 복제(엑셀 업로드는 이후 버전).
+            항목·주기는 기준관리(Template)에서 온다 — 전년 계획은 상단 '전년 불러오기'로 복제, 다건은 CSV 업로드(점검항목코드·예정월·점검자).
           </div>
         </Card>
 
