@@ -985,6 +985,9 @@ try {
   const dispXlsx = await get('/api/dispatch-export', 'SEC_MGR')
   check('발송 이력 엑셀: 보안담당 발급 (200·xlsx)', dispXlsx.status === 200 && (dispXlsx.headers.get('content-type') ?? '').includes('spreadsheet'))
   const dFull = Number(dispXlsx.headers.get('content-length') ?? 0)
+  // 전달 상태 열 정합 — 화면 발송 이력에 추가된 전달 상태(발송/실패)가 반출 엑셀에도 실린다(시드 MSG-4004 전달 실패). screen↔export 정합.
+  const dispText = Buffer.from(await (await get('/api/dispatch-export', 'ADMIN')).arrayBuffer()).toString('utf8')
+  check('발송 이력 엑셀: 전달 상태 열 반영(전달 실패 MSG-4004 포함)', dispText.includes('전달 상태') && dispText.includes('MSG-4004') && dispText.includes('실패'))
   const dispFiltered = await get('/api/dispatch-export?channel=' + encodeURIComponent('문자'), 'SEC_MGR')
   const dFilt = Number(dispFiltered.headers.get('content-length') ?? 0)
   check('발송 이력 엑셀: 화면 필터 반영 반출 (채널=문자는 전체보다 작음)', dispFiltered.status === 200 && dFilt > 0 && dFilt < dFull, `full=${dFull} filtered=${dFilt}`)
