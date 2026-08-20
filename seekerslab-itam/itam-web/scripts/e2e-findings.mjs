@@ -2106,12 +2106,17 @@ try {
   ok('재물조사: 미등록 코드 스캔 → 대장 미등록 차이 생성', ((await p4.textContent('body')) || '').includes('대장에 없는 자산') || ((await p4.textContent('body')) || '').includes('신규 등록 대상'))
   await p4.locator('button', { hasText: /^조정 결재 상신 \(\d+\)$/ }).click()
   await p4.waitForTimeout(800)
-  // IT기획팀장 단계 = ADMIN — 신규 ADMIN 컨텍스트로 차이 조정 승인(p3 는 이 시점 종료됨)
+  // 차이 조정 필수 결재선(AL-07: 자산담당 → IT기획팀장) 2단계 승인 — #323 이후 상신은 첫 단계 자산담당에서 시작하므로
+  //  두 단계를 연속 승인해야 효과(대장 편입)가 적용된다. ADMIN 오버라이드로 두 단계 모두 결재(p3 는 이 시점 종료됨).
   const ctxAI = await browser.newContext()
   await ctxAI.addCookies([cookie(ADMIN)])
   const pAI = await ctxAI.newPage()
+  const adjApr = () => pAI.locator('tr', { has: pAI.locator('text=2027 판교 범위 정기 재물조사') }).first()
   await pAI.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
-  await pAI.locator('tr', { has: pAI.locator('text=2027 판교 범위 정기 재물조사') }).first().locator('button', { hasText: /^승인$/ }).click()
+  await adjApr().locator('button', { hasText: /^승인$/ }).click() // 1차: 자산담당
+  await pAI.waitForTimeout(900)
+  await pAI.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await adjApr().locator('button', { hasText: /^승인$/ }).click() // 2차: IT기획팀장 → 확정·효과 적용
   await pAI.waitForTimeout(900)
   await pAI.goto(`${BASE}/assets/register?q=LABEL-UNKNOWN-E2E-88`, { waitUntil: 'networkidle' })
   const regBody = (await pAI.textContent('body')) || ''
