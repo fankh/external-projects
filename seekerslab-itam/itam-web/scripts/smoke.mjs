@@ -1099,6 +1099,8 @@ try {
   check('리포트: 정례 스케줄 편입 (자동 7·가동 6 — FinOps·계약 월간 포함)', repText.includes('자동 7(가동 6)'))
   const scanHtml = await (await get('/settings/scan-policy', 'ADMIN')).text()
   check('탐지 채널 정책: 6채널·강도 통제 렌더', scanHtml.includes('네트워크 능동 스캔') && scanHtml.includes('스캔 안전장치') && scanHtml.includes('23:00 ~ 05:00'))
+  // 현재 발견 자산 KPI 드릴다운(탐지 채널의 산출을 발견 처리 화면으로) — 그전엔 dead-end 지표였다(shows-but-no-action).
+  check('탐지 채널 정책: 현재 발견 자산 KPI → 발견 자산 드릴다운', scanHtml.includes('href="/discovery/found"') && scanHtml.includes('현재 발견 자산'))
   // 대역·시간대 정책 편집(§07 스캔 안전장치) — 능동 스캔 채널에 정책 편집 컨트롤. 시간대는 로15(시간대 밖 사유 필요)의 통제 원천.
   check('탐지 채널 정책: 능동 스캔 대역·시간대 정책 편집 노출', scanHtml.includes('정책 편집') && scanHtml.includes('비고 · 정책 편집'))
   // 재탐지 주기 편집(§04 스케줄러) — 강도·대역·시간대뿐 아니라 재탐지 주기도 전 채널에서 조정 가능(표시 전용 공백 보완)
