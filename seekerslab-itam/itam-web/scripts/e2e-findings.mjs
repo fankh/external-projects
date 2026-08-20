@@ -1975,6 +1975,8 @@ try {
   await p4.goto(`${BASE}/assets/register?sel=${lostTarget}`, { waitUntil: 'networkidle' })
   const lostScrap = p4.locator('button', { hasText: /^미회수 확정 → 폐기$/ })
   ok('분실 자산: 미회수 확정 → 폐기 조치 노출', (await lostScrap.count()) > 0)
+  // 변경 이력 타임라인 이벤트 종류별 색(제품안내서 §03) — 분실 이벤트가 위험(err) 톤 마커로 도드라진다(수명주기 중대 이벤트 시인성).
+  ok('자산 대장 상세: 변경 이력 타임라인 — 분실 이벤트 위험(err) 톤 마커', (await p4.locator('.tl .ev[data-tone="err"]').count()) > 0)
   await lostScrap.click()
   await p4.waitForTimeout(900)
   await p4.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })

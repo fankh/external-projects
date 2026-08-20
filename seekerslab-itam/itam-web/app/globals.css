@@ -347,6 +347,13 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .tl .ev .d { font-size: 10.5px; color: var(--mute); font-variant-numeric: tabular-nums; }
 .tl .ev .t { font-size: 12.5px; font-weight: 600; }
 .tl .ev .x { font-size: 11.5px; color: var(--dim); }
+/* 이벤트 종류별 마커·라벨 색 — 수명주기 중대 이벤트(폐기·분실)는 채운 붉은 점으로 도드라지게(제품안내서 §03 변경 이력 타임라인) */
+.tl .ev[data-tone="err"]::before { border-color: var(--err); background: var(--err); }
+.tl .ev[data-tone="warn"]::before { border-color: var(--warn); }
+.tl .ev[data-tone="ok"]::before { border-color: var(--ok); }
+.tl .ev[data-tone="err"] .t { color: var(--err); }
+.tl .ev[data-tone="warn"] .t { color: var(--warn); }
+.tl .ev[data-tone="ok"] .t { color: var(--ok); }
 
 /* ═══ 로그인 ═══ */
 .login-wrap { min-height: 100vh; display: grid; grid-template-columns: minmax(420px, 46%) 1fr; }
