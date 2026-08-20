@@ -19,6 +19,9 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
 
   // 미조치·생존 확인된 건만 선택 대상 — 재탐지·CVE 스윕으로 다수 노출 호스트가 잡히면 선택해 한 번에 편입/차단한다(미확인은 생존 확인이 먼저)
   const selectable = externals.filter((e) => !e.action && e.alive)
+  // 노출 위험 높은 순 — CVSS 높은 순 → 위험도(높음 먼저) → 미조치·생존 우선(제품안내서 §04 위험도 분류 → 우선 처리). 보안담당이 최고 노출부터 조치.
+  const rw = (r: ExternalAsset['risk']) => (r === '높음' ? 0 : r === '중간' ? 1 : 2)
+  const sorted = [...externals].sort((a, b) => (b.cvss ?? 0) - (a.cvss ?? 0) || rw(a.risk) - rw(b.risk) || ((!a.action && a.alive ? 0 : 1) - (!b.action && b.alive ? 0 : 1)))
   const toggle = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const allSel = selectable.length > 0 && selectable.every((e) => checked.has(e.id))
 
@@ -64,7 +67,7 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
             </tr>
           </thead>
           <tbody>
-            {externals.map((e) => {
+            {sorted.map((e) => {
               const cl = certLiveness(e.certValidUntil)
               return (
               <tr key={e.id}>
