@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
+import { groupGrantsAction, requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { computeDrKpis, isTestOverdue, nextTestDue } from '@/lib/dr'
 import { getStore, nextNo } from '@/lib/store'
@@ -77,6 +77,8 @@ export default async function DrPage() {
   const me = await requireMenu('/compliance/dr')
   const s = getStore()
   const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
+  // 삭제는 역할(canManage) 또는 그룹 기능 위임을 받은 사용자에게 노출 — 기존 역할 표시 유지 + 위임분. 훈련 기록은 canManage.
+  const canDelete = canManage || groupGrantsAction(me.name, '/compliance/dr', 'delete')
   const t = today()
   // 훈련 경과 → 미실시 → 최근 실패·부분 → 정상 순, 동급이면 다음 훈련 예정일 빠른 순, 그다음 등급(핵심 우선).
   const rank = (p: (typeof s.drPlans)[number]) => (isTestOverdue(p, t) ? 0 : p.lastResult === '미실시' ? 1 : (p.lastResult === '실패' || p.lastResult === '부분성공') ? 2 : 3)
@@ -126,7 +128,7 @@ export default async function DrPage() {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th>번호</th><th>대상 · 계획</th><th>등급</th><th className="num">RTO/RPO</th><th>담당</th><th>최근 훈련</th><th>다음 예정</th>{canManage && <th className="c">처리</th>}</tr>
+                <tr><th>번호</th><th>대상 · 계획</th><th>등급</th><th className="num">RTO/RPO</th><th>담당</th><th>최근 훈련</th><th>다음 예정</th>{(canManage || canDelete) && <th className="c">처리</th>}</tr>
               </thead>
               <tbody>
                 {rows.map((p) => {
@@ -141,9 +143,10 @@ export default async function DrPage() {
                       <td>{p.owner}</td>
                       <td><Chip tone={RESULT_CHIP[p.lastResult]} bare>{p.lastResult}</Chip>{p.lastResult !== '미실시' && <span className="mut" style={{ fontSize: 10.5 }}> {p.lastTestedAt}</span>}</td>
                       <td className="tnum">{due}{overdue && <Chip tone="err" bare>경과</Chip>}</td>
-                      {canManage && (
+                      {(canManage || canDelete) && (
                         <td className="c" style={{ maxWidth: 360 }}>
                           <div className="hstack" style={{ justifyContent: 'center', gap: 6 }}>
+                            {canManage && (
                             <form action={recordTest} className="hstack" style={{ gap: 3, alignItems: 'center', display: 'inline-flex' }}>
                               <input type="hidden" name="id" value={p.id} />
                               <select aria-label="훈련 결과" className="select" name="result" title="복구훈련 결과" style={{ height: 24, fontSize: 11, padding: '0 4px' }}>{DR_TEST_RESULTS.map((x) => <option key={x}>{x}</option>)}</select>
@@ -153,10 +156,13 @@ export default async function DrPage() {
                               <input aria-label="훈련 증적" className="input" type="file" name="file" style={{ height: 24, fontSize: 10.5, width: 76, paddingTop: 2 }} title="훈련 결과 증적" />
                               <button type="submit" className="btn sm pri" title="복구훈련 결과 기록 — 최근훈련일 갱신">훈련 기록</button>
                             </form>
+                            )}
+                            {canDelete && (
                             <form action={deleteDrPlan} style={{ display: 'inline' }}>
                               <input type="hidden" name="id" value={p.id} />
                               <button type="submit" className="btn sm danger">삭제</button>
                             </form>
+                            )}
                           </div>
                         </td>
                       )}

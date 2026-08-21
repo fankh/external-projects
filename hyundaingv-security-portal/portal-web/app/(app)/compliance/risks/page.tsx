@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
+import { groupGrantsAction, requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { computeRiskKpis, isRiskClosed, riskScore, riskTier, upsertRiskSnapshot } from '@/lib/risk'
 import { getStore, nextNo } from '@/lib/store'
@@ -116,6 +116,9 @@ export default async function RisksPage() {
   const me = await requireMenu('/compliance/risks')
   const s = getStore()
   const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
+  // 삭제는 역할(canManage) 또는 그룹 기능 위임을 받은 사용자에게 노출한다. canManage 는 기존 역할 표시를
+  // 그대로 유지하고(런타임 제한은 서버 requireAction 가 강제) 위임분만 더한다. 그 외 관리 컨트롤은 canManage.
+  const canDelete = canManage || groupGrantsAction(me.name, '/compliance/risks', 'delete')
   const t = today()
   // 위험도 내림차순 → 미종결 우선 (우선 처리 대상이 상단에). 동점이면 기한 빠른 순.
   const rows = [...s.riskItems].sort((a, b) =>
@@ -209,7 +212,7 @@ export default async function RisksPage() {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th>번호</th><th>위험 시나리오 · 대상</th><th>위협 · 취약점</th><th className="num">가능성×영향</th><th className="num">위험도</th><th>처리</th><th>담당</th><th>기한</th><th>상태</th>{canManage && <th className="c">처리</th>}</tr>
+                <tr><th>번호</th><th>위험 시나리오 · 대상</th><th>위협 · 취약점</th><th className="num">가능성×영향</th><th className="num">위험도</th><th>처리</th><th>담당</th><th>기한</th><th>상태</th>{(canManage || canDelete) && <th className="c">처리</th>}</tr>
               </thead>
               <tbody>
                 {rows.map((r) => {
@@ -228,14 +231,16 @@ export default async function RisksPage() {
                       <td>{r.owner}</td>
                       <td className="tnum">{r.dueDate}{overdue && <Chip tone="err" bare>경과</Chip>}</td>
                       <td><Chip tone={ST_CHIP[r.status]}>{r.status}</Chip></td>
-                      {canManage && (
+                      {(canManage || canDelete) && (
                         <td className="c" style={{ maxWidth: 380 }}>
                           {isRiskClosed(r) ? (
+                            canDelete ? (
                             <form action={deleteRisk} style={{ display: 'inline' }}>
                               <input type="hidden" name="id" value={r.id} />
                               <button type="submit" className="btn sm danger">삭제</button>
                             </form>
-                          ) : (
+                            ) : null
+                          ) : canManage ? (
                             <div className="hstack" style={{ justifyContent: 'center', gap: 6 }}>
                               <form action={reassessRisk} className="hstack" style={{ gap: 3, alignItems: 'center', padding: '3px 0' }}>
                                 <input type="hidden" name="id" value={r.id} />
@@ -257,7 +262,7 @@ export default async function RisksPage() {
                                 </form>
                               )}
                             </div>
-                          )}
+                          ) : null}
                         </td>
                       )}
                     </tr>

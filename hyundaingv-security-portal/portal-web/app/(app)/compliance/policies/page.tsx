@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
+import { groupGrantsAction, requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { computePolicyKpis, isReviewOverdue, nextReviewDue } from '@/lib/policy'
 import { getStore, nextNo } from '@/lib/store'
@@ -116,6 +116,8 @@ export default async function PoliciesPage() {
   const me = await requireMenu('/compliance/policies')
   const s = getStore()
   const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
+  // 삭제(폐지 정책)는 역할(canManage) 또는 그룹 기능 위임을 받은 사용자에게 노출 — 기존 역할 표시 유지 + 위임분. 그 외는 canManage.
+  const canDelete = canManage || groupGrantsAction(me.name, '/compliance/policies', 'delete')
   const t = today()
   // 재검토 경과·개정중 우선 → 시행 → 폐지 순, 동급이면 재검토 예정일 빠른 순 (우선 처리 대상 상단).
   const order = (p: (typeof s.securityPolicies)[number]) => (isReviewOverdue(p, t) ? 0 : p.status === '개정중' ? 1 : p.status === '시행' ? 2 : 3)
@@ -159,7 +161,7 @@ export default async function PoliciesPage() {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th>번호</th><th>제목 · 분류</th><th>버전</th><th>담당</th><th>시행일</th><th>재검토 예정</th><th>상태</th>{canManage && <th className="c">처리</th>}</tr>
+                <tr><th>번호</th><th>제목 · 분류</th><th>버전</th><th>담당</th><th>시행일</th><th>재검토 예정</th><th>상태</th>{(canManage || canDelete) && <th className="c">처리</th>}</tr>
               </thead>
               <tbody>
                 {rows.map((p) => {
@@ -174,14 +176,16 @@ export default async function PoliciesPage() {
                       <td className="tnum">{p.effectiveAt}</td>
                       <td className="tnum">{p.status === '폐지' ? <span className="mut">-</span> : <>{due}{overdue && <Chip tone="err" bare>경과</Chip>}</>}</td>
                       <td><Chip tone={ST_CHIP[p.status]}>{p.status}</Chip></td>
-                      {canManage && (
+                      {(canManage || canDelete) && (
                         <td className="c" style={{ maxWidth: 340 }}>
                           {p.status === '폐지' ? (
+                            canDelete ? (
                             <form action={deletePolicy} style={{ display: 'inline' }}>
                               <input type="hidden" name="id" value={p.id} />
                               <button type="submit" className="btn sm danger">삭제</button>
                             </form>
-                          ) : p.status === '개정중' ? (
+                            ) : null
+                          ) : !canManage ? null : p.status === '개정중' ? (
                             <form action={reviseComplete} className="hstack" style={{ gap: 4, justifyContent: 'center', padding: '3px 0' }}>
                               <input type="hidden" name="id" value={p.id} />
                               <input aria-label="신 버전" className="input" name="version" required maxLength={20} placeholder="신 버전(v2.0)" style={{ height: 24, fontSize: 11, width: 100 }} />
