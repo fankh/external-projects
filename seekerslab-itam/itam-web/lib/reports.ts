@@ -7,7 +7,7 @@ import { buildProcurement } from './procurement'
 import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
 import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
-import { ACQ_COST, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
+import { ACQ_COST, USEFUL_LIFE_YEARS, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
@@ -80,6 +80,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '단일 장애점·영향 분석', period: '수시', desc: 'CMDB 의존 그래프 기반 단일 장애점(SPOF)·영향 범위(blast radius) 분석 — 장애 시 전이 영향이 큰 자산, 현재 저하 상태로 하위에 위험을 주는 상위 자산, 이중화 우선순위 근거' },
   { kind: '자산 운영 리스크', period: '수시', desc: '분실·도난, 장기 미실측(유령 자산 후보), 대여 반환 연체, 수리 지연, 수령 미확인을 한 문서로 집약한 운영 리스크 현황 — 대시보드 운영 큐와 같은 판정, 항목별 조치(회수·재물조사·독촉) 연결' },
   { kind: '복합 위험 자산', period: '수시', desc: '정합성 이슈·EOL OS·보증 임박·정기 점검 도래·단일 장애점(SPOF)·교체 대상·장기 미실측 중 2개 이상이 겹치는 자산 — 신호가 중첩된 우선 조치 대상을 자산별 신호 조합·부서별 분포로 집약(대장 ?risk=1 필터·대시보드 복합 위험 큐와 같은 판정)' },
+  { kind: '감가상각 명세', period: '월간', desc: '정액법(내용연수 5년) 기준 연도별 감가상각 명세 — 연초·연말 장부가·연간 상각액·상각 완료 대수의 향후 전개, 유형별 상각 현황, 상각 완료 예정 연도. 고정자산 회계·감가상각비 예산·교체(재취득) 시점 근거(부서별 IT 비용 배분의 현재 스냅샷과 달리 전방 전개)' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -863,6 +864,58 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '감가상각 명세') {
+    // 정액법(내용연수 5년) 연도별 감가상각 전개 — bookValueOf 단일 소스를 연말 날짜로 호출해 상각 곡선을 산출한다(공식 재구현 없음).
+    //  부서별 IT 비용 배분(현재 잔존가 스냅샷)과 달리 전방 연도별 상각액·상각 완료 시점을 보여 고정자산 회계·재취득 예산에 쓴다.
+    const t = today()
+    const curY = Number(t.slice(0, 4))
+    const dep = s.assets.filter((a) => a.status !== '폐기완료' && acquisitionCostOf(a) > 0)
+    const yearEnd = (y: number) => `${y}-12-31`
+    const bookAtEnd = (y: number) => dep.reduce((n, a) => n + bookValueOf(a, yearEnd(y)), 0)
+    const totalAcq = dep.reduce((n, a) => n + acquisitionCostOf(a), 0)
+    const nowBook = dep.reduce((n, a) => n + bookValueOf(a, t), 0)
+    const years: string[][] = []
+    let prevBook = bookAtEnd(curY - 1) // 올해 연초 = 전년말 장부가
+    let futureDep = 0
+    for (let y = curY; y <= curY + USEFUL_LIFE_YEARS; y++) {
+      const endBook = bookAtEnd(y)
+      const annual = Math.max(0, prevBook - endBook)
+      const doneCount = dep.filter((a) => bookValueOf(a, yearEnd(y - 1)) > 0 && bookValueOf(a, yearEnd(y)) === 0).length
+      years.push([String(y), prevBook.toLocaleString(), annual.toLocaleString(), endBook.toLocaleString(), String(doneCount)])
+      futureDep += annual
+      prevBook = endBook
+    }
+    const catRows = [...new Set(dep.map((a) => a.category))].map((c) => {
+      const arr = dep.filter((a) => a.category === c)
+      const acq = arr.reduce((n, a) => n + acquisitionCostOf(a), 0)
+      const book = arr.reduce((n, a) => n + bookValueOf(a, t), 0)
+      const pct = acq > 0 ? Math.floor(((acq - book) / acq) * 100) : 0
+      return [c, String(arr.length), acq.toLocaleString(), Math.round(acq / USEFUL_LIFE_YEARS).toLocaleString(), book.toLocaleString(), `${pct}%`]
+    })
+    return [
+      {
+        title: `연도별 감가상각 명세 (정액법 · 내용연수 ${USEFUL_LIFE_YEARS}년)`,
+        note: `운영 실물 자산 ${dep.length}대 · 총 취득가 ${totalAcq.toLocaleString()}원 · 현재 잔존가(장부가) ${nowBook.toLocaleString()}원 — 향후 ${USEFUL_LIFE_YEARS + 1}개 연도 전개(연말 기준)`,
+        columns: ['연도', '연초 장부가', '연간 상각액', '연말 장부가', '상각 완료 대수'],
+        rows: years,
+      },
+      {
+        title: '유형별 상각 현황 (현재)',
+        note: '유형별 취득가·연간 상각액(취득가÷내용연수)·현재 잔존가·상각률 — SW·가상자원(자산 단위 취득가 없음) 제외',
+        columns: ['유형', '대수', '총 취득가', '연간 상각액', '현재 잔존가', '상각률'],
+        rows: catRows.length ? catRows : [['-', '0', '0', '0', '0', '0%']],
+      },
+      {
+        title: '요약 · 회계 활용',
+        bullets: [
+          `운영 실물 자산 ${dep.length}대의 총 취득가는 ${totalAcq.toLocaleString()}원, 현재 잔존가(장부가)는 ${nowBook.toLocaleString()}원입니다(누적 상각 ${(totalAcq - nowBook).toLocaleString()}원).`,
+          `${curY}년 상각 예정액은 ${years[0]?.[2] ?? '0'}원이며, 향후 ${USEFUL_LIFE_YEARS + 1}개 연도에 걸쳐 총 ${futureDep.toLocaleString()}원이 상각됩니다.`,
+          '연도별 상각액은 감가상각비 예산·고정자산 명세에, 상각 완료(잔존가 0) 시점은 재취득(교체) 예산 타이밍의 근거로 활용합니다. 자산별 상세는 대장 엑셀 내보내기(잔존가치 열)로 확인합니다.',
+        ],
+      },
+    ]
+  }
+
   // 감사 대응 자료
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
@@ -979,6 +1032,15 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     return rowsH.length === 0
       ? `복합 위험(주의 신호 2개 이상 중첩) 자산이 없습니다. 단일 신호 자산은 교체 대상·보증 임박·정기 점검 등 각 화면에서 개별 관리하십시오.`
       : `복합 위험 자산은 ${rowsH.length}건입니다 — 정합성·EOL·보증·정기 점검·단일 장애점·교체·미실측 중 2개 이상이 겹칩니다. 신호 3개 이상 ${threeH}건이 최우선 조치 대상이며, 중첩 자산은 단일 조치(예: 교체)로 여러 위험을 동시에 해소할 수 있어 우선순위가 높습니다.`
+  }
+  if (kind === '감가상각 명세') {
+    const tD = today()
+    const curYD = Number(tD.slice(0, 4))
+    const depH = s.assets.filter((a) => a.status !== '폐기완료' && acquisitionCostOf(a) > 0)
+    const totalAcqH = depH.reduce((n, a) => n + acquisitionCostOf(a), 0)
+    const nowBookH = depH.reduce((n, a) => n + bookValueOf(a, tD), 0)
+    const curYearDepH = Math.max(0, depH.reduce((n, a) => n + bookValueOf(a, `${curYD - 1}-12-31`), 0) - depH.reduce((n, a) => n + bookValueOf(a, `${curYD}-12-31`), 0))
+    return `운영 실물 자산 ${depH.length}대의 총 취득가 ${fmtAmount(totalAcqH)}원 중 현재 잔존가(장부가)는 ${fmtAmount(nowBookH)}원입니다(누적 상각 ${fmtAmount(totalAcqH - nowBookH)}원). 정액법(내용연수 ${USEFUL_LIFE_YEARS}년) 기준 ${curYD}년 상각 예정액은 ${fmtAmount(curYearDepH)}원이며, 연도별 상각액과 상각 완료 시점을 아래 명세에 전개했습니다 — 감가상각비 예산·재취득(교체) 시점 근거로 활용합니다.`
   }
   if (kind === '단일 장애점·영향 분석') {
     const spofH = criticalDependencies()
