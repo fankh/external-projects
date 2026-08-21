@@ -152,9 +152,13 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
 
   // 특정 사용자 보유 자산 조회 — 오프보딩(퇴직·부서 이동)·후임 승계 준비 시 "OOO이 보유한 자산"을 한 번에 조회한다.
   //  대장 소유자 검색(?q=이름)·일괄 회수/재배정과 같은 대장 원천. 개인별 조회는 관리 기능이라 자산담당·Admin (USER 는 컨텍스트에서 본인 자산만).
-  //  자산번호 조회(위) 다음에 두되, 실제 사용자 이름이 질의에 있을 때만 발동해 다른 인텐트를 가리지 않는다.
-  if (canAsset && (q.includes('보유') || q.includes('가진') || q.includes('가지고') || q.includes('맡은') || q.includes('담당') || q.includes('소유') || q.includes('자산') || q.includes('장비') || q.includes('기기'))) {
-    const named = s.users.find((u) => u.name.length >= 2 && u.role !== 'ADMIN' && question.includes(u.name))
+  //  자산번호 조회(위) 다음에 두되, 실제 사용자 이름 + 명시적 소유 표현(보유·가진·소유·맡은)일 때만 발동해 다른 인텐트를 가리지 않는다.
+  //  트리거에서 '자산'/'장비' 같은 광범위 명사는 뺀다 — 자산담당 이름 '박자산'이 '자산'을 부분 포함해 "박자산 결재" 같은 질의를 오탈취하기 때문(소유 동사로만 발동).
+  if (canAsset && (q.includes('보유') || q.includes('가진') || q.includes('가지고') || q.includes('소유') || q.includes('맡은'))) {
+    // 이름이 다른 이름의 부분열이어도(예: 김민 ⊂ 김민준) 가장 구체적인(가장 긴) 이름을 고른다 — 잘못된 사람의 보유 목록 반환 방지.
+    const named = s.users
+      .filter((u) => u.name.length >= 2 && u.role !== 'ADMIN' && question.includes(u.name))
+      .sort((a, b) => b.name.length - a.name.length)[0]
     if (named) {
       const held = s.assets.filter((a) => a.owner === named.name && a.status !== '폐기완료')
       const byStatus = [...new Set(held.map((a) => a.status))].map((st) => `${st} ${held.filter((a) => a.status === st).length}`)

@@ -267,6 +267,10 @@ async function aiPeriodQuery(page) {
   //  실제 사용자 이름이 질의에 있을 때만 발동(다른 인텐트 미가림). 김민준(플랫폼개발팀) 보유분 조회.
   const rown = await ask('김민준 보유 자산 알려줘')
   ok('AI 보유자질의: 특정 사용자(김민준) 보유 자산 + 대장 소유자 검색(?q=) 링크(오프보딩·승계 접점)', rown.includes('김민준') && rown.includes('보유') && (await page.locator('.msg.assistant').last().locator('.refs a[href*="/assets/register?q="]').count()) > 0)
+  // 보유자 인텐트 오탈취 방지 — 자산담당 이름 '박자산'이 '자산'을 부분 포함하지만, 소유 동사(보유·가진·소유) 없는 "박자산 결재 대기"는
+  //  보유 자산 조회가 아니라 결재 인텐트로 가야 한다(트리거를 소유 동사로 좁힌 뒤 검증 — 광범위 '자산' 트리거였다면 박자산 보유 목록을 반환했다).
+  const rmisroute = await ask('박자산 결재 대기 알려줘')
+  ok('AI 인텐트 스코핑: "박자산 결재"는 보유 조회 아닌 결재 인텐트(이름의 자산 부분열 오탈취 방지)', rmisroute.includes('결재 대기') && !rmisroute.includes('보유'))
   // 다가오는 일정(사전 계획) 질의 — 대시보드 '다가오는 일정' 카드와 같은 upcomingSchedule() 단일 소스. 향후 30일 예정분을 날짜순 아젠다로.
   //  전용 인텐트가 없으면 '일정' 질의가 폴백 답으로 떨어진다. 나열 날짜가 오름차순·창(≤30일) 이내인지 실행일 무관하게 자기검증.
   const rup = await ask('다가오는 일정 알려줘')
