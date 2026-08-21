@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/chrome/AppShell'
 import { NAV } from '@/components/chrome/menus'
-import { effectiveRoles } from '@/lib/authz'
+import { effectiveRoles, groupGrantedMenus } from '@/lib/authz'
 import { channelSummary } from '@/lib/integrations/registry'
 import { getSession, SESSION_COOKIE } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -30,11 +30,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const hiddenHrefs = NAV.flatMap((g) => g.items)
     .filter((i) => i.roles.includes(session.role) && !effectiveRoles(i.href).includes(session.role))
     .map((i) => i.href)
+  // 사용자 그룹 열람 위임 — 기본 역할엔 없으나 그룹으로 부여된 운영 화면을 내비에 추가 노출한다
+  // (서버 가드는 requireMenu 가 같은 canAccessMenu 술어로 담당 — 표시=강제 정합).
+  const grantedHrefs = groupGrantedMenus(session.name)
 
   return (
     <AppShell
       role={session.role}
       hiddenHrefs={hiddenHrefs}
+      grantedHrefs={grantedHrefs}
       badges={badges}
       channels={channels}
       lastBatch={s.batchRuns[0] ? { job: s.batchRuns[0].job, at: s.batchRuns[0].ranAt } : undefined}

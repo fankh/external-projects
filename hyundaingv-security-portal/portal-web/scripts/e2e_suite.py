@@ -90,6 +90,7 @@ EXECFALSE_DATA = ROOT / 'scripts' / '.e2e-execfalse-data.json'  # 집행률 거�
 AUDITF_DATA = ROOT / 'scripts' / '.e2e-auditf-data.json'  # 감사 이력 조회 필터 회귀용 (v1.5.331)
 SRCH_DATA = ROOT / 'scripts' / '.e2e-srch-data.json'  # 통합 검색 커버리지(결재 신원 스코핑) 회귀용 (v1.5.333)
 CSCHED_DATA = ROOT / 'scripts' / '.e2e-csched-data.json'  # 다가오는 컴플라이언스 일정(경과분 제외) 회귀용 (v1.5.339)
+GROUP_DATA = ROOT / 'scripts' / '.e2e-group-data.json'  # 사용자 그룹 열람 위임(가법·per-메뉴 스코프) 회귀용 (v1.5.417)
 MSTAGE_DATA = ROOT / 'scripts' / '.e2e-mstage-data.json'  # 다단 중간 승인자 추적성(B1) 회귀용 (v1.5.347)
 BSNAP_DATA = ROOT / 'scripts' / '.e2e-bsnap-data.json'  # 묶음 반려 상세 스냅샷 재구성(B2) 회귀용 (v1.5.349)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
@@ -3839,6 +3840,22 @@ def sc_infra_rollback_plan(pg, base, check):
     check(pg.locator('tr', has_text='E2E 롤백 변경작업').count() == 1, '이중 등록 방어 — 같은 제목 재등록해도 1건 유지')
 
 
+def sc_group_grant_view(pg, base, check):
+    """사용자 그룹 열람 위임 — USER(김현우)가 인프라 열람 그룹 구성원이면 BIZ 전용 /infra/systems 를 열람할 수
+    있어야 한다(가법 위임). 부여 안 된 다른 BIZ 화면(/infra/racks)은 여전히 /dashboard 로 차단된다(per-메뉴
+    스코프 — 블랭킷 권한 상승이 아님). fails-without-fix: 그룹 위임 해석이 없으면 /infra/systems 도 /dashboard
+    로 회송된다. 픽스처 GROUP_DATA: 김현우를 /infra/systems 부여 그룹 구성원으로."""
+    login(pg, base, '김현우')
+    # 역할엔 없던 '인프라 운영' 도메인이 그룹 위임으로 내비에 등장(표시=강제 정합)
+    check(pg.locator('.menubar button', has_text='인프라 운영').count() == 1, '그룹 부여 → 내비 도메인 노출')
+    # 직접 URL 진입도 허용(requireMenu=canAccessMenu) — 회송 없이 시스템 화면이 실제 렌더된다
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/infra/systems'), f'그룹 부여 화면 열람 (버그면 /dashboard 회송; 실제 {pg.url})')
+    check('디스크 사용률' in pg.content(), '시스템 화면 실제 렌더 (needle)')
+    # 부여 안 된 다른 BIZ 화면 — 여전히 차단 회송(per-메뉴 스코프, 블랭킷 상승 아님)
+    pg.goto(f'{base}/infra/racks', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/dashboard'), f'미부여 BIZ 화면(/infra/racks)은 여전히 차단 회송 (실제 {pg.url})')
+
 
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
@@ -4063,6 +4080,8 @@ SCENARIOS = [
     ('incident_stats', '월별 장애 통계 export — 발생월×등급, export 계=화면 정합', sc_incident_stats, {}),
     ('incident_stats_empty_month', '월별 장애 통계 무효월 방어 — 빈 occurredAt 중복 집계 차단', sc_incident_stats_empty_month, {'PORTAL_DATA_FILE': str(INCEMPTY_DATA)}),
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
+    ('group_grant_view', '사용자 그룹 열람 위임 — 구성원에게 운영 화면 열람 부여(가법·per-메뉴 스코프, 쓰기는 역할 게이트)', sc_group_grant_view,
+     {'PORTAL_DATA_FILE': str(GROUP_DATA)}),
     ('action_permission_infra', '기능(Action) 권한 확장 — 인프라 자산 삭제도 requireAction 강제(도메인 확장)', sc_action_permission_infra, {}),
     ('action_permission', '기능(Action) 단위 권한 — 삭제 기능 권한그룹별 제한·복원(requireAction 강제)', sc_action_permission,
      {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
@@ -4455,6 +4474,11 @@ def main() -> int:
                               'likelihood': 3, 'impact': 3, 'treatment': '완화', 'owner': '김현우', 'plan': 'p',
                               'dueDate': '2026-09-30', 'status': status, 'identifiedAt': '2026-06-01'}
     RISKDEL_DATA.write_text(json.dumps({'riskItems': [_rkd(1, '완료'), _rkd(2, '식별')]}, ensure_ascii=False), encoding='utf-8')
+    # 사용자 그룹 열람 위임 — 김현우(USER)를 /infra/systems 부여 그룹 구성원으로. 부여 화면은 열람 가능,
+    # 미부여 BIZ 화면(/infra/racks)은 차단(per-메뉴 스코프). fails-without-fix: 위임 해석 없으면 systems 도 회송.
+    GROUP_DATA.write_text(json.dumps({
+        'userGroups': [{'id': 'GRP-2026-90', 'label': '인프라 열람 위임 E2E', 'members': ['김현우'], 'menuGrants': ['/infra/systems']}],
+    }, ensure_ascii=False), encoding='utf-8')
     # 기능(Action) 단위 권한 — 종결(완료) 위험 1건(삭제 대상). ADMIN 이 위험 삭제를 업무담당에 제한하면 박정호 삭제 차단.
     ACTPERM_DATA.write_text(json.dumps({'riskItems': [
         {'id': 'RK-2026-DEL', 'title': '기능권한 삭제대상', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
@@ -4654,6 +4678,7 @@ def main() -> int:
     DTNAN_DATA.unlink(missing_ok=True)
     SRSUSP_DATA.unlink(missing_ok=True)
     ACTPERM_DATA.unlink(missing_ok=True)
+    GROUP_DATA.unlink(missing_ok=True)
     EDUNF_DATA.unlink(missing_ok=True)
     DLNF_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):

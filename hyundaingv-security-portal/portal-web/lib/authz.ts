@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { NAV, SCREEN_ACTIONS, type ActionKey } from '@/components/chrome/menus'
+import { NAV, SCREEN_ACTIONS, isGrantableMenu, type ActionKey } from '@/components/chrome/menus'
 import { getSession, type Session } from './session'
 import { getStore } from './store'
 import type { Role } from './types'
@@ -25,10 +25,39 @@ export function effectiveRoles(href: string): Role[] {
   return item.roles.filter((r) => r === 'ADMIN' || override.includes(r))
 }
 
+/** 사용자 그룹으로 이 계정에 열람 위임된 메뉴 href 목록 — 구성원인 그룹들의 부여 메뉴 합집합.
+ *  ADMIN 전용 화면 위임은 무시한다(isGrantableMenu). 세션 쿠키가 아니라 스토어에서 실시간 해석하므로
+ *  관리자가 그룹을 바꾸면 재로그인 없이 즉시 반영된다. */
+export function groupGrantedMenus(name: string): string[] {
+  const hrefs = new Set<string>()
+  for (const grp of getStore().userGroups ?? []) {
+    if (!grp.members.includes(name)) continue
+    for (const h of grp.menuGrants) if (isGrantableMenu(h)) hrefs.add(h)
+  }
+  return [...hrefs]
+}
+
+/** 이 계정이 그룹 위임으로 해당 메뉴를 열람할 수 있는가 — ADMIN 전용 화면은 항상 false(권한 상승 차단). */
+export function groupGrantsMenu(name: string, href: string): boolean {
+  if (!isGrantableMenu(href)) return false
+  return (getStore().userGroups ?? []).some((g) => g.members.includes(name) && g.menuGrants.includes(href))
+}
+
+/** 화면 열람 가능 여부(단일 술어) — 역할 유효권한 OR 그룹 위임. 내비 표시(layout·AppShell)와 서버 가드
+ *  (requireMenu)가 이 술어 하나를 공유해 표시와 강제가 어긋나지 않는다. 쓰기 액션은 여전히 역할 게이트
+ *  (requireMenuRole·requireAction)가 막으므로 그룹 위임은 '열람'만 넓힌다. */
+export function canAccessMenu(session: Session, href: string): boolean {
+  return effectiveRoles(href).includes(session.role) || groupGrantsMenu(session.name, href)
+}
+
 /** 메뉴 기준 화면 가드 — 페이지가 역할 목록을 중복 선언하지 않고 menus.ts 단일 원천을 따른다.
- *  런타임 제한(메뉴권한 화면)이 있으면 즉시 반영된다. */
+ *  역할 유효권한 또는 사용자 그룹 열람 위임이 있으면 통과한다. 런타임 제한(메뉴권한 화면)·그룹 변경이
+ *  즉시 반영된다. 미로그인 → /login, 권한 밖 → /dashboard. */
 export async function requireMenu(href: string): Promise<Session> {
-  return requireRole(...effectiveRoles(href))
+  const session = await getSession()
+  if (!session) redirect('/login')
+  if (canAccessMenu(session, href)) return session
+  redirect('/dashboard')
 }
 
 /** 화면 소속 서버 액션 가드 — 액션 자체의 역할 요건 ∩ 소속 화면의 유효 권한.

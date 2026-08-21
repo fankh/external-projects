@@ -6,7 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { nowStamp, today } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, RiskItem, RiskSnapshot, SecurityPolicy, DrPlan, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, RiskItem, RiskSnapshot, SecurityPolicy, DrPlan, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, UserGroup, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -66,6 +66,9 @@ export interface Store {
   menuOverrides: Record<string, Role[]>
   /** 기능(Action) 단위 런타임 제한 — 키 `${href}#${action}`, 값 허용 역할(축소만). menuOverrides 의 기능 버전. */
   actionOverrides: Record<string, Role[]>
+  /** 사용자 그룹 (구성 가능한 열람 위임) — 4 고정 역할 위에 얹는 가법 부여. 구성원은 부여 메뉴를 추가 열람.
+   *  쓰기는 역할 게이트 유지, 부여 대상은 운영 화면뿐(ADMIN 전용 제외). authz.groupGrantsMenu 가 해석한다. */
+  userGroups: UserGroup[]
   /** 연동 채널 활성 상태 (channelId → on/off) — 정의는 portal.config.ts, 상태는 런타임 */
   channelStates: Record<string, boolean>
   sendLog: SendLogEntry[]
@@ -343,6 +346,11 @@ function seed(): Store {
     ],
     menuOverrides: {},
     actionOverrides: {},
+    // 예시 그룹 — 구성원이 비어 있어 아무 접근도 넓히지 않는다(기존 동작 불변). 관리자가 구성원·부여 메뉴를
+    // 지정해 열람 위임을 시작하는 출발점. 부여 대상은 운영 화면만(ADMIN 전용 제외, isGrantableMenu).
+    userGroups: [
+      { id: 'GRP-2026-01', label: '인프라 열람 위임', description: '지정 구성원에게 인프라 운영 화면 열람 권한을 위임하는 예시 그룹', members: [], menuGrants: ['/infra/systems'] },
+    ],
     channelStates: Object.fromEntries(CHANNELS.map((c) => [c.id, c.enabledByDefault])),
     sendLog: [],
     assetAcquisitions: [],

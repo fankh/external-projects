@@ -14,6 +14,19 @@ export const ROLE_LABEL: Record<Role, string> = {
   ADMIN: '관리자',
 }
 
+/** 사용자 그룹 (구성 가능한 열람 위임) — 4 고정 역할 위에 얹는 추가 부여 계층. 관리자가 그룹을 만들어
+ *  구성원(계정명)과 부여 메뉴(화면 href)를 지정하면, 구성원은 자기 역할 권한에 더해 그 화면을 열람할 수
+ *  있다. 부여는 '열람(화면 진입)'만 넓히고 쓰기 액션은 그대로 역할 게이트(requireMenuRole·requireAction)가
+ *  막는다(안전한 가법 위임). 부여 대상은 운영 화면뿐 — ADMIN 전용 화면(환경설정·기반)은 위임 불가
+ *  (isGrantableMenu). members 는 계정명(Session.name), menuGrants 는 NAV href 목록. */
+export interface UserGroup {
+  id: string
+  label: string
+  description?: string
+  members: string[]
+  menuGrants: string[]
+}
+
 /** SR 3종 (시스템개발 · 데이터 · 계정/권한) */
 export type SrKind = '시스템개발' | '데이터' | '계정/권한'
 export type SrStatus = '작성중' | '결재중' | 'CI배정' | '개발중' | '테스트' | '적용요청결재중' | '적용요청' | '완료' | '반려' | '중지'

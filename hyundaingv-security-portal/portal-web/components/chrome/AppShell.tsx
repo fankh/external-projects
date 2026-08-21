@@ -27,6 +27,8 @@ export function AppShell(props: {
   role: Role
   /** 런타임 메뉴권한 제한(메뉴권한 화면)으로 이 세션에서 숨길 메뉴 — 서버 가드는 requireMenu 가 담당 */
   hiddenHrefs?: string[]
+  /** 사용자 그룹 열람 위임으로 이 세션에 추가 노출할 메뉴 href — 기본 역할 권한과 합집합(서버 가드=canAccessMenu) */
+  grantedHrefs?: string[]
   badges: { todos: number; approvals: number }
   channels: { on: number; total: number }
   lastBatch?: { job: string; at: string }
@@ -42,7 +44,11 @@ export function AppShell(props: {
   const router = useRouter()
 
   const groups = NAV
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(props.role) && !(props.hiddenHrefs ?? []).includes(i.href)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => {
+      const roleAllowed = i.roles.includes(props.role) && !(props.hiddenHrefs ?? []).includes(i.href)
+      // 그룹 위임 부여 화면은 역할 권한이 없어도 노출 — 서버 requireMenu(canAccessMenu)와 동일 술어
+      return roleAllowed || (props.grantedHrefs ?? []).includes(i.href)
+    }) }))
     .filter((g) => g.items.length > 0)
   const activeGroup = groups.find((g) => g.items.some((i) => pathname.startsWith(i.href))) ?? groups[0]
   const badgeOf = (badge?: 'todos' | 'approvals') => (badge ? props.badges[badge] : 0)
