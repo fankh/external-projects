@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { ReportKind } from '@/lib/types'
-import { editSchedule, runDueSchedules, toggleSchedule } from './actions'
+import { createSchedule, editSchedule, runDueSchedules, toggleSchedule } from './actions'
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일']
 
@@ -12,7 +12,7 @@ type Row = {
   lastRunAt?: string; nextRun: string | null; overdue: boolean
 }
 
-export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: ReportKind; desc: string }[] }) {
+export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: ReportKind; desc: string; period: '주간' | '월간' | '수시' }[] }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [editing, setEditing] = useState<ReportKind | null>(null)
   const [er, setEr] = useState('')
@@ -79,7 +79,19 @@ export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: Repo
                 </td>
               </tr>
             ))}
-            {adhoc.map((a) => (
+            {adhoc.filter((a) => a.period !== '수시').map((a) => (
+              <tr key={a.kind}>
+                <td className="strong">{a.kind}</td>
+                <td className="c"><Chip tone={a.period === '주간' ? 'info' : 'neutral'}>{a.period}</Chip></td>
+                <td className="dim" colSpan={5}>{a.desc} — 스케줄 미등록(현재 수동 생성)</td>
+                <td className="c" style={{ whiteSpace: 'nowrap' }}>
+                  <button className="btn sm pri" disabled={pending}
+                    onClick={() => startTransition(async () => setMsg((await createSchedule(a.kind)).message))}
+                    title="정기(월간·주간) 리포트를 자동 생성 대상으로 등록 — 기본값 등록 후 '수정'에서 시점·수신자 조정">스케줄 등록</button>
+                </td>
+              </tr>
+            ))}
+            {adhoc.filter((a) => a.period === '수시').map((a) => (
               <tr key={a.kind}>
                 <td className="strong">{a.kind}</td>
                 <td className="c"><Chip tone="neutral">수시</Chip></td>

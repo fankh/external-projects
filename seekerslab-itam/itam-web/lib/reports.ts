@@ -64,7 +64,7 @@ export function licenseOptimization() {
   return { active, over, under, expired, isExpired, saving, overCost, saasCons }
 }
 
-export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
+export const REPORT_KINDS: { kind: ReportKind; period: '주간' | '월간' | '수시'; desc: string }[] = [
   { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 외부 노출 · 미인가 SaaS · 인증·계정·엔드포인트 정책 위반 · 처리 현황' },
   { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용, 자산 처분 실적·폐기 진행 현황' },
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액, 갱신 협상 근거, 중복 SaaS 통합 후보' },

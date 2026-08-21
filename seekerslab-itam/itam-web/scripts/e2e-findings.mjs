@@ -1975,6 +1975,19 @@ try {
   // 반려 종결 확인 — 재조회 시 두 건이 더는 내 결재 차례(대기)에 없다(반려로 종결)
   await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   ok('결재 일괄 반려 → 대기 큐에서 종결(승인 선택 체크박스 소거)', (await p3.locator('input[aria-label="APR-2607-120 일괄 승인 선택"]').count()) === 0)
+
+  // 정기 리포트 스케줄 신규 등록(신규 역량) — 주기는 월간이나 시드 스케줄이 없던 '감가상각 명세'를 자동 생성 대상으로 편입.
+  //  그동안 toggleSchedule 은 기존 스케줄만 켜고 끌 수 있어(없으면 '스케줄을 찾을 수 없습니다') 신규 정기 리포트를 올릴 경로가 없었다.
+  await p3.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  const depRow = p3.locator('table.tbl tr', { hasText: '감가상각 명세' }).first()
+  const regBtn = depRow.locator('button', { hasText: /^스케줄 등록$/ })
+  ok('리포트 스케줄: 스케줄 미등록 정기 리포트(감가상각 명세)에 스케줄 등록 버튼 노출', (await regBtn.count()) > 0)
+  await regBtn.click()
+  await p3.waitForTimeout(800)
+  ok('리포트 스케줄 등록 → 자동 생성 편입(매월 1일 09:00 · 스케줄 카드 가동 행으로 전환)', ((await p3.locator('body').textContent()) || '').includes('감가상각 명세 스케줄 등록'))
+  // 재조회 — 등록 후 감가상각 명세 행이 스케줄러(수정/중지 버튼)로 이동하고 '스케줄 등록' 버튼은 사라진다(멱등: 재등록 불가)
+  await p3.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  ok('리포트 스케줄 등록 → 스케줄러 행 전환(수정/중지 노출·재등록 버튼 소거)', (await p3.locator('table.tbl tr', { hasText: '감가상각 명세' }).first().locator('button', { hasText: /^스케줄 등록$/ }).count()) === 0 && (await p3.locator('table.tbl tr', { hasText: '감가상각 명세' }).first().locator('button', { hasText: /^중지$/ }).count()) > 0)
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──
