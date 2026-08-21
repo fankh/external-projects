@@ -151,6 +151,12 @@ export async function deleteReport(id: string) {
   const report = s.reports.find((r) => r.id === id)
   if (!report) return
   s.reports = s.reports.filter((r) => r.id !== id)
-  appendAudit({ actor: session.name, action: `AI 리포트 삭제 — ${report.kind}`, target: id })
+  // 참조 무결성 — 결재에 근거 리포트로 첨부돼 있던 참조(reportRefs)도 함께 정리한다. 안 하면 삭제된 리포트가
+  //  결재의 '근거 리포트'로 남아 클릭 시 404 되는 죽은 링크가 된다(detachReportFromApproval 과 동일한 filter 규약).
+  let detached = 0
+  for (const ap of s.approvals) {
+    if (ap.reportRefs?.includes(id)) { ap.reportRefs = ap.reportRefs.filter((r) => r !== id); detached += 1 }
+  }
+  appendAudit({ actor: session.name, action: `AI 리포트 삭제 — ${report.kind}${detached ? ` · 결재 첨부 참조 ${detached}건 정리` : ''}`, target: id })
   revalidatePath('/', 'layout')
 }
