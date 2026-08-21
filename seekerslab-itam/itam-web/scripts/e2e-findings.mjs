@@ -379,6 +379,8 @@ async function aiPeriodQuery(page) {
   const cx = await page.request.get(`${BASE}/api/reports/${encodeURIComponent(cid)}?format=xlsx`)
   const ctext = Buffer.from(await cx.body()).toString('utf8')
   ok('리포트 반출: 부서별 IT 비용 배분 xlsx 에 원가·좌석·유지보수 계약 섹션 실린다', ctext.includes('부서별 IT 자산 원가') && ctext.includes('부서별 라이선스 좌석 비용') && ctext.includes('부서별 유지보수 계약 비용') && ctext.includes('배분 요약'))
+  // 부서별 3개 표에 합계 행 — 전사 총액을 표 안에서 바로 확인. '합계' 가 독립 셀(합계</t>)로 존재(요약 불릿의 문장 중 '합계'는 셀 종료가 아니라 구분됨).
+  ok('리포트 반출: 부서별 IT 비용 배분 표에 합계 행(독립 셀)', ctext.includes('합계</t>'))
   // 계약 관리 현황 리포트(§03 계약 이행 보고) — 자연어 생성 인텐트 매칭 + 계약 포트폴리오·발주 이행·거버넌스 섹션 반출.
   const r5 = await ask('계약 관리 현황 리포트 생성해줘')
   ok('AI 계약질의: 계약 관리 현황 생성 분기', r5.includes('리포트를 생성했습니다'))
