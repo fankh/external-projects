@@ -9,7 +9,7 @@ import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf } from '@/lib/eol'
 import { assetDependencies, criticalDependencies, impactSources } from '@/lib/cmdb'
-import { lowStockCategories } from '@/lib/stock'
+import { availableAssets, lowStockCategories } from '@/lib/stock'
 import { upcomingSchedule } from '@/lib/upcoming'
 import { compositeRiskAssetNos, riskSignalCount } from '@/lib/risk'
 import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
@@ -645,6 +645,31 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       evidence: [
         { label: '재고 현황 (안전재고 경보)', href: '/inventory/stock' },
         { label: '자산 대장', href: '/assets/register' },
+      ],
+    }
+  }
+  // 유휴(재배치 가능) 자산 목록 — 재불출·재배치 풀. 안전재고 경보가 "노트북 N대 부족"을 알릴 때 어떤 유휴 자산을
+  //  재배치할 수 있는지 개별 자산·위치로 답한다(상태 분포는 대수만, 저재고는 유형 단위 — 개별 자산 목록이 공백이었다).
+  //  가용 판정은 lib/stock.availableAssets 단일 소스(유휴 AND 폐기 절차 미진입)로 재고 경보와 어긋나지 않는다.
+  if (canAsset && (q.includes('유휴') || q.includes('재배치') || q.includes('놀고 있는') || q.includes('놀리는') || q.includes('재불출') || q.includes('가용 자산') || q.includes('미배정 자산'))) {
+    const avail = availableAssets(s.assets, s.disposals)
+    const byCat = new Map<string, typeof avail>()
+    for (const a of avail) {
+      const arr = byCat.get(a.category) ?? []
+      arr.push(a)
+      byCat.set(a.category, arr)
+    }
+    const catRows = [...byCat.entries()].sort((x, y) => y[1].length - x[1].length)
+    return {
+      role: 'assistant',
+      text: avail.length === 0
+        ? '재배치 가능한 유휴 자산이 없습니다 (유휴 상태이며 폐기 절차 미진입 자산 기준).'
+        : `재배치 가능한 유휴 자산입니다 (유휴 · 폐기 절차 미진입 · ${avail.length}대 · 재불출/재배치 풀).\n\n${catRows
+            .map(([c, arr]) => `· ${c} ${arr.length}대 — ${arr.slice(0, 5).map((a) => `${a.assetNo}(${a.location})`).join(', ')}${arr.length > 5 ? ` 외 ${arr.length - 5}대` : ''}`)
+            .join('\n')}\n\n안전재고 미달 유형이 있으면 이 풀에서 우선 재배치하세요.`,
+      evidence: [
+        { label: '자산 대장 (유휴)', href: '/assets/register?status=유휴' },
+        { label: '재고 현황', href: '/inventory/stock' },
       ],
     }
   }
