@@ -5,7 +5,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
-import { nowStamp, today } from './dates'
+import { nowStamp, today, isCalendarDate } from './dates'
 import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, RiskItem, RiskSnapshot, SecurityPolicy, DrPlan, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, UserGroup, Violation } from './types'
 
 export interface Store {
@@ -662,9 +662,15 @@ export function isRemoteTargetIn(t: RemoteTarget, key: string): boolean {
 }
 
 /** 공통코드 활성 판정 — 사용여부 + 사용기간(until, 종료일 포함) (요구사항 73행).
- *  기간이 지난 코드는 사용중지와 동일하게 신규 선택지에서 빠지고, 기존 데이터는 유지된다. */
+ *  기간이 지난 코드는 사용중지와 동일하게 신규 선택지에서 빠지고, 기존 데이터는 유지된다.
+ *  until 은 사전식 문자열 비교라 수기편집 파일의 형식오염 종료일(비-영벌충 '2026-2-5'·달력부재 '2026-13-01')이
+ *  '미만료'로 오판돼 만료 코드가 선택지에 남는 fail-open 이 생긴다 — 실 달력 날짜가 아니면 만료 취급(fail-closed,
+ *  isGroupActive 와 동일 규약). 신규 선택지에서만 빠지고 기존 데이터는 유지되므로 fail-closed 방향이 안전하다. */
 export function isCodeActive(v: { enabled: boolean; until?: string }): boolean {
-  return v.enabled && (!v.until || v.until >= today())
+  if (!v.enabled) return false
+  if (!v.until) return true
+  if (!isCalendarDate(v.until)) return false
+  return v.until >= today()
 }
 
 /** 교육 과정 대상별 이수 의무자 — 대상이 한정된 과정(개발자·보안담당자)을 비대상자에게 강제하지

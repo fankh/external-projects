@@ -97,6 +97,7 @@ GROUPDISP_DATA = ROOT / 'scripts' / '.e2e-groupdisp-data.json'  # 그룹 기능 
 GROUPFIN_DATA = ROOT / 'scripts' / '.e2e-groupfin-data.json'  # 그룹 기능 위임 UI 표시(재무 확정) 회귀용 (v1.5.433)
 GROUPINV_DATA = ROOT / 'scripts' / '.e2e-groupinv-data.json'  # 미등록 액션 키 열람 분기 fail-closed 회귀용 (v1.5.437)
 GROUPEXP_DATA = ROOT / 'scripts' / '.e2e-groupexp-data.json'  # 그룹 위임 만료(자동 회수) 회귀용 (v1.5.441)
+CODEEXP_DATA = ROOT / 'scripts' / '.e2e-codeexp-data.json'  # 공통코드 형식오염 종료일 fail-closed 회귀용 (v1.5.448)
 MSTAGE_DATA = ROOT / 'scripts' / '.e2e-mstage-data.json'  # 다단 중간 승인자 추적성(B1) 회귀용 (v1.5.347)
 BSNAP_DATA = ROOT / 'scripts' / '.e2e-bsnap-data.json'  # 묶음 반려 상세 스냅샷 재구성(B2) 회귀용 (v1.5.349)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
@@ -4005,6 +4006,17 @@ def sc_group_grant_expired(pg, base, check):
     check('박정호' not in reg, '위임 현황 대장에 만료-전용 구성원(박정호) 미표시')
 
 
+def sc_code_expiry_malformed(pg, base, check):
+    """공통코드 사용기간 종료일 형식오염 fail-closed — 수기편집 파일의 달력부재 종료일('2099-13-01')은 사전식
+    비교상 '먼 미래=미만료'로 오판돼 만료 코드가 업무 선택지에 남는 fail-open 이 있었다(요구 73행: 만료 코드는
+    신규 선택지에서 빠짐). isCodeActive 가 isCalendarDate 로 실 달력 유효성을 봐 형식오염=만료 취급해야 한다.
+    미래연도라 실행일 무관. fails-without-fix: 형식검증 없으면 '형식오염등급'이 장애등급 선택지에 노출된다."""
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    opts = pg.locator('select[name=grade] option').all_inner_texts()
+    check(opts == ['정상등급'], f'형식오염 종료일 코드는 만료 취급(fail-closed) — 선택지 제외 (버그면 형식오염등급 포함; 실제 {opts})')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
@@ -4242,6 +4254,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(GROUPINV_DATA)}),
     ('group_grant_expired', '그룹 위임 만료 — 만료 그룹은 자동 회수(fail-closed), 미래 만료 그룹은 정상(과도 회수 아님)', sc_group_grant_expired,
      {'PORTAL_DATA_FILE': str(GROUPEXP_DATA)}),
+    ('code_expiry_malformed', '공통코드 형식오염 종료일 — 달력부재 종료일은 만료 취급(fail-closed, 요구 73행)', sc_code_expiry_malformed,
+     {'PORTAL_DATA_FILE': str(CODEEXP_DATA)}),
     ('action_permission_infra', '기능(Action) 권한 확장 — 인프라 자산 삭제도 requireAction 강제(도메인 확장)', sc_action_permission_infra, {}),
     ('action_permission', '기능(Action) 단위 권한 — 삭제 기능 권한그룹별 제한·복원(requireAction 강제)', sc_action_permission,
      {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
@@ -4677,6 +4691,17 @@ def main() -> int:
             {'id': 'GRP-BADEXP', 'label': '형식오염 만료', 'members': ['김현우'], 'menuGrants': ['/infra/racks'], 'expiresAt': '2099-13-01'},
         ],
     }, ensure_ascii=False), encoding='utf-8')
+    # 공통코드 사용기간 종료일 형식오염 — 수기편집 파일이 달력부재 종료일('2099-13-01')을 넣으면 사전식 비교상
+    # '먼 미래=미만료'로 오판돼 만료 코드가 업무 선택지에 남는다(fail-open, 요구 73행 위배). isCodeActive 가
+    # isCalendarDate 로 fail-closed 하는지 검증. 정상 코드 1 + 형식오염 종료일 코드 1(장애등급 선택지로 확인).
+    CODEEXP_DATA.write_text(json.dumps({
+        'codeGroups': [
+            {'id': 'FAULT_GRADE', 'name': '장애등급', 'values': [
+                {'code': '정상등급', 'enabled': True},
+                {'code': '형식오염등급', 'enabled': True, 'until': '2099-13-01'},
+            ]},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
     # 기능(Action) 단위 권한 — 종결(완료) 위험 1건(삭제 대상). ADMIN 이 위험 삭제를 업무담당에 제한하면 박정호 삭제 차단.
     ACTPERM_DATA.write_text(json.dumps({'riskItems': [
         {'id': 'RK-2026-DEL', 'title': '기능권한 삭제대상', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
@@ -4883,6 +4908,7 @@ def main() -> int:
     GROUPFIN_DATA.unlink(missing_ok=True)
     GROUPINV_DATA.unlink(missing_ok=True)
     GROUPEXP_DATA.unlink(missing_ok=True)
+    CODEEXP_DATA.unlink(missing_ok=True)
     EDUNF_DATA.unlink(missing_ok=True)
     DLNF_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):

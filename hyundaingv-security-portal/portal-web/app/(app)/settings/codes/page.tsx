@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { getStore, isCodeActive } from '@/lib/store'
+import { isCalendarDate } from '@/lib/dates'
 
 async function toggleCode(formData: FormData) {
   'use server'
@@ -25,7 +26,8 @@ async function setCodePeriod(formData: FormData) {
   const groupId = String(formData.get('groupId') ?? '')
   const code = String(formData.get('code') ?? '')
   const until = String(formData.get('until') ?? '')
-  if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) return
+  // 실 달력 날짜만 허용 — 형식은 맞아도 없는 날(2026-02-30·2026-13-01)은 거부(그룹 만료일 입력검증과 동일 규약).
+  if (until && !isCalendarDate(until)) return
   const s = getStore()
   const group = s.codeGroups.find((g) => g.id === groupId)
   const value = group?.values.find((v) => v.code === code)
