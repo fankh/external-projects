@@ -73,6 +73,7 @@ const ROUTES = {
   '/settings/users': ADM,
   '/settings/menus': ADM,
   '/settings/permissions': ADM,
+  '/settings/groups': ADM,
   '/settings/codes': ADM,
   '/settings/forms': ADM,
   '/settings/audit': ADM,
@@ -274,6 +275,7 @@ async function main() {
     ['/settings/codes', 'ADMIN', ['FAULT_GRADE', '장애등급', '코드 중심 운영', '2등급', '사용기간', '코드 추가']],
     ['/settings/menus', 'ADMIN', ['LV1 도메인', '메뉴 체계', '/sr/new', '구현']],
     ['/settings/permissions', 'ADMIN', ['권한 매트릭스', '최소권한 모델', '개인별현황', '런타임 제한', '제한 불가']],
+    ['/settings/groups', 'ADMIN', ['사용자 그룹', '가법 위임', '부여 가능 화면', '인프라 열람 위임', '그룹 등록']],
     ['/settings/forms', 'ADMIN', ['장애보고 취합 양식', '새 버전 업로드', 'XT-01']],
     // 감사 이력 — append-only 통제 기록
     ['/settings/audit', 'ADMIN', ['감사 이력', 'AP-2026-0701', '결재 승인', '추적성']],

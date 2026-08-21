@@ -113,6 +113,7 @@ export const NAV: NavGroup[] = [
       { href: '/settings/users', label: '사용자 · 그룹 · 결재선', ico: 'users', roles: ADM },
       { href: '/settings/menus', label: '메뉴 · 기능 관리', ico: 'tree', roles: ADM },
       { href: '/settings/permissions', label: '메뉴권한', ico: 'lock', roles: ADM },
+      { href: '/settings/groups', label: '사용자 그룹', ico: 'usergroup', roles: ADM },
       { href: '/settings/codes', label: '공통코드', ico: 'hash', roles: ADM },
       { href: '/settings/forms', label: '엑셀양식 관리', ico: 'table', roles: ADM },
       { href: '/settings/audit', label: '감사 이력', ico: 'history', roles: ADM },
@@ -128,6 +129,15 @@ export const NAV: NavGroup[] = [
 export const TITLE_BY_HREF: Record<string, { group: string; title: string; hue: string }> = Object.fromEntries(
   NAV.flatMap((g) => g.items.map((i) => [i.href, { group: g.label, title: i.label, hue: g.hue }])),
 )
+
+/** 사용자 그룹으로 열람 위임 가능한(운영) 메뉴인가 — ADMIN 전용 화면(환경설정·기반)은 위임 대상에서 제외한다.
+ *  일부 ADMIN 화면은 쓰기 액션을 requireMenu 로 가드하므로(예: 메뉴권한 토글 = requireMenu('/settings/permissions')),
+ *  그 화면을 그룹으로 위임하면 위임받은 비관리자가 관리 기능까지 실행하게 된다. 위임은 '운영 화면 열람'으로
+ *  한정해(기본 역할에 비관리자 역할이 하나라도 있는 화면만) 권한 상승을 원천 차단한다. */
+export function isGrantableMenu(href: string): boolean {
+  const item = NAV.flatMap((g) => g.items).find((i) => i.href === href)
+  return !!item && item.roles.some((r) => r !== 'ADMIN')
+}
 
 /** 기능(Action) 단위 권한 (제품안내서 §II '권한은 메뉴 × 기능 단위로 부여'·요구사항 69·71행) — 조회는 열람 자체라
  *  항상 허용, 쓰기 기능(저장·삭제·엑셀·업로드·결재)만 역할로 제한한다. 여기 정의가 requireAction(강제)과

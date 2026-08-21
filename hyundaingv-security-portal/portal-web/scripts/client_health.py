@@ -32,7 +32,7 @@ ROUTES = [
     '/awareness/remote', '/awareness/prints', '/awareness/violations',
     '/compliance/education', '/compliance/inspection', '/compliance/security-review', '/compliance/risks', '/compliance/policies', '/compliance/dr',
     '/work/todo', '/work/approvals',
-    '/settings/users', '/settings/menus', '/settings/permissions',
+    '/settings/users', '/settings/menus', '/settings/permissions', '/settings/groups',
     '/settings/codes', '/settings/forms', '/settings/audit',
     '/platform/integrations',
 ]

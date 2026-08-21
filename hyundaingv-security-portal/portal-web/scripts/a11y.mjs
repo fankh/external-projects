@@ -26,7 +26,7 @@ const ROUTES = [
   '/infra/incidents', '/infra/racks', '/infra/systems', '/infra/operations',
   '/compliance/inspection', '/awareness/remote', '/awareness/prints',
   '/pledge/my', '/board/qna', '/settings/codes', '/settings/users',
-  '/settings/permissions', '/settings/forms', '/platform/integrations', '/work/approvals',
+  '/settings/permissions', '/settings/groups', '/settings/forms', '/platform/integrations', '/work/approvals',
 ]
 
 let pass = 0
