@@ -94,6 +94,7 @@ GROUP_DATA = ROOT / 'scripts' / '.e2e-group-data.json'  # 사용자 그룹 열�
 GROUPREV_DATA = ROOT / 'scripts' / '.e2e-grouprev-data.json'  # 사용자 그룹 부여/회수 관리 액션 end-to-end 회귀용 (v1.5.421)
 GROUPACT_DATA = ROOT / 'scripts' / '.e2e-groupact-data.json'  # 사용자 그룹 기능(쓰기) 위임 회귀용 (v1.5.429)
 GROUPDISP_DATA = ROOT / 'scripts' / '.e2e-groupdisp-data.json'  # 그룹 기능 위임 UI 표시(역할숨김 화면) 회귀용 (v1.5.431)
+GROUPFIN_DATA = ROOT / 'scripts' / '.e2e-groupfin-data.json'  # 그룹 기능 위임 UI 표시(재무 확정) 회귀용 (v1.5.433)
 MSTAGE_DATA = ROOT / 'scripts' / '.e2e-mstage-data.json'  # 다단 중간 승인자 추적성(B1) 회귀용 (v1.5.347)
 BSNAP_DATA = ROOT / 'scripts' / '.e2e-bsnap-data.json'  # 묶음 반려 상세 스냅샷 재구성(B2) 회귀용 (v1.5.349)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
@@ -3936,6 +3937,25 @@ def sc_group_action_display(pg, base, check):
     check(pg.locator('tr', has_text='RK-2026-DISP').count() == 0, '위임으로 종결 위험 삭제 성공(행 사라짐)')
 
 
+def sc_group_action_finance(pg, base, check):
+    """그룹 기능 위임 UI 표시(재무 확정) — /finance/invest 는 확정 컨트롤을 역할(canManage)로 숨기는데, confirm
+    위임을 받은 USER 에게도 '계획 확정' 버튼을 노출해야 한다. 김현우가 본인 효율화 계획을 확정할 수 있어야 한다.
+    fails-without-fix: canManage 로만 표시하면 위임 USER 는 버튼을 못 봐(count 0) 위임이 죽는다. 픽스처: 김현우
+    소유 효율화 투자계획 1건 + /finance/invest#confirm 위임."""
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/finance/invest', wait_until='networkidle')
+    row = pg.locator('tr', has_text='IP-2026-EFF')
+    check(row.count() == 1, '효율화 계획 행 노출(본인 소유)')
+    conf = row.locator('form:has(button:has-text("계획 확정"))')
+    check(conf.count() == 1, '위임 USER 에게 계획 확정 버튼 노출(canManage 역할숨김 아님)')
+    conf.first.evaluate('f => f.requestSubmit()')
+    pg.wait_for_load_state('networkidle')
+    pg.wait_for_timeout(500)
+    check(pg.url.rstrip('/').endswith('/finance/invest'), f'확정 후 화면 유지(실제 {pg.url})')
+    # 확정되면 상태 칩이 '확정'으로 바뀌고 계획 확정 버튼이 사라진다
+    check(pg.locator('tr', has_text='IP-2026-EFF').locator('button:has-text("계획 확정")').count() == 0, '위임으로 계획 확정 성공(버튼 사라짐)')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
@@ -4167,6 +4187,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(GROUPACT_DATA)}),
     ('group_action_display', '그룹 기능 위임 UI 표시 — 역할 숨김 화면(compliance/risks)도 위임받은 사용자에게 컨트롤 노출(서버강제+표시 정합)', sc_group_action_display,
      {'PORTAL_DATA_FILE': str(GROUPDISP_DATA)}),
+    ('group_action_finance', '그룹 기능 위임 UI 표시(재무 확정) — /finance/invest 확정 컨트롤을 confirm 위임 USER 에게 노출·확정 수행', sc_group_action_finance,
+     {'PORTAL_DATA_FILE': str(GROUPFIN_DATA)}),
     ('action_permission_infra', '기능(Action) 권한 확장 — 인프라 자산 삭제도 requireAction 강제(도메인 확장)', sc_action_permission_infra, {}),
     ('action_permission', '기능(Action) 단위 권한 — 삭제 기능 권한그룹별 제한·복원(requireAction 강제)', sc_action_permission,
      {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
@@ -4582,6 +4604,11 @@ def main() -> int:
                        'dueDate': '2026-09-30', 'status': '완료', 'identifiedAt': '2026-06-01'}],
         'userGroups': [{'id': 'GRP-2026-93', 'label': '위험삭제 위임', 'members': ['김현우'], 'menuGrants': [], 'actionGrants': ['/compliance/risks#delete']}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 그룹 기능 위임 UI 표시(재무 확정) — 김현우 소유 효율화 투자계획 + confirm 위임. fails-without-fix: canManage 면 버튼 미노출.
+    GROUPFIN_DATA.write_text(json.dumps({
+        'investPlans': [{'id': 'IP-2026-EFF', 'kind': '투자', 'year': '2026', 'title': '위임확정대상', 'owner': '김현우', 'dept': '개발1팀', 'amount': 5000, 'status': '효율화'}],
+        'userGroups': [{'id': 'GRP-2026-94', 'label': '재무확정 위임', 'members': ['김현우'], 'menuGrants': [], 'actionGrants': ['/finance/invest#confirm']}],
+    }, ensure_ascii=False), encoding='utf-8')
     # 기능(Action) 단위 권한 — 종결(완료) 위험 1건(삭제 대상). ADMIN 이 위험 삭제를 업무담당에 제한하면 박정호 삭제 차단.
     ACTPERM_DATA.write_text(json.dumps({'riskItems': [
         {'id': 'RK-2026-DEL', 'title': '기능권한 삭제대상', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
@@ -4785,6 +4812,7 @@ def main() -> int:
     GROUPREV_DATA.unlink(missing_ok=True)
     GROUPACT_DATA.unlink(missing_ok=True)
     GROUPDISP_DATA.unlink(missing_ok=True)
+    GROUPFIN_DATA.unlink(missing_ok=True)
     EDUNF_DATA.unlink(missing_ok=True)
     DLNF_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
