@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { NAV, SCREEN_ACTIONS, isGrantableMenu, type ActionKey } from '@/components/chrome/menus'
+import { NAV, SCREEN_ACTIONS, ACTION_LABEL, TITLE_BY_HREF, isGrantableMenu, type ActionKey } from '@/components/chrome/menus'
 import { getSession, type Session } from './session'
 import { getStore } from './store'
 import { today } from './dates'
@@ -127,6 +127,26 @@ export function groupGrantedActions(name: string): string[] {
     }
   }
   return [...keys]
+}
+
+export interface DelegationEntry { member: string; kind: '열람' | '기능'; target: string; group: string; expiresAt?: string }
+
+/** 위임 현황 대장 — 현재 유효한(만료 안 된) 그룹의 위임을 구성원 단위로 펼친 접근검토 목록(누가·무엇을·어느
+ *  그룹으로·언제까지). 화면(/settings/groups)과 엑셀 export 가 이 단일 원천을 공유해 드리프트를 막는다.
+ *  만료 그룹 제외·부여 가능 대상(isGrantableMenu·isGrantableAction)만·구성원/유형/대상 순 정렬. */
+export function groupDelegationRegister(): DelegationEntry[] {
+  const reg: DelegationEntry[] = []
+  for (const g of getStore().userGroups ?? []) {
+    if (!isGroupActive(g)) continue
+    for (const m of g.members) {
+      for (const h of g.menuGrants) if (isGrantableMenu(h)) reg.push({ member: m, kind: '열람', target: TITLE_BY_HREF[h]?.title ?? h, group: g.label, expiresAt: g.expiresAt })
+      for (const k of g.actionGrants ?? []) {
+        const [h, a] = k.split('#')
+        if (h && a && isGrantableAction(h, a as ActionKey)) reg.push({ member: m, kind: '기능', target: `${TITLE_BY_HREF[h]?.title ?? h} · ${ACTION_LABEL[a as ActionKey]}`, group: g.label, expiresAt: g.expiresAt })
+      }
+    }
+  }
+  return reg.sort((x, y) => x.member.localeCompare(y.member) || x.kind.localeCompare(y.kind) || x.target.localeCompare(y.target))
 }
 
 /** 기능 수행 가능 여부(단일 술어) — 역할 유효 기능권한 OR 그룹 액션 위임. requireAction(강제)과 UI 표시가
