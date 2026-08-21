@@ -265,6 +265,9 @@ async function aiPeriodQuery(page) {
   // 유휴(재배치 가능) 자산 목록 — 재불출/재배치 풀. 상태 분포(대수)·저재고(유형)와 달리 개별 자산 목록이 공백이던 것을 채움. lib/stock.availableAssets 단일 판정.
   const ridle = await ask('유휴 자산 목록 보여줘')
   ok('AI 유휴질의: 재배치 가능(유휴·폐기 미진입) 자산 목록으로 답(상태 분포 폴백 아님)', ridle.includes('재배치 가능한 유휴 자산') && !ridle.includes('상태별 분포'))
+  // 고가(최고가) 자산 질의 — 유형 집계만 있고 "어느 자산이 가장 비싼가"(개별 TOP)가 공백이라 '비싼/고가' 키워드가 폴백으로 빠지던 것을 값 인텐트로 흡수.
+  const rtop = await ask('가장 비싼 자산 알려줘')
+  ok('AI 고가질의: 개별 고가 자산 TOP 목록으로 답(폴백 아님)', rtop.includes('고가 자산 TOP 5') && /취득가 [\d,]+원/.test(rtop))
   // 공급사(벤더) 집중도 질의 — 기존 벤더 집계 뷰가 없어 '계약' 포괄 인텐트(만료 답)로 떨어지던 공백. 공급사별 계약 수·계약액 집계로 라우팅되는지 확인.
   const rvend = await ask('공급사별 계약 현황 알려줘')
   ok('AI 공급사질의: 공급사별 계약 집계(계약 수·계약액, 만료 답 아님)', rvend.includes('공급사별 계약 현황') && /계약 \d+건 · 계약액 .+원/.test(rvend) && !rvend.includes('만료 예정 계약은'))

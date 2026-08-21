@@ -493,7 +493,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
   // 자산 가치·감가상각 질의 — 취득가·잔존가치(장부가)·TCO 를 조직 집계로 답한다(v1.180~186 원가 체인). 비사용자만(가치 집계는 권한 스코프).
-  if (canAsset && (q.includes('자산 가치') || q.includes('자산가치') || q.includes('취득가') || q.includes('감가상각') || q.includes('잔존가치') || q.includes('장부가') || q.includes('총소유비용') || q.includes('tco') || q.includes('자산 가액'))) {
+  if (canAsset && (q.includes('자산 가치') || q.includes('자산가치') || q.includes('취득가') || q.includes('감가상각') || q.includes('잔존가치') || q.includes('장부가') || q.includes('총소유비용') || q.includes('tco') || q.includes('자산 가액') || q.includes('비싼') || q.includes('최고가') || q.includes('고가 자산'))) {
     const t = today()
     const valued = s.assets.filter((a) => a.status !== '폐기완료' && acquisitionCostOf(a) > 0)
     const totalAcq = valued.reduce((n, a) => n + acquisitionCostOf(a), 0)
@@ -517,6 +517,13 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         ``,
         `유형별(취득가순):`,
         ...byCat.map((x) => `   - ${x.c} ${x.n}대 · 취득가 ${x.acq.toLocaleString()}원 / 장부가 ${x.book.toLocaleString()}원`),
+        ``,
+        // 고가 자산 TOP — 개별 최고가 자산(보험·감사·중요도 판단 근거). 유형 집계만으로는 "어느 자산이 가장 비싼가"를 못 답했다.
+        `고가 자산 TOP 5(취득가순):`,
+        ...[...valued]
+          .sort((a, b) => acquisitionCostOf(b) - acquisitionCostOf(a))
+          .slice(0, 5)
+          .map((a) => `   - ${a.assetNo} ${a.model} · ${a.owner || '미배정'}(${a.dept}) · 취득가 ${acquisitionCostOf(a).toLocaleString()}원 / 장부가 ${bookValueOf(a, t).toLocaleString()}원`),
       ].join('\n'),
       evidence: [
         { label: '자산 가치 현황(재고)', href: '/inventory/stock' },
