@@ -517,20 +517,27 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: '부서별 IT 자산 원가',
         note: '운영 자산(폐기완료 제외) · 정액법 감가상각(내용연수 5년 기준 잔존가치) · 취득원가 없는 SW·가상자원 제외',
         columns: ['부서', '자산 수', '취득가', '잔존가치(장부가)', '누적 유지보수비'],
-        rows: deptRows.map(([d, v]) => [
-          d,
-          String(v.n),
-          `${fmtAmount(v.acq)}원`,
-          `${fmtAmount(v.book)}원`,
-          v.repair > 0 ? `${fmtAmount(v.repair)}원` : '-',
-        ]),
+        rows: [
+          ...deptRows.map(([d, v]) => [
+            d,
+            String(v.n),
+            `${fmtAmount(v.acq)}원`,
+            `${fmtAmount(v.book)}원`,
+            v.repair > 0 ? `${fmtAmount(v.repair)}원` : '-',
+          ]),
+          // 합계 행 — 전사 IT 자산 원가·잔존가치·누적 유지보수비를 표 안에서 바로 확인(차지백·예산 근거)
+          ['합계', String(deptRows.reduce((n, [, v]) => n + v.n, 0)), `${fmtAmount(totalAcq)}원`, `${fmtAmount(totalBook)}원`, `${fmtAmount(totalRepair)}원`],
+        ],
       },
       {
         title: '부서별 라이선스 좌석 비용',
         note: '배정 라이선스 좌석의 단가를 좌석 배정 부서로 배분(해지 라이선스 제외) — 연간 구독 기준',
         columns: ['부서', '배정 좌석', '좌석 비용(단가 합)'],
         rows: seatRows.length
-          ? seatRows.map(([d, v]) => [d, `${v.seats}석`, `${fmtAmount(v.cost)}원`])
+          ? [
+              ...seatRows.map(([d, v]) => [d, `${v.seats}석`, `${fmtAmount(v.cost)}원`]),
+              ['합계', `${seatRows.reduce((n, [, v]) => n + v.seats, 0)}석`, `${fmtAmount(totalSeat)}원`],
+            ]
           : [['-', '0석', '배정 좌석 없음']],
       },
       {
@@ -538,7 +545,10 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         note: '유지보수 계약 총액을 주관 부서로 배분(해지 제외) — 구매 계약은 자산 취득가·라이선스와 중복이라 제외',
         columns: ['부서', '계약 수', '유지보수 계약비'],
         rows: mcRows.length
-          ? mcRows.map(([d, v]) => [d, `${v.n}건`, `${fmtAmount(v.cost)}원`])
+          ? [
+              ...mcRows.map(([d, v]) => [d, `${v.n}건`, `${fmtAmount(v.cost)}원`]),
+              ['합계', `${mcRows.reduce((n, [, v]) => n + v.n, 0)}건`, `${fmtAmount(totalMc)}원`],
+            ]
           : [['-', '0건', '유지보수 계약 없음']],
       },
       {
