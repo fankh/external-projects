@@ -40,6 +40,7 @@ function detectReportIntent(q: string): { kind?: ReportKind } | null {
     [/ai\s*거버넌스|거버넌스|정확도|채택률|프롬프트|모델\s*버전|ai\s*성능/i, 'AI 거버넌스·성능'],
     [/shadow|섀도|쉐도|발견|브리핑|주간/i, '주간 Shadow IT 브리핑'],
     [/차지백|비용\s*배[분부]|부서별\s*(it|비용|아이티)|chargeback|it\s*비용|showback/i, '부서별 IT 비용 배분'],
+    [/감가상각|상각\s*명세|상각\s*(스케줄|일정|계획)|depreciation/i, '감가상각 명세'],
     [/계약\s*관리|계약\s*현황|계약\s*이행|계약\s*포트폴리오|발주\s*이행|유지보수\s*예산/i, '계약 관리 현황'],
   ]
   const kind = kindMatchers.find(([re]) => re.test(q))?.[1]

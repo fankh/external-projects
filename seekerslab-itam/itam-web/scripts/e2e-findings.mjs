@@ -343,6 +343,14 @@ async function aiPeriodQuery(page) {
   const crId = decodeURIComponent((crHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const crText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(crId)}?format=xlsx`)).body()).toString('utf8')
   ok('리포트 반출: 복합 위험 자산 xlsx 에 중첩 신호·신호별 빈도·부서별 분포 섹션 실린다', crText.includes('복합 위험 자산 (주의 신호 2개 이상 중첩)') && crText.includes('신호별 출현 빈도') && crText.includes('부서별 분포') && crText.includes('중첩 신호'))
+  // 감가상각 명세 리포트(신규 역량) — 정액법 연도별 상각 전개(고정자산 회계·재취득 예산 근거). bookValueOf 단일 소스를 연말 날짜로 호출해 상각 곡선 산출.
+  //  생성 인텐트가 '감가상각'으로 신규 종류 매칭. 부서별 비용 배분(현재 잔존가 스냅샷)과 달리 전방 연도별 전개.
+  const rDep = await ask('감가상각 명세 리포트 생성해줘')
+  ok('AI 감가상각질의: 감가상각 명세 리포트 생성 분기', rDep.includes('리포트를 생성했습니다') && rDep.includes('감가상각 명세'))
+  const depHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const depId = decodeURIComponent((depHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const depText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(depId)}?format=xlsx`)).body()).toString('utf8')
+  ok('리포트 반출: 감가상각 명세 xlsx 에 연도별 상각 전개·유형별 상각 현황 섹션(연간 상각액·연말 장부가)', depText.includes('연도별 감가상각 명세') && depText.includes('연간 상각액') && depText.includes('연말 장부가') && depText.includes('유형별 상각 현황'))
   // 부서별 IT 비용 배분(차지백) 리포트 — 자연어 생성 인텐트가 신규 종류를 매칭하고, buildSections 가 부서별 원가·좌석 비용 섹션을 실제 산출.
   const r4 = await ask('부서별 IT 비용 배분 리포트 생성해줘')
   ok('AI 차지백질의: 부서별 IT 비용 배분 생성 분기', r4.includes('리포트를 생성했습니다'))

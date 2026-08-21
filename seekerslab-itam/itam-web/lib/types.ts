@@ -1093,6 +1093,7 @@ export type ReportKind =
   | '단일 장애점·영향 분석'
   | '자산 운영 리스크'
   | '복합 위험 자산'
+  | '감가상각 명세'
 
 export interface ReportSection {
   title: string
