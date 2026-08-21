@@ -349,6 +349,15 @@ export async function renameCodeValue(groupId: string, code: string, rawLabel: s
   if (!label) return { ok: false, message: '명칭을 입력하세요.' }
   if (label === v.label) return { ok: true, message: '' }
 
+  // 참조 무결성 — 참조는 코드값(label)으로 저장되므로(codeUsage 도 label 매칭), 사용 중인 코드의 명칭을 바꾸면
+  //  기존 레코드는 옛 label 을 그대로 들고 있어 고아가 되고(드롭다운·codeUsage 사각지대), 바뀐 새 label 은 참조 0 으로
+  //  집계돼 미사용 전환 가드까지 우회된다(toggleCodeValue 가 막는 바로 그 구멍을 rename 이 열던 공백).
+  //  상태·대사결과처럼 label 이 코드 로직에 하드코딩된 그룹은 cascade 도 위험하므로, 미사용 전환과 동일하게 '이관 후 변경'으로 잠근다.
+  const used = codeUsage(g.id, v.label)
+  if (used > 0) {
+    return { ok: false, message: `사용 중인 코드는 명칭을 바꿀 수 없습니다 — '${v.label}'을(를) 참조하는 레코드 ${used}건. 먼저 이관 후 변경하세요.` }
+  }
+
   const before = v.label
   v.label = label
   audit(session.name, `공통코드 명칭 수정 — ${before} → ${label}`, `${g.id}.${code}`)
