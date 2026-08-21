@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { deleteSettlement, resubmitSettlement } from '../actions'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
+import { groupGrantsAction, requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { computeFinanceKpis, planBasisAmount, planExecRate } from '@/lib/finance'
 import { getStore, nextNo } from '@/lib/store'
@@ -117,6 +117,8 @@ export default async function InvestPage() {
   const me = await requireMenu('/finance/invest')
   const s = getStore()
   const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
+  // 확정(계획 확정)은 역할(canManage) 또는 그룹 기능 위임을 받은 사용자에게 노출. 그 외 라이프사이클 컨트롤(효율화)은 canManage.
+  const canConfirm = canManage || groupGrantsAction(me.name, '/finance/invest', 'confirm')
   // 재무 리포트(전사 집계·계약·정산·계획대비실적)는 관리자급(부서담당 이상)만 — 일반 사용자는
   // 본인 경영계획만 본다. 회사 전체 재무를 일반 직원이 열람하지 않도록 잠근다.
   const canViewFinance = me.role !== 'USER'
@@ -156,7 +158,7 @@ export default async function InvestPage() {
       <Card title="경영계획 — 투자과제" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>과제번호</th><th>과제명</th><th>담당</th><th className="num">계획액 (만원)</th><th>상태</th>{canManage && <th className="c">확정</th>}</tr></thead>
+            <thead><tr><th>과제번호</th><th>과제명</th><th>담당</th><th className="num">계획액 (만원)</th><th>상태</th>{(canManage || canConfirm) && <th className="c">확정</th>}</tr></thead>
             <tbody>
               {plans.map((p) => (
                 <tr key={p.id}>
@@ -175,18 +177,20 @@ export default async function InvestPage() {
                       </form>
                     )}
                   </td>
-                  {canManage && (
+                  {(canManage || canConfirm) && (
                     <td className="c">
-                      {p.status === '취합' ? (
+                      {p.status === '효율화' ? (
+                        canConfirm ? (
+                        <form action={confirmPlan} style={{ display: 'inline' }}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <button type="submit" className="btn sm pri">계획 확정</button>
+                        </form>
+                        ) : null
+                      ) : !canManage ? null : p.status === '취합' ? (
                         <form action={optimizePlan} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="id" value={p.id} />
                           <input className="input" name="amount" type="number" min={1} placeholder={String(p.amount)} title="효율화 조정액 (미입력 시 유지)" style={{ height: 25, fontSize: 11.5, width: 80 }} />
                           <button type="submit" className="btn sm pri">효율화</button>
-                        </form>
-                      ) : p.status === '효율화' ? (
-                        <form action={confirmPlan} style={{ display: 'inline' }}>
-                          <input type="hidden" name="id" value={p.id} />
-                          <button type="submit" className="btn sm pri">계획 확정</button>
                         </form>
                       ) : <span className="mut">-</span>}
                     </td>
