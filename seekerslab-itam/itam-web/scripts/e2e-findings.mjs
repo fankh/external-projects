@@ -1993,11 +1993,11 @@ try {
   //  그동안 deleteReport 는 s.reports 에서만 지우고 ap.reportRefs 는 그대로 둬, 삭제된 리포트가 결재 '근거 리포트'로 남았다(404).
   await p3.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
   await p3.locator('.card', { hasText: '리포트 유형' }).locator('tr', { hasText: '재물조사 결과 요약' }).locator('button', { hasText: /^생성$/ }).click()
-  await p3.waitForTimeout(1000)
-  // 생성된 리포트 ID = 페이지 유일 td.code(생성된 리포트 표) 첫 행(unshift → 최신). '생성된 리포트' 텍스트는 스케줄 카드 콜아웃에도 있어 .card hasText 로 잡으면 안 됨.
-  const drRepId = ((await p3.locator('td.code').first().textContent()) || '').trim()
-  await p3.locator('tbody tr', { hasText: drRepId }).first().locator('button', { hasText: /^펼치기$/ }).click()
-  await p3.waitForTimeout(400)
+  await p3.waitForTimeout(1200)
+  // 생성 직후 최신 리포트가 자동으로 펼쳐진다(ReportsView: 선택 없으면 최신 펼침) — 펼치기 클릭 불필요, 첨부 UI 가 바로 보인다.
+  //  리포트 ID 는 열린 패널의 '결재 첨부용 문서'(md 다운로드) 링크에서 추출(견고).
+  const drMd = (await p3.locator('a', { hasText: '결재 첨부용 문서' }).first().getAttribute('href')) || ''
+  const drRepId = (drMd.match(/reports\/([^?]+)/) || [])[1] || ''
   const drSel = p3.locator('select', { has: p3.locator('option', { hasText: /대기 결재 선택|대기 중 결재 없음/ }) })
   const drOpts = drSel.locator('option')
   const drAprId = ((await drOpts.count()) > 1) ? ((await drOpts.nth(1).getAttribute('value')) || '') : ''
