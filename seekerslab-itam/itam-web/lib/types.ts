@@ -1094,6 +1094,7 @@ export type ReportKind =
   | '자산 운영 리스크'
   | '복합 위험 자산'
   | '감가상각 명세'
+  | '계약 갱신 전망'
 
 export interface ReportSection {
   title: string
