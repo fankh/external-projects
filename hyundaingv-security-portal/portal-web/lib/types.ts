@@ -11,7 +11,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   USER: '사용자',
   DEPT_MGR: '부서담당',
   BIZ_MGR: '업무담당',
-  ADMIN: 'Admin',
+  ADMIN: '관리자',
 }
 
 /** SR 3종 (시스템개발 · 데이터 · 계정/권한) */

@@ -133,7 +133,7 @@ export default async function ChangesPage() {
                   <td className="strong">{c.title}<Clip count={attachCount(c.id)} title="작업 증적" /></td>
                   <td style={{ maxWidth: 240, fontSize: 11.5 }}>
                     {c.plan ? <div title="작업계획">{c.plan}</div> : <span className="mut">-</span>}
-                    {c.rollbackPlan && <div className="mut" title="원복계획" style={{ marginTop: 2 }}>↩ {c.rollbackPlan}</div>}
+                    {c.rollbackPlan && <div className="mut" title="원복계획" style={{ marginTop: 2 }}><b>원복</b> {c.rollbackPlan}</div>}
                   </td>
                   <td>{c.srNo ? <span className="mono">{c.srNo}</span> : <span className="mut">-</span>}</td>
                   <td><Chip tone={ST_CHIP[c.status]}>{c.status}</Chip></td>
