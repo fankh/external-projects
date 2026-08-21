@@ -51,6 +51,10 @@ export function AppShell(props: {
     }) }))
     .filter((g) => g.items.length > 0)
   const activeGroup = groups.find((g) => g.items.some((i) => pathname.startsWith(i.href))) ?? groups[0]
+  // 현재 화면을 역할이 아니라 그룹 열람 위임으로만 접근 중인가 — 위임받은 사용자가 쓰기 컨트롤을 보고
+  // 오해하지 않도록 열람 전용 안내를 띄운다(서버는 쓰기를 역할 게이트로 막지만 UI 는 컨트롤을 렌더).
+  const curItem = NAV.flatMap((g) => g.items).find((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))
+  const grantOnlyView = !!curItem && (props.grantedHrefs ?? []).includes(curItem.href) && !curItem.roles.includes(props.role)
   const badgeOf = (badge?: 'todos' | 'approvals') => (badge ? props.badges[badge] : 0)
 
   // MDI 탭 — 방문 시 upsert, 새로고침 간 유지
@@ -150,7 +154,15 @@ export function AppShell(props: {
         </aside>
         <div className="main">
           <main className="content" id="main">
-            <div className="content-inner">{props.children}</div>
+            <div className="content-inner">
+              {grantOnlyView && (
+                <div className="callout" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <Icon name="usergroup" size={14} />
+                  <span>그룹 열람 위임으로 접근 중인 화면입니다 — <b>열람 전용</b>. 저장·삭제 등 쓰기 기능은 역할 권한에 따라 제한됩니다.</span>
+                </div>
+              )}
+              {props.children}
+            </div>
           </main>
           <footer className="statusbar">
             <span>
