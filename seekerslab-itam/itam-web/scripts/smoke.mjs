@@ -182,9 +182,9 @@ try {
   check('자산 대장: 정합성 보정 인라인 컨트롤(자산담당)', regDq.includes('보정할 소유자') && regDq.includes('보정할 위치'))
   const regDqUser = await (await get('/assets/register?sel=AST-2022-000512', 'USER')).text()
   check('자산 대장(사용자): 정합성 보정 컨트롤 미노출 (조회 전용)', !regDqUser.includes('보정할 소유자'))
-  // SW 자산은 물리 위치·시리얼이 없어 정합성 이슈가 아니다 — 오탐 방지(AST-2023-000720 · Microsoft 365, 위치 '-')
+  // SW 자산은 물리 위치·시리얼이 없어 정합성 미흡이 아니다 — 오탐 방지(AST-2023-000720 · Microsoft 365, 위치 '-')
   const regSw = await (await get('/assets/register?sel=AST-2023-000720', 'ASSET_MGR')).text()
-  check('자산 대장: SW 자산 위치 누락은 정합성 이슈 아님 (오탐 방지)', !regSw.includes('대장 정합성 미흡'))
+  check('자산 대장: SW 자산 위치 누락은 정합성 미흡 아님 (오탐 방지)', !regSw.includes('대장 정합성 미흡'))
   // 업무 중요도(§05 자산 중요도 축) — 상세에 표시, 시드 핵심 자산(AST-2020-000883 · CentOS7 서버)에 '핵심' 노출
   const regCrit = await (await get('/assets/register?sel=AST-2020-000883', 'ASSET_MGR')).text()
   check('자산 대장: 업무 중요도 표시 (핵심 자산)', regCrit.includes('업무 중요도') && regCrit.includes('핵심'))
