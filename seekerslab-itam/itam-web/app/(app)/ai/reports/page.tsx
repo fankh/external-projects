@@ -23,9 +23,12 @@ export default async function ReportsPage() {
       overdue: isScheduleOverdue(sc),
     }
   })
-  // 스케줄이 없는 '수시' 리포트도 함께 보여줘야 5종 전체가 한눈에 들어온다
+  // 스케줄이 없는 리포트도 함께 보여준다 — 주기(period)를 함께 넘겨, 정기(월간·주간)인데 스케줄 미등록인 리포트는
+  // '스케줄 등록'을, 수시 리포트는 수동 생성 안내를 구분해 노출한다.
   const scheduled = new Set(s.reportSchedules.map((x) => x.kind))
-  const adhoc = REPORT_KINDS.filter((k) => !scheduled.has(k.kind)).map((k) => ({ kind: k.kind, desc: k.desc }))
+  const adhoc = REPORT_KINDS.filter((k) => !scheduled.has(k.kind)).map((k) => ({ kind: k.kind, desc: k.desc, period: k.period }))
+  const onceOffN = adhoc.filter((a) => a.period === '수시').length
+  const schedulableN = adhoc.length - onceOffN
 
   return (
     <>
@@ -37,7 +40,7 @@ export default async function ReportsPage() {
       />
 
       <div className="stat-row">
-        <Stat value={REPORT_KINDS.length} label="리포트 유형" delta={{ text: `자동 ${s.reportSchedules.length}(가동 ${s.reportSchedules.filter((x) => x.enabled).length}) · 수시 ${adhoc.length}`, dir: 'flat' }} />
+        <Stat value={REPORT_KINDS.length} label="리포트 유형" delta={{ text: `자동 ${s.reportSchedules.length}(가동 ${s.reportSchedules.filter((x) => x.enabled).length}) · 수시 ${onceOffN}${schedulableN ? ` · 스케줄 미등록 정기 ${schedulableN}` : ''}`, dir: 'flat' }} />
         <Stat value={s.reports.length} label="생성된 리포트" tone="accent" />
         <Stat value={s.reports.filter((r) => r.mode === 'AI').length} label="AI 서술 생성" tone={ai.state === '가동' ? 'ok' : 'warn'} />
         <Stat value={s.aiPolicy.auditRetentionDays} label="리포트·AI 로그 보존 (일)" />

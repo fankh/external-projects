@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
-import { createReport, isScheduleOverdue } from '@/lib/reports'
+import { REPORT_KINDS, createReport, isScheduleOverdue } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { dispatch } from '@/lib/notify'
 import { getStore } from '@/lib/store'
@@ -60,6 +60,29 @@ export async function toggleSchedule(kind: ReportKind) {
   appendAudit({ actor: session.name, action: `리포트 스케줄 ${sc.enabled ? '가동' : '중지'} — ${kind}`, target: '리포트 스케줄' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${kind} 스케줄 ${sc.enabled ? '가동' : '중지'}` }
+}
+
+/** 스케줄 신규 등록 — 주기는 정기(월간·주간)이나 시드 스케줄이 없던 리포트(감가상각 명세·계약 갱신 전망 등)를
+ *  자동 생성 대상으로 편입한다(제품안내서 §05 리포트 자동 생성). 그동안 toggleSchedule 은 기존 스케줄만 켜고 끌 수 있어
+ *  신규 정기 리포트를 자동 생성에 올릴 경로가 없었다. 수시 리포트는 사유 발생 시 생성이라 대상 아님. 기본값 등록 후 '수정'으로 조정. 비사용자만. */
+export async function createSchedule(kind: ReportKind) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '스케줄 등록 권한이 없습니다.' }
+  const s = getStore()
+  if (s.reportSchedules.some((x) => x.kind === kind)) return { ok: false, message: '이미 스케줄이 등록된 리포트입니다.' }
+  const def = REPORT_KINDS.find((k) => k.kind === kind)
+  if (!def || (def.period !== '월간' && def.period !== '주간')) return { ok: false, message: '수시 리포트는 자동 생성 스케줄 대상이 아닙니다 (사유 발생 시 생성).' }
+  const period = def.period as '월간' | '주간'
+  s.reportSchedules.push({
+    kind,
+    period,
+    enabled: true,
+    ...(period === '주간' ? { dayOfWeek: 1, hour: 8 } : { dayOfMonth: 1, hour: 9 }),
+    recipients: ['IT기획팀', '자산관리팀'],
+  })
+  appendAudit({ actor: session.name, action: `리포트 스케줄 신규 등록 — ${kind} (${period})`, target: '리포트 스케줄' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${kind} 스케줄 등록 — ${period === '주간' ? '매주 월요일 08:00' : '매월 1일 09:00'} 자동 생성 (수정에서 시점·수신자 변경)` }
 }
 
 /** 예약 실행 — 기한이 지난 스케줄을 돌려 리포트를 만들고 수신자에게 배포한다.
