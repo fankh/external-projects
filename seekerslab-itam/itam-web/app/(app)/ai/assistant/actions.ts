@@ -148,6 +148,25 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
 
+  // 특정 사용자 보유 자산 조회 — 오프보딩(퇴직·부서 이동)·후임 승계 준비 시 "OOO이 보유한 자산"을 한 번에 조회한다.
+  //  대장 소유자 검색(?q=이름)·일괄 회수/재배정과 같은 대장 원천. 개인별 조회는 관리 기능이라 자산담당·Admin (USER 는 컨텍스트에서 본인 자산만).
+  //  자산번호 조회(위) 다음에 두되, 실제 사용자 이름이 질의에 있을 때만 발동해 다른 인텐트를 가리지 않는다.
+  if (canAsset && (q.includes('보유') || q.includes('가진') || q.includes('가지고') || q.includes('맡은') || q.includes('담당') || q.includes('소유') || q.includes('자산') || q.includes('장비') || q.includes('기기'))) {
+    const named = s.users.find((u) => u.name.length >= 2 && u.role !== 'ADMIN' && question.includes(u.name))
+    if (named) {
+      const held = s.assets.filter((a) => a.owner === named.name && a.status !== '폐기완료')
+      const byStatus = [...new Set(held.map((a) => a.status))].map((st) => `${st} ${held.filter((a) => a.status === st).length}`)
+      const receiptN = held.filter((a) => a.receiptPending).length
+      return {
+        role: 'assistant',
+        text: held.length === 0
+          ? `${named.name} (${named.dept})님이 보유한 자산이 없습니다.`
+          : `${named.name} (${named.dept})님 보유 자산은 ${held.length}건입니다 (${byStatus.join(' · ')}${receiptN ? ` · 수령 미확인 ${receiptN}` : ''}).\n\n${held.slice(0, 12).map((a) => `· ${a.assetNo} — ${a.model} (${a.category}) · ${a.status}${a.receiptPending ? ' · 수령 미확인' : ''}`).join('\n')}${held.length > 12 ? `\n… 외 ${held.length - 12}건` : ''}\n\n오프보딩·후임 승계 시 대장에서 소유자로 검색해 일괄 회수(반납 접수) 또는 일괄 재배정(직접 인계)으로 처리할 수 있습니다.`,
+        evidence: [{ label: `자산 대장 (${named.name} 보유분)`, href: `/assets/register?q=${encodeURIComponent(named.name)}` }],
+      }
+    }
+  }
+
   if (canAsset && (q.includes('재물조사') || q.includes('실사') || q.includes('재고조사'))) {
     const cur = s.inventoryRounds.find((r) => r.status === '진행중')
     const rounds = s.inventoryRounds
