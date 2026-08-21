@@ -165,7 +165,9 @@ export function ssoAdapter(): SsoAdapter | null {
 export function ssoLoginAvailable(): boolean {
   const ch = channelOf('groupware-sso')
   if (!ch || !isEnabled('groupware-sso')) return false
-  return ch.adapterId !== 'mock-sso'
+  // 목업 판별은 isMockAdapter 단일 근거를 따른다(하드코딩 'mock-sso' 대신) — 배포 준비 신호와
+  // 같은 기준으로 '실 SSO 인가'를 판정해 드리프트를 막는다.
+  return !isMockAdapter(ch.adapterId)
 }
 
 export function secdataAdapter(): SecdataAdapter | null {
