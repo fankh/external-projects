@@ -257,6 +257,11 @@ async function aiPeriodQuery(page) {
   // 부서별 '비용' 질의는 '대수'가 아니라 '비용'(취득가·잔존가) 답변 — 그동안 '부서별 비용'이 부서 보유(대수) 인텐트에 걸려 대수로 오답했다(비용 인텐트를 앞에 배치).
   const rdc = await ask('부서별 IT 비용 알려줘')
   ok('AI 부서비용질의: 비용 질의는 부서별 취득가·잔존가로 답(대수 오답 아님)', rdc.includes('부서별 IT 자산 비용') && rdc.includes('취득가') && !/대 \(사용중 \d+\)/.test(rdc))
+  // 위치(사업장)별 질의 — 물리 실사·데이터센터 랙 조회. 그동안 어느 인텐트에도 안 걸려 폴백(분포→상태별)으로 빠지던 공백.
+  const rloc1 = await ask('위치별 자산 분포 알려줘')
+  ok('AI 위치질의: 위치(사업장)별 자산 분포로 답(상태별 분포 폴백 아님)', rloc1.includes('위치(사업장)별 자산 분포') && /대 \(사용중 \d+\)/.test(rloc1) && !rloc1.includes('상태별'))
+  const rloc2 = await ask('IDC-A 자산 알려줘')
+  ok('AI 위치질의: 특정 사이트(IDC-A) 지목 시 해당 위치 자산 목록', rloc2.includes('IDC-A 소재 자산 현황') && rloc2.includes('· '))
   // 공급사(벤더) 집중도 질의 — 기존 벤더 집계 뷰가 없어 '계약' 포괄 인텐트(만료 답)로 떨어지던 공백. 공급사별 계약 수·계약액 집계로 라우팅되는지 확인.
   const rvend = await ask('공급사별 계약 현황 알려줘')
   ok('AI 공급사질의: 공급사별 계약 집계(계약 수·계약액, 만료 답 아님)', rvend.includes('공급사별 계약 현황') && /계약 \d+건 · 계약액 .+원/.test(rvend) && !rvend.includes('만료 예정 계약은'))
