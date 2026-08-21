@@ -1993,10 +1993,10 @@ try {
   //  그동안 deleteReport 는 s.reports 에서만 지우고 ap.reportRefs 는 그대로 둬, 삭제된 리포트가 결재 '근거 리포트'로 남았다(404).
   await p3.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
   await p3.locator('.card', { hasText: '리포트 유형' }).locator('tr', { hasText: '재물조사 결과 요약' }).locator('button', { hasText: /^생성$/ }).click()
-  await p3.waitForTimeout(900)
-  const genCard = p3.locator('.card', { hasText: '생성된 리포트' })
-  const drRepId = ((await genCard.locator('tbody tr').first().locator('td.code').textContent()) || '').trim()
-  await genCard.locator('tbody tr').first().locator('button', { hasText: /^펼치기$/ }).click()
+  await p3.waitForTimeout(1000)
+  // 생성된 리포트 ID = 페이지 유일 td.code(생성된 리포트 표) 첫 행(unshift → 최신). '생성된 리포트' 텍스트는 스케줄 카드 콜아웃에도 있어 .card hasText 로 잡으면 안 됨.
+  const drRepId = ((await p3.locator('td.code').first().textContent()) || '').trim()
+  await p3.locator('tbody tr', { hasText: drRepId }).first().locator('button', { hasText: /^펼치기$/ }).click()
   await p3.waitForTimeout(400)
   const drSel = p3.locator('select', { has: p3.locator('option', { hasText: /대기 결재 선택|대기 중 결재 없음/ }) })
   const drOpts = drSel.locator('option')
@@ -2008,7 +2008,7 @@ try {
   await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   ok('리포트 삭제-참조정리: 첨부 직후 결재에 근거 리포트 노출', ((await p3.locator('tr', { hasText: drAprId }).first().textContent()) || '').includes(drRepId))
   await p3.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
-  await p3.locator('.card', { hasText: '생성된 리포트' }).locator('tbody tr', { hasText: drRepId }).first().locator('button', { hasText: /^삭제$/ }).click()
+  await p3.locator('tbody tr', { hasText: drRepId }).first().locator('button', { hasText: /^삭제$/ }).click()
   await p3.waitForTimeout(800)
   await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   ok('리포트 삭제 → 결재 근거 리포트 참조 정리(죽은 링크 방지·참조 무결성)', !((await p3.locator('tr', { hasText: drAprId }).first().textContent()) || '').includes(drRepId))
