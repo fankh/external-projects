@@ -119,6 +119,23 @@ export default async function GroupsPage() {
   const actionGrantCount = groups.reduce((sum, g) => sum + (g.actionGrants ?? []).length, 0)
   const expiredCount = groups.filter((g) => !isGroupActive(g)).length
 
+  // 위임 현황 — 현재 유효한(만료 안 된) 그룹의 모든 위임을 구성원 단위로 펼친 감사용 대장(누가·무엇을·어느
+  // 그룹으로·언제까지). 만료 그룹은 위임이 회수돼 제외한다(그룹 카드에 만료 표시). 화면=해석 동일 술어.
+  const registerRows = groups
+    .filter((g) => isGroupActive(g))
+    .flatMap((g) => g.members.flatMap((m) => [
+      ...g.menuGrants.filter((h) => isGrantableMenu(h)).map((h) => ({
+        member: m, kind: '열람' as const, target: TITLE_BY_HREF[h]?.title ?? h, group: g.label, expiresAt: g.expiresAt,
+      })),
+      ...(g.actionGrants ?? []).flatMap((k) => {
+        const [h, a] = k.split('#')
+        return h && a && isGrantableAction(h, a as ActionKey)
+          ? [{ member: m, kind: '기능' as const, target: `${TITLE_BY_HREF[h]?.title ?? h} · ${ACTION_LABEL[a as ActionKey]}`, group: g.label, expiresAt: g.expiresAt }]
+          : []
+      }),
+    ]))
+    .sort((x, y) => x.member.localeCompare(y.member) || x.kind.localeCompare(y.kind) || x.target.localeCompare(y.target))
+
   return (
     <>
       <ScreenHeader kicker="환경설정" title="사용자 그룹"
@@ -139,6 +156,30 @@ export default async function GroupsPage() {
           <input className="input" name="expiresAt" aria-label="만료일" type="date" title="만료일 (선택 — 지나면 위임 자동 회수)" style={{ width: 150 }} />
           <button type="submit" className="btn pri">그룹 등록</button>
         </form>
+      </Card>
+
+      <Card title="위임 현황" pad={false}
+        actions={<span className="mut" style={{ fontSize: 11 }}>현재 유효한 위임 {registerRows.length}건 — 만료 그룹 제외</span>}>
+        {registerRows.length === 0 ? (
+          <div className="empty">현재 유효한 위임이 없습니다. 그룹에 구성원·부여 대상을 지정하면 여기 모입니다.</div>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>구성원</th><th>유형</th><th>부여 대상</th><th>소속 그룹</th><th>만료</th></tr></thead>
+              <tbody>
+                {registerRows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="strong">{r.member}</td>
+                    <td><Chip tone={r.kind === '기능' ? 'warn' : 'info'} bare>{r.kind}</Chip></td>
+                    <td>{r.target}</td>
+                    <td className="mut">{r.group}</td>
+                    <td className="tnum">{r.expiresAt ? `${r.expiresAt} 까지` : <span className="mut">무기한</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {groups.length === 0 ? (
