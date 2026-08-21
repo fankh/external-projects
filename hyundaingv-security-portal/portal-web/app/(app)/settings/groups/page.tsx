@@ -153,7 +153,7 @@ export default async function GroupsPage() {
               {grp.members.length > 0 && grp.menuGrants.length > 0 && (
                 <div className="hstack" style={{ gap: 6, flexWrap: 'wrap', fontSize: 11.5 }}>
                   <Chip tone="info" bare><Icon name="usergroup" size={12} /> 활성 위임</Chip>
-                  <span className="mut">{grp.members.join(' · ')} 에게 {grp.menuGrants.map((h) => TITLE_BY_HREF[h]?.title ?? h).join(' · ')} 열람 부여</span>
+                  <span className="mut">{grp.members.join(' · ')}에게 {grp.menuGrants.map((h) => TITLE_BY_HREF[h]?.title ?? h).join(' · ')} 열람 부여</span>
                 </div>
               )}
             </div>
