@@ -8,7 +8,7 @@ import { daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, i
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf } from '@/lib/eol'
-import { assetDependencies } from '@/lib/cmdb'
+import { assetDependencies, criticalDependencies, impactSources } from '@/lib/cmdb'
 import { lowStockCategories } from '@/lib/stock'
 import { upcomingSchedule } from '@/lib/upcoming'
 import { compositeRiskAssetNos, riskSignalCount } from '@/lib/risk'
@@ -628,6 +628,19 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         ? '복합 위험(주의 신호 2개 이상 겹치는) 자산이 없습니다.'
         : `복합 위험 자산은 ${at.length}건입니다 (정합성·EOL·보증·점검·SPOF·교체·미실측 중 2개 이상 겹침 · 다중 이슈 우선 조치).\n\n${at.slice(0, 8).map((a) => `· ${a.assetNo} — ${a.model} · ${a.owner} (${a.dept}) · 위험 신호 ${riskSignalCount(a)}개`).join('\n')}${at.length > 8 ? `\n… 외 ${at.length - 8}건` : ''}\n\n한 자산에 문제가 몰린 순입니다. 대장 상세의 '위험 신호' 요약에서 어떤 신호가 걸렸는지 확인하고 우선 조치하세요.`,
       evidence: [{ label: '자산 대장 (복합 위험 ≥2 신호 필터)', href: '/assets/register?risk=1' }],
+    }
+  }
+  // 단일 장애점(SPOF)·영향 분석 — CMDB 의존 그래프상 장애 시 영향 범위(blast radius) 2대 이상인 자산을 인라인으로 답한다(리포트 생성과 별개).
+  //  자산별 CMDB 조회(위)의 전사 판 — '어느 자산이 단일 장애점인가'를 대화형으로. lib/cmdb 단일 소스(단일 장애점·영향 분석 리포트·대시보드 영향 집중 큐와 동일).
+  if (canAsset && (q.includes('단일 장애점') || q.includes('장애점') || q.includes('영향 범위') || q.includes('영향 큰') || q.includes('blast') || q.includes('spof') || q.includes('이중화'))) {
+    const spofs = criticalDependencies().slice().sort((a, b) => b.blastRadius.length - a.blastRadius.length)
+    const degradedN = impactSources().length
+    return {
+      role: 'assistant',
+      text: spofs.length === 0
+        ? '영향 범위 2대 이상인 단일 장애점(SPOF)이 없습니다.'
+        : `단일 장애점(SPOF) 자산은 ${spofs.length}건입니다 (CMDB 의존 그래프상 장애 시 영향 범위 2대 이상 · 영향 큰 순).\n\n${spofs.slice(0, 8).map((x) => `· ${x.asset.assetNo} — ${x.asset.model} (${x.asset.category}) · 장애 시 영향 ${x.blastRadius.length}대${x.degraded ? ' · ⚠ 현재 저하 상태 — 하위 위험 전이 중' : ''}`).join('\n')}${spofs.length > 8 ? `\n… 외 ${spofs.length - 8}건` : ''}${degradedN ? `\n\n현재 저하(분실·폐기·수리) 상태로 하위에 위험을 주는 상위 자산 ${degradedN}건 — 우선 복구·이중화 검토.` : ''}\n\n영향 범위가 큰 자산일수록 이중화·우선 복구 대상입니다.`,
+      evidence: [{ label: '자산 대장 (단일 장애점 필터)', href: '/assets/register?spof=1' }],
     }
   }
   // 운영 리스크 자산 — 분실·도난, 장기 미실측(유령 후보), 대여 반환 연체, 수리(지연)를 한 번에 훑는다 (자산팀 조치 대상)
