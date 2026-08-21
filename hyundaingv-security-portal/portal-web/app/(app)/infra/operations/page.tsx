@@ -3,7 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
 import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
-import { computeInfraHealth } from '@/lib/infra'
+import { computeInfraHealth, DISK_CAUTION, DISK_WARN } from '@/lib/infra'
 import { getStore, recordBatch } from '@/lib/store'
 import type { BatchJob, InterfaceDef } from '@/lib/types'
 
@@ -200,9 +200,9 @@ export default async function OperationsPage() {
                     <td>
                       <div className="hstack" style={{ gap: 7 }}>
                         <div style={{ flex: 1, height: 6, background: 'var(--line)', borderRadius: 3, overflow: 'hidden' }}>
-                          <div style={{ width: `${v.diskUsedPct}%`, height: '100%', background: v.diskUsedPct > 85 ? 'var(--err)' : v.diskUsedPct > 70 ? 'var(--warn)' : 'var(--ink)' }} />
+                          <div style={{ width: `${v.diskUsedPct}%`, height: '100%', background: v.diskUsedPct > DISK_WARN ? 'var(--err)' : v.diskUsedPct > DISK_CAUTION ? 'var(--warn)' : 'var(--ink)' }} />
                         </div>
-                        <span className="tnum" style={{ fontSize: 11.5, width: 34, textAlign: 'right', color: v.diskUsedPct > 85 ? 'var(--err)' : undefined }}>{v.diskUsedPct}%</span>
+                        <span className="tnum" style={{ fontSize: 11.5, width: 34, textAlign: 'right', color: v.diskUsedPct > DISK_WARN ? 'var(--err)' : undefined }}>{v.diskUsedPct}%</span>
                       </div>
                     </td>
                   </tr>

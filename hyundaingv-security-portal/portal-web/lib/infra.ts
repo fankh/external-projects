@@ -4,6 +4,8 @@ import type { Store } from './store'
 
 /** 디스크 사용률 경고 임계값(%) — 초과 시 경고로 집계. 화면·대시보드·export 가 공유(중복 정의 방지). */
 export const DISK_WARN = 85
+/** 디스크 사용률 주의 임계값(%) — 경고 미만이나 주의로 표시(사용률 막대 warn 색). systems·operations 표가 공유. */
+export const DISK_CAUTION = 70
 
 export interface InfraHealth {
   batchTotal: number
