@@ -263,6 +263,10 @@ async function aiPeriodQuery(page) {
   // 복합 위험 자산 질의(신규 역량) — 정합성·EOL·보증·점검·SPOF·교체·미실측 중 2+ 겹치는 다중 이슈 자산을 어시스턴트가 답한다. 대장 필터·도시어·대시보드 큐와 lib/risk 단일 소스. 답변이 ?risk=1 필터로 연결(count↔destination 정합).
   const rcr = await ask('복합 위험 자산 알려줘')
   ok('AI 복합위험질의: 다중 이슈(≥2 신호) 자산 요약 + ?risk=1 대장 필터 링크', /복합 위험 자산은 \d+건/.test(rcr) && (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?risk=1"]').count()) > 0)
+  // 특정 사용자 보유 자산 조회(신규 역량) — 오프보딩·후임 승계 준비 시 "OOO 보유 자산"을 한 번에. 대장 소유자 검색(?q=이름)으로 연결돼 일괄 회수/재배정 접점.
+  //  실제 사용자 이름이 질의에 있을 때만 발동(다른 인텐트 미가림). 김민준(플랫폼개발팀) 보유분 조회.
+  const rown = await ask('김민준 보유 자산 알려줘')
+  ok('AI 보유자질의: 특정 사용자(김민준) 보유 자산 + 대장 소유자 검색(?q=) 링크(오프보딩·승계 접점)', rown.includes('김민준') && rown.includes('보유') && (await page.locator('.msg.assistant').last().locator('.refs a[href*="/assets/register?q="]').count()) > 0)
   // 다가오는 일정(사전 계획) 질의 — 대시보드 '다가오는 일정' 카드와 같은 upcomingSchedule() 단일 소스. 향후 30일 예정분을 날짜순 아젠다로.
   //  전용 인텐트가 없으면 '일정' 질의가 폴백 답으로 떨어진다. 나열 날짜가 오름차순·창(≤30일) 이내인지 실행일 무관하게 자기검증.
   const rup = await ask('다가오는 일정 알려줘')
