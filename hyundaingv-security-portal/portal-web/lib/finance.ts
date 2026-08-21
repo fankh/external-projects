@@ -36,6 +36,16 @@ export function computeFinanceKpis(plans: InvestPlan[], contracts: InvestContrac
   return { planTotal, contractTotal, paidTotal, paidConfirmed, execRate }
 }
 
+/** per-과제(계획) 집행률(%) — 집행<계획이면 Math.round 의 거짓 100(99.5→100)을 99 로 캡한다(집계 execRate·
+ *  compliance·risk 비율의 '거짓 100 방지' 규약과 정합). 초과(집행>=계획)는 실값 유지(초과 신호). 화면(invest·
+ *  expense 계획대비실적 표)·계획대비실적 export 가 이 단일 원천을 공유해 per-plan 집행률 drift·거짓 100 을 막는다.
+ *  (집계 execRate 는 이미 캡됐으나 per-plan 표시가 캡을 안 해 KPI 99% 인데 유일 과제 행이 100% 로 어긋났었다.) */
+export function planExecRate(paid: number, amount: number): number {
+  return amount > 0
+    ? (paid >= amount ? Math.round((paid / amount) * 100) : Math.min(99, Math.round((paid / amount) * 100)))
+    : 0
+}
+
 export type AmountBasis = '정산' | '계약' | '계획'
 export interface BasisAmount { basis: AmountBasis; amount: number }
 

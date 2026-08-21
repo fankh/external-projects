@@ -2170,6 +2170,12 @@ def sc_finance_exec_false100(pg, base, check):
     pg.goto(f'{base}/finance/invest', wait_until='networkidle')
     rate = pg.locator('.stat', has_text='집행률').locator('.v').inner_text().strip()
     check(rate == '99%', f'미집행 99.5% 는 99% 로 표기(거짓 100 방지; 버그면 100%; 실제 {rate})')
+    # per-과제 행 집행률도 캡돼야 한다 — 집계 KPI 는 99% 인데 유일 과제 행이 100% 로 어긋나면 안 된다
+    # (planExecRate 단일 원천 전). 행 마지막 칩(기준액 칩 다음)이 집행률 칩. fails-without-fix: 미수정 시 100%.
+    row = pg.locator('.card', has_text='계획대비실적').locator('tr', has_text='IP-2026-95')
+    check(row.count() == 1, '경계 과제(IP-2026-95) 계획대비실적 행 노출')
+    item_rate = row.locator('.chip').last.inner_text().strip()
+    check(item_rate == '99%', f'per-과제 99.5% 도 99% (표 행도 거짓 100 방지; 버그면 100%; 실제 {item_rate})')
 
 
 def sc_flash_invalid_month(pg, base, check):

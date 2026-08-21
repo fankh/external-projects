@@ -6,7 +6,7 @@ import { audit } from '@/lib/audit'
 import { deleteSettlement, resubmitSettlement } from '../actions'
 import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { computeFinanceKpis } from '@/lib/finance'
+import { computeFinanceKpis, planExecRate } from '@/lib/finance'
 import { activeCodes, getStore, nextNo } from '@/lib/store'
 import type { SettlementItem } from '@/lib/types'
 
@@ -417,7 +417,7 @@ export default async function ExpensePage() {
                 const paid = cts.reduce((sum, c) => sum + kindSettlements
                   .filter((x) => x.contractId === c.id && x.status === '지급완료')
                   .reduce((sm, x) => sm + x.amount, 0), 0)
-                const rate = p.amount ? Math.round((paid / p.amount) * 100) : 0
+                const rate = planExecRate(paid, p.amount)
                 return (
                   <tr key={p.id}>
                     <td className="strong">{p.title} <span className="mut mono">{p.id}</span></td>

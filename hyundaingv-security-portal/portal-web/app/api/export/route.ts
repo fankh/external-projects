@@ -7,7 +7,7 @@ import { xlsxResponse } from '@/lib/xlsx'
 import { currentYear, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
-import { computeFinanceKpis } from '@/lib/finance'
+import { computeFinanceKpis, planExecRate } from '@/lib/finance'
 import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra'
 import { isTestOverdue, nextTestDue } from '@/lib/dr'
 import { computePolicyKpis, isReviewOverdue, nextReviewDue } from '@/lib/policy'
@@ -71,7 +71,7 @@ export async function GET(req: Request) {
       const paid = cts.reduce((sum, c) => sum + s.settlements
         .filter((x) => x.contractId === c.id && x.status === '지급완료')
         .reduce((sm, x) => sm + x.amount, 0), 0)
-      rows.push([p.id, p.title, `${p.owner}(${p.dept})`, p.amount, contracted, paid, p.amount ? Math.round((paid / p.amount) * 100) : 0])
+      rows.push([p.id, p.title, `${p.owner}(${p.dept})`, p.amount, contracted, paid, planExecRate(paid, p.amount)])
     }
     return out(`${kind}_계획대비실적`, rows)
   }
