@@ -137,7 +137,7 @@ export default async function PrintsPage() {
           <b>보안·출력물 시스템 채널이 중지 상태입니다</b> — 일배치 이관이 실행되지 않습니다.{' '}
           {me.role === 'ADMIN'
             ? <Link href="/platform/integrations">연동 · 인프라</Link>
-            : 'Admin에게 채널 가동을 요청하세요.'}
+            : '관리자에게 채널 가동을 요청하세요.'}
         </div>
       )}
 

@@ -41,7 +41,7 @@ export default async function UsersPage() {
 
       <div className="stat-row">
         <Stat value={s.people.length} label="사용자" note="인사정보 연동" />
-        <Stat value={ACCOUNTS.length} label="권한그룹 계정" note="사용자·부서담당·업무담당·Admin" />
+        <Stat value={ACCOUNTS.length} label="권한그룹 계정" note={Object.values(ROLE_LABEL).join('·')} />
         <Stat value={s.approvalLines.length} label="기본 결재선" note="문서 유형별" />
       </div>
 
