@@ -93,9 +93,8 @@ export default async function SrNewPage() {
 
       <Card title="SR 유형별 처리 절차" pad={false}>
         <div className="stub-list">
-          {KINDS.map((k, i) => (
+          {KINDS.map((k) => (
             <div className="it" key={k.kind}>
-              <span className="no">{String(i + 1).padStart(2, '0')}</span>
               <span className="nm">{k.kind}</span>
               <span className="ds">{k.desc}</span>
             </div>

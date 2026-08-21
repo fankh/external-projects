@@ -26,9 +26,8 @@ export default async function StubPage({ params }: { params: Promise<{ stub: str
       </div>
       <Card title="주요 기능 (제품안내서 기준)" pad={false}>
         <div className="stub-list">
-          {screen.features.map((f, idx) => (
+          {screen.features.map((f) => (
             <div className="it" key={f.name}>
-              <span className="no">{String(idx + 1).padStart(2, '0')}</span>
               <span className="nm">{f.name}</span>
               <span className="ds">{f.detail}</span>
             </div>
