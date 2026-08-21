@@ -453,11 +453,20 @@ async function main() {
     check(dText.includes('SR-2026-0146') && !dText.includes('SR-2026-0141'), 'export: SR 부서담당 스코핑')
     const denied = await get('/api/export?fmt=csv&type=incidents', 'USER')
     check(denied.status === 403, 'export: USER 장애 대장 차단(403)')
-    // 위임 현황 대장 — /settings/groups(ADM) 게이트라 관리자만, 담당·부서담당·사용자 차단
+    // 위임 현황 대장 — /settings/groups(ADM) 게이트라 관리자만, 담당·부서담당·사용자 전부 차단
     const gdAdmin = await get('/api/export?fmt=csv&type=group-delegations', 'ADMIN')
-    check(gdAdmin.status === 200 && (await gdAdmin.text()).includes('부여 대상'), 'export: 위임 현황 대장 ADMIN')
+    const gdText = await gdAdmin.text()
+    // 헤더 전열(구성원·유형·부여 대상·소속 그룹·만료) 존재 — 컬럼 형태 회귀 가드(시드 members=[] 라 본문 행
+    // 데이터 검증은 e2e group_grant_view 가 담당: 실 위임 픽스처로 CSV 본문에 구성원·그룹명·유형 단언)
+    check(gdAdmin.status === 200 && ['구성원', '유형', '부여 대상', '소속 그룹', '만료'].every((h) => gdText.includes(h)),
+      'export: 위임 현황 대장 ADMIN(200·헤더 전열)')
+    // 비관리자 3역할 전부 403 — /settings/groups ADM 게이트가 포맷 무관하게 상류 차단(csv 우회 없음)
     const gdBiz = await get('/api/export?fmt=csv&type=group-delegations', 'BIZ_MGR')
     check(gdBiz.status === 403, 'export: 위임 현황 대장 BIZ_MGR 차단(403 — /settings/groups ADM 게이트)')
+    const gdDept = await get('/api/export?fmt=csv&type=group-delegations', 'DEPT_MGR')
+    check(gdDept.status === 403, 'export: 위임 현황 대장 DEPT_MGR 차단(403)')
+    const gdUser = await get('/api/export?fmt=csv&type=group-delegations', 'USER')
+    check(gdUser.status === 403, 'export: 위임 현황 대장 USER 차단(403)')
   }
   {
     // 엑셀 다운로드 — CSV(BOM) 응답과 권한 가드. 재무 리포트는 관리자급(부서담당 이상)만.

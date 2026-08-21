@@ -3863,6 +3863,13 @@ def sc_group_grant_view(pg, base, check):
     # 부여 안 된 다른 BIZ 화면 — 여전히 차단 회송(per-메뉴 스코프, 블랭킷 상승 아님)
     pg.goto(f'{base}/infra/racks', wait_until='networkidle')
     check(pg.url.rstrip('/').endswith('/dashboard'), f'미부여 BIZ 화면(/infra/racks)은 여전히 차단 회송 (실제 {pg.url})')
+    # 위임 현황 export 가 이 위임을 실제 데이터 행으로 담는지 — 관리자로 전환해 CSV 본문 검증(스모크는 시드
+    # members=[] 라 헤더만 확인 가능; 이 픽스처는 김현우 실구성원이라 본문 행이 나온다). 화면=export 단일 원천
+    # (groupDelegationRegister)이 조용히 비면 여기서 잡힌다(헤더만 통과하던 사각 보완, v1.5.445 리뷰 N1).
+    login(pg, base, '시스템관리자')
+    gd_csv = pg.request.get(f'{base}/api/export?fmt=csv&type=group-delegations').text()
+    check('김현우' in gd_csv and '인프라 열람 위임 E2E' in gd_csv and '열람' in gd_csv,
+          '위임 현황 export 본문에 실 위임 행(김현우·소속 그룹·열람 유형) — 헤더 아닌 데이터')
 
 
 def sc_group_grant_revoke(pg, base, check):
