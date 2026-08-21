@@ -569,6 +569,50 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       ],
     }
   }
+  // 위치(사업장)별 자산 — 물리 실사·데이터센터 랙 조회. "IDC-A 장비", "판교 사무소 자산", "위치별 분포" 등.
+  //  물리 위치·IDC 축 질의는 실사/데이터센터 운영에서 흔한데 그동안 어느 인텐트에도 안 걸려 폴백으로 빠졌다(부서 분포의 위치 축 버전).
+  //  '위치/사업장/사이트/IDC/데이터센터/사무소/층별' 등 위치 개념어로만 잡아 재고부족·상태분포 등 뒤 인텐트를 가리지 않는다.
+  if (canAsset && (q.includes('위치') || q.includes('사업장') || q.includes('사이트') || q.includes('idc') || q.includes('데이터센터') || q.includes('사무소') || q.includes('층별'))) {
+    const live = s.assets.filter((a) => a.status !== '폐기완료')
+    // 사이트 = 위치 문자열의 첫 토큰(본사 3F 자산창고→본사, 판교 사무소→판교, IDC-A Rack 12→IDC-A). 미지정('-')은 별도 집계.
+    const siteOf = (loc: string) => {
+      const l = (loc || '').trim()
+      if (!l || l === '-') return '미지정'
+      return /^idc-[a-z]/i.test(l) ? l.split(/\s+/)[0].toUpperCase() : l.split(/\s+/)[0]
+    }
+    const bySite = new Map<string, { total: number; inUse: number }>()
+    for (const a of live) {
+      const si = siteOf(a.location)
+      const cur = bySite.get(si) ?? { total: 0, inUse: 0 }
+      cur.total += 1
+      if (a.status === '사용중') cur.inUse += 1
+      bySite.set(si, cur)
+    }
+    // 특정 사이트를 지목했으면(예: "IDC-A 장비", "판교 자산") 그 위치의 자산 목록, 아니면 전체 분포.
+    const named = [...bySite.keys()].find((si) => si !== '미지정' && q.includes(si.toLowerCase()))
+    if (named) {
+      const here = live.filter((a) => siteOf(a.location) === named)
+      return {
+        role: 'assistant',
+        text: `${named} 소재 자산 현황입니다 (운영 자산 ${here.length}대 · 폐기완료 제외).\n\n${here
+          .slice(0, 14)
+          .map((a) => `· ${a.assetNo} — ${a.model} · ${a.status} · ${a.owner || '미배정'} (${a.location})`)
+          .join('\n')}${here.length > 14 ? `\n… 외 ${here.length - 14}대` : ''}`,
+        evidence: [{ label: `자산 대장 (${named})`, href: `/assets/register?q=${encodeURIComponent(named)}` }],
+      }
+    }
+    const siteRows = [...bySite.entries()].sort((x, y) => y[1].total - x[1].total)
+    return {
+      role: 'assistant',
+      text: `위치(사업장)별 자산 분포입니다 (운영 자산 ${live.length}대 · 폐기완료 제외).\n\n${siteRows
+        .map(([si, v]) => `· ${si}: ${v.total}대 (사용중 ${v.inUse})`)
+        .join('\n')}\n\n특정 위치(예: IDC-A, 판교, 본사)를 말씀하시면 해당 위치의 자산 목록을 보여드립니다.`,
+      evidence: [
+        { label: '자산 대장', href: '/assets/register' },
+        { label: '재물조사', href: '/inventory/survey' },
+      ],
+    }
+  }
   // 수령 미확인(인수 대기) — 불출 후 사용자가 인수 확인을 안 한 사용 중 자산. 대시보드 큐·독촉과 같은 판정(receiptPending·사용중).
   //  status 게이트로 회수·반납·폐기된 자산의 스테일 플래그는 제외한다(대시보드 큐와 동일 정의).
   if (canAsset && (q.includes('수령 미확인') || q.includes('인수 미확인') || q.includes('수령 확인') || q.includes('인수 확인'))) {
