@@ -5,7 +5,7 @@ import { deleteSettlement, resubmitSettlement } from '../actions'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireAction, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { computeFinanceKpis, planBasisAmount } from '@/lib/finance'
+import { computeFinanceKpis, planBasisAmount, planExecRate } from '@/lib/finance'
 import { getStore, nextNo } from '@/lib/store'
 import type { SettlementItem } from '@/lib/types'
 
@@ -320,7 +320,7 @@ export default async function InvestPage() {
                 const cts = contractsOf(p.id)
                 const contracted = cts.reduce((sum, c) => sum + c.amount, 0)
                 const paid = cts.reduce((sum, c) => sum + paidOf(c.id), 0)
-                const rate = p.amount ? Math.round((paid / p.amount) * 100) : 0
+                const rate = planExecRate(paid, p.amount)
                 // 기준액 — 정산>계약>계획 우선순위 (요구사항). lib/finance 단일 원천으로 산출한다.
                 const b = planBasisAmount(p, kindContracts, kindSettlements)
                 return (
