@@ -28,6 +28,7 @@ function detectReportIntent(q: string): { kind?: ReportKind } | null {
   const kindMatchers: [RegExp, ReportKind][] = [
     [/월간|자산\s*현황/, '월간 자산 현황'],
     [/정보보호\s*컴플라이언스|컴플라이언스\s*증적|증적\s*(번들|팩)|isms|iso.?27001|정보보호\s*증적/i, '정보보호 컴플라이언스 증적'],
+    [/계약\s*갱신|갱신\s*전망|갱신\s*(캐시|현금)|계약\s*만료\s*전망/i, '계약 갱신 전망'],
     [/갱신|트루업|true.?up|renewal/i, '라이선스 갱신·트루업 계획'],
     [/단일\s*장애점|장애점|영향\s*범위|영향\s*분석|blast|spof|의존\s*(분석|영향)|이중화|cmdb\s*영향/i, '단일 장애점·영향 분석'],
     [/운영\s*리스크|리스크\s*자산|운영\s*위험/i, '자산 운영 리스크'],

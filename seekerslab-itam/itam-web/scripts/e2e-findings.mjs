@@ -351,6 +351,14 @@ async function aiPeriodQuery(page) {
   const depId = decodeURIComponent((depHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const depText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(depId)}?format=xlsx`)).body()).toString('utf8')
   ok('리포트 반출: 감가상각 명세 xlsx 에 연도별 상각 전개·유형별 상각 현황 섹션(연간 상각액·연말 장부가)', depText.includes('연도별 감가상각 명세') && depText.includes('연간 상각액') && depText.includes('연말 장부가') && depText.includes('유형별 상각 현황'))
+  // 계약 갱신 전망 리포트(신규 역량) — 계약 만료(=갱신)를 분기 버킷으로 전방 전개(갱신 예산·현금흐름). 계약 관리 현황(D-90 스냅샷)과 달리 다분기 전망.
+  //  생성 인텐트 '계약 갱신'이 라이선스 갱신·트루업보다 우선 매칭돼야 함(둘 다 '갱신' 포함 → 순서 검증). 응답이 '계약 갱신 전망'이어야 fails-without-fix.
+  const rRenC = await ask('계약 갱신 전망 리포트 생성해줘')
+  ok('AI 계약갱신질의: 계약 갱신 전망 생성 분기(라이선스 갱신·트루업과 구분·우선 매칭)', rRenC.includes('리포트를 생성했습니다') && rRenC.includes('계약 갱신 전망'))
+  const rncHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const rncId = decodeURIComponent((rncHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const rncText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(rncId)}?format=xlsx`)).body()).toString('utf8')
+  ok('리포트 반출: 계약 갱신 전망 xlsx 에 분기별 갱신 전망·갱신 임박 상세 섹션(예상 갱신액)', rncText.includes('분기별 갱신 전망') && rncText.includes('예상 갱신액') && rncText.includes('갱신 임박 계약 상세'))
   // 부서별 IT 비용 배분(차지백) 리포트 — 자연어 생성 인텐트가 신규 종류를 매칭하고, buildSections 가 부서별 원가·좌석 비용 섹션을 실제 산출.
   const r4 = await ask('부서별 IT 비용 배분 리포트 생성해줘')
   ok('AI 차지백질의: 부서별 IT 비용 배분 생성 분기', r4.includes('리포트를 생성했습니다'))

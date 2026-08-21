@@ -81,6 +81,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '자산 운영 리스크', period: '수시', desc: '분실·도난, 장기 미실측(유령 자산 후보), 대여 반환 연체, 수리 지연, 수령 미확인을 한 문서로 집약한 운영 리스크 현황 — 대시보드 운영 큐와 같은 판정, 항목별 조치(회수·재물조사·독촉) 연결' },
   { kind: '복합 위험 자산', period: '수시', desc: '정합성 이슈·EOL OS·보증 임박·정기 점검 도래·단일 장애점(SPOF)·교체 대상·장기 미실측 중 2개 이상이 겹치는 자산 — 신호가 중첩된 우선 조치 대상을 자산별 신호 조합·부서별 분포로 집약(대장 ?risk=1 필터·대시보드 복합 위험 큐와 같은 판정)' },
   { kind: '감가상각 명세', period: '월간', desc: '정액법(내용연수 5년) 기준 연도별 감가상각 명세 — 연초·연말 장부가·연간 상각액·상각 완료 대수의 향후 전개, 유형별 상각 현황, 상각 완료 예정 연도. 고정자산 회계·감가상각비 예산·교체(재취득) 시점 근거(부서별 IT 비용 배분의 현재 스냅샷과 달리 전방 전개)' },
+  { kind: '계약 갱신 전망', period: '월간', desc: '구매·유지보수 계약의 분기별 갱신 전망 — 향후 8개 분기 만료 계약 수·예상 갱신액(유지보수/구매 구분)·만료 경과(미갱신) 집계, 갱신 임박 계약 상세. 계약 갱신 예산·현금흐름 계획 근거(계약 관리 현황의 D-90 스냅샷과 달리 다분기 전방 전개)' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -916,6 +917,61 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '계약 갱신 전망') {
+    // 계약 만료(=갱신 시점)를 분기 버킷으로 전방 전개해 갱신 예산·현금흐름을 계획한다. 계약 관리 현황(현재 포트폴리오·D-90 스냅샷)과 달리 다분기 전망.
+    //  갱신액 추정은 현재 계약액(amount) 기준(갱신 시 유사 규모 가정) — 라이선스 갱신·트루업(라이선스 엔티티)과 별개로 구매·유지보수 계약을 다룬다.
+    const t = today()
+    const live2 = s.contracts.filter((c) => c.status !== '해지')
+    const qKey = (d: string) => { const y = Number(d.slice(0, 4)); const m = Number(d.slice(5, 7)); return y * 4 + Math.floor((m - 1) / 3) }
+    const curKey = qKey(t)
+    const HORIZON = 8
+    const buckets = new Map<number, { label: string; count: number; amount: number; maint: number; purch: number }>()
+    for (let i = 0; i < HORIZON; i++) {
+      const key = curKey + i
+      buckets.set(key, { label: `${Math.floor(key / 4)} Q${(key % 4) + 1}`, count: 0, amount: 0, maint: 0, purch: 0 })
+    }
+    const horizonEnd = curKey + HORIZON - 1
+    let overdueN = 0
+    let overdueAmt = 0
+    for (const c of live2) {
+      if (c.end < t) { overdueN += 1; overdueAmt += c.amount; continue }
+      const b = buckets.get(qKey(c.end))
+      if (b) { b.count += 1; b.amount += c.amount; if (c.kind === '유지보수') b.maint += c.amount; else b.purch += c.amount }
+    }
+    const bucketList = [...buckets.values()]
+    const totalHorizon = bucketList.reduce((n, b) => n + b.amount, 0)
+    const soon = live2.filter((c) => c.end >= t && qKey(c.end) <= horizonEnd).sort((a, b) => a.end.localeCompare(b.end)).slice(0, 15)
+    const peak = bucketList.reduce((mx, b) => (b.amount > mx.amount ? b : mx), bucketList[0])
+    return [
+      {
+        title: '분기별 갱신 전망 (향후 8개 분기)',
+        note: overdueN > 0
+          ? `향후 8개 분기 갱신 예상 총액 ${fmtAmount(totalHorizon)}원 · 만료 경과(미갱신) ${overdueN}건 ${fmtAmount(overdueAmt)}원 — 갱신 예산·현금흐름 계획`
+          : `향후 8개 분기 갱신 예상 총액 ${fmtAmount(totalHorizon)}원 — 갱신 예산·현금흐름 계획`,
+        columns: ['분기', '만료 계약', '예상 갱신액', '유지보수', '구매'],
+        rows: bucketList.map((b) => [b.label, String(b.count), b.amount.toLocaleString(), b.maint.toLocaleString(), b.purch.toLocaleString()]),
+      },
+      {
+        title: '갱신 임박 계약 상세 (기한순)',
+        note: soon.length ? `향후 8개 분기 내 만료 예정 ${soon.length}건 (최대 15건 표시)` : '향후 8개 분기 내 만료 예정 계약이 없습니다',
+        columns: ['계약', '구분', '공급사', '만료일', 'D-day', '갱신 예상액'],
+        rows: soon.length
+          ? soon.map((c) => [`${c.name} (${c.id})`, c.kind, c.vendor, c.end, `D-${daysUntil(c.end) ?? '-'}`, c.amount.toLocaleString()])
+          : [['-', '-', '-', '-', '-', '해당 없음']],
+      },
+      {
+        title: '요약 · 예산 계획',
+        bullets: [
+          `유효 계약 ${live2.length}건 중 향후 8개 분기 만료(갱신) 예정은 ${bucketList.reduce((n, b) => n + b.count, 0)}건, 예상 갱신 총액 ${fmtAmount(totalHorizon)}원입니다.`,
+          peak && peak.amount > 0 ? `갱신 집중 분기는 ${peak.label}(${fmtAmount(peak.amount)}원)로, 이 시점 예산을 선제 확보해야 합니다.` : '해당 지평 내 만료 예정 계약이 없습니다.',
+          overdueN > 0
+            ? `만료 경과(미갱신) ${overdueN}건 ${fmtAmount(overdueAmt)}원은 갱신 또는 해지 판단이 지연된 건으로, 우선 정리가 필요합니다.`
+            : '만료 경과(미갱신) 계약은 없습니다 — 갱신·해지 판단이 적시에 이뤄지고 있습니다.',
+        ],
+      },
+    ]
+  }
+
   // 감사 대응 자료
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
@@ -1041,6 +1097,16 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const nowBookH = depH.reduce((n, a) => n + bookValueOf(a, tD), 0)
     const curYearDepH = Math.max(0, depH.reduce((n, a) => n + bookValueOf(a, `${curYD - 1}-12-31`), 0) - depH.reduce((n, a) => n + bookValueOf(a, `${curYD}-12-31`), 0))
     return `운영 실물 자산 ${depH.length}대의 총 취득가 ${fmtAmount(totalAcqH)}원 중 현재 잔존가(장부가)는 ${fmtAmount(nowBookH)}원입니다(누적 상각 ${fmtAmount(totalAcqH - nowBookH)}원). 정액법(내용연수 ${USEFUL_LIFE_YEARS}년) 기준 ${curYD}년 상각 예정액은 ${fmtAmount(curYearDepH)}원이며, 연도별 상각액과 상각 완료 시점을 아래 명세에 전개했습니다 — 감가상각비 예산·재취득(교체) 시점 근거로 활용합니다.`
+  }
+  if (kind === '계약 갱신 전망') {
+    const tC = today()
+    const liveC2 = s.contracts.filter((c) => c.status !== '해지')
+    const qKeyC = (d: string) => { const y = Number(d.slice(0, 4)); const m = Number(d.slice(5, 7)); return y * 4 + Math.floor((m - 1) / 3) }
+    const curKeyC = qKeyC(tC)
+    const inHorizon = liveC2.filter((c) => c.end >= tC && qKeyC(c.end) <= curKeyC + 7)
+    const horizonAmt = inHorizon.reduce((n, c) => n + c.amount, 0)
+    const overdueC = liveC2.filter((c) => c.end < tC)
+    return `유효 계약 ${liveC2.length}건 중 향후 8개 분기 만료(갱신) 예정은 ${inHorizon.length}건, 예상 갱신 총액은 ${fmtAmount(horizonAmt)}원입니다(현재 계약액 기준). ${overdueC.length ? `만료 경과(미갱신) ${overdueC.length}건은 갱신·해지 판단 지연 건으로 우선 정리가 필요합니다. ` : ''}분기별 갱신 캐시플로우를 아래에 전개해 예산·현금흐름 계획 근거로 제시합니다 — 계약 관리 현황의 현재 스냅샷과 달리 다분기 전방 전망입니다.`
   }
   if (kind === '단일 장애점·영향 분석') {
     const spofH = criticalDependencies()
