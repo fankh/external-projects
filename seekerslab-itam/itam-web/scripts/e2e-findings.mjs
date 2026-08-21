@@ -271,6 +271,9 @@ async function aiPeriodQuery(page) {
   // 미인식 질의 폴백은 지원 질의를 안내(discoverability) — 신규 축(위치·유휴 등)이 목록에 빠져 있으면 사용자가 기능을 못 찾는다.
   const rfb = await ask('안녕 무슨 기능이 있어')
   ok('AI 폴백 안내: 신규 질의 축(위치·유휴)이 지원 질의 목록에 포함', rfb.includes('위치(사업장)별') && rfb.includes('유휴(재배치'))
+  // 담당자 QnA 답변 대기 — 사용자 본인 QnA(isUser) 인텐트의 담당자 짝이 없어 스태프 '답변 대기 문의'가 폴백으로 빠지던 공백. 인텐트 전용 문구로 폴백과 구분.
+  const rqna = await ask('답변 대기 문의 알려줘')
+  ok('AI QnA대기: 담당자 미답변 QnA 목록으로 답(폴백 아님)', /답변 대기 QnA 문의 \d+건입니다|답변 대기 중인 QnA 문의가 없습니다/.test(rqna))
   // 공급사(벤더) 집중도 질의 — 기존 벤더 집계 뷰가 없어 '계약' 포괄 인텐트(만료 답)로 떨어지던 공백. 공급사별 계약 수·계약액 집계로 라우팅되는지 확인.
   const rvend = await ask('공급사별 계약 현황 알려줘')
   ok('AI 공급사질의: 공급사별 계약 집계(계약 수·계약액, 만료 답 아님)', rvend.includes('공급사별 계약 현황') && /계약 \d+건 · 계약액 .+원/.test(rvend) && !rvend.includes('만료 예정 계약은'))
