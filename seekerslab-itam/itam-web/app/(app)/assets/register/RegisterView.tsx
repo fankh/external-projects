@@ -11,7 +11,7 @@ import { assetDependenciesFrom } from '@/lib/cmdb-graph'
 import { TopologyDiagram } from './TopologyDiagram'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, reassignAsset, notifyEolUpgrade, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
+import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, reassignAsset, reassignAssetMany, notifyEolUpgrade, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -186,6 +186,14 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     const r = await recoverManyFromUser([...checked], '오프보딩·재배정')
     setBulkMsg(r.message)
     if (r.ok) setChecked(new Set())
+  })
+  // 일괄 재배정(직접 인계) — 선택한 사용 중 자산을 한 사람에게 직접 인계(팀 인수인계·후임 승계). 회수(유휴 왕복)와 달리 보유자만 바뀐다. checkedUsable 재사용
+  const [bulkReassignTo, setBulkReassignTo] = useState('')
+  const [bulkReassignNote, setBulkReassignNote] = useState('')
+  const bulkReassign = () => startTransition(async () => {
+    const r = await reassignAssetMany([...checked], bulkReassignTo, bulkReassignNote)
+    setBulkMsg(r.message)
+    if (r.ok) { setChecked(new Set()); setBulkReassignTo(''); setBulkReassignNote('') }
   })
   // 선택 항목 중 유휴(대여 가능)만 — 교육·행사용 로너 풀 일괄 대여 대상 수
   const checkedIdle = useMemo(() => [...checked].filter((no) => props.assets.find((a) => a.assetNo === no)?.status === '유휴'), [checked, props.assets])
@@ -412,6 +420,17 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {checkedUsable.length > 0 && (
                 <button className="btn sm warn" disabled={pending} onClick={bulkRecover}
                   title="선택한 사용 중 자산을 일괄 회수 — 오프보딩·재배정(반납 접수 대기열로)">일괄 회수 (사용중 {checkedUsable.length})</button>
+              )}
+              {checkedUsable.length > 0 && (props.users?.length ?? 0) > 0 && (
+                <span className="hstack" style={{ gap: 6 }} title="선택한 사용 중 자산을 한 사람에게 일괄 직접 인계(팀 인수인계·후임 승계) — 회수와 달리 유휴 왕복 없이 보유자만 바뀌고 좌석도 승계, 새 보유자 수령 확인 대기">
+                  <span className="mut" style={{ fontSize: 12 }}>일괄 재배정 (사용중 {checkedUsable.length})</span>
+                  <select className="input" style={{ height: 28, width: 130 }} value={bulkReassignTo} disabled={pending} onChange={(e) => setBulkReassignTo(e.target.value)}>
+                    <option value="">인계 대상…</option>
+                    {(props.users ?? []).map((u) => <option key={u.name} value={u.name}>{u.name} · {u.dept}</option>)}
+                  </select>
+                  <input className="input" style={{ height: 28, width: 110 }} placeholder="사유(선택)" value={bulkReassignNote} disabled={pending} onChange={(e) => setBulkReassignNote(e.target.value)} />
+                  <button className="btn sm" disabled={pending || !bulkReassignTo} onClick={bulkReassign}>재배정</button>
+                </span>
               )}
               {checkedIdle.length > 0 && (
                 <span className="hstack" style={{ gap: 6 }} title="선택한 유휴 재고를 한 대여자·부서·반환 기한으로 일괄 대여(교육·행사용 로너 풀)">
