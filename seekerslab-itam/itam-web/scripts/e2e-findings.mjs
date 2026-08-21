@@ -1962,6 +1962,12 @@ try {
   await locCodeRow.locator('button', { hasText: /^취소$/ }).click()
   await p3.waitForTimeout(200)
   ok('공통코드: 차단 후 원 명칭 유지(변경 미반영)', ((await locCodeRow.textContent()) || '').includes('본사 3F 자산창고'))
+  // 명칭 유일성 — 참조가 label 로 저장되므로 같은 그룹에 중복 명칭 금지(add·rename 공통 · label 이 사실상 참조 키). 기존 명칭으로 신규 추가 차단.
+  await p3.locator('input[placeholder="코드 (예: IDC-C-01)"]').fill('HQ_DUP_T')
+  await p3.locator('input[placeholder="명칭"]').fill('본사 3F 자산창고')
+  await p3.locator('button', { hasText: /^추가$/ }).click()
+  await p3.waitForTimeout(600)
+  ok('공통코드: 중복 명칭 신규 추가 차단(label 유일성 가드)', ((await p3.textContent('body')) || '').includes('이미 같은 명칭의 코드가 있습니다'))
   const locFreeRow = p3.locator('tr', { has: p3.locator('td', { hasText: '본사 9F' }) }).first()
   await locFreeRow.locator('button', { hasText: /^미사용$/ }).click()
   await p3.waitForTimeout(600)
