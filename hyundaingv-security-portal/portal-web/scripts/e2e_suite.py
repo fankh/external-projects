@@ -3853,6 +3853,8 @@ def sc_group_grant_view(pg, base, check):
     pg.goto(f'{base}/infra/systems', wait_until='networkidle')
     check(pg.url.rstrip('/').endswith('/infra/systems'), f'그룹 부여 화면 열람 (버그면 /dashboard 회송; 실제 {pg.url})')
     check('디스크 사용률' in pg.content(), '시스템 화면 실제 렌더 (needle)')
+    # 위임(역할 아님)으로 접근 중이면 '열람 전용' 안내가 뜬다 — 위임받은 사용자가 쓰기 컨트롤을 오해하지 않게
+    check('열람 전용' in pg.content(), '그룹 위임 접근 화면에 열람 전용 안내 노출')
     # 부여 안 된 다른 BIZ 화면 — 여전히 차단 회송(per-메뉴 스코프, 블랭킷 상승 아님)
     pg.goto(f'{base}/infra/racks', wait_until='networkidle')
     check(pg.url.rstrip('/').endswith('/dashboard'), f'미부여 BIZ 화면(/infra/racks)은 여전히 차단 회송 (실제 {pg.url})')
