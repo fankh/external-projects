@@ -256,7 +256,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .stub-list { display: flex; flex-direction: column; }
 .stub-list .it { display: flex; align-items: baseline; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
 .stub-list .it:last-child { border-bottom: none; }
-.stub-list .it .no { font-family: var(--mono); font-size: 10.5px; color: var(--mute); flex: none; width: 22px; }
 .stub-list .it .nm { font-weight: 600; flex: none; }
 .stub-list .it .ds { color: var(--dim); }
 
