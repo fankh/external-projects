@@ -18,13 +18,17 @@ export const ROLE_LABEL: Record<Role, string> = {
  *  구성원(계정명)과 부여 메뉴(화면 href)를 지정하면, 구성원은 자기 역할 권한에 더해 그 화면을 열람할 수
  *  있다. 부여는 '열람(화면 진입)'만 넓히고 쓰기 액션은 그대로 역할 게이트(requireMenuRole·requireAction)가
  *  막는다(안전한 가법 위임). 부여 대상은 운영 화면뿐 — ADMIN 전용 화면(환경설정·기반)은 위임 불가
- *  (isGrantableMenu). members 는 계정명(Session.name), menuGrants 는 NAV href 목록. */
+ *  (isGrantableMenu). members 는 계정명(Session.name), menuGrants 는 NAV href 목록.
+ *  actionGrants 는 특정 쓰기 기능 위임(키 `${href}#${action}`) — 관리자가 역할 승격 없이 사람 단위로
+ *  운영 화면의 특정 쓰기 액션(삭제·확정·저장 등, SCREEN_ACTIONS 등록분)을 위임한다. 옵트인(기본 없음=동작
+ *  불변), ADMIN 전용 화면·미등록 액션은 위임 불가(isGrantableAction). 부여 시 해당 화면 열람도 함께 열린다. */
 export interface UserGroup {
   id: string
   label: string
   description?: string
   members: string[]
   menuGrants: string[]
+  actionGrants?: string[]
 }
 
 /** SR 3종 (시스템개발 · 데이터 · 계정/권한) */

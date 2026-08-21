@@ -33,14 +33,21 @@ export function groupGrantedMenus(name: string): string[] {
   for (const grp of getStore().userGroups ?? []) {
     if (!grp.members.includes(name)) continue
     for (const h of grp.menuGrants) if (isGrantableMenu(h)) hrefs.add(h)
+    // 액션(쓰기) 위임도 해당 화면 열람을 함께 연다 — 위임받은 기능을 쓰려면 화면에 진입해야 한다
+    for (const key of grp.actionGrants ?? []) {
+      const h = key.split('#')[0]
+      if (h && isGrantableMenu(h)) hrefs.add(h)
+    }
   }
   return [...hrefs]
 }
 
-/** 이 계정이 그룹 위임으로 해당 메뉴를 열람할 수 있는가 — ADMIN 전용 화면은 항상 false(권한 상승 차단). */
+/** 이 계정이 그룹 위임으로 해당 메뉴를 열람할 수 있는가 — ADMIN 전용 화면은 항상 false(권한 상승 차단).
+ *  메뉴 위임뿐 아니라 그 화면의 액션 위임을 받아도 열람이 열린다(액션을 쓰려면 화면 진입 필요). */
 export function groupGrantsMenu(name: string, href: string): boolean {
   if (!isGrantableMenu(href)) return false
-  return (getStore().userGroups ?? []).some((g) => g.members.includes(name) && g.menuGrants.includes(href))
+  return (getStore().userGroups ?? []).some((g) => g.members.includes(name)
+    && (g.menuGrants.includes(href) || (g.actionGrants ?? []).some((k) => k.startsWith(`${href}#`))))
 }
 
 /** 화면 열람 가능 여부(단일 술어) — 역할 유효권한 OR 그룹 위임. 내비 표시(layout·AppShell)와 서버 가드
@@ -80,8 +87,46 @@ export function effectiveActionRoles(href: string, action: ActionKey): Role[] {
   return scoped.filter((r) => r === 'ADMIN' || override.includes(r))
 }
 
+/** 그룹 위임으로 부여 가능한(운영) 쓰기 기능인가 — SCREEN_ACTIONS 등록 액션 && 부여 가능한 운영 화면.
+ *  ADMIN 화면·미등록 액션은 위임 불가(권한 상승 차단). menuGrants 의 isGrantableMenu 와 동일 규약. */
+export function isGrantableAction(href: string, action: ActionKey): boolean {
+  return !!SCREEN_ACTIONS[href]?.[action] && isGrantableMenu(href)
+}
+
+/** 이 계정이 그룹 위임으로 해당 기능(쓰기)을 수행할 수 있는가 — 부여 가능 액션만 인정한다. 읽기 시점에
+ *  isGrantableAction 로 필터하므로 손상·위조 데이터가 admin 화면·미등록 액션을 위임해도 무시된다(fail-closed). */
+export function groupGrantsAction(name: string, href: string, action: ActionKey): boolean {
+  if (!isGrantableAction(href, action)) return false
+  const key = `${href}#${action}`
+  return (getStore().userGroups ?? []).some((g) => g.members.includes(name) && (g.actionGrants ?? []).includes(key))
+}
+
+/** 이 계정에 그룹 위임된 기능 키(`${href}#${action}`) 목록 — 부여 가능 액션만. 내비 배너·UI 표시용. */
+export function groupGrantedActions(name: string): string[] {
+  const keys = new Set<string>()
+  for (const grp of getStore().userGroups ?? []) {
+    if (!grp.members.includes(name)) continue
+    for (const key of grp.actionGrants ?? []) {
+      const [h, a] = key.split('#')
+      if (h && a && isGrantableAction(h, a as ActionKey)) keys.add(key)
+    }
+  }
+  return [...keys]
+}
+
+/** 기능 수행 가능 여부(단일 술어) — 역할 유효 기능권한 OR 그룹 액션 위임. requireAction(강제)과 UI 표시가
+ *  이 술어 하나를 공유한다. 그룹 위임은 SCREEN_ACTIONS 등록 액션(운영 화면)만 넓히고, admin 화면 쓰기는
+ *  requireMenu/requireMenuRole 가 별도로 막으므로 관리 기능으로 새지 않는다. */
+export function canPerformAction(session: Session, href: string, action: ActionKey): boolean {
+  return effectiveActionRoles(href, action).includes(session.role) || groupGrantsAction(session.name, href, action)
+}
+
 /** 화면×기능 서버 액션 가드 — requireMenuRole 의 기능 버전. SCREEN_ACTIONS 에 등록된 기능만 이 가드로 보호되며,
- *  오버라이드가 없으면 기본 역할 집합과 동일하게 동작(마이그레이션 시 회귀 없음). 직접 POST 도 기능 제한이 걸린다. */
+ *  역할 유효권한 또는 그룹 액션 위임이 있으면 통과한다. 오버라이드·그룹 변경이 즉시 반영된다. 직접 POST 도 걸린다.
+ *  미로그인 → /login, 권한 밖 → /dashboard. */
 export async function requireAction(href: string, action: ActionKey): Promise<Session> {
-  return requireRole(...effectiveActionRoles(href, action))
+  const session = await getSession()
+  if (!session) redirect('/login')
+  if (canPerformAction(session, href, action)) return session
+  redirect('/dashboard')
 }
