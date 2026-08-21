@@ -306,7 +306,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
         )}
         {riskSet.size > 0 && (
           <button className={`btn sm ${riskOnly ? 'err' : ''}`} onClick={() => setRiskOnly((v) => !v)}
-            title="복합 위험 — 정합성 이슈·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산. 다중 이슈 우선 조치 트리아지(자산 상세 '위험 신호' 요약과 같은 7신호 단일 소스)">
+            title="복합 위험 — 정합성 미흡·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산. 다중 이슈 우선 조치 트리아지(자산 상세 '위험 신호' 요약과 같은 7신호 단일 소스)">
             {riskOnly ? '✓ ' : ''}복합 위험 {riskSet.size}
           </button>
         )}
@@ -787,7 +787,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 // 위험 신호 요약 — 대장 필터로 흩어진 자산별 주의 신호(취약·EOL·보증·점검·SPOF·교체·미실측)를 이 자산 관점에서 한 곳에 모아 트리아지를 돕는다.
                 //  각 필터 셋(단일 소스)을 재사용해 임계값을 재계산하지 않는다. 2개 이상이면 '복합 위험'으로 우선 조치 대상.
                 const risks = [
-                  dqSet.has(sel.assetNo) && '정합성 이슈',
+                  dqSet.has(sel.assetNo) && '정합성 미흡',
                   eolSet.has(sel.assetNo) && 'EOL OS',
                   warrantySet.has(sel.assetNo) && '보증 임박',
                   maintSet.has(sel.assetNo) && '정기 점검 도래',
