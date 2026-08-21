@@ -3980,7 +3980,8 @@ def sc_group_grant_expired(pg, base, check):
     """그룹 위임 만료(자동 회수) — 만료일(expiresAt)이 지난 그룹은 열람·기능 위임을 일절 부여하지 않는다
     (fail-closed 자동 회수, 임시 위임용). 미래 만료 그룹은 정상 부여(과도 회수 아님). fails-without-fix:
     isGroupActive 판정이 없으면 만료 그룹도 위임이 살아 접근 가능. 픽스처: 김현우 — 만료 그룹(과거,
-    /infra/systems) + 유효 그룹(미래, /infra/incidents)."""
+    /infra/systems) + 유효 그룹(미래, /infra/incidents) + 형식오염 만료 그룹(달력부재 2099-13-01, /infra/racks).
+    박정호는 만료 그룹 전용(통계 정합 회귀용)."""
     login(pg, base, '김현우')
     # 만료(과거) 그룹의 부여 화면 — 접근 자동 회수(회송)
     pg.goto(f'{base}/infra/systems', wait_until='networkidle')
@@ -3988,6 +3989,20 @@ def sc_group_grant_expired(pg, base, check):
     # 유효(미래 만료) 그룹의 부여 화면 — 정상 열람(과도 회수 아님)
     pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
     check(pg.url.rstrip('/').endswith('/infra/incidents'), f'유효 그룹(미래 만료) 위임은 정상 (실제 {pg.url})')
+    # 형식오염 만료일(달력에 없는 2099-13-01) 그룹 — 사전식 비교로는 유효(먼 미래)로 오판되나 실 달력 날짜가
+    # 아니므로 만료 취급(fail-closed). fails-without-fix: isGroupActive 가 형식검증 없으면 유효로 봐 열람 허용.
+    pg.goto(f'{base}/infra/racks', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/dashboard'), f'형식오염 만료일 그룹은 만료 취급(fail-closed) (버그면 /infra/racks; 실제 {pg.url})')
+    # 관리자 통계 = 위임 현황 대장 정합 — 만료·형식오염 그룹은 유효 통계에서 빠지고 '만료 그룹'만 별도 집계.
+    # 박정호(만료 전용)가 '위임 구성원'에 잡히면 안 된다. fails-without-fix: 통계가 전 그룹을 세면 구성원=2.
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/groups', wait_until='networkidle')
+    mcount = pg.locator('.stat').filter(has_text='위임 구성원').locator('.v').inner_text().strip()
+    check(mcount == '1', f'유효 위임 구성원=1 (만료·형식오염 그룹 제외; 버그면 2 — 박정호 산입). 실제 {mcount}')
+    expcount = pg.locator('.stat').filter(has_text='만료 그룹').locator('.v').inner_text().strip()
+    check(expcount == '2', f'만료 그룹=2 (과거 + 형식오염). 실제 {expcount}')
+    reg = pg.locator('.card').filter(has_text='위임 현황').inner_text()
+    check('박정호' not in reg, '위임 현황 대장에 만료-전용 구성원(박정호) 미표시')
 
 
 SCENARIOS = [
@@ -4654,8 +4669,12 @@ def main() -> int:
     # 그룹 위임 만료 — 만료(과거) 그룹은 자동 회수, 유효(미래) 그룹은 정상. 고정 과거/미래 날짜라 실행일 무관.
     GROUPEXP_DATA.write_text(json.dumps({
         'userGroups': [
-            {'id': 'GRP-EXP', 'label': '만료 위임', 'members': ['김현우'], 'menuGrants': ['/infra/systems'], 'expiresAt': '2020-01-01'},
+            # 박정호는 만료 그룹에만 소속 — 유효 '위임 구성원' 통계가 만료 그룹을 세면 오계상된다(회귀 대상).
+            {'id': 'GRP-EXP', 'label': '만료 위임', 'members': ['김현우', '박정호'], 'menuGrants': ['/infra/systems'], 'expiresAt': '2020-01-01'},
             {'id': 'GRP-ACT', 'label': '유효 위임', 'members': ['김현우'], 'menuGrants': ['/infra/incidents'], 'expiresAt': '2099-12-31'},
+            # 형식오염 만료일 — '2099-13-01'은 달력에 없는 날(13월). 사전식 비교로는 '먼 미래=유효'로 오판되나
+            # 실 달력 날짜가 아니라 만료 취급해야 한다(isCalendarDate fail-closed). 미래연도라 실행일 무관.
+            {'id': 'GRP-BADEXP', 'label': '형식오염 만료', 'members': ['김현우'], 'menuGrants': ['/infra/racks'], 'expiresAt': '2099-13-01'},
         ],
     }, ensure_ascii=False), encoding='utf-8')
     # 기능(Action) 단위 권한 — 종결(완료) 위험 1건(삭제 대상). ADMIN 이 위험 삭제를 업무담당에 제한하면 박정호 삭제 차단.
