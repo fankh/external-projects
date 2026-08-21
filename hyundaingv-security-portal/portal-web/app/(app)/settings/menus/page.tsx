@@ -55,7 +55,7 @@ export default async function MenusPage() {
                 return (
                   <tr key={i.href}>
                     <td><span className="kicker" style={{ color: i.hue }}>{i.group}</span></td>
-                    <td className="strong">{i.ico} {i.label}</td>
+                    <td className="strong"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name={i.ico} size={13} />{i.label}</span></td>
                     <td className="mono" style={{ fontSize: 11.5 }}>{i.href}</td>
                     <td>{i.roles.map((r) => ROLE_LABEL[r]).join(' · ')}</td>
                     <td>{stubs.has(i.href) ? <Chip tone="warn" bare>스텁</Chip> : <Chip tone="ok" bare>구현</Chip>}</td>
