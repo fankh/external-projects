@@ -2366,6 +2366,24 @@ try {
   await p4.waitForTimeout(800)
   ok('입고 지연 독촉: 발주처 납기 확인 발송 성공(발송 이력)', (await p4.textContent('body')).includes('입고 지연 독촉') && (await p4.textContent('body')).includes('발송'))
 
+  // 발주 단가 비유한(Infinity) 방어 — '1e309' 가 Number() 로 Infinity 파싱돼 lot.unitCost→asset.acquisitionCost 로 흘러
+  //  TCO·감가상각·부서비용·가치 집계를 오염하던 공백(수리비·매각대금은 isFinite 가드 있는데 입고 단가만 누락). 상세에 ∞ 로 표기되면 오염.
+  await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  await p4.locator('button', { hasText: /^입고 등록$/ }).click()
+  await p4.waitForTimeout(200)
+  {
+    const intakeCard = p4.locator('.card', { hasText: '입고 목록' })
+    await intakeCard.locator('input[placeholder*="모델"]').fill('e2e 단가오버플로 검증기')
+    await intakeCard.locator('input[type="number"]').first().fill('1')
+    await intakeCard.locator('input[placeholder="발주 단가(원)"]').fill('1e309')
+    await intakeCard.locator('button', { hasText: /^등록$/ }).click()
+    await p4.waitForTimeout(800)
+  }
+  await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  await p4.locator('tr.clickable', { has: p4.locator('td', { hasText: 'e2e 단가오버플로 검증기' }) }).first().click()
+  await p4.waitForTimeout(300)
+  ok('도입·검수: 발주 단가 비유한(1e309→Infinity) 방어 — 취득가 오염 차단(∞ 미표시)', !((await p4.textContent('body')) || '').includes('∞'))
+
   // 도입 예정 취소 — 발주·SR 취소로 무효가 된 도입 예정 건을 도착 전에 파이프라인에서 뺀다(방치 시 도착 예정일 경과로 입고 지연 오알림·발주처 오독촉). 도착 후 반품(검수 반려)과 구분. 사전 등록 후 취소로 검증.
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   await p4.locator('button', { hasText: '도입 예정 등록' }).click()
