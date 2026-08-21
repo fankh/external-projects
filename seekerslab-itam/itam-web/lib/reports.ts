@@ -949,7 +949,11 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           ? `향후 8개 분기 갱신 예상 총액 ${fmtAmount(totalHorizon)}원 · 만료 경과(미갱신) ${overdueN}건 ${fmtAmount(overdueAmt)}원 — 갱신 예산·현금흐름 계획`
           : `향후 8개 분기 갱신 예상 총액 ${fmtAmount(totalHorizon)}원 — 갱신 예산·현금흐름 계획`,
         columns: ['분기', '만료 계약', '예상 갱신액', '유지보수', '구매'],
-        rows: bucketList.map((b) => [b.label, String(b.count), b.amount.toLocaleString(), b.maint.toLocaleString(), b.purch.toLocaleString()]),
+        rows: [
+          ...bucketList.map((b) => [b.label, String(b.count), b.amount.toLocaleString(), b.maint.toLocaleString(), b.purch.toLocaleString()]),
+          // 합계 행 — 분기별 갱신 예산의 지평 총액을 표 안에서 바로 확인(예산 계획용). 금액은 네이티브 숫자 셀로 반출돼 회계가 합산·검산 가능.
+          ['합계', String(bucketList.reduce((n, b) => n + b.count, 0)), totalHorizon.toLocaleString(), bucketList.reduce((n, b) => n + b.maint, 0).toLocaleString(), bucketList.reduce((n, b) => n + b.purch, 0).toLocaleString()],
+        ],
       },
       {
         title: '갱신 임박 계약 상세 (기한순)',
