@@ -524,6 +524,28 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       ],
     }
   }
+  // 부서별 IT 비용(원가) — "부서별 비용/차지백" 질의는 자산 '대수'가 아니라 '비용'을 물은 것이므로 부서별 보유(대수) 인텐트보다 먼저 잡는다.
+  //  부서별 취득가·잔존가·유지보수비를 리포트와 같은 lib/cost 단일 소스로 집계(전체 배분은 '부서별 IT 비용 배분' 리포트로 생성).
+  if (canAsset && q.includes('부서') && (q.includes('비용') || q.includes('차지백') || q.includes('원가') || q.includes('chargeback'))) {
+    const t = today()
+    const valued = s.assets.filter((a) => a.status !== '폐기완료' && acquisitionCostOf(a) > 0)
+    const byDeptCost = new Map<string, { acq: number; book: number; repair: number; n: number }>()
+    for (const a of valued) {
+      const d = a.dept || '미지정'
+      const cur = byDeptCost.get(d) ?? { acq: 0, book: 0, repair: 0, n: 0 }
+      cur.acq += acquisitionCostOf(a); cur.book += bookValueOf(a, t); cur.repair += assetTco(a) - acquisitionCostOf(a); cur.n += 1
+      byDeptCost.set(d, cur)
+    }
+    const costRows = [...byDeptCost.entries()].sort((x, y) => y[1].acq - x[1].acq)
+    const totAcqDept = valued.reduce((n, a) => n + acquisitionCostOf(a), 0)
+    return {
+      role: 'assistant',
+      text: costRows.length === 0
+        ? '부서별 IT 자산 비용(원가)을 산출할 실물 자산이 없습니다.'
+        : `부서별 IT 자산 비용(원가) 배분입니다 (운영 실물 자산 · 취득가순 · 차지백·예산 근거). 총 취득가 ${fmtAmount(totAcqDept)}원.\n\n${costRows.slice(0, 8).map(([d, v]) => `· ${d}: 취득가 ${fmtAmount(v.acq)}원 · 잔존가(장부가) ${fmtAmount(v.book)}원${v.repair ? ` · 누적 유지보수 ${fmtAmount(v.repair)}원` : ''} (${v.n}대)`).join('\n')}${costRows.length > 8 ? `\n… 외 ${costRows.length - 8}개 부서` : ''}\n\n라이선스 좌석 비용·유지보수 계약비까지 합산한 전체 배분은 '부서별 IT 비용 배분' 리포트로 생성하세요.`,
+      evidence: [{ label: '부서별 IT 비용 배분 리포트', href: '/ai/reports' }],
+    }
+  }
   // 부서별 자산 보유 — 어느 부서가 얼마나 보유하는지(비용 배분·차지백 근거). '분포'가 상태별 인텐트에도 걸리므로
   //  '부서'가 포함된 질의는 여기서 먼저 잡는다. 미인가 SaaS·보증·라이선스 등 주제 인텐트는 위에서 이미 처리돼 안전.
   if (canAsset && q.includes('부서') && (q.includes('별') || q.includes('분포') || q.includes('보유') || q.includes('많') || q.includes('현황'))) {
