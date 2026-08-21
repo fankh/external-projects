@@ -17,7 +17,7 @@ import { criticalDependencies, impactSources } from './cmdb'
 // 복합 위험 단일 소스 — risk.ts 는 이 파일의 replacementCandidates 를 참조하므로 상호 import 이나
 // 양쪽 모두 함수 본문에서만 서로를 호출(모듈 최상위 미참조)해 순환이 안전하다.
 import { compositeRiskAssetNos, riskSignals } from './risk'
-import type { Sheet } from './xlsx'
+import type { CellValue, Sheet } from './xlsx'
 import type { ReportKind, ReportSchedule, ReportSection, SaasUsage } from './types'
 
 /** 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 대상
@@ -1245,10 +1245,14 @@ export function toSheets(title: string, headline: string, sections: ReportSectio
       ...sections.map((sec) => [`· ${sec.title}`, sec.note ?? '']),
     ],
   }
+  // 천단위 구분 금액 문자열("3,000,000")은 네이티브 숫자 셀로 반출 — 결재 첨부 후 회계가 합산·수식·피벗할 수 있다.
+  //  콤마가 있는 순수 정수만 변환한다: 연도('2026')·대수 같은 콤마 없는 값은 문자열로 남겨(연도에 #,##0 콤마 서식이 붙는 오표기 방지),
+  //  자산번호(AST-…)·비율('92%')·판정('판정 전') 등 비순수-숫자도 그대로 문자열. (감가상각 명세·계약 갱신 전망 등 금액 리포트가 네이티브 숫자화)
+  const numify = (v: string): CellValue => (/^-?\d{1,3}(,\d{3})+$/.test(v) ? Number(v.replace(/,/g, '')) : v)
   const sectionSheets: Sheet[] = sections.map((sec, i) => {
     const name = `${i + 1}. ${sec.title}`
     return sec.columns && sec.columns.length
-      ? { name, header: sec.columns, rows: (sec.rows ?? []).map((r) => [...r]) }
+      ? { name, header: sec.columns, rows: (sec.rows ?? []).map((r) => r.map(numify)) }
       : { name, header: ['내용'], rows: (sec.bullets ?? []).map((b) => [b]) }
   })
   return [cover, ...sectionSheets]
