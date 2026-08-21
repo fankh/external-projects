@@ -16,6 +16,16 @@ export function nowStamp(): string {
   return new Date(Date.now() + KST).toISOString().slice(0, 16).replace('T', ' ')
 }
 
+/** YYYY-MM-DD 형식이면서 실재하는 달력 날짜인가 — 형식만 맞고 존재하지 않는 날(2026-02-30·2026-13-01)은 거부.
+ *  그룹 위임 만료일(expiresAt) 입력 검증·isGroupActive 만료 판정 공용. 정규식만으론 2026-13-01 이 통과해
+ *  사전식 비교상 연말까지 '만료 안 됨'으로 오판(자동 회수가 조용히 무력화)되므로 실 달력 유효성까지 본다. */
+export function isCalendarDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+  const [y, m, d] = s.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d
+}
+
 /** 초 단위 타임스탬프 (KST) — 서약/개정 시각처럼 같은 날·같은 분 내 선후를 가려야 하는 값에 쓴다.
  *  (서약 signedAt >= 개정 revisedAt 비교가 당일 개정 전후를 구분하려면 분 단위론 부족) */
 export function nowStampSec(): string {

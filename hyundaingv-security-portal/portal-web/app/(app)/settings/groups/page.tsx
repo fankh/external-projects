@@ -6,7 +6,7 @@ import { audit } from '@/lib/audit'
 import { groupDelegationRegister, isGrantableAction, isGroupActive, requireMenu, requireMenuRole } from '@/lib/authz'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
-import { today } from '@/lib/dates'
+import { today, isCalendarDate } from '@/lib/dates'
 import { ROLE_LABEL } from '@/lib/types'
 
 /** 부여 가능한(운영) 메뉴 목록 — ADMIN 전용 화면은 위임 대상에서 제외(isGrantableMenu). 도메인 순서 유지. */
@@ -30,7 +30,7 @@ async function addGroup(formData: FormData) {
   const s = getStore()
   const id = nextNo('GRP', today().slice(0, 4), s.userGroups.map((g) => g.id))
   s.userGroups.unshift({ id, label, description: description || undefined, members: [], menuGrants: [],
-    expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expiresAt) ? expiresAt : undefined })
+    expiresAt: isCalendarDate(expiresAt) ? expiresAt : undefined })
   audit(me.name, '사용자 그룹 변경', `그룹 생성 — ${id} ${label}${expiresAt ? ` (만료 ${expiresAt})` : ''}`)
   revalidatePath('/', 'layout')
 }
@@ -44,7 +44,7 @@ async function setGroupExpiry(formData: FormData) {
   const s = getStore()
   const grp = s.userGroups.find((g) => g.id === id)
   if (!grp) return
-  grp.expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresAt) ? expiresAt : undefined
+  grp.expiresAt = isCalendarDate(expiresAt) ? expiresAt : undefined
   audit(me.name, '사용자 그룹 변경', `${grp.label} 만료일: ${grp.expiresAt ? grp.expiresAt : '해제(무기한)'}`)
   revalidatePath('/', 'layout')
 }
@@ -114,10 +114,16 @@ export default async function GroupsPage() {
   await requireMenu('/settings/groups')
   const s = getStore()
   const groups = s.userGroups ?? []
-  const memberCount = new Set(groups.flatMap((g) => g.members)).size
-  const grantCount = groups.reduce((sum, g) => sum + g.menuGrants.length, 0)
-  const actionGrantCount = groups.reduce((sum, g) => sum + (g.actionGrants ?? []).length, 0)
-  const expiredCount = groups.filter((g) => !isGroupActive(g)).length
+  // 위임 구성원·부여 메뉴·부여 기능 통계는 '유효 위임'(만료 회수됨 옆 지표)이므로 만료 그룹을 빼고, 위임 현황
+  // 대장과 같은 부여 가능(isGrantable*) 필터를 적용해 대장(groupDelegationRegister)과 어긋나지 않게 한다.
+  const active = groups.filter(isGroupActive)
+  const memberCount = new Set(active.flatMap((g) => g.members)).size
+  const grantCount = active.reduce((sum, g) => sum + g.menuGrants.filter(isGrantableMenu).length, 0)
+  const actionGrantCount = active.reduce((sum, g) => sum + (g.actionGrants ?? []).filter((k) => {
+    const [h, a] = k.split('#')
+    return !!h && !!a && isGrantableAction(h, a as ActionKey)
+  }).length, 0)
+  const expiredCount = groups.length - active.length
 
   // 위임 현황 — 화면·엑셀 export 가 공유하는 단일 원천(lib/authz.groupDelegationRegister). 유효 그룹의 위임을
   // 구성원 단위로 펼친 감사 대장(만료 그룹 제외·부여 가능 대상만). 별도 재구현 없어 화면=export 드리프트 방지.

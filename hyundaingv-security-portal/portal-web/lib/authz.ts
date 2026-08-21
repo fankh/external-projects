@@ -2,13 +2,17 @@ import { redirect } from 'next/navigation'
 import { NAV, SCREEN_ACTIONS, ACTION_LABEL, TITLE_BY_HREF, isGrantableMenu, type ActionKey } from '@/components/chrome/menus'
 import { getSession, type Session } from './session'
 import { getStore } from './store'
-import { today } from './dates'
+import { today, isCalendarDate } from './dates'
 import type { Role, UserGroup } from './types'
 
 /** 그룹 위임이 현재 유효한가 — 만료일(expiresAt) 미지정이면 무기한 유효, 지정 시 오늘 이하일 때만 유효.
- *  읽기 시점 판정이라 만료된 그룹은 열람·기능 위임을 일절 부여하지 않는다(fail-closed 자동 회수). */
+ *  읽기 시점 판정이라 만료된 그룹은 열람·기능 위임을 일절 부여하지 않는다(fail-closed 자동 회수).
+ *  손상·수기편집 파일의 형식 오염(비-영벌충 '2026-2-5'·달력 부재 '2026-13-01')은 사전식 비교로 만료를
+ *  오판(fail-open)시키므로, 유효한 달력 날짜가 아니면 만료로 취급한다(isCalendarDate 로 fail-closed 고정). */
 export function isGroupActive(grp: UserGroup): boolean {
-  return !grp.expiresAt || today() <= grp.expiresAt
+  if (!grp.expiresAt) return true
+  if (!isCalendarDate(grp.expiresAt)) return false
+  return today() <= grp.expiresAt
 }
 
 /** 화면 단위 서버사이드 권한 게이트 — 내비 숨김과 별개로 직접 URL 진입을 차단한다.
@@ -138,11 +142,15 @@ export function groupDelegationRegister(): DelegationEntry[] {
   const reg: DelegationEntry[] = []
   for (const g of getStore().userGroups ?? []) {
     if (!isGroupActive(g)) continue
-    for (const m of g.members) {
-      for (const h of g.menuGrants) if (isGrantableMenu(h)) reg.push({ member: m, kind: '열람', target: TITLE_BY_HREF[h]?.title ?? h, group: g.label, expiresAt: g.expiresAt })
+    // 빈 문자열 expiresAt(수기편집 파일)은 undefined 로 정규화 — 화면(falsy→무기한)과 export(?? 무기한)이
+    // 같은 값을 보게 해 '무기한' 표시가 어긋나지 않게 한다(단일 원천에서 한 번만 정리). 구성원 중복도 제거
+    // (한 그룹 members 배열에 같은 이름이 두 번 있으면 동일 행이 중복 집계돼 감사 대장이 과대계상).
+    const expiresAt = g.expiresAt || undefined
+    for (const m of new Set(g.members)) {
+      for (const h of g.menuGrants) if (isGrantableMenu(h)) reg.push({ member: m, kind: '열람', target: TITLE_BY_HREF[h]?.title ?? h, group: g.label, expiresAt })
       for (const k of g.actionGrants ?? []) {
         const [h, a] = k.split('#')
-        if (h && a && isGrantableAction(h, a as ActionKey)) reg.push({ member: m, kind: '기능', target: `${TITLE_BY_HREF[h]?.title ?? h} · ${ACTION_LABEL[a as ActionKey]}`, group: g.label, expiresAt: g.expiresAt })
+        if (h && a && isGrantableAction(h, a as ActionKey)) reg.push({ member: m, kind: '기능', target: `${TITLE_BY_HREF[h]?.title ?? h} · ${ACTION_LABEL[a as ActionKey]}`, group: g.label, expiresAt })
       }
     }
   }
