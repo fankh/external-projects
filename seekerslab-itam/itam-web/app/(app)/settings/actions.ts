@@ -328,6 +328,11 @@ export async function addCodeValue(groupId: string, rawCode: string, rawLabel: s
   if (g.values.some((v) => v.code === code)) {
     return { ok: false, message: `이미 존재하는 코드입니다 — ${code}` }
   }
+  // 명칭(label) 유일성 — 참조가 label 로 저장되므로 같은 그룹에 같은 명칭이 둘이면 코드→참조 매핑이 모호해지고
+  //  드롭다운에 동일 명칭이 중복 노출된다(rename 가드와 동일 근거 — label 이 사실상 참조 키).
+  if (g.values.some((v) => v.label === label)) {
+    return { ok: false, message: `이미 같은 명칭의 코드가 있습니다 — ${label}` }
+  }
 
   const sort = g.values.reduce((m, v) => Math.max(m, v.sort), 0) + 1
   g.values.push({ code, label, sort, active: true })
@@ -356,6 +361,10 @@ export async function renameCodeValue(groupId: string, code: string, rawLabel: s
   const used = codeUsage(g.id, v.label)
   if (used > 0) {
     return { ok: false, message: `사용 중인 코드는 명칭을 바꿀 수 없습니다 — '${v.label}'을(를) 참조하는 레코드 ${used}건. 먼저 이관 후 변경하세요.` }
+  }
+  // 명칭 유일성 — 다른 코드가 이미 쓰는 명칭으로는 바꿀 수 없다(addCodeValue 와 동일 근거 · label 이 참조 키).
+  if (g.values.some((x) => x.code !== code && x.label === label)) {
+    return { ok: false, message: `이미 같은 명칭의 코드가 있습니다 — ${label}` }
   }
 
   const before = v.label
