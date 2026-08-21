@@ -29,6 +29,9 @@ export interface UserGroup {
   members: string[]
   menuGrants: string[]
   actionGrants?: string[]
+  /** 만료일(YYYY-MM-DD, 선택) — 지정 시 이 날짜가 지나면 그룹의 모든 위임(열람·기능)이 자동 무효화된다
+   *  (임시 위임 — 협력업체·대행 커버리지 등). 읽기 시점 판정이라 fail-closed(만료 후 즉시 접근 소멸). 미지정=무기한. */
+  expiresAt?: string
 }
 
 /** SR 3종 (시스템개발 · 데이터 · 계정/권한) */

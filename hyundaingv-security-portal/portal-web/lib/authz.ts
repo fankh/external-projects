@@ -2,7 +2,14 @@ import { redirect } from 'next/navigation'
 import { NAV, SCREEN_ACTIONS, isGrantableMenu, type ActionKey } from '@/components/chrome/menus'
 import { getSession, type Session } from './session'
 import { getStore } from './store'
-import type { Role } from './types'
+import { today } from './dates'
+import type { Role, UserGroup } from './types'
+
+/** 그룹 위임이 현재 유효한가 — 만료일(expiresAt) 미지정이면 무기한 유효, 지정 시 오늘 이하일 때만 유효.
+ *  읽기 시점 판정이라 만료된 그룹은 열람·기능 위임을 일절 부여하지 않는다(fail-closed 자동 회수). */
+export function isGroupActive(grp: UserGroup): boolean {
+  return !grp.expiresAt || today() <= grp.expiresAt
+}
 
 /** 화면 단위 서버사이드 권한 게이트 — 내비 숨김과 별개로 직접 URL 진입을 차단한다.
  *  미로그인 → /login, 권한 밖 → /dashboard (권한·접근통제 모델 §02) */
@@ -31,7 +38,7 @@ export function effectiveRoles(href: string): Role[] {
 export function groupGrantedMenus(name: string): string[] {
   const hrefs = new Set<string>()
   for (const grp of getStore().userGroups ?? []) {
-    if (!grp.members.includes(name)) continue
+    if (!grp.members.includes(name) || !isGroupActive(grp)) continue
     for (const h of grp.menuGrants) if (isGrantableMenu(h)) hrefs.add(h)
     // 액션(쓰기) 위임도 해당 화면 열람을 함께 연다 — 위임받은 기능을 쓰려면 화면에 진입해야 한다.
     // 쓰기 경로(groupGrantsAction)와 동일하게 isGrantableAction 로 액션 키 전체를 검증한다 — 손상·위조
@@ -49,8 +56,8 @@ export function groupGrantedMenus(name: string): string[] {
 export function groupGrantsMenu(name: string, href: string): boolean {
   if (!isGrantableMenu(href)) return false
   // 액션 위임 분기도 isGrantableAction 로 액션 키를 검증한다(groupGrantedMenus·쓰기 경로와 대칭) —
-  // 미등록 액션 키가 열람만 여는 비대칭 제거. isGrantableMenu(href) 는 위에서 확정됨.
-  return (getStore().userGroups ?? []).some((g) => g.members.includes(name)
+  // 미등록 액션 키가 열람만 여는 비대칭 제거. isGrantableMenu(href) 는 위에서 확정됨. 만료 그룹은 제외.
+  return (getStore().userGroups ?? []).some((g) => g.members.includes(name) && isGroupActive(g)
     && (g.menuGrants.includes(href)
       || (g.actionGrants ?? []).some((k) => {
         const [h, a] = k.split('#')
@@ -106,14 +113,14 @@ export function isGrantableAction(href: string, action: ActionKey): boolean {
 export function groupGrantsAction(name: string, href: string, action: ActionKey): boolean {
   if (!isGrantableAction(href, action)) return false
   const key = `${href}#${action}`
-  return (getStore().userGroups ?? []).some((g) => g.members.includes(name) && (g.actionGrants ?? []).includes(key))
+  return (getStore().userGroups ?? []).some((g) => g.members.includes(name) && isGroupActive(g) && (g.actionGrants ?? []).includes(key))
 }
 
 /** 이 계정에 그룹 위임된 기능 키(`${href}#${action}`) 목록 — 부여 가능 액션만. 내비 배너·UI 표시용. */
 export function groupGrantedActions(name: string): string[] {
   const keys = new Set<string>()
   for (const grp of getStore().userGroups ?? []) {
-    if (!grp.members.includes(name)) continue
+    if (!grp.members.includes(name) || !isGroupActive(grp)) continue
     for (const key of grp.actionGrants ?? []) {
       const [h, a] = key.split('#')
       if (h && a && isGrantableAction(h, a as ActionKey)) keys.add(key)

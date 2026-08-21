@@ -3,7 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { NAV, SCREEN_ACTIONS, ACTION_LABEL, TITLE_BY_HREF, isGrantableMenu, type ActionKey } from '@/components/chrome/menus'
 import { Icon } from '@/components/chrome/Icon'
 import { audit } from '@/lib/audit'
-import { isGrantableAction, requireMenu, requireMenuRole } from '@/lib/authz'
+import { isGrantableAction, isGroupActive, requireMenu, requireMenuRole } from '@/lib/authz'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 import { today } from '@/lib/dates'
@@ -25,11 +25,27 @@ async function addGroup(formData: FormData) {
   const me = await requireMenuRole('/settings/groups', 'ADMIN')
   const label = String(formData.get('label') ?? '').trim().slice(0, 40)
   const description = String(formData.get('description') ?? '').trim().slice(0, 120)
+  const expiresAt = String(formData.get('expiresAt') ?? '')
   if (!label) return
   const s = getStore()
   const id = nextNo('GRP', today().slice(0, 4), s.userGroups.map((g) => g.id))
-  s.userGroups.unshift({ id, label, description: description || undefined, members: [], menuGrants: [] })
-  audit(me.name, '사용자 그룹 변경', `그룹 생성 — ${id} ${label}`)
+  s.userGroups.unshift({ id, label, description: description || undefined, members: [], menuGrants: [],
+    expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expiresAt) ? expiresAt : undefined })
+  audit(me.name, '사용자 그룹 변경', `그룹 생성 — ${id} ${label}${expiresAt ? ` (만료 ${expiresAt})` : ''}`)
+  revalidatePath('/', 'layout')
+}
+
+/** 그룹 만료일 설정/해제 — 임시 위임(만료 후 자동 회수). 유효한 YYYY-MM-DD 면 설정, 빈값이면 무기한으로 해제. */
+async function setGroupExpiry(formData: FormData) {
+  'use server'
+  const me = await requireMenuRole('/settings/groups', 'ADMIN')
+  const id = String(formData.get('id') ?? '')
+  const expiresAt = String(formData.get('expiresAt') ?? '')
+  const s = getStore()
+  const grp = s.userGroups.find((g) => g.id === id)
+  if (!grp) return
+  grp.expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresAt) ? expiresAt : undefined
+  audit(me.name, '사용자 그룹 변경', `${grp.label} 만료일: ${grp.expiresAt ? grp.expiresAt : '해제(무기한)'}`)
   revalidatePath('/', 'layout')
 }
 
@@ -101,6 +117,7 @@ export default async function GroupsPage() {
   const memberCount = new Set(groups.flatMap((g) => g.members)).size
   const grantCount = groups.reduce((sum, g) => sum + g.menuGrants.length, 0)
   const actionGrantCount = groups.reduce((sum, g) => sum + (g.actionGrants ?? []).length, 0)
+  const expiredCount = groups.filter((g) => !isGroupActive(g)).length
 
   return (
     <>
@@ -112,12 +129,14 @@ export default async function GroupsPage() {
         <Stat value={memberCount} label="위임 구성원" note="중복 제외" />
         <Stat value={grantCount} label="부여 메뉴" note="열람 위임" />
         <Stat value={actionGrantCount} label="부여 기능" note="쓰기 위임" tone={actionGrantCount > 0 ? 'warn' : undefined} />
+        <Stat value={expiredCount} label="만료 그룹" note="위임 회수됨" tone={expiredCount > 0 ? 'err' : undefined} />
       </div>
 
       <Card title="그룹 생성">
         <form action={addGroup} className="hstack" style={{ gap: 8, flexWrap: 'wrap' }}>
           <input className="input" name="label" aria-label="그룹명" placeholder="그룹명 (예: 인프라 열람 위임)" required style={{ minWidth: 220 }} maxLength={40} />
           <input className="input" name="description" aria-label="그룹 설명" placeholder="설명 (선택)" style={{ flex: 1, minWidth: 240 }} maxLength={120} />
+          <input className="input" name="expiresAt" aria-label="만료일" type="date" title="만료일 (선택 — 지나면 위임 자동 회수)" style={{ width: 150 }} />
           <button type="submit" className="btn pri">그룹 등록</button>
         </form>
       </Card>
@@ -126,6 +145,7 @@ export default async function GroupsPage() {
         <Card title="그룹 목록"><div className="empty">등록된 그룹이 없습니다. 위에서 그룹을 만들어 열람 위임을 시작하세요.</div></Card>
       ) : groups.map((grp) => {
         const grantedSet = new Set(grp.menuGrants)
+        const expired = !isGroupActive(grp)
         return (
           <Card key={grp.id} title={grp.label}
             actions={
@@ -137,6 +157,19 @@ export default async function GroupsPage() {
             <div className="vstack" style={{ gap: 12 }}>
               <div className="mut" style={{ fontSize: 12 }}>
                 <span className="mono">{grp.id}</span>{grp.description ? ` · ${grp.description}` : ''}
+              </div>
+
+              <div className="hstack" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="kicker">만료</div>
+                {grp.expiresAt
+                  ? <Chip tone={expired ? 'err' : 'warn'} bare>{expired ? `만료됨 (${grp.expiresAt})` : `${grp.expiresAt} 만료 예정`}</Chip>
+                  : <Chip tone="neutral" bare>무기한</Chip>}
+                {expired && <span className="mut" style={{ fontSize: 11 }}>— 이 그룹의 열람·기능 위임이 자동 회수됨</span>}
+                <form action={setGroupExpiry} className="hstack" style={{ gap: 4, marginLeft: 'auto' }}>
+                  <input type="hidden" name="id" value={grp.id} />
+                  <input className="input" name="expiresAt" aria-label="만료일 변경" type="date" defaultValue={grp.expiresAt ?? ''} style={{ height: 26, fontSize: 11, width: 140 }} />
+                  <button type="submit" className="btn sm" title="만료일 설정 (빈값으로 저장 시 무기한으로 해제)">만료일 저장</button>
+                </form>
               </div>
 
               <div>
