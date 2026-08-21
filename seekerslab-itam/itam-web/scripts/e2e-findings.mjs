@@ -411,6 +411,9 @@ async function aiPeriodQuery(page) {
   ok('AI 자산조회: 레코드 단위 딥링크(?sel=)', href === '/assets/register?sel=AST-2023-000112')
   const a2 = await ask('AST-9999-000000 상태')
   ok('AI 자산조회: 미존재 자산 → 찾을 수 없음', a2.includes('찾을 수 없습니다'))
+  // 자산 조회에 CMDB 의존/영향(blast radius) 노출(신규) — 변경·정비·장애 계획 시 "이 자산 장애나면 뭐 영향받나"를 대화형으로. 단일 장애점(방화벽 AST-2022-000641)은 하위 전이 영향 보유.
+  const a3 = await ask('AST-2022-000641 자산 상태 알려줘')
+  ok('AI 자산조회: CMDB 의존/영향(blast radius) 노출 — 단일 장애점의 전이 영향·상위 의존(변경·정비 사전 통지)', a3.includes('AST-2022-000641') && a3.includes('CMDB 의존') && a3.includes('blast radius'))
 
   // 결재 질의 역할 인지 — 전체 대기 중 '내가 결재할 수 있는 건'을 대시보드와 동일 게이트로 함께 제시.
   //  ADMIN 은 전 단계 오버라이드라 '내 결재 = 전체'(본인 상신분은 시드상 없음)

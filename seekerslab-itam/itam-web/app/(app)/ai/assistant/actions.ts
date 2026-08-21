@@ -8,6 +8,7 @@ import { daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, i
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf } from '@/lib/eol'
+import { assetDependencies } from '@/lib/cmdb'
 import { lowStockCategories } from '@/lib/stock'
 import { upcomingSchedule } from '@/lib/upcoming'
 import { compositeRiskAssetNos, riskSignalCount } from '@/lib/risk'
@@ -134,6 +135,11 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const eol = eolOsOf(asset.os, today())
     const hist = asset.history.slice(-6)
     const cfg = [asset.cpu, asset.memory, asset.os && `OS ${asset.os}`].filter(Boolean).join(' · ') || '-'
+    // CMDB 의존/영향 — 이 자산 장애 시 전이 영향(blast radius)과 상위 의존을 함께 답한다(변경·장애 계획). 대장 상세 토폴로지·단일 장애점 리포트와 같은 lib/cmdb 단일 소스.
+    const deps = assetDependencies(no)
+    const depLine = deps.upstream.length || deps.blastRadius.length
+      ? `· CMDB 의존: ${deps.upstream.length ? `상위 의존 ${deps.upstream.length}대(${deps.upstream.slice(0, 4).join(', ')})` : '상위 의존 없음'}${deps.blastRadius.length ? ` · 장애 시 영향(blast radius) ${deps.blastRadius.length}대: ${deps.blastRadius.slice(0, 6).join(', ')}${deps.blastRadius.length > 6 ? ' 외' : ''} — 변경·정비 시 사전 통지 대상` : ''}${deps.degradedUpstream.length ? ` · ⚠ 저하된 상위 의존 ${deps.degradedUpstream.length}대 — 이 자산 위험 노출` : ''}`
+      : null
     return {
       role: 'assistant',
       text: [
@@ -142,6 +148,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         `· 상태 ${asset.status} · 사용자 ${asset.owner} / ${asset.dept} · 위치 ${asset.location}${asset.criticality ? ` · 업무 중요도 ${asset.criticality}` : ''}`,
         `· 구성: ${cfg}${eol ? ` (OS 지원 종료 ${eol.label} · EOL — 교체·업그레이드 대상)` : ''} · IP ${asset.ip ?? '-'} · MAC ${asset.mac ?? '-'} · S/N ${asset.serial}`,
         `· 취득 ${asset.purchaseDate} · 보증 ${asset.warrantyEnd}${wd !== null ? ` (${wd < 0 ? `만료 경과 ${-wd}일` : `D-${wd}`})` : ''}${asset.contractId ? ` · 계약 ${asset.contractId}` : ''}${asset.discoveredVia ? ` · 편입 경로 ${asset.discoveredVia}` : ''}`,
+        ...(depLine ? [depLine] : []),
         ``,
         `변경 이력 (최근 ${hist.length}건 · 전체 ${asset.history.length}건):`,
         ...hist.map((h) => `   - ${h.date} [${h.kind}] ${h.detail} · ${h.actor}`),
