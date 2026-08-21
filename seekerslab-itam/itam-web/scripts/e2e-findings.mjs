@@ -369,6 +369,8 @@ async function aiPeriodQuery(page) {
   const rncId = decodeURIComponent((rncHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const rncText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(rncId)}?format=xlsx`)).body()).toString('utf8')
   ok('리포트 반출: 계약 갱신 전망 xlsx 에 분기별 갱신 전망·갱신 임박 상세 섹션(예상 갱신액)', rncText.includes('분기별 갱신 전망') && rncText.includes('예상 갱신액') && rncText.includes('갱신 임박 계약 상세'))
+  // 분기별 갱신 전망 표에 합계 행 — 지평 총 갱신 예산을 표 안에서 바로 확인(예산 계획). 합계 금액은 네이티브 숫자 셀.
+  ok('리포트 반출: 계약 갱신 전망 분기별 표에 합계 행(지평 총 갱신액)', rncText.includes('합계'))
   // 부서별 IT 비용 배분(차지백) 리포트 — 자연어 생성 인텐트가 신규 종류를 매칭하고, buildSections 가 부서별 원가·좌석 비용 섹션을 실제 산출.
   const r4 = await ask('부서별 IT 비용 배분 리포트 생성해줘')
   ok('AI 차지백질의: 부서별 IT 비용 배분 생성 분기', r4.includes('리포트를 생성했습니다'))
