@@ -823,6 +823,26 @@ try {
   await p2.locator('button', { hasText: /^재배정 확정$/ }).click()
   await p2.waitForTimeout(700)
 
+  // 일괄 재배정(직접 인계) — 단건 reassignAsset 의 배치 판(reassignAssetMany). 팀 인수인계·후임 승계로 여러 사용 중 자산을 한 사람에게 한 번에 인계.
+  //  AST-2023-000113(위에서 오세훈으로 재배정됨)과 AST-2023-000112(김민준)를 함께 선택해 오세훈으로 일괄 재배정 → 000113 은 이미 오세훈이라 건너뛰고(동일 보유자 스킵) 000112 만 이동 = '1건'. 검증 후 000112 는 김민준으로 원복.
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p2.locator('input[aria-label="AST-2023-000113 선택"]').check()
+  await p2.locator('input[aria-label="AST-2023-000112 선택"]').check()
+  ok('일괄 재배정: 선택 사용 중 자산에 일괄 재배정 컨트롤 노출(사용중 2)', (await p2.locator('span', { hasText: /일괄 재배정 \(사용중 2\)/ }).count()) > 0)
+  await p2.locator('select', { has: p2.locator('option', { hasText: '인계 대상…' }) }).selectOption('오세훈')
+  await p2.locator('button', { hasText: /^재배정$/ }).click()
+  await p2.waitForTimeout(700)
+  ok('일괄 재배정: 동일 보유자(오세훈) 선택분은 건너뛰고 1건만 재배정(스킵 로직 · 새 보유자 오세훈)', ((await p2.locator('body').textContent()) || '').includes('1건 재배정') && ((await p2.locator('body').textContent()) || '').includes('오세훈'))
+  await p2.goto(`${BASE}/assets/register?sel=AST-2023-000112`, { waitUntil: 'networkidle' })
+  ok('일괄 재배정 → 대상 자산 소유자·부서 갱신(오세훈 · 인사팀)', ((await p2.locator('body').textContent()) || '').includes('오세훈'))
+  // 원복 — 하위 테스트를 위해 김민준으로 되돌린다
+  await p2.locator('button', { hasText: /^자산 재배정 \(직접 인계\)$/ }).click()
+  await p2.waitForTimeout(200)
+  await p2.locator('select', { has: p2.locator('option', { hasText: '김민준 · 플랫폼개발팀' }) }).selectOption('김민준')
+  await p2.locator('input[placeholder*="인계 사유"]').fill('원복(일괄 재배정 검증 후) — e2e')
+  await p2.locator('button', { hasText: /^재배정 확정$/ }).click()
+  await p2.waitForTimeout(700)
+
   // 수명주기 처리 대기열 라우팅 — 대여중·수리중·분실이 '다음 처리 -'로 막다른 행이던 것을 처리 화면 딥링크로 연결(폐기완료는 대기열 제외).
   await p2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
   const lifeBody = (await p2.locator('body').textContent()) || ''

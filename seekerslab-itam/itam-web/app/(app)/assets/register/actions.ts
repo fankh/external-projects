@@ -666,6 +666,42 @@ export async function recoverManyFromUser(assetNos: string[], rawReason: string)
   return { ok: true, message: `${n}건 회수 — 반납 접수 대기열로 편성 (점검 후 유휴 풀/수리/폐기)` }
 }
 
+/** 자산 일괄 재배정(직접 인계) — 여러 사용 중 자산을 한 번에 같은 새 보유자에게 직접 인계한다(팀 인수인계·후임 승계·조직 개편).
+ *  회수(recoverManyFromUser)가 반납 점검을 거쳐 유휴로 돌리는 오프보딩이라면, 이쪽은 실물이 창고로 돌아가지 않고 보유자만
+ *  바뀌는 직접 인계(reassignAsset)의 배치 판이다. 사용 중이 아니거나 이미 대상 보유자인 선택분은 건너뛴다. 좌석은 자산과 함께
+ *  승계하고 새 보유자에게 수령(인수) 확인 대기를 건다(체인 오브 커스터디). 자산담당·Admin. */
+export async function reassignAssetMany(assetNos: string[], rawNewOwner: string, rawNote: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '자산 재배정 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const user = s.users.find((u) => u.name === rawNewOwner.trim())
+  if (!user) return { ok: false, message: '재배정 대상 사용자를 선택해 주세요.' }
+  const note = rawNote.trim()
+  let n = 0
+  let seats = 0
+  for (const no of assetNos) {
+    const asset = s.assets.find((a) => a.assetNo === no)
+    if (!asset || asset.status !== '사용중') continue
+    if (asset.owner === user.name) continue // 이미 대상 보유자 — 건너뜀(단건 reassignAsset 의 동일 보유자 차단과 동형)
+    const from = `${asset.owner} (${asset.dept})`
+    asset.owner = user.name
+    asset.dept = user.dept
+    asset.receiptPending = true // 새 보유자 수령(인수) 확인 대기 — 체인 오브 커스터디
+    asset.history.push({ date: today(), kind: '이동', detail: `재배정(직접 인계) — ${from} → ${user.name} (${user.dept}) 일괄${note ? ` · ${note}` : ''}`, actor: session.name })
+    const moved = transferLicenseSeats(no, user.name, user.dept, session.name)
+    if (moved.length) {
+      asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 보유자 승계 — ${moved.join(', ')} → ${user.name}`, actor: session.name })
+      seats += moved.length
+    }
+    dispatch({ channel: '이메일', to: `${user.name} (${user.dept})`, subject: `자산 인수 요청 — ${asset.assetNo} ${asset.model} 재배정 · 수령(인수) 확인 요망`, kind: '수령 확인', ref: asset.assetNo })
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: '재배정 대상(사용 중·다른 보유자)이 없습니다 — 선택 항목을 확인하세요.' }
+  appendAudit({ actor: session.name, action: `자산 일괄 재배정 ${n}건 → ${user.name} (${user.dept})${note ? ` · ${note}` : ''}`, target: '인수인계·후임 승계' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${n}건 재배정 — → ${user.name} (${user.dept}) · 새 보유자 수령 확인 대기${seats ? ` · 라이선스 좌석 ${seats}건 승계` : ''}` }
+}
+
 /** 정기 점검 완료 — 예방 정비를 시행하고 다음 점검을 재예약한다(§03 유지보수: 사전 정비).
  *  반응형 수리(장애·반납)와 별개로, 정비 일정이 도래한 자산의 점검을 기록하고 완료일 기준 12개월 후로 다음 예정일을 잡는다.
  *  이력에 점검 사실을 남겨 정비 주기를 추적한다. 정기 점검 예정이 있는 자산만 대상. 자산담당·Admin. */
