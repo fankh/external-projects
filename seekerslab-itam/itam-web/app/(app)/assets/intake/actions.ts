@@ -102,7 +102,8 @@ export async function registerIntakeLot(contractId: string, model: string, categ
     checklist: checklistFor(category).map((item) => ({ item, checked: false })),
     issued: [],
     inspector: session.name,
-    unitCost: unitCost > 0 ? Math.round(unitCost) : undefined,
+    // 비유한(Infinity/NaN) 방어 — 발주 단가가 취득가(acquisitionCost)로 흘러 TCO·감가상각·부서비용·가치 집계를 오염하지 않게(수리비·매각대금 가드와 동일 규약). '1e309' 입력이 Infinity 로 파싱돼 UI 도달 가능.
+    unitCost: Number.isFinite(unitCost) && unitCost > 0 ? Math.round(unitCost) : undefined,
   })
 
   appendAudit({ actor: session.name, action: `입고 등록 — ${m} ${qty}대 (${contract.id})`, target: id })
@@ -134,7 +135,8 @@ export async function preRegisterLot(input: { contractId: string; srNo: string; 
     id, contractId: input.contractId, model: m, category: input.category, qty: input.qty,
     arrivedAt: '', vendor: contract.vendor, status: '도입 예정',
     checklist: [], issued: [], srNo, expectedDate: input.expectedDate,
-    unitCost: input.unitCost && input.unitCost > 0 ? Math.round(input.unitCost) : undefined,
+    // 비유한(Infinity/NaN) 방어 — registerIntakeLot 과 동일(발주 단가→취득가 오염 방지).
+    unitCost: Number.isFinite(input.unitCost) && input.unitCost! > 0 ? Math.round(input.unitCost!) : undefined,
   })
   appendAudit({ actor: session.name, action: `도입 예정 사전 등록 — ${m} ${input.qty}대 (SR ${srNo})`, target: id })
   revalidatePath('/', 'layout')
