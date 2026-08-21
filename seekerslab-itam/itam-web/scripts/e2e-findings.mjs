@@ -358,6 +358,9 @@ async function aiPeriodQuery(page) {
   const depId = decodeURIComponent((depHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const depText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(depId)}?format=xlsx`)).body()).toString('utf8')
   ok('리포트 반출: 감가상각 명세 xlsx 에 연도별 상각 전개·유형별 상각 현황 섹션(연간 상각액·연말 장부가)', depText.includes('연도별 감가상각 명세') && depText.includes('연간 상각액') && depText.includes('연말 장부가') && depText.includes('유형별 상각 현황'))
+  // 네이티브 숫자 셀 반출(신규) — 금액을 텍스트("3,000,000")가 아니라 네이티브 숫자 셀(<v>3000000</v>)로 반출해 회계가 엑셀에서 합산·수식·피벗 가능.
+  //  toSheets 가 천단위 구분 금액 문자열을 숫자로 변환(#,##0 서식). 변환 전에는 금액이 inlineStr 텍스트라 <v>대형숫자 셀이 없었다(fails-without-fix).
+  ok('리포트 반출: 감가상각 명세 xlsx 는 금액을 네이티브 숫자 셀(<v>)로 반출 — 회계 합산·수식 가능(텍스트 아님)', /<v>\d{6,}<\/v>/.test(depText))
   // 계약 갱신 전망 리포트(신규 역량) — 계약 만료(=갱신)를 분기 버킷으로 전방 전개(갱신 예산·현금흐름). 계약 관리 현황(D-90 스냅샷)과 달리 다분기 전망.
   //  생성 인텐트 '계약 갱신'이 라이선스 갱신·트루업보다 우선 매칭돼야 함(둘 다 '갱신' 포함 → 순서 검증). 응답이 '계약 갱신 전망'이어야 fails-without-fix.
   const rRenC = await ask('계약 갱신 전망 리포트 생성해줘')
