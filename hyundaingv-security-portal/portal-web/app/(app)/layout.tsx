@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/chrome/AppShell'
 import { NAV } from '@/components/chrome/menus'
-import { effectiveRoles, groupGrantedMenus } from '@/lib/authz'
+import { effectiveRoles, groupGrantedActions, groupGrantedMenus } from '@/lib/authz'
 import { channelSummary } from '@/lib/integrations/registry'
 import { getSession, SESSION_COOKIE } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -33,12 +33,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // 사용자 그룹 열람 위임 — 기본 역할엔 없으나 그룹으로 부여된 운영 화면을 내비에 추가 노출한다
   // (서버 가드는 requireMenu 가 같은 canAccessMenu 술어로 담당 — 표시=강제 정합).
   const grantedHrefs = groupGrantedMenus(session.name)
+  // 그룹 액션(쓰기) 위임을 받은 화면 href — 그 화면 배너를 '열람 전용'이 아니라 '부여 기능 사용 가능'으로 구분한다
+  const grantedActionHrefs = [...new Set(groupGrantedActions(session.name).map((k) => k.split('#')[0]))]
 
   return (
     <AppShell
       role={session.role}
       hiddenHrefs={hiddenHrefs}
       grantedHrefs={grantedHrefs}
+      grantedActionHrefs={grantedActionHrefs}
       badges={badges}
       channels={channels}
       lastBatch={s.batchRuns[0] ? { job: s.batchRuns[0].job, at: s.batchRuns[0].ranAt } : undefined}

@@ -29,6 +29,8 @@ export function AppShell(props: {
   hiddenHrefs?: string[]
   /** 사용자 그룹 열람 위임으로 이 세션에 추가 노출할 메뉴 href — 기본 역할 권한과 합집합(서버 가드=canAccessMenu) */
   grantedHrefs?: string[]
+  /** 그룹 액션(쓰기) 위임을 받은 화면 href — 위임 안내를 '열람 전용'이 아니라 '부여 기능 사용 가능'으로 구분 */
+  grantedActionHrefs?: string[]
   badges: { todos: number; approvals: number }
   channels: { on: number; total: number }
   lastBatch?: { job: string; at: string }
@@ -158,7 +160,9 @@ export function AppShell(props: {
               {grantOnlyView && (
                 <div className="callout" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                   <Icon name="usergroup" size={14} />
-                  <span>그룹 열람 위임으로 접근 중인 화면입니다 — <b>열람 전용</b>. 저장·삭제 등 쓰기 기능은 역할 권한에 따라 제한됩니다.</span>
+                  {(props.grantedActionHrefs ?? []).includes(curItem!.href)
+                    ? <span>그룹 위임으로 접근 중인 화면입니다 — <b>부여된 기능만</b> 사용할 수 있고, 그 외 쓰기 기능은 역할 권한에 따라 제한됩니다.</span>
+                    : <span>그룹 열람 위임으로 접근 중인 화면입니다 — <b>열람 전용</b>. 저장·삭제 등 쓰기 기능은 역할 권한에 따라 제한됩니다.</span>}
                 </div>
               )}
               {props.children}

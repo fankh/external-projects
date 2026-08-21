@@ -92,6 +92,7 @@ SRCH_DATA = ROOT / 'scripts' / '.e2e-srch-data.json'  # 통합 검색 커버리�
 CSCHED_DATA = ROOT / 'scripts' / '.e2e-csched-data.json'  # 다가오는 컴플라이언스 일정(경과분 제외) 회귀용 (v1.5.339)
 GROUP_DATA = ROOT / 'scripts' / '.e2e-group-data.json'  # 사용자 그룹 열람 위임(가법·per-메뉴 스코프) 회귀용 (v1.5.417)
 GROUPREV_DATA = ROOT / 'scripts' / '.e2e-grouprev-data.json'  # 사용자 그룹 부여/회수 관리 액션 end-to-end 회귀용 (v1.5.421)
+GROUPACT_DATA = ROOT / 'scripts' / '.e2e-groupact-data.json'  # 사용자 그룹 기능(쓰기) 위임 회귀용 (v1.5.429)
 MSTAGE_DATA = ROOT / 'scripts' / '.e2e-mstage-data.json'  # 다단 중간 승인자 추적성(B1) 회귀용 (v1.5.347)
 BSNAP_DATA = ROOT / 'scripts' / '.e2e-bsnap-data.json'  # 묶음 반려 상세 스냅샷 재구성(B2) 회귀용 (v1.5.349)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
@@ -3890,6 +3891,31 @@ def sc_group_grant_revoke(pg, base, check):
     check(pg.url.rstrip('/').endswith('/dashboard'), '구성원 회수 → 다시 차단 (revocation)')
 
 
+def sc_group_action_grant(pg, base, check):
+    """사용자 그룹 기능(쓰기) 위임 — USER(김현우)가 /infra/systems#delete 액션 위임을 받으면 역할(BIZ_MGR+)이
+    아니어도 시스템 삭제(requireAction 가드)를 수행할 수 있고, 액션 위임이 그 화면 열람도 함께 연다. 미부여
+    화면은 여전히 차단(per-grant 스코프). fails-without-fix 2건: (1)groupGrantsMenu 액션 분기 없으면 열람 회송,
+    (2)canPerformAction 그룹 분기 없으면 삭제 회송. 픽스처: 삭제 가능 시스템 1건 + 김현우 액션위임 그룹
+    (menuGrants 빈·actionGrants=/infra/systems#delete)."""
+    login(pg, base, '김현우')
+    # (1) 액션 위임이 화면 열람도 연다(menuGrant 없어도) — 버그면 /dashboard 회송
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/infra/systems'), f'액션 위임이 열람도 열어야 (버그면 /dashboard; 실제 {pg.url})')
+    check('부여된 기능만' in pg.content(), '기능 위임 화면 배너 = 부여된 기능만 사용 가능(열람 전용 아님)')
+    # per-grant 스코프 — 미부여 BIZ 화면은 여전히 차단(블랭킷 아님)
+    pg.goto(f'{base}/infra/racks', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/dashboard'), f'미부여 화면(/infra/racks)은 여전히 차단 (실제 {pg.url})')
+    # (2) 위임된 삭제 수행 — requireAction 이 그룹 액션 위임으로 통과. 버그면 /dashboard 회송으로 삭제 안 됨
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    row = pg.locator('tr', has_text='SYS-E2E')
+    check(row.count() == 1, 'SYS-E2E 시스템 행 노출(삭제 가능)')
+    row.locator('form:has(button:has-text("삭제"))').first.evaluate('f => f.requestSubmit()')
+    pg.wait_for_load_state('networkidle')
+    pg.wait_for_timeout(500)
+    check(pg.url.rstrip('/').endswith('/infra/systems'), f'삭제 후 화면 유지(회송 아님; 실제 {pg.url})')
+    check(pg.locator('tr', has_text='SYS-E2E').count() == 0, '기능 위임으로 시스템 삭제 성공(행 사라짐)')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
@@ -4117,6 +4143,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(GROUP_DATA)}),
     ('group_grant_revoke', '사용자 그룹 관리 액션 — 구성원 부여/회수 end-to-end(toggleMember, revocation 실증)', sc_group_grant_revoke,
      {'PORTAL_DATA_FILE': str(GROUPREV_DATA)}),
+    ('group_action_grant', '사용자 그룹 기능(쓰기) 위임 — 액션 위임으로 역할 없이 requireAction 수행(삭제)·열람 동반·per-grant 스코프', sc_group_action_grant,
+     {'PORTAL_DATA_FILE': str(GROUPACT_DATA)}),
     ('action_permission_infra', '기능(Action) 권한 확장 — 인프라 자산 삭제도 requireAction 강제(도메인 확장)', sc_action_permission_infra, {}),
     ('action_permission', '기능(Action) 단위 권한 — 삭제 기능 권한그룹별 제한·복원(requireAction 강제)', sc_action_permission,
      {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
@@ -4518,6 +4546,12 @@ def main() -> int:
     GROUPREV_DATA.write_text(json.dumps({
         'userGroups': [{'id': 'GRP-2026-91', 'label': '열람 위임 회귀', 'members': [], 'menuGrants': ['/infra/systems']}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 그룹 기능(쓰기) 위임 회귀 — 삭제 가능한(미참조) 시스템 1건 + 김현우 액션위임 그룹(menuGrants 빈).
+    # 액션 위임만으로 열람 동반+삭제 수행이 되어야 한다(둘 다 fails-without-fix).
+    GROUPACT_DATA.write_text(json.dumps({
+        'systems': [{'id': 'SYS-E2E', 'name': '위임테스트시스템', 'url': 'https://e2e.internal', 'env': '운영계', 'serverIds': [], 'owner': '박정호'}],
+        'userGroups': [{'id': 'GRP-2026-92', 'label': '시스템 삭제 위임 E2E', 'members': ['김현우'], 'menuGrants': [], 'actionGrants': ['/infra/systems#delete']}],
+    }, ensure_ascii=False), encoding='utf-8')
     # 기능(Action) 단위 권한 — 종결(완료) 위험 1건(삭제 대상). ADMIN 이 위험 삭제를 업무담당에 제한하면 박정호 삭제 차단.
     ACTPERM_DATA.write_text(json.dumps({'riskItems': [
         {'id': 'RK-2026-DEL', 'title': '기능권한 삭제대상', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
@@ -4719,6 +4753,7 @@ def main() -> int:
     ACTPERM_DATA.unlink(missing_ok=True)
     GROUP_DATA.unlink(missing_ok=True)
     GROUPREV_DATA.unlink(missing_ok=True)
+    GROUPACT_DATA.unlink(missing_ok=True)
     EDUNF_DATA.unlink(missing_ok=True)
     DLNF_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
