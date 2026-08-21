@@ -96,6 +96,7 @@ GROUPACT_DATA = ROOT / 'scripts' / '.e2e-groupact-data.json'  # 사용자 그룹
 GROUPDISP_DATA = ROOT / 'scripts' / '.e2e-groupdisp-data.json'  # 그룹 기능 위임 UI 표시(역할숨김 화면) 회귀용 (v1.5.431)
 GROUPFIN_DATA = ROOT / 'scripts' / '.e2e-groupfin-data.json'  # 그룹 기능 위임 UI 표시(재무 확정) 회귀용 (v1.5.433)
 GROUPINV_DATA = ROOT / 'scripts' / '.e2e-groupinv-data.json'  # 미등록 액션 키 열람 분기 fail-closed 회귀용 (v1.5.437)
+GROUPEXP_DATA = ROOT / 'scripts' / '.e2e-groupexp-data.json'  # 그룹 위임 만료(자동 회수) 회귀용 (v1.5.441)
 MSTAGE_DATA = ROOT / 'scripts' / '.e2e-mstage-data.json'  # 다단 중간 승인자 추적성(B1) 회귀용 (v1.5.347)
 BSNAP_DATA = ROOT / 'scripts' / '.e2e-bsnap-data.json'  # 묶음 반려 상세 스냅샷 재구성(B2) 회귀용 (v1.5.349)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
@@ -3968,6 +3969,20 @@ def sc_group_action_invalid_key(pg, base, check):
     check(pg.url.rstrip('/').endswith('/dashboard'), f'미등록 액션 키는 열람도 안 열어야 (버그면 /infra/racks; 실제 {pg.url})')
 
 
+def sc_group_grant_expired(pg, base, check):
+    """그룹 위임 만료(자동 회수) — 만료일(expiresAt)이 지난 그룹은 열람·기능 위임을 일절 부여하지 않는다
+    (fail-closed 자동 회수, 임시 위임용). 미래 만료 그룹은 정상 부여(과도 회수 아님). fails-without-fix:
+    isGroupActive 판정이 없으면 만료 그룹도 위임이 살아 접근 가능. 픽스처: 김현우 — 만료 그룹(과거,
+    /infra/systems) + 유효 그룹(미래, /infra/incidents)."""
+    login(pg, base, '김현우')
+    # 만료(과거) 그룹의 부여 화면 — 접근 자동 회수(회송)
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/dashboard'), f'만료 그룹 위임은 자동 회수 (버그면 /infra/systems; 실제 {pg.url})')
+    # 유효(미래 만료) 그룹의 부여 화면 — 정상 열람(과도 회수 아님)
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/infra/incidents'), f'유효 그룹(미래 만료) 위임은 정상 (실제 {pg.url})')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
@@ -4203,6 +4218,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(GROUPFIN_DATA)}),
     ('group_action_invalid_key', '액션 위임 열람 분기 fail-closed — 미등록 액션 키는 쓰기도 열람도 안 열림(적대 리뷰 대칭 하드닝)', sc_group_action_invalid_key,
      {'PORTAL_DATA_FILE': str(GROUPINV_DATA)}),
+    ('group_grant_expired', '그룹 위임 만료 — 만료 그룹은 자동 회수(fail-closed), 미래 만료 그룹은 정상(과도 회수 아님)', sc_group_grant_expired,
+     {'PORTAL_DATA_FILE': str(GROUPEXP_DATA)}),
     ('action_permission_infra', '기능(Action) 권한 확장 — 인프라 자산 삭제도 requireAction 강제(도메인 확장)', sc_action_permission_infra, {}),
     ('action_permission', '기능(Action) 단위 권한 — 삭제 기능 권한그룹별 제한·복원(requireAction 강제)', sc_action_permission,
      {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
@@ -4627,6 +4644,13 @@ def main() -> int:
     GROUPINV_DATA.write_text(json.dumps({
         'userGroups': [{'id': 'GRP-2026-95', 'label': '무효키 위임', 'members': ['김현우'], 'menuGrants': [], 'actionGrants': ['/infra/racks#save']}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 그룹 위임 만료 — 만료(과거) 그룹은 자동 회수, 유효(미래) 그룹은 정상. 고정 과거/미래 날짜라 실행일 무관.
+    GROUPEXP_DATA.write_text(json.dumps({
+        'userGroups': [
+            {'id': 'GRP-EXP', 'label': '만료 위임', 'members': ['김현우'], 'menuGrants': ['/infra/systems'], 'expiresAt': '2020-01-01'},
+            {'id': 'GRP-ACT', 'label': '유효 위임', 'members': ['김현우'], 'menuGrants': ['/infra/incidents'], 'expiresAt': '2099-12-31'},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
     # 기능(Action) 단위 권한 — 종결(완료) 위험 1건(삭제 대상). ADMIN 이 위험 삭제를 업무담당에 제한하면 박정호 삭제 차단.
     ACTPERM_DATA.write_text(json.dumps({'riskItems': [
         {'id': 'RK-2026-DEL', 'title': '기능권한 삭제대상', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
@@ -4832,6 +4856,7 @@ def main() -> int:
     GROUPDISP_DATA.unlink(missing_ok=True)
     GROUPFIN_DATA.unlink(missing_ok=True)
     GROUPINV_DATA.unlink(missing_ok=True)
+    GROUPEXP_DATA.unlink(missing_ok=True)
     EDUNF_DATA.unlink(missing_ok=True)
     DLNF_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
