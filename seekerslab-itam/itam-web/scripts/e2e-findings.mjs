@@ -263,6 +263,9 @@ async function aiPeriodQuery(page) {
   // 복합 위험 자산 질의(신규 역량) — 정합성·EOL·보증·점검·SPOF·교체·미실측 중 2+ 겹치는 다중 이슈 자산을 어시스턴트가 답한다. 대장 필터·도시어·대시보드 큐와 lib/risk 단일 소스. 답변이 ?risk=1 필터로 연결(count↔destination 정합).
   const rcr = await ask('복합 위험 자산 알려줘')
   ok('AI 복합위험질의: 다중 이슈(≥2 신호) 자산 요약 + ?risk=1 대장 필터 링크', /복합 위험 자산은 \d+건/.test(rcr) && (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?risk=1"]').count()) > 0)
+  // 단일 장애점(SPOF) 인라인 질의(신규) — 생성 동사 없는 "단일 장애점 알려줘"는 리포트 생성이 아니라 인라인 요약. 자산별 CMDB 조회의 전사 판. 그동안 SPOF 는 리포트 생성만 있고 인라인 인텐트가 없었다.
+  const rspof = await ask('단일 장애점 자산 알려줘')
+  ok('AI 단일장애점질의: SPOF 자산 인라인 요약(영향 범위·순위) + ?spof=1 링크(리포트 생성 아님)', /단일 장애점\(SPOF\) 자산은 \d+건/.test(rspof) && rspof.includes('장애 시 영향') && !rspof.includes('리포트를 생성했습니다') && (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?spof=1"]').count()) > 0)
   // 특정 사용자 보유 자산 조회(신규 역량) — 오프보딩·후임 승계 준비 시 "OOO 보유 자산"을 한 번에. 대장 소유자 검색(?q=이름)으로 연결돼 일괄 회수/재배정 접점.
   //  실제 사용자 이름이 질의에 있을 때만 발동(다른 인텐트 미가림). 김민준(플랫폼개발팀) 보유분 조회.
   const rown = await ask('김민준 보유 자산 알려줘')
