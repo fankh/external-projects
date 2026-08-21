@@ -453,6 +453,11 @@ async function main() {
     check(dText.includes('SR-2026-0146') && !dText.includes('SR-2026-0141'), 'export: SR 부서담당 스코핑')
     const denied = await get('/api/export?fmt=csv&type=incidents', 'USER')
     check(denied.status === 403, 'export: USER 장애 대장 차단(403)')
+    // 위임 현황 대장 — /settings/groups(ADM) 게이트라 관리자만, 담당·부서담당·사용자 차단
+    const gdAdmin = await get('/api/export?fmt=csv&type=group-delegations', 'ADMIN')
+    check(gdAdmin.status === 200 && (await gdAdmin.text()).includes('부여 대상'), 'export: 위임 현황 대장 ADMIN')
+    const gdBiz = await get('/api/export?fmt=csv&type=group-delegations', 'BIZ_MGR')
+    check(gdBiz.status === 403, 'export: 위임 현황 대장 BIZ_MGR 차단(403 — /settings/groups ADM 게이트)')
   }
   {
     // 엑셀 다운로드 — CSV(BOM) 응답과 권한 가드. 재무 리포트는 관리자급(부서담당 이상)만.

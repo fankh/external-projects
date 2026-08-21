@@ -1,7 +1,7 @@
 /** 엑셀 다운로드 API — 요구사항 '엑셀 ◎' 화면의 목록을 CSV(BOM)로 내린다.
  *  화면과 동일한 권한·데이터 스코핑을 서버에서 재적용한다(시큐어 코딩). */
 import { filterAuditLogs } from '@/lib/audit'
-import { effectiveRoles } from '@/lib/authz'
+import { effectiveRoles, groupDelegationRegister } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
 import { xlsxResponse } from '@/lib/xlsx'
 import { currentYear, today } from '@/lib/dates'
@@ -35,6 +35,7 @@ const EXPORT_MENU: Record<string, string> = {
   'compliance-trend': '/compliance/inspection',
   'itops-summary': '/sr/manage',
   'remote-status': '/awareness/remote', audit: '/settings/audit',
+  'group-delegations': '/settings/groups',
 }
 
 export async function GET(req: Request) {
@@ -51,6 +52,15 @@ export async function GET(req: Request) {
 
   const ownerHref = EXPORT_MENU[type]
   if (ownerHref && !effectiveRoles(ownerHref).includes(role)) return new Response('forbidden', { status: 403 })
+
+  // 위임 현황 대장 — 관리자 전용(EXPORT_MENU 게이트 /settings/groups=ADM). 유효 그룹의 위임을 구성원 단위로
+  // 펼친 접근검토 증적(누가·무엇을·어느 그룹으로·언제까지). 화면 위임 현황과 동일 술어(isGroupActive·
+  // isGrantableMenu·isGrantableAction) — 화면=export 정합. 만료 그룹은 회수돼 제외.
+  if (type === 'group-delegations') {
+    const rows: (string | number)[][] = [['구성원', '유형', '부여 대상', '소속 그룹', '만료'],
+      ...groupDelegationRegister().map((r) => [r.member, r.kind, r.target, r.group, r.expiresAt ?? '무기한'])]
+    return out('위임_현황', rows)
+  }
 
   // 재무 리포트(전사 계획대비실적·속보)는 관리자급(부서담당 이상)만 — 일반 사용자 차단(화면과 동일 스코프)
   if ((type === 'invest-actual' || type === 'expense-actual' || type === 'expense-flash') && role === 'USER') {

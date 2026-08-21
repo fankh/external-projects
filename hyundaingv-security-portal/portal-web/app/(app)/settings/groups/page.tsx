@@ -3,7 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { NAV, SCREEN_ACTIONS, ACTION_LABEL, TITLE_BY_HREF, isGrantableMenu, type ActionKey } from '@/components/chrome/menus'
 import { Icon } from '@/components/chrome/Icon'
 import { audit } from '@/lib/audit'
-import { isGrantableAction, isGroupActive, requireMenu, requireMenuRole } from '@/lib/authz'
+import { groupDelegationRegister, isGrantableAction, isGroupActive, requireMenu, requireMenuRole } from '@/lib/authz'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 import { today } from '@/lib/dates'
@@ -119,22 +119,9 @@ export default async function GroupsPage() {
   const actionGrantCount = groups.reduce((sum, g) => sum + (g.actionGrants ?? []).length, 0)
   const expiredCount = groups.filter((g) => !isGroupActive(g)).length
 
-  // 위임 현황 — 현재 유효한(만료 안 된) 그룹의 모든 위임을 구성원 단위로 펼친 감사용 대장(누가·무엇을·어느
-  // 그룹으로·언제까지). 만료 그룹은 위임이 회수돼 제외한다(그룹 카드에 만료 표시). 화면=해석 동일 술어.
-  const registerRows = groups
-    .filter((g) => isGroupActive(g))
-    .flatMap((g) => g.members.flatMap((m) => [
-      ...g.menuGrants.filter((h) => isGrantableMenu(h)).map((h) => ({
-        member: m, kind: '열람' as const, target: TITLE_BY_HREF[h]?.title ?? h, group: g.label, expiresAt: g.expiresAt,
-      })),
-      ...(g.actionGrants ?? []).flatMap((k) => {
-        const [h, a] = k.split('#')
-        return h && a && isGrantableAction(h, a as ActionKey)
-          ? [{ member: m, kind: '기능' as const, target: `${TITLE_BY_HREF[h]?.title ?? h} · ${ACTION_LABEL[a as ActionKey]}`, group: g.label, expiresAt: g.expiresAt }]
-          : []
-      }),
-    ]))
-    .sort((x, y) => x.member.localeCompare(y.member) || x.kind.localeCompare(y.kind) || x.target.localeCompare(y.target))
+  // 위임 현황 — 화면·엑셀 export 가 공유하는 단일 원천(lib/authz.groupDelegationRegister). 유효 그룹의 위임을
+  // 구성원 단위로 펼친 감사 대장(만료 그룹 제외·부여 가능 대상만). 별도 재구현 없어 화면=export 드리프트 방지.
+  const registerRows = groupDelegationRegister()
 
   return (
     <>
@@ -159,7 +146,12 @@ export default async function GroupsPage() {
       </Card>
 
       <Card title="위임 현황" pad={false}
-        actions={<span className="mut" style={{ fontSize: 11 }}>현재 유효한 위임 {registerRows.length}건 — 만료 그룹 제외</span>}>
+        actions={
+          <span className="hstack" style={{ gap: 10, alignItems: 'center' }}>
+            <span className="mut" style={{ fontSize: 11 }}>현재 유효한 위임 {registerRows.length}건 — 만료 그룹 제외</span>
+            {registerRows.length > 0 && <a className="btn sm" href="/api/export?type=group-delegations">엑셀 다운로드</a>}
+          </span>
+        }>
         {registerRows.length === 0 ? (
           <div className="empty">현재 유효한 위임이 없습니다. 그룹에 구성원·부여 대상을 지정하면 여기 모입니다.</div>
         ) : (
