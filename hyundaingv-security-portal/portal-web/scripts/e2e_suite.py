@@ -91,6 +91,7 @@ AUDITF_DATA = ROOT / 'scripts' / '.e2e-auditf-data.json'  # 감사 이력 조회
 SRCH_DATA = ROOT / 'scripts' / '.e2e-srch-data.json'  # 통합 검색 커버리지(결재 신원 스코핑) 회귀용 (v1.5.333)
 CSCHED_DATA = ROOT / 'scripts' / '.e2e-csched-data.json'  # 다가오는 컴플라이언스 일정(경과분 제외) 회귀용 (v1.5.339)
 GROUP_DATA = ROOT / 'scripts' / '.e2e-group-data.json'  # 사용자 그룹 열람 위임(가법·per-메뉴 스코프) 회귀용 (v1.5.417)
+GROUPREV_DATA = ROOT / 'scripts' / '.e2e-grouprev-data.json'  # 사용자 그룹 부여/회수 관리 액션 end-to-end 회귀용 (v1.5.421)
 MSTAGE_DATA = ROOT / 'scripts' / '.e2e-mstage-data.json'  # 다단 중간 승인자 추적성(B1) 회귀용 (v1.5.347)
 BSNAP_DATA = ROOT / 'scripts' / '.e2e-bsnap-data.json'  # 묶음 반려 상세 스냅샷 재구성(B2) 회귀용 (v1.5.349)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
@@ -3857,6 +3858,36 @@ def sc_group_grant_view(pg, base, check):
     check(pg.url.rstrip('/').endswith('/dashboard'), f'미부여 BIZ 화면(/infra/racks)은 여전히 차단 회송 (실제 {pg.url})')
 
 
+def sc_group_grant_revoke(pg, base, check):
+    """사용자 그룹 관리 액션 end-to-end — 관리자가 /settings/groups 구성원 토글(toggleMember)로 열람을
+    부여/회수하면 대상 사용자의 접근이 즉시 바뀐다(스토어 실시간 해석). 부여 e2e(group_grant_view)는
+    픽스처로 해석만 검증하는데, 이 시나리오는 관리 화면 서버액션 자체 + 가장 중요한 보안 속성인 회수
+    (revocation)를 실 UI 로 실증한다. 픽스처 GROUPREV_DATA: /infra/systems 부여·구성원 빈 그룹."""
+    # 기준 — 부여 전 김현우(USER)는 /infra/systems 차단
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/dashboard'), '부여 전 차단 (기준)')
+    # 관리자가 김현우를 그룹 구성원으로 추가 (toggleMember). 토글 버튼은 flex 셀에 좌표 인터셉트될 수 있어
+    # requestSubmit 로 폼 제출(React action 바인딩 동일 경로), 결과 상태(● 김현우)를 wait_for_selector 로 대기.
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/groups', wait_until='networkidle')
+    pg.locator('.card:has-text("열람 위임 회귀") form:has(button:has-text("김현우"))').first.evaluate('f => f.requestSubmit()')
+    pg.wait_for_selector('.card:has-text("열람 위임 회귀") button:has-text("● 김현우")', timeout=10000)
+    # 김현우 — 이제 열람 가능(관리 액션이 즉시 반영)
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/infra/systems') and '디스크 사용률' in pg.content(), '구성원 추가 → 열람 가능')
+    # 관리자가 구성원에서 제거 (회수)
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/groups', wait_until='networkidle')
+    pg.locator('.card:has-text("열람 위임 회귀") form:has(button:has-text("김현우"))').first.evaluate('f => f.requestSubmit()')
+    pg.wait_for_selector('.card:has-text("열람 위임 회귀") button:has-text("○ 김현우")', timeout=10000)
+    # 김현우 — 회수되어 다시 차단(가장 중요한 보안 속성 — 부여만 되고 회수 안 되면 위험)
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/dashboard'), '구성원 회수 → 다시 차단 (revocation)')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
@@ -4082,6 +4113,8 @@ SCENARIOS = [
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
     ('group_grant_view', '사용자 그룹 열람 위임 — 구성원에게 운영 화면 열람 부여(가법·per-메뉴 스코프, 쓰기는 역할 게이트)', sc_group_grant_view,
      {'PORTAL_DATA_FILE': str(GROUP_DATA)}),
+    ('group_grant_revoke', '사용자 그룹 관리 액션 — 구성원 부여/회수 end-to-end(toggleMember, revocation 실증)', sc_group_grant_revoke,
+     {'PORTAL_DATA_FILE': str(GROUPREV_DATA)}),
     ('action_permission_infra', '기능(Action) 권한 확장 — 인프라 자산 삭제도 requireAction 강제(도메인 확장)', sc_action_permission_infra, {}),
     ('action_permission', '기능(Action) 단위 권한 — 삭제 기능 권한그룹별 제한·복원(requireAction 강제)', sc_action_permission,
      {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
@@ -4479,6 +4512,10 @@ def main() -> int:
     GROUP_DATA.write_text(json.dumps({
         'userGroups': [{'id': 'GRP-2026-90', 'label': '인프라 열람 위임 E2E', 'members': ['김현우'], 'menuGrants': ['/infra/systems']}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 그룹 관리 액션 회수 회귀 — 구성원 빈 그룹으로 시작(관리자가 UI 로 추가→회수). 부여만 되고 회수 안 되면 위험.
+    GROUPREV_DATA.write_text(json.dumps({
+        'userGroups': [{'id': 'GRP-2026-91', 'label': '열람 위임 회귀', 'members': [], 'menuGrants': ['/infra/systems']}],
+    }, ensure_ascii=False), encoding='utf-8')
     # 기능(Action) 단위 권한 — 종결(완료) 위험 1건(삭제 대상). ADMIN 이 위험 삭제를 업무담당에 제한하면 박정호 삭제 차단.
     ACTPERM_DATA.write_text(json.dumps({'riskItems': [
         {'id': 'RK-2026-DEL', 'title': '기능권한 삭제대상', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
@@ -4679,6 +4716,7 @@ def main() -> int:
     SRSUSP_DATA.unlink(missing_ok=True)
     ACTPERM_DATA.unlink(missing_ok=True)
     GROUP_DATA.unlink(missing_ok=True)
+    GROUPREV_DATA.unlink(missing_ok=True)
     EDUNF_DATA.unlink(missing_ok=True)
     DLNF_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
