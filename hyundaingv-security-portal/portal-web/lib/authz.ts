@@ -33,10 +33,12 @@ export function groupGrantedMenus(name: string): string[] {
   for (const grp of getStore().userGroups ?? []) {
     if (!grp.members.includes(name)) continue
     for (const h of grp.menuGrants) if (isGrantableMenu(h)) hrefs.add(h)
-    // 액션(쓰기) 위임도 해당 화면 열람을 함께 연다 — 위임받은 기능을 쓰려면 화면에 진입해야 한다
+    // 액션(쓰기) 위임도 해당 화면 열람을 함께 연다 — 위임받은 기능을 쓰려면 화면에 진입해야 한다.
+    // 쓰기 경로(groupGrantsAction)와 동일하게 isGrantableAction 로 액션 키 전체를 검증한다 — 손상·위조
+    // 데이터의 미등록 액션 키(예: `/infra/racks#save`)로 열람만 열리는 비대칭을 없앤다(fail-closed 대칭).
     for (const key of grp.actionGrants ?? []) {
-      const h = key.split('#')[0]
-      if (h && isGrantableMenu(h)) hrefs.add(h)
+      const [h, a] = key.split('#')
+      if (h && a && isGrantableAction(h, a as ActionKey)) hrefs.add(h)
     }
   }
   return [...hrefs]
@@ -46,8 +48,14 @@ export function groupGrantedMenus(name: string): string[] {
  *  메뉴 위임뿐 아니라 그 화면의 액션 위임을 받아도 열람이 열린다(액션을 쓰려면 화면 진입 필요). */
 export function groupGrantsMenu(name: string, href: string): boolean {
   if (!isGrantableMenu(href)) return false
+  // 액션 위임 분기도 isGrantableAction 로 액션 키를 검증한다(groupGrantedMenus·쓰기 경로와 대칭) —
+  // 미등록 액션 키가 열람만 여는 비대칭 제거. isGrantableMenu(href) 는 위에서 확정됨.
   return (getStore().userGroups ?? []).some((g) => g.members.includes(name)
-    && (g.menuGrants.includes(href) || (g.actionGrants ?? []).some((k) => k.startsWith(`${href}#`))))
+    && (g.menuGrants.includes(href)
+      || (g.actionGrants ?? []).some((k) => {
+        const [h, a] = k.split('#')
+        return h === href && !!a && isGrantableAction(href, a as ActionKey)
+      })))
 }
 
 /** 화면 열람 가능 여부(단일 술어) — 역할 유효권한 OR 그룹 위임. 내비 표시(layout·AppShell)와 서버 가드
