@@ -95,6 +95,7 @@ GROUPREV_DATA = ROOT / 'scripts' / '.e2e-grouprev-data.json'  # 사용자 그룹
 GROUPACT_DATA = ROOT / 'scripts' / '.e2e-groupact-data.json'  # 사용자 그룹 기능(쓰기) 위임 회귀용 (v1.5.429)
 GROUPDISP_DATA = ROOT / 'scripts' / '.e2e-groupdisp-data.json'  # 그룹 기능 위임 UI 표시(역할숨김 화면) 회귀용 (v1.5.431)
 GROUPFIN_DATA = ROOT / 'scripts' / '.e2e-groupfin-data.json'  # 그룹 기능 위임 UI 표시(재무 확정) 회귀용 (v1.5.433)
+GROUPINV_DATA = ROOT / 'scripts' / '.e2e-groupinv-data.json'  # 미등록 액션 키 열람 분기 fail-closed 회귀용 (v1.5.437)
 MSTAGE_DATA = ROOT / 'scripts' / '.e2e-mstage-data.json'  # 다단 중간 승인자 추적성(B1) 회귀용 (v1.5.347)
 BSNAP_DATA = ROOT / 'scripts' / '.e2e-bsnap-data.json'  # 묶음 반려 상세 스냅샷 재구성(B2) 회귀용 (v1.5.349)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
@@ -3956,6 +3957,17 @@ def sc_group_action_finance(pg, base, check):
     check(pg.locator('tr', has_text='IP-2026-EFF').locator('button:has-text("계획 확정")').count() == 0, '위임으로 계획 확정 성공(버튼 사라짐)')
 
 
+def sc_group_action_invalid_key(pg, base, check):
+    """액션 위임 열람 분기 fail-closed 대칭 — 미등록 액션 키(/infra/racks#save; racks 는 delete 만 등록)는 쓰기도
+    열람도 열지 않아야 한다. 열람 분기(groupGrantsMenu/groupGrantedMenus)가 쓰기 경로와 달리 액션 키를 검증
+    안 하면, 손상·위조 데이터의 미등록 키로 운영 화면 열람만 열리는 비대칭이 생긴다(적대 리뷰 지적). fails-
+    without-fix: isGrantableAction 필터 없으면 href-prefix 만으로 /infra/racks 열람이 열려 회송되지 않는다.
+    픽스처: 김현우 actionGrants=[/infra/racks#save](미등록), menuGrants 빈."""
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/infra/racks', wait_until='networkidle')
+    check(pg.url.rstrip('/').endswith('/dashboard'), f'미등록 액션 키는 열람도 안 열어야 (버그면 /infra/racks; 실제 {pg.url})')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
@@ -4189,6 +4201,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(GROUPDISP_DATA)}),
     ('group_action_finance', '그룹 기능 위임 UI 표시(재무 확정) — /finance/invest 확정 컨트롤을 confirm 위임 USER 에게 노출·확정 수행', sc_group_action_finance,
      {'PORTAL_DATA_FILE': str(GROUPFIN_DATA)}),
+    ('group_action_invalid_key', '액션 위임 열람 분기 fail-closed — 미등록 액션 키는 쓰기도 열람도 안 열림(적대 리뷰 대칭 하드닝)', sc_group_action_invalid_key,
+     {'PORTAL_DATA_FILE': str(GROUPINV_DATA)}),
     ('action_permission_infra', '기능(Action) 권한 확장 — 인프라 자산 삭제도 requireAction 강제(도메인 확장)', sc_action_permission_infra, {}),
     ('action_permission', '기능(Action) 단위 권한 — 삭제 기능 권한그룹별 제한·복원(requireAction 강제)', sc_action_permission,
      {'PORTAL_DATA_FILE': str(ACTPERM_DATA)}),
@@ -4609,6 +4623,10 @@ def main() -> int:
         'investPlans': [{'id': 'IP-2026-EFF', 'kind': '투자', 'year': '2026', 'title': '위임확정대상', 'owner': '김현우', 'dept': '개발1팀', 'amount': 5000, 'status': '효율화'}],
         'userGroups': [{'id': 'GRP-2026-94', 'label': '재무확정 위임', 'members': ['김현우'], 'menuGrants': [], 'actionGrants': ['/finance/invest#confirm']}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 미등록 액션 키 열람 분기 fail-closed — racks 는 delete 만 등록, save 는 미등록. 열람도 안 열려야 한다.
+    GROUPINV_DATA.write_text(json.dumps({
+        'userGroups': [{'id': 'GRP-2026-95', 'label': '무효키 위임', 'members': ['김현우'], 'menuGrants': [], 'actionGrants': ['/infra/racks#save']}],
+    }, ensure_ascii=False), encoding='utf-8')
     # 기능(Action) 단위 권한 — 종결(완료) 위험 1건(삭제 대상). ADMIN 이 위험 삭제를 업무담당에 제한하면 박정호 삭제 차단.
     ACTPERM_DATA.write_text(json.dumps({'riskItems': [
         {'id': 'RK-2026-DEL', 'title': '기능권한 삭제대상', 'area': '테스트', 'threat': 't', 'vulnerability': 'v',
@@ -4813,6 +4831,7 @@ def main() -> int:
     GROUPACT_DATA.unlink(missing_ok=True)
     GROUPDISP_DATA.unlink(missing_ok=True)
     GROUPFIN_DATA.unlink(missing_ok=True)
+    GROUPINV_DATA.unlink(missing_ok=True)
     EDUNF_DATA.unlink(missing_ok=True)
     DLNF_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
