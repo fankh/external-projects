@@ -359,12 +359,13 @@ export default async function InspectionPage() {
               <button type="submit" className="btn sm" title="최신 연도 점검계획을 다음 해로 복제해 초안 생성 (연도만 +1, 상태 계획으로 리셋)">전년 불러오기</button>
             </form>
           }>
-          {/* 컨트롤 4개를 한 줄에 두면 c2 그리드 반폭에서 카드를 넘쳐 옆 카드 sticky 헤더에 가려진다 — 2행으로 나눈다 */}
+          {/* c2 그리드 반폭에서는 이 줄의 컨트롤이 카드를 넘쳐 옆 카드 sticky 헤더에 가려진다 — 항목 select 를 윗줄로 분리하고,
+              남은 줄은 flexWrap 으로 접는다(같은 파일 점검항목 추가 폼과 동일 처리). */}
           <form action={addPlan} className="vstack" style={{ gap: 7 }}>
             <select aria-label="점검 항목" className="select" name="itemId" required style={{ width: '100%' }}>
               {s.inspectionItems.map((i) => <option key={i.id} value={i.id}>[{i.category}] {i.control}</option>)}
             </select>
-            <div className="hstack">
+            <div className="hstack" style={{ flexWrap: 'wrap' }}>
               <input aria-label="점검 대상" className="input" name="target" maxLength={60} placeholder="점검 대상 (조직·시스템)" style={{ flex: 1 }} />
               <input aria-label="월" className="input" name="month" required type="month" defaultValue={thisMonth} style={{ flex: 1 }} />
               <select aria-label="점검자" className="select" name="inspector" style={{ flex: 1 }}>
