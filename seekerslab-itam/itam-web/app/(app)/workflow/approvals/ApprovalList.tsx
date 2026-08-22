@@ -213,8 +213,11 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
                   </div>
                   {a.reportRefs && a.reportRefs.length > 0 && (
                     <div className="mut" style={{ fontSize: 10.5, marginTop: 3 }}>
-                      📎 근거 리포트: {a.reportRefs.map((id) => (
-                        <a key={id} href={`/api/reports/${id}?format=md`} target="_blank" rel="noopener" style={{ marginRight: 6, color: 'var(--accent-deep)' }}>{id}</a>
+                      {/* 리포트 열람(/api/reports)은 비사용자 전용이라, 사용자에게는 링크가 아니라 첨부 사실만 남긴다 —
+                          자산담당이 사용자 상신(자산 신청 등)에 근거 리포트를 붙일 수 있어, 링크로 내주면 눌러야 403 이 나는 막다른 길이 된다. */}
+                      📎 근거 리포트: {a.reportRefs.map((id) => (role === 'USER'
+                        ? <span key={id} style={{ marginRight: 6 }}>{id}</span>
+                        : <a key={id} href={`/api/reports/${id}?format=md`} target="_blank" rel="noopener" style={{ marginRight: 6, color: 'var(--accent-deep)' }}>{id}</a>
                       ))}
                     </div>
                   )}
