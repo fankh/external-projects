@@ -318,6 +318,11 @@ export async function confirmReconcile(discoveredId: string) {
 
   const priorMismatch = d.mismatch
   const asset = d.matchedAssetNo ? s.assets.find((a) => a.assetNo === d.matchedAssetNo) : undefined
+  // 폐기 경로 자산에는 실측값을 반영하지 않는다 — 대사 확인은 곧 대장 보정이라, 폐기한 자산의 위치·소유자를
+  //  실측대로 되살리고 '등록·일치'로 종결하면 폐기 기록과 대장이 정면으로 어긋난다(생존 확인과 같은 이유).
+  if (asset && ['폐기예정', '폐기완료'].includes(asset.status)) {
+    return { ok: false, message: `폐기 처리 중·완료 자산이 재관측됐습니다 — ${asset.assetNo} (${asset.status}). 대사 확인으로 대장을 되돌리지 말고 폐기 기록과 관측 중 어느 쪽이 맞는지 확인하세요.` }
+  }
 
   // 실측이 대장과 다른 필드가 구조화돼 있으면(mismatchField/observedValue) 대사 확인이 곧 대장 보정이다.
   // correctField 는 빈 필드 채움만 허용하고, 기존 오값의 정정은 이동·불출(실물 이동) 절차뿐이라 —
@@ -360,6 +365,12 @@ export async function confirmSurvival(discoveredId: string) {
   if (d.survivalConfirmedAt) return { ok: false, message: `이미 생존 확인된 재관측입니다 — ${d.id} (${d.survivalConfirmedAt})` }
   const asset = s.assets.find((a) => a.assetNo === d.matchedAssetNo)
   if (!asset) return { ok: false, message: '대사 자산을 찾을 수 없습니다.' }
+  // 폐기 경로 자산은 '생존 확인'으로 닫을 수 없다 — 대장은 폐기라는데 네트워크에서 관측됐다면 둘 중 하나가 틀린 것이고,
+  //  그 자체가 조사할 신호다(폐기 처리했다는 장비가 아직 살아 있다). 최근 실측일만 갱신하면 그 모순이 조용히 덮인다.
+  //  반납·대여·차이 조정의 스테일 방어와 같은 규약 — 상태가 어긋나면 적용하지 않고 사유를 돌려준다.
+  if (['폐기예정', '폐기완료'].includes(asset.status)) {
+    return { ok: false, message: `폐기 처리 중·완료 자산이 재관측됐습니다 — ${asset.assetNo} (${asset.status}). 생존 확인으로 닫지 말고 폐기 기록과 관측 중 어느 쪽이 맞는지 확인하세요.` }
+  }
 
   const before = asset.lastVerifiedAt ?? '미실측'
   asset.lastVerifiedAt = today() // 재관측 확정 = 생존 신호. 최근 실측일을 오늘로 갱신해 장기 미실측에서 빠진다.
