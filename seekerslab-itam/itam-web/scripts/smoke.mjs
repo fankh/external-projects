@@ -1243,6 +1243,10 @@ try {
   check('공통코드: 유형 참조 수에 대장 밖 참조(도입 로트·AI 분류·신청 희망 유형) 포함', usedCount(28) && usedCount(6))
   const aiHtml = await (await get('/settings/ai-policy', 'ADMIN')).text()
   check('AI 정책: 실행 환경·거버넌스 렌더', aiHtml.includes('온프레미스 LLM') && aiHtml.includes('권한 범위 필터'))
+  // 권한 범위 필터는 정책값이 아니라 코드가 항상 적용하는 최소권한 안전장치다(buildContext 가 역할로 스코핑) —
+  //  토글로 내려도 동작은 그대로인데 AI 거버넌스·감사 대응 리포트만 '미적용'으로 나가면 감사에 허위 진술이 된다.
+  //  권한 매트릭스 잠금 칸과 같은 규약으로 잠가 ON 고정임을 화면에도 드러낸다.
+  check('AI 정책: 권한 범위 필터는 회수 불가 잠금(ON 고정 · 리포트 진술과 동작 일치)', aiHtml.includes('ON 🔒') && aiHtml.includes('코드가 항상 적용(회수 불가)'))
   // 외부 반출 통제(§05 실행 환경) — 온프레미스는 외부 반출 차단, 외부 API 연계는 비식별 처리 후 반출. 표시가 아니라 강제.
   //  시드 기본값(온프레미스 LLM)에서 '외부 반출 차단'이 적용 중이고, 비식별·강제 문구가 정책 표와 함께 렌더돼야 한다.
   check('AI 정책: 외부 반출 통제 — 온프레미스 차단·비식별·강제 명시', aiHtml.includes('외부 반출 통제') && aiHtml.includes('표시가 아니라') && aiHtml.includes('비식별') && aiHtml.includes('외부 반출 없음'))
