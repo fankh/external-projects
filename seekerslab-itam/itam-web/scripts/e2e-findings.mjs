@@ -930,6 +930,16 @@ try {
   // 자산 카드(dossier) 업무 중요도 — 화면·반출(중요도)과 정합. 인수·감사 dossier 에 ISO 27001 자산 분류(핵심/중요/일반)가 담긴다.
   const cardBody = await (await p2.request.get(`${BASE}/api/asset-card/AST-2020-000883`)).text()
   ok('자산 카드: 업무 중요도(핵심) 표기(화면·반출 정합)', cardBody.includes('업무 중요도') && cardBody.includes('핵심'))
+  // 대여 확인서(loan-agreement) 회귀 — 연장 조치(kind '대여' 재사용)가 있는 대여중 자산의 대여일이 최초 대여일(2026-07-28)이어야 하고
+  //  연장 조치일(2026-08-12)로 흘러선 안 된다(!연장 술어). 시드 AST-2024-000230 이 이 시나리오용인데 그동안 e2e 가 없어 회귀가 무방비였다.
+  const loanAgrRes = await p2.request.get(`${BASE}/api/loan-agreement/AST-2024-000230`)
+  const loanAgrBody = await loanAgrRes.text()
+  ok('대여 확인서: 대여중 자산 확인서 렌더(200)', loanAgrRes.status() === 200 && loanAgrBody.includes('ASSET LOAN AGREEMENT'))
+  ok('대여 확인서 회귀: 대여일=최초 대여일(2026-07-28) · 연장 조치일(2026-08-12) 아님', loanAgrBody.includes('2026-07-28') && !loanAgrBody.includes('2026-08-12'))
+  // 데이터 소거 확인서(wipe-cert) — 컴플라이언스·감사 증적. 폐기 완료건(시드 DSP-00)의 확인서가 렌더되고 확인서 번호가 담기는지. 그동안 e2e 무방비.
+  const wipeCertRes = await p2.request.get(`${BASE}/api/wipe-cert/DSP-00`)
+  const wipeCertBody = await wipeCertRes.text()
+  ok('데이터 소거 확인서: 폐기 완료건 증적 렌더(확인서 번호)', wipeCertRes.status() === 200 && wipeCertBody.includes('데이터 소거 확인서') && wipeCertBody.includes('WIPE-20260722-050'))
   await recoverBtn.click()
   await p2.waitForTimeout(200)
   await p2.locator('input[placeholder*="회수 사유"]').fill('퇴직 오프보딩')
@@ -1076,6 +1086,9 @@ try {
   await ctxU.addCookies([cookie(USER)])
   const pU = await ctxU.newPage()
   pU.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
+  // 문서 라우트 역할 게이트 — 대여 확인서·데이터 소거 확인서 발급은 자산담당·Admin 전용(USER 차단). auth 가드 회귀 방지 lock-in.
+  ok('대여 확인서: USER 접근 차단(403 · 자산담당·Admin 전용)', (await pU.request.get(`${BASE}/api/loan-agreement/AST-2024-000230`)).status() === 403)
+  ok('데이터 소거 확인서: USER 접근 차단(403 · 자산담당·Admin 전용)', (await pU.request.get(`${BASE}/api/wipe-cert/DSP-00`)).status() === 403)
   await pU.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
   const ub = await pU.locator('.msg.assistant .bub').count()
   await pU.locator('.chat-in input').fill('내 자산 보증 언제 만료돼?')
