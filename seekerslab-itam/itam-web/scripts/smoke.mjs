@@ -1,9 +1,10 @@
 /** 스모크 테스트 — 프로덕션 서버를 띄우고 권한 매트릭스·데이터 스코핑·리다이렉트를 검증한다.
  *  사용: npm run build && npm run smoke  (edim-web-next scripts/smoke.mjs 패턴) */
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { assertFreshBuild } from './build-guard.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const PORT = 3378
@@ -14,10 +15,8 @@ const PORT = 3378
 const BASE = process.env.SMOKE_BASE || `http://localhost:${PORT}`
 const REMOTE = Boolean(process.env.SMOKE_BASE)
 
-if (!REMOTE && !existsSync(path.join(ROOT, '.next'))) {
-  console.error('✗ .next 빌드가 없습니다 — 먼저 `npm run build`를 실행하세요.')
-  process.exit(1)
-}
+// 빌드 신선도 — 소스가 .next 보다 새로우면 예전 빌드를 검증하게 되므로 시작하지 않는다(scripts/build-guard.mjs)
+assertFreshBuild(ROOT, { remote: REMOTE })
 
 const ACCOUNTS = {
   USER: { login: 'mj.kim', name: '김민준', dept: '플랫폼개발팀', role: 'USER' },

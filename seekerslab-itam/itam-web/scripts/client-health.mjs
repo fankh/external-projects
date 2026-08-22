@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertFreshBuild } from './build-guard.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = 3388
@@ -41,6 +42,9 @@ const routesFor = (role) => Object.entries(ROUTE_ROLES).filter(([, rs]) => rs.in
 
 // 무해한 콘솔 잡음 — 실패로 치지 않는다 (실제 크래시는 pageerror 로 잡는다)
 const BENIGN = [/favicon/i, /Failed to load resource.*404/i, /Download the React DevTools/i]
+
+// 빌드 신선도 — 예전 빌드를 열면 하이드레이션 크래시 수정이 반영되지 않은 채 통과한다(scripts/build-guard.mjs)
+assertFreshBuild(ROOT, { remote: REMOTE })
 
 let server = null
 if (!REMOTE) {
