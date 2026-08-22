@@ -101,8 +101,19 @@ export async function setScanScope(channel: Channel, rawTargets: string, rawWind
   const window = rawWindow.trim()
   if (!targets) return { ok: false, message: '대상 대역을 입력하세요.' }
   // 시간대 형식 — 'HH:MM ~ HH:MM' 또는 '상시'
-  if (window !== '상시' && !/^\d{1,2}:\d{2}\s*~\s*\d{1,2}:\d{2}$/.test(window)) {
+  const wm = window === '상시' ? null : /^(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})$/.exec(window)
+  if (window !== '상시' && !wm) {
     return { ok: false, message: "수집 시간대는 'HH:MM ~ HH:MM' 또는 '상시'로 입력하세요." }
+  }
+  // 시·분 범위까지 본다 — 형식만 맞고 범위를 벗어난 값('99:99 ~ 88:77')이 저장되면 inWindow 가 분 단위로 환산할 때
+  //  현재 시각(최대 1439분)보다 큰 경계가 나와 자정 넘김 창으로 해석되고 결과가 항상 참이 된다 —
+  //  §07 시간대 안전장치가 조용히 꺼진다(한 자리 시 파싱·정규화로 막아 둔 것과 같은 계열의 구멍).
+  //  반대로 '25:00 ~ 26:00' 은 항상 거짓이 돼 능동 스캔이 사유 없이 계속 막힌다.
+  if (wm) {
+    const [wh1, wmin1, wh2, wmin2] = [Number(wm[1]), Number(wm[2]), Number(wm[3]), Number(wm[4])]
+    if (wh1 > 23 || wh2 > 23 || wmin1 > 59 || wmin2 > 59) {
+      return { ok: false, message: '수집 시간대의 시는 00~23, 분은 00~59 범위로 입력하세요.' }
+    }
   }
   const beforeT = p.targets, beforeW = p.window
   p.targets = targets
