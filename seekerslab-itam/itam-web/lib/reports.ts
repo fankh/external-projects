@@ -23,6 +23,17 @@ import type { DiscoveredAsset, ReportKind, ReportSchedule, ReportSection, SaasUs
 /** 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 대상
  *  (제품안내서 §05 라이선스 최적화: 중복 기능 SaaS 통합 후보). Shadow SaaS 화면과 라이선스 컴플라이언스
  *  리포트가 같은 산출을 쓰도록 한 곳에 둔다. */
+/** 판정 대기 Shadow SaaS — 인가되지 않았고 카탈로그에서 차단 판정도 나지 않은 서비스.
+ *  차단은 이미 내려진 판정이고 프록시·DNS 차단 집행 요청까지 나간 상태라, 주간 브리핑이
+ *  '소유자 확인 후 편입 또는 차단 판정이 필요합니다'라고 말하는 대상이 아니다.
+ *  sanctioned 는 인가/미인가 두 값뿐이라 차단 판정을 담지 못한다 — 통합 후보 산정(saasConsolidationCandidates)이
+ *  이미 쓰는 것과 같은 기준(카탈로그 차단 목록)으로 판정 완료분을 걷어낸다. 서버 전용. */
+export function shadowSaasPending(): SaasUsage[] {
+  const s = getStore()
+  const blocked = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
+  return s.saas.filter((x) => !x.sanctioned && !blocked.has(x.service))
+}
+
 export function saasConsolidationCandidates(): { category: string; services: SaasUsage[]; users: number; shadowN: number; sanctioned?: SaasUsage }[] {
   const s = getStore()
   // 차단 판정된 서비스는 이미 정리(통합)된 것이므로 중복 후보에서 제외한다 — 통합 정리(로69)로 미인가 중복을
@@ -171,7 +182,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
   if (kind === '주간 Shadow IT 브리핑') {
     const unreg = s.discovered.filter((d) => d.state === '미등록')
     const handled = s.discovered.filter((d) => d.action)
-    const shadowSaas = s.saas.filter((x) => !x.sanctioned)
+    const shadowSaas = shadowSaasPending() // 차단 판정 완료분 제외 — 이 절은 '판정이 필요한' 미인가를 센다
     // 인증·계정·SW 위생 — 외부/내부 채널의 정책 위반 위협(크리덴셜 노출·휴면 계정·미인가 SW). 주간 브리핑이 결재·감사 증적이 되려면 함께 담아야 한다.
     const credOpen = s.credentials.filter((c) => c.status !== '조치 완료')
     const acctOpen = s.accounts.filter((a) => !a.action)
