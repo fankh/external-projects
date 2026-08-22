@@ -1352,6 +1352,28 @@ try {
   const exportsNoBranch = exportKinds.filter((k) => !sheetBranches.has(k))
   check(`반출: 종류 ${exportKinds.length}종 모두 시트 분기 보유(라벨·내용 불일치 방지)`, exportsNoBranch.length === 0, `분기 없음=${exportsNoBranch.join(',')}`)
 
+  // 라우트 권한 3중 정합 — README 가 "라우트 권한을 바꿀 때는 세 곳(lib/authz requireRole · components/chrome/menus.ts ·
+  //  스모크 ROUTES)을 함께 갱신하라"고 적어 둔 수작업 규칙이다. requireRole 은 위 접근 매트릭스(라우트 × 권한 HTTP 호출)가
+  //  검증하지만 menus.ts 는 아무도 검증하지 않았다 — 어긋나면 내비에 보이는데 서버가 막거나(막다른 길),
+  //  접근은 되는데 내비에 없어(화면 도달 불가) 조용히 갈린다. 역할 상수는 파일에서 그대로 읽어 새 상수가 생겨도 따라간다.
+  const navSrc = readFileSync(path.join(ROOT, 'components', 'chrome', 'menus.ts'), 'utf8')
+  const navConst = {}
+  for (const m of navSrc.matchAll(/const ([A-Z_]+): Role\[\] = \[([^\]]*)\]/g)) {
+    navConst[m[1]] = [...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1])
+  }
+  const navRoles = {}
+  for (const m of navSrc.matchAll(/href: '([^']+)'[^}]*roles: ([A-Z_]+|\[[^\]]*\])/g)) {
+    navRoles[m[1]] = navConst[m[2]] ?? [...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1])
+  }
+  const roleKey = (a) => [...a].sort().join(',')
+  const navDiff = []
+  for (const [href, roles] of Object.entries(navRoles)) {
+    if (!ROUTES[href]) navDiff.push(`${href}(내비에만 있음)`)
+    else if (roleKey(roles) !== roleKey(ROUTES[href])) navDiff.push(`${href}(내비=${roles.join('·')} 가드=${ROUTES[href].join('·')})`)
+  }
+  for (const href of Object.keys(ROUTES)) if (!navRoles[href]) navDiff.push(`${href}(가드에만 있음)`)
+  check(`라우트 권한: 내비(menus.ts) ${Object.keys(navRoles).length}개와 화면 가드 매트릭스 일치`, navDiff.length === 0, navDiff.join(', '))
+
   const routeClaims = [...claims(readme, /\((\d+) 라우트 × 4/g), ...claims(summary, /(\d+) 라우트 × 4/g)]
   check(`문서: 라우트 수 ${routes}개 일치`, allSame(routeClaims, routes), `주장=${routeClaims.join(',')} 실제=${routes}`)
 
