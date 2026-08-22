@@ -2781,6 +2781,23 @@ try {
   await pDL.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
   ok('폐기 필수 결재선: 2차(IT기획팀장) 승인 → 소거 대기 전환(2단계 완료 후 효과 적용)', ((await pDL.locator('tr', { has: pDL.locator('td', { hasText: 'AST-2021-000432' }) }).first().textContent()) || '').includes('소거 대기'))
   await ctxDL.close()
+  // 폐기 소거 후 SAM 대사 정합 — 좌석은 폐기 시 회수되는데 EDR 설치 기록만 남으면 사라진 장비가 '배정 밖 설치(무단 사용)'로
+  //  영구히 잡히고, 화면은 없는 장비에 '좌석 배정 — 무단 사용 합법화'를 권한다. 위 결재로 소거 대기가 된 432 를 실제로 소거해 확인한다.
+  //  (432 는 LIC-004 설치 기록이 있고 좌석은 없어 대사에서 배정 밖으로 잡혀 있다.)
+  const ctxSAM = await browser.newContext(); await ctxSAM.addCookies([cookie(ASSET)]); const pSAM = await ctxSAM.newPage()
+  await pSAM.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  ok('SAM 대사(소거 전): 폐기 대기 자산이 배정 밖 설치로 노출', ((await pSAM.textContent('body')) || '').includes('AST-2021-000432'))
+  await pSAM.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  const samRow = pSAM.locator('tr', { has: pSAM.locator('td', { hasText: 'AST-2021-000432' }) }).first()
+  await samRow.locator('input[type="checkbox"][aria-label$="일괄 소거 선택"]').check()
+  await pSAM.waitForTimeout(300)
+  await pSAM.locator('button', { hasText: /^일괄 소거·처분 \(\d+\)$/ }).first().click()
+  await pSAM.waitForTimeout(1000)
+  await pSAM.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const samAfter = (await pSAM.textContent('body')) || ''
+  ok('SAM 대사(소거 후): 폐기 완료 자산의 설치 기록이 배정 밖 설치에서 제외', !samAfter.includes('AST-2021-000432'))
+  ok('SAM 대사(소거 후): 다른 배정 밖 설치는 그대로 유지(대사 자체가 비지 않음)', samAfter.includes('배정 밖 설치'))
+  await ctxSAM.close()
 
   // 결재 버튼이 권한 매트릭스를 따르는지(라운드트립) — 서버 decide 는 can('신청 · 결재','결재')를 강제하고 대시보드 큐·상단 배지도 그 판정을 쓰는데,
   //  결재함 버튼만 코드 역할 규칙(단계 역할·ADMIN 오버라이드)만 보고 있었다. 매트릭스에서 결재를 회수해도 승인·반려가 남아 눌러야 거부됐다.
