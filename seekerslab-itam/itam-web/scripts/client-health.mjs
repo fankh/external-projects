@@ -60,14 +60,19 @@ try {
       page.on('pageerror', (e) => errs.push('PAGEERROR: ' + (e.message || e)))
       page.on('console', (m) => { if (m.type() === 'error' && !BENIGN.some((re) => re.test(m.text()))) errs.push('CONSOLE: ' + m.text()) })
       let crashed = false
+      let httpStatus = 0
       try {
-        await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle', timeout: 20000 })
+        // 응답 상태도 본다 — 서버 렌더가 500 이면 Next 오류 페이지가 뜰 뿐 pageerror·client-side exception 이 없어
+        //  '화면이 열렸다'로 통과한다. 실제로 서버 코드의 TDZ 참조 하나가 /ai/insights 를 500 으로 떨어뜨렸는데
+        //  이 스위트가 그대로 통과시킨 적이 있다(스모크의 라우트 접근 매트릭스만 잡아냄).
+        const res = await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle', timeout: 20000 })
+        httpStatus = res ? res.status() : 0
         await page.waitForTimeout(400)
         crashed = (await page.content()).includes('client-side exception')
       } catch (e) { errs.push('GOTO: ' + e.message) }
-      const ok = errs.length === 0 && !crashed
+      const ok = errs.length === 0 && !crashed && httpStatus < 400
       ok ? pass++ : fail++
-      console.log(`${ok ? '✓' : '✗'} [${tag}] ${route}${ok ? '' : ' — ' + (crashed ? 'client-side exception; ' : '') + errs.slice(0, 2).join(' | ')}`)
+      console.log(`${ok ? '✓' : '✗'} [${tag}] ${route}${ok ? '' : ' — ' + (httpStatus >= 400 ? `HTTP ${httpStatus}; ` : '') + (crashed ? 'client-side exception; ' : '') + errs.slice(0, 2).join(' | ')}`)
       await page.close()
     }
     await ctx.close()
