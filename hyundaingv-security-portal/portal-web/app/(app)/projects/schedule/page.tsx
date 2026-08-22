@@ -103,7 +103,7 @@ export default async function SchedulePage() {
             </table>
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
-            <form action={addDeliverable} className="hstack">
+            <form action={addDeliverable} className="hstack" style={{ flexWrap: 'wrap' }}>
               <select aria-label="projectId" className="select" name="projectId">
                 {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
               </select>
@@ -142,7 +142,7 @@ export default async function SchedulePage() {
             </table>
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
-            <form action={addIssue} className="hstack">
+            <form action={addIssue} className="hstack" style={{ flexWrap: 'wrap' }}>
               <select aria-label="projectId" className="select" name="projectId">
                 {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
               </select>
