@@ -333,7 +333,7 @@ function seed(): Store {
       { id: 'XT-04', name: '보안성검토 체크리스트', docType: '공통', version: 1, uploadedAt: '2026-02-01' },
     ],
     qna: [
-      { id: 'QA-2026-11', title: 'SR 적용요청 후 반영 일정이 궁금합니다', domain: 'IT Request', author: '김현우', dept: '개발1팀', askedAt: '2026-07-30', assignee: '박정호', answer: '적용요청서 결재완료 건은 변경관리 편입 후 매주 수요일 마감, 목요일 반영됩니다.', answeredBy: '박정호', answeredAt: '2026-07-31' },
+      { id: 'QA-2026-11', title: 'SR 적용요청 후 반영 일정이 궁금합니다', domain: '서비스요청', author: '김현우', dept: '개발1팀', askedAt: '2026-07-30', assignee: '박정호', answer: '적용요청서 결재완료 건은 변경관리 편입 후 매주 수요일 마감, 목요일 반영됩니다.', answeredBy: '박정호', answeredAt: '2026-07-31' },
       { id: 'QA-2026-12', title: '재택근무 체크리스트 제출 주기가 어떻게 되나요?', domain: '임직원 의식제고', author: '정민서', dept: '경영지원팀', askedAt: '2026-08-01' },
     ],
     pledges: [

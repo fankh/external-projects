@@ -25,7 +25,7 @@ const ADM: Role[] = ['ADMIN']
 /** 메뉴 체계 — 10대 업무 도메인 (제품안내서 §01) × 권한그룹 매핑 */
 export const NAV: NavGroup[] = [
   {
-    label: 'Main',
+    label: '메인',
     hue: '#475569',
     items: [
       { href: '/dashboard', label: '개인별현황', ico: 'dashboard', roles: ALL },
@@ -35,7 +35,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'IT 투자/비용',
-    hue: '#0f766e',
+    hue: '#2f6b64',
     items: [
       { href: '/finance/invest', label: '투자 관리', ico: 'invest', roles: ALL },
       { href: '/finance/expense', label: '비용 관리', ico: 'expense', roles: ALL },
@@ -43,8 +43,8 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'IT Request',
-    hue: '#345b96',
+    label: '서비스요청',
+    hue: '#3c5a85',
     items: [
       { href: '/sr/new', label: 'SR 신청', ico: 'fileplus', roles: ALL },
       { href: '/sr/requests', label: '신청내역', ico: 'list', roles: ALL },
@@ -55,7 +55,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: '인프라 운영',
-    hue: '#5b5488',
+    hue: '#4a5568',
     items: [
       { href: '/infra/systems', label: '시스템 · 서버 현황', ico: 'server', roles: BIZ },
       { href: '/infra/racks', label: '랙 · H/W 관리', ico: 'harddrive', roles: BIZ },
@@ -66,7 +66,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: '프로젝트',
-    hue: '#b45309',
+    hue: '#8a6224',
     items: [
       { href: '/projects/status', label: '진행현황 · 인력투입', ico: 'chart', roles: BIZ },
       { href: '/projects/schedule', label: '일정 · 산출물 · 이슈', ico: 'calendar', roles: BIZ },
@@ -75,7 +75,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: '임직원 의식제고',
-    hue: '#a23a51',
+    hue: '#8a4a52',
     items: [
       { href: '/pledge/my', label: '보안서약서 제출', ico: 'pen', roles: ALL },
       { href: '/pledge/dept', label: '부서 서약 현황', ico: 'clipboardcheck', roles: DEPT },
@@ -88,7 +88,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: '보안 컴플라이언스',
-    hue: '#15803d',
+    hue: '#3a6b47',
     items: [
       { href: '/compliance/education', label: '보안교육', ico: 'cap', roles: ALL },
       { href: '/compliance/inspection', label: '보안점검 (ISMS)', ico: 'shieldcheck', roles: BIZ },
@@ -99,8 +99,8 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'My Work',
-    hue: '#0e7490',
+    label: '내 업무',
+    hue: '#3a6b7d',
     items: [
       { href: '/work/todo', label: '나의 할일', ico: 'checksquare', roles: ALL, badge: 'todos' },
       { href: '/work/approvals', label: '결재함', ico: 'filecheck', roles: ALL, badge: 'approvals' },
@@ -120,7 +120,7 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    label: '기타 (기반)',
+    label: '기반관리',
     hue: '#52525b',
     items: [{ href: '/platform/integrations', label: '연동 · 인프라', ico: 'plug', roles: ADM }],
   },

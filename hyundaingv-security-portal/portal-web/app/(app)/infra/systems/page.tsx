@@ -108,7 +108,7 @@ export default async function SystemsPage() {
   return (
     <>
       <ScreenHeader kicker="인프라 운영" title="시스템 · 서버 현황"
-        desc="랙 → H/W → 서버 → 시스템(애플리케이션) 구성 — 접속 URL·개발계/운영계·서버 매핑과 장애 이력을 잇는다." />
+        desc="서버·시스템 구성 정보. 접속 URL, 개발계/운영계 구분, 장애 이력을 함께 본다." />
 
       <div className="stat-row">
         <Stat value={s.systems.length} label="시스템" note={`운영계 ${s.systems.filter((x) => x.env === '운영계').length}`} />

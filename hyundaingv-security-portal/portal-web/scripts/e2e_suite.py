@@ -1629,7 +1629,7 @@ def sc_compliance_trend(pg, base, check):
     check('2026-06' in card and '2026-07' in card, '전제: 추세 카드에 시드 스냅샷 2건')
     check('+12' in card, '서약률 개선 델타(+12, 50→62) 전기 대비 표시')
     # 포스처 점수(v1.5.144~) — 현재 점수 배너 + 추세 점수 열 개선 델타(56→65 = +9)
-    check('현재 포스처 점수' in card, '현재 포스처 점수 배너 표시')
+    check('현재 컴플라이언스 점수' in card, '현재 컴플라이언스 점수 배너 표시')
     check('+9' in card, '포스처 점수 개선 델타(+9, 56→65) 전기 대비 표시')
     # 축 분해(v1.5.149~) — 점수를 이루는 5축을 각각 보이고 최약 축을 개선 우선순위로 지목(점수=축 평균 단일원천)
     check('리스크 관리' in card and '취약점 조치율' in card and '점검 완료율' in card,
@@ -3498,7 +3498,7 @@ def sc_rebundle_multi(pg, base, check):
 def sc_profile(pg, base, check):
     """프로필 스위칭 — PORTAL_PROFILE=manufacturer 로 브랜딩·채널 구성 전환"""
     pg.goto(f'{base}/login', wait_until='networkidle')
-    check('HANBIT IT PORTAL' in pg.content(), '로그인 브랜딩 전환')
+    check('한빛 IT포털' in pg.content(), '로그인 브랜딩 전환')
     login(pg, base, '시스템관리자')
     check('한빛제조' in pg.locator('.statusbar').inner_text(), '상태바 고객사 전환')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
@@ -3516,7 +3516,7 @@ def sc_profile(pg, base, check):
 def sc_profile_public(pg, base, check):
     """프로필 스위칭 2 — PORTAL_PROFILE=public 로 공공기관 토폴로지 전환 (비종속성 증명)"""
     pg.goto(f'{base}/login', wait_until='networkidle')
-    check('HANUL GOV PORTAL' in pg.content(), '로그인 브랜딩(공공) 전환')
+    check('한울 IT포털' in pg.content(), '로그인 브랜딩(공공) 전환')
     login(pg, base, '시스템관리자')
     check('한울공공기관' in pg.locator('.statusbar').inner_text(), '상태바 고객사(공공) 전환')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
@@ -3539,7 +3539,7 @@ def sc_profile_finance(pg, base, check):
     """프로필 스위칭 3 — PORTAL_PROFILE=finance 로 금융권 토폴로지 전환 (산업 확장 증명). 포털 본체 무변경 +
     프로필·fin-* 어댑터 등록만으로 3번째 산업(금융)이 뜨고, 자가진단이 4개 프로필 전부 적합으로 확인."""
     pg.goto(f'{base}/login', wait_until='networkidle')
-    check('NARAE FIN PORTAL' in pg.content(), '로그인 브랜딩(금융) 전환')
+    check('나래 IT포털' in pg.content(), '로그인 브랜딩(금융) 전환')
     login(pg, base, '시스템관리자')
     check('나래금융' in pg.locator('.statusbar').inner_text(), '상태바 고객사(금융) 전환')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')

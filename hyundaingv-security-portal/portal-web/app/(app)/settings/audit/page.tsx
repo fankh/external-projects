@@ -44,7 +44,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <ScreenHeader kicker="환경설정" title="감사 이력"
-        desc="결재 처리와 권한·설정 변경 등 통제 행위의 추적 기록 — 수정·삭제 없는 append-only 로그다." />
+        desc="결재 처리와 권한·설정 변경 이력. 기록은 수정·삭제되지 않는다." />
 
       <div className="stat-row">
         <Stat value={s.auditLogs.length} label="기록" note="최근 500건 보존" />
