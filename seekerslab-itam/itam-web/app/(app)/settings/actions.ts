@@ -209,8 +209,9 @@ export async function toggleAiPolicy(field: 'scopeFilter' | 'autoApprove' | 'fee
   const session = await requireAdmin()
   if (!session) return { ok: false, message: 'AI 정책 변경 권한이 없습니다 (Admin).' }
   const label = { scopeFilter: '권한 범위 필터', autoApprove: 'AI 제안 자동 승인', feedbackLearning: '판정 결과 재학습' }[field]
-  if ((LOCKED_AI_POLICY_TOGGLES as readonly string[]).includes(field)) {
-    return { ok: false, message: `${label}는 회수할 수 없습니다 — 질의 컨텍스트 권한 스코핑은 정책값이 아니라 코드가 항상 적용합니다.` }
+  const lock = LOCKED_AI_POLICY_TOGGLES[field]
+  if (lock) {
+    return { ok: false, message: `${label}는 변경할 수 없습니다(${lock.pinned ? 'ON' : 'OFF'} 고정) — ${lock.why}` }
   }
   const s = getStore()
   s.aiPolicy[field] = !s.aiPolicy[field]
