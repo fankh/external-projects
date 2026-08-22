@@ -38,7 +38,7 @@ export function ReportsView(props: {
                   <td className="dim" style={{ whiteSpace: 'normal', maxWidth: 520 }}>{k.desc}</td>
                   <td className="c">
                     <button className="btn sm pri" disabled={pending}
-                      onClick={() => { setSelId(null); setCollapsed(false); startTransition(() => generateReport(k.kind)) }}>
+                      onClick={() => { setSelId(null); setCollapsed(false); startTransition(async () => { const r = await generateReport(k.kind); if (!r.ok) setAttMsg(r.message) }) }}>
                       {pending ? '생성 중…' : '생성'}
                     </button>
                   </td>
