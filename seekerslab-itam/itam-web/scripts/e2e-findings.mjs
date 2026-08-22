@@ -940,6 +940,18 @@ try {
   const wipeCertRes = await p2.request.get(`${BASE}/api/wipe-cert/DSP-00`)
   const wipeCertBody = await wipeCertRes.text()
   ok('데이터 소거 확인서: 폐기 완료건 증적 렌더(확인서 번호)', wipeCertRes.status() === 200 && wipeCertBody.includes('데이터 소거 확인서') && wipeCertBody.includes('WIPE-20260722-050'))
+  // 검수 확인서(intake-cert) — 물품 인수·검수 증적(대금 지급·감사). 검수 이력 있는 로트(시드 IN-2606-42 검수완료)의 확인서 렌더. 그동안 e2e 무방비.
+  const intakeCertRes = await p2.request.get(`${BASE}/api/intake-cert/IN-2606-42`)
+  const intakeCertBody = await intakeCertRes.text()
+  ok('검수 확인서: 검수 이력 로트 증적 렌더(로트번호)', intakeCertRes.status() === 200 && intakeCertBody.includes('검수 확인서') && intakeCertBody.includes('IN-2606-42'))
+  // 라이선스 카드(license-card) — SAM dossier. 시드 LIC-001(Microsoft 365 E3) 렌더. 그동안 e2e 무방비.
+  const licCardRes = await p2.request.get(`${BASE}/api/license-card/LIC-001`)
+  const licCardBody = await licCardRes.text()
+  ok('라이선스 카드: SAM dossier 렌더(라이선스명)', licCardRes.status() === 200 && licCardBody.includes('라이선스') && licCardBody.includes('Microsoft 365 E3'))
+  // 계약 카드(contract-card) — 계약 dossier. 시드 CT-2023-014 렌더. 그동안 e2e 무방비.
+  const ctCardRes = await p2.request.get(`${BASE}/api/contract-card/CT-2023-014`)
+  const ctCardBody = await ctCardRes.text()
+  ok('계약 카드: 계약 dossier 렌더(계약명)', ctCardRes.status() === 200 && ctCardBody.includes('계약') && ctCardBody.includes('2023 개발용 노트북 60대'))
   await recoverBtn.click()
   await p2.waitForTimeout(200)
   await p2.locator('input[placeholder*="회수 사유"]').fill('퇴직 오프보딩')
@@ -1089,6 +1101,9 @@ try {
   // 문서 라우트 역할 게이트 — 대여 확인서·데이터 소거 확인서 발급은 자산담당·Admin 전용(USER 차단). auth 가드 회귀 방지 lock-in.
   ok('대여 확인서: USER 접근 차단(403 · 자산담당·Admin 전용)', (await pU.request.get(`${BASE}/api/loan-agreement/AST-2024-000230`)).status() === 403)
   ok('데이터 소거 확인서: USER 접근 차단(403 · 자산담당·Admin 전용)', (await pU.request.get(`${BASE}/api/wipe-cert/DSP-00`)).status() === 403)
+  ok('검수 확인서: USER 접근 차단(403 · 자산담당·Admin 전용)', (await pU.request.get(`${BASE}/api/intake-cert/IN-2606-42`)).status() === 403)
+  ok('라이선스 카드: USER 접근 차단(403 · 자산담당·Admin 전용)', (await pU.request.get(`${BASE}/api/license-card/LIC-001`)).status() === 403)
+  ok('계약 카드: USER 접근 차단(403 · 자산담당·Admin 전용)', (await pU.request.get(`${BASE}/api/contract-card/CT-2023-014`)).status() === 403)
   await pU.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
   const ub = await pU.locator('.msg.assistant .bub').count()
   await pU.locator('.chat-in input').fill('내 자산 보증 언제 만료돼?')
