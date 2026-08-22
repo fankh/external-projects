@@ -1226,6 +1226,12 @@ try {
   check('공통코드: 명칭 수정 · 미사용 관리 컨트롤 렌더', codeHtml.includes('수정') && /class="[^"]*btn[^"]*sm/.test(codeHtml))
   // 참조 무결성 — 코드별 참조 수(사용 중 N건)를 표기해 미사용 전환 가드의 근거를 드러낸다. 기본 그룹 ASSET_CATEGORY 의 단말은 다수 자산이 참조.
   check('공통코드: 참조 수 표기(사용 중 N건 · 미사용 전환 가드 근거)', codeHtml.includes('건 사용 중') && codeHtml.includes('참조'))
+  // 참조 집계 커버리지 — 화면은 '사용 중 N건'을 이관 기준으로 제시하므로, 참조 필드를 하나라도 빠뜨리면
+  //  그 N건만 옮겨도 가드가 열리고 세지 않은 레코드가 사라진 코드를 붙든 채 남는다(드롭다운 재선택 불가 사각지대).
+  //  자산 유형은 대장 말고도 도입 로트(채번 전)·AI 자동분류 확정/제안 유형·자산 신청 희망 유형이 참조한다 —
+  //  시드 단말 28건(대장 21 + 로트·분류·희망 유형 7), 주변기기 6건(대장 3 + 3). 대장만 세면 21·3 이었다.
+  const usedCount = (n) => codeHtml.includes(`>${n}<!-- -->건 사용 중`) // React SSR 은 {used}건 사용 중 을 텍스트 노드 둘로 쪼갠다
+  check('공통코드: 유형 참조 수에 대장 밖 참조(도입 로트·AI 분류·신청 희망 유형) 포함', usedCount(28) && usedCount(6))
   const aiHtml = await (await get('/settings/ai-policy', 'ADMIN')).text()
   check('AI 정책: 실행 환경·거버넌스 렌더', aiHtml.includes('온프레미스 LLM') && aiHtml.includes('권한 범위 필터'))
   // 외부 반출 통제(§05 실행 환경) — 온프레미스는 외부 반출 차단, 외부 API 연계는 비식별 처리 후 반출. 표시가 아니라 강제.
