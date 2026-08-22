@@ -449,7 +449,22 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     if (a.kind === '자산 신청' && a.refId.startsWith('LIC-') && verdict === '승인') {
       const lic = s.licenses.find((l) => l.id === a.refId)
       // 회수(석 감축) 스테일 방어 — 상신 후 used 가 0 으로 떨어졌으면(전량 좌석 회수 등) purchased 를 0 으로 만들지 않는다(0/0=NaN·컴플라이언스 오분류 방지). 전량 미사용은 해지 대상.
-      if (lic && lic.used > 0) lic.purchased = lic.used
+      if (lic && lic.used > 0) {
+        lic.purchased = lic.used
+      } else {
+        // 막는 판단은 옳지만 조용히 끝내면 안 된다 — 결재는 승인·집행 완료로 표시되는데 보유 좌석은 그대로다.
+        //  라이선스에는 자산 이력 같은 기록면이 없어(반납 스테일은 자산 이력에 남긴다) 사유가 어디에도 남지 않았다.
+        //  대여 승인 미집행과 같은 규약으로 감사에 남기고 신청자에게 알린다.
+        const why = !lic ? '대상 라이선스 없음' : '상신 후 전량 좌석 회수(사용 0)'
+        appendAudit({ actor: session.name, action: `라이선스 조치 승인 미적용 — ${a.refId} (${why}) · 보유 좌석 미변경`, target: a.id })
+        dispatch({
+          channel: '이메일',
+          to: a.requester,
+          subject: `[결재 결과] 라이선스 조치 승인 — 다만 ${a.refId} 는 ${why}으로 보유 좌석을 조정하지 않았습니다. 현재 사용 현황을 확인해 주세요.`,
+          kind: '결재 결과',
+          ref: a.id,
+        })
+      }
       // 라이선스 조치 품의는 물리 자산 불출 대상이 아니다 — 승인 즉시 집행 완료로 표시해
       // 불출 대기 큐(movement·returns·대시보드 issueDue, 모두 !fulfilled 기준)로 새지 않게 한다.
       a.fulfilled = true
