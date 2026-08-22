@@ -183,6 +183,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const unreg = s.discovered.filter((d) => d.state === '미등록')
     const handled = s.discovered.filter((d) => d.action)
     const shadowSaas = shadowSaasPending() // 차단 판정 완료분 제외 — 이 절은 '판정이 필요한' 미인가를 센다
+    const extOpenUnreg = s.external.filter((e) => e.state === '미등록' && !e.action) // 미조치 외부 노출 — 형제 신호와 같은 기준
     // 인증·계정·SW 위생 — 외부/내부 채널의 정책 위반 위협(크리덴셜 노출·휴면 계정·미인가 SW). 주간 브리핑이 결재·감사 증적이 되려면 함께 담아야 한다.
     const credOpen = s.credentials.filter((c) => c.status !== '조치 완료')
     const acctOpen = s.accounts.filter((a) => !a.action)
@@ -198,9 +199,12 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       },
       {
         title: '외부 공격표면 노출',
-        note: `외부 노출 ${s.external.length}건 중 미등록 ${s.external.filter((e) => e.state === '미등록').length}건, CVE 확인 ${s.external.filter((e) => e.cve).length}건`,
+        // 조치가 걸린 노출(차단 요청 등)은 미등록 갭에서 뺀다 — 이 절의 형제 신호(크리덴셜·휴면 계정·미인가 SW·USB·로컬 VM)가
+        //  모두 미조치만 세는데 외부 노출만 state 로만 걸러, 이미 차단 요청한 호스트가 손대지 않은 노출로 브리핑에 실렸다
+        //  (표에 조치 상태 열이 없어 읽는 쪽은 구분할 수 없다). 어시스턴트 컨텍스트도 !e.action 으로 본다.
+        note: `외부 노출 ${s.external.length}건 중 미조치 미등록 ${extOpenUnreg.length}건, CVE 확인 ${s.external.filter((e) => e.cve).length}건`,
         columns: ['호스트', '발견 방법', '노출 서비스', 'CVE', '위험도'],
-        rows: s.external.filter((e) => e.state === '미등록').map((e) => [e.host, e.method, e.services ?? '-', e.cve ?? '-', e.risk]),
+        rows: extOpenUnreg.map((e) => [e.host, e.method, e.services ?? '-', e.cve ?? '-', e.risk]),
       },
       {
         title: '미인가 SaaS 사용',
