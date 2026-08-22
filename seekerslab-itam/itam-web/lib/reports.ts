@@ -6,7 +6,7 @@ import { buildMaintenance } from './maintenance'
 import { buildProcurement } from './procurement'
 import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
-import { addYears, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
+import { addDays, addYears, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
 import { ACQ_COST, USEFUL_LIFE_YEARS, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
@@ -158,8 +158,7 @@ export function replacementCandidates() {
  *  ('use server' 모듈은 async 함수만 export 할 수 있어 순수 계산은 여기에 둔다) */
 export function nextRunOf(sc: ReportSchedule): string | null {
   if (!sc.lastRunAt) return null
-  const last = new Date(sc.lastRunAt)
-  if (sc.period === '주간') return new Date(last.getTime() + 7 * 86_400_000).toISOString().slice(0, 10)
+  if (sc.period === '주간') return addDays(sc.lastRunAt.slice(0, 10), 7) // 날짜 계산은 lib/dates addDays 단일 소스(TZ 무관)
   // 월간 — setMonth(+1) 은 말일(1/31)에서 오버플로(Feb 31 → 3/3)되므로 대상 월 말일로 클램프한다(1/31 → 2/28).
   const [y, mo, dy] = sc.lastRunAt.slice(0, 10).split('-').map(Number)
   const targetY = mo === 12 ? y + 1 : y
