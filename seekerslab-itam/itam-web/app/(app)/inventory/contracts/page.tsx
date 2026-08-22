@@ -115,14 +115,14 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         title="구매 계약 발주·검수 이행 현황"
         pad={false}
         actions={<span className="hstack" style={{ gap: 10 }}>
-          <span className="dim" style={{ fontSize: 11.5 }}>연계 계약 {proc.rows.length}건 · 발주 {fmtAmount(proc.totalOrdered)}/{fmtAmount(proc.totalAmount)}원{proc.atRisk.length > 0 ? ` · 미이행 위험 ${proc.atRisk.length}` : ''}</span>
+          <span className="dim" style={{ fontSize: 11.5 }}>구매 계약 {proc.rows.length}건 · 발주 {fmtAmount(proc.totalOrdered)}/{fmtAmount(proc.totalAmount)}원{proc.atRisk.length > 0 ? ` · 미이행 위험 ${proc.atRisk.length}` : ''}</span>
           <ProcurementRemindButton atRisk={proc.atRisk.length} />
           <ProcurementSettleButton settleable={proc.settleable.length} />
         </span>}
       >
         <div className="stat-row" style={{ margin: 14 }}>
           <Stat value={`${proc.totalAmount ? Math.round((proc.totalOrdered / proc.totalAmount) * 100) : 0}%`} label="전체 발주 소진률" delta={{ text: `발주 여력 ${fmtAmount(proc.totalAmount - proc.totalOrdered)}원`, dir: 'flat' }} />
-          <Stat value={proc.rows.length} label="입고 연계 구매 계약" />
+          <Stat value={proc.rows.length} label="구매 계약 (발주 대상)" />
           <Stat value={proc.atRisk.length} label="발주 미이행 · 만료 임박" tone={proc.atRisk.length ? 'err' : 'ok'} />
           <Stat value={fmtAmount(proc.totalInspected)} label="검수 완료액 (정산 근거)" />
           <Stat value={proc.settleable.length} label="정산 종결 가능 (전량 검수 완료)" tone={proc.settleable.length ? 'warn' : 'ok'} />

@@ -3178,6 +3178,34 @@ try {
   ok(`재물조사 리포트: 누적 차이(${rsTotal}) = 조정 완료(${rsDone}) + 미해결(${rsOpen}) — 한 문단 안 수치 정합`,
     rsTotal >= 0 && rsDone >= 0 && rsOpen >= 0 && rsTotal === rsDone + rsOpen)
   await ctxRS.close()
+  // 발주 미이행 위험 — 입고가 한 건도 없는 구매 계약이 위험 판정에서 통째로 빠져 있었다. 소진률 0% 는 미이행의
+  //  극단인데, 로트가 있는 계약만 대상으로 삼아 '아무것도 안 들어온 계약일수록 안 보이는' 역설이 있었다.
+  //  만료가 임박(90일 이내)한 무입고 구매 계약을 만들어 표와 위험 집계에 함께 잡히는지 본다(집계=목록 정합).
+  const ctxPRO = await browser.newContext(); await ctxPRO.addCookies([cookie(ASSET)]); const pPRO = await ctxPRO.newPage()
+  await pPRO.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const prRiskOf = async () => Number((await pPRO.locator('.stat', { hasText: '발주 미이행 · 만료 임박' }).first()
+    .locator('.v').first().textContent()) || '-1')
+  const prBefore = await prRiskOf()
+  const prName = '발주 미이행 회귀 계약'
+  const prEnd = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10)
+  await pPRO.locator('button', { hasText: /계약 등록$/ }).first().click()
+  await pPRO.waitForTimeout(300)
+  await pPRO.locator('input[placeholder="계약명"]').fill(prName)
+  await pPRO.locator('input[placeholder="공급사"]').fill('회귀상사')
+  await pPRO.locator('input[placeholder="주관부서"]').fill('자산관리팀')
+  const prDates = pPRO.locator('input[placeholder="YYYY-MM-DD"]')
+  await prDates.nth(0).fill('2026-01-02')
+  await prDates.nth(1).fill(prEnd)
+  await pPRO.locator('input[type="number"]').first().fill('10000000')
+  await pPRO.locator('button', { hasText: /^등록$/ }).first().click()
+  await pPRO.waitForTimeout(900)
+  await pPRO.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const prCard = pPRO.locator('.card', { hasText: '구매 계약 발주·검수 이행 현황' }).first()
+  ok('발주 이행 현황: 입고 없는 구매 계약도 표에 노출(소진률 0%)',
+    (await prCard.locator('tr', { hasText: prName }).count()) >= 1)
+  const prAfter = await prRiskOf()
+  ok(`발주 미이행 집계: 무입고·만료 임박 계약이 위험으로 잡힘 (${prBefore} → ${prAfter})`, prAfter === prBefore + 1)
+  await ctxPRO.close()
   await browser.close()
 } catch (err) {
   fail++

@@ -74,7 +74,10 @@ export function buildProcurement(): {
         // 미이행 판정은 반올림된 rate 가 아니라 실집행액으로 — 79.6%(반올림 80%) 같은 임계 바로 아래 계약이
         // rate<80 에서 빠져 위험 큐·리포트에서 사라지던 오류 방지(미집행 rate 오분류와 동일 계열, licenseOptimization 은 raw 비율 사용).
         // 정산 종결분은 미이행 위험에서 제외(생애주기 종착).
-        atRisk: !c.settledAt && lots.length > 0 && orderedValue < (c.amount * UNDERORDER_RATE) / 100 && dday !== null && dday <= RISK_EXPIRY_DAYS,
+        // 입고 로트가 하나도 없는 계약도 그대로 판정한다 — 소진률 0% 는 미이행의 극단이고, 이 뷰가 잡으려는 바로 그 상황이다.
+        //  예전엔 로트가 있는 계약만 대상으로 삼아, 만료가 코앞인데 한 건도 들어오지 않은 계약이 위험 큐·독촉에서 통째로 빠졌다
+        //  (아무것도 안 들어온 계약일수록 안 보이는 역설). 만료 임박(dday≤90) 조건은 그대로라 여력 있는 장기 계약은 잡히지 않는다.
+        atRisk: !c.settledAt && orderedValue < (c.amount * UNDERORDER_RATE) / 100 && dday !== null && dday <= RISK_EXPIRY_DAYS,
         // 정산 종결 가능 — 발주가 전량 입고(발주 소진 완료: orderedValue≥계약액)되고 활성 로트 전부 검수 완료이며 아직 미정산.
         //  대금 정산 근거(검수 완료액) 확정 → 종결. 발주 여력이 남은(미소진) 계약은 아직 종결 대상이 아니다.
         settleable: !c.settledAt && active.length > 0 && active.every((l) => l.status === '검수 완료') && orderedValue >= c.amount,
@@ -82,7 +85,6 @@ export function buildProcurement(): {
         settledAt: c.settledAt,
       }
     })
-    .filter((r) => r.lots > 0)
     .sort((a, b) => (a.dday ?? 99_999) - (b.dday ?? 99_999))
   return {
     rows,
