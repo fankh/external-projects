@@ -1488,6 +1488,18 @@ try {
     `액션 내 파싱=${localWindowParsers.map(fileLabel).join(',')} · fail-closed=${failsClosed}`)
 
 
+
+  // SaaS 판정 SLA 의 전제 — 검토중 항목에는 검토 접수일(reviewSince)이 있어야 경과일을 셀 수 있다. 없으면
+  //  판정 기한 경과를 계산할 수 없어(지금은 fail safe 로 경과 처리한다) 큐가 '경과일 미상' 항목으로 채워진다.
+  //  등재 경로(수동 등재·상태 전이)는 모두 접수일을 남기므로, 시드가 그 전제를 지키는지 정적으로 못박아 둔다.
+  const catPending = [...storeSrc.matchAll(/\{ id: '(CAT-[^']+)'[^}]*\}/g)]
+    .map((m) => m[0])
+    .filter((row) => row.includes("status: '검토중'"))
+  const catNoSince = catPending
+    .filter((row) => !row.includes('reviewSince:'))
+    .map((row) => (/id: '(CAT-[^']+)'/.exec(row) || [])[1])
+  check(`SaaS 카탈로그: 검토중 ${catPending.length}건 모두 검토 접수일 보유(판정 SLA 계산 전제)`,
+    catPending.length > 0 && catNoSince.length === 0, `접수일 없음=${catNoSince.join(', ')}`)
   // 재물조사 차이 카운터 정합 — round.mismatched 는 결재 처리(decide)가 '조정 완료가 아닌 차이 건수'로 다시 계산하고,
   //  실사 스캔(scanAsset)은 차이가 새로 생길 때마다 +1 한다. 즉 진행 중 회차에서 이 숫자는 '미조치 차이 건수'다.
   //  시드가 그 정의와 어긋나면 화면은 조정할 것이 6건이라고 하는데 조정 콘솔에는 11건이 뜨는 식으로 갈리고,
