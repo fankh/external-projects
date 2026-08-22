@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { missingContractDocs } from '@/lib/contract'
 import { daysUntil, fmtAmount } from '@/lib/dates'
+import { expiryNoticeTargets } from '@/lib/expiry'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
@@ -27,20 +28,10 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   const proc = buildProcurement()
   const canEditLicense = ['ASSET_MGR', 'ADMIN'].includes(session.role)
 
-  // 만료 임박 대상 — 계약·라이선스·보증(부서 단위 묶음)을 합친 발송 예정 건수
-  const within = (end: string) => {
-    const d = daysUntil(end)
-    return d !== null && d <= s.opsPolicy.expiryWindowDays
-  }
-  const warrantyDepts = new Set(
-    s.assets
-      .filter((a) => a.warrantyEnd !== '-' && !['폐기완료', '폐기예정'].includes(a.status) && within(a.warrantyEnd))
-      .map((a) => a.dept),
-  )
-  const dueCount =
-    contracts.filter((c) => c.status !== '해지' && within(c.end)).length +
-    s.licenses.filter((l) => l.status !== '해지' && l.expiry !== '-' && within(l.expiry)).length +
-    warrantyDepts.size
+  // 만료 임박 신규 통지 대상 — 발송 액션과 같은 lib/expiry 단일 소스(오늘 이미 보낸 대상 제외).
+  //  화면이 창 안 대상 전부를 세고 액션만 당일 발송분을 빼면, 다 보낸 뒤에도 버튼이 전체 건수로 활성인 채
+  //  눌러야 '신규 알림 대상이 없습니다'로 끝나는 드리프트가 된다(시드에도 당일 발송분이 있다).
+  const dueCount = expiryNoticeTargets().count
   // 필수 부속서류(계약서·세금계산서 등) 미비 진행 중 계약 — 감사 리스크
   const docGap = contracts.filter((c) => missingContractDocs(c).length > 0).length
 
