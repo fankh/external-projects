@@ -2807,6 +2807,19 @@ try {
   ok('채번 보증 기산: 도입일(입고일 2026-06-20)이 대장에 기록', wbBody.includes('2026-06-20'))
   ok('채번 보증 기산: 보증 만료 = 입고일 +3년(2029-06-20) — 채번일 기준으로 부풀리지 않음', wbBody.includes('2029-06-20'))
   await ctxWB.close()
+  // 일괄 소거의 매각 제외 — 매각 대금은 건별이라 일괄로 받으면 대금 0 인 매각이 대장에 확정되고, 소거 완료 뒤에는
+  //  대금을 기록할 경로가 없다(recordWipe 는 '소거 대기' 건만 받는다) → 회수 대금이 리포트·증적 대장에서 영구히 빠진다.
+  //  화면이 선택지에서 빼는 것과 서버가 거부하는 것이 같은 규칙이어야 한다(주석만 있고 서버 강제가 없었다).
+  const ctxWS = await browser.newContext(); await ctxWS.addCookies([cookie(ASSET)]); const pWS = await ctxWS.newPage()
+  await pWS.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  const wsBox = pWS.locator('input[type="checkbox"][aria-label$="일괄 소거 선택"]').first()
+  ok('폐기 일괄 소거: 소거 대기 건 선택 컨트롤 노출', (await wsBox.count()) > 0)
+  await wsBox.check()
+  await pWS.waitForTimeout(300)
+  const wsSel = pWS.locator('select', { has: pWS.locator('option', { hasText: '폐기(파쇄)' }) }).first()
+  const wsOpts = (await wsSel.locator('option').allTextContents()).map((t) => t.trim())
+  ok('폐기 일괄 소거: 처분 선택지에 매각 없음(대금 건별 입력 강제)', wsOpts.includes('폐기(파쇄)') && !wsOpts.includes('매각'))
+  await ctxWS.close()
   await browser.close()
 } catch (err) {
   fail++
