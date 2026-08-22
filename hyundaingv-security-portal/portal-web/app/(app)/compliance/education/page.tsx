@@ -156,7 +156,7 @@ export default async function EducationPage() {
               )
             })}
             <div className="dim" style={{ fontSize: 11.5, marginTop: 8 }}>
-              결과 등록 시 과정이 완료로 바뀌고, 등록된 인원의 '보안교육' 할일이 자동으로 닫힌다.
+              결과 등록 시 과정이 완료로 바뀌고, 등록된 인원의 ‘보안교육’ 할일이 자동으로 닫힌다.
             </div>
           </Card>
         ) : (
@@ -221,7 +221,7 @@ export default async function EducationPage() {
       {/* 게시/공지 이력 (요구사항 61행·제품안내서 IV장) — 교육 분류 공지의 완료 내역·첨부를 교육 도메인에서 조회 */}
       <Card title="게시 · 공지 이력" pad={false}>
         {s.notices.filter((n) => n.category === '교육').length === 0 ? (
-          <div className="empty">교육 분류의 게시/공지 이력이 없습니다 — 공지사항에서 '교육' 분류로 등록하면 여기에 모입니다.</div>
+          <div className="empty">교육 분류의 게시/공지 이력이 없습니다 — 공지사항에서 ‘교육’ 분류로 등록하면 여기에 모입니다.</div>
         ) : (
           <div className="tbl-wrap">
             <table className="tbl">

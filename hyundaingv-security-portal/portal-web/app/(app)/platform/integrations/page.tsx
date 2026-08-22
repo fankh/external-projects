@@ -145,7 +145,7 @@ export default async function IntegrationsPage() {
         </div>
         <div className="dim" style={{ fontSize: 11.5, padding: '8px 14px' }}>
           구조 = 프로필 필드·채널 id 정합 · 바인딩 = adapterId 레지스트리 해석 · 계약 = 어댑터 호출 반환 형태·불변식.
-          고객사 어댑터는 이 진단을 통과한 뒤 스테이징에 투입한다 ('연동 예정' 채널은 계약 미정으로 제외).
+          고객사 어댑터는 이 진단을 통과한 뒤 스테이징에 투입한다 (‘연동 예정’ 채널은 계약 미정으로 제외).
           {' '}검증기 자기점검: {selfCheck.ok ? <Chip tone="ok" bare>정상</Chip> : <Chip tone="err" bare>약화</Chip>} <span className="mut">{selfCheck.detail}</span>
         </div>
       </Card>

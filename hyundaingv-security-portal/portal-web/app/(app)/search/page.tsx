@@ -1,8 +1,8 @@
 import Link from 'next/link'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { effectiveRoles, requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
-import { SR_CHIP, srStatusLabel } from '../sr/chips'
+import { srStatusLabel } from '../sr/chips'
 
 interface Hit {
   href: string
@@ -179,7 +179,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         </div>
       ) : total === 0 ? (
         <Card title="결과 없음">
-          <div className="empty">"{query}" 에 해당하는 항목이 없습니다 — 권한 범위 밖이거나 존재하지 않는 항목입니다.</div>
+          <div className="empty">“{query}” 에 해당하는 항목이 없습니다 — 권한 범위 밖이거나 존재하지 않는 항목입니다.</div>
         </Card>
       ) : (
         nonEmpty.map((g) => (

@@ -270,7 +270,7 @@ export default async function InspectionPage() {
           </div>
         </div>
         {snaps.length === 0 ? (
-          <div className="empty">기록된 스냅샷이 없습니다 — '현황 스냅샷 기록'으로 이번 달 포스처를 남기세요.</div>
+          <div className="empty">기록된 스냅샷이 없습니다 — ‘현황 스냅샷 기록’으로 이번 달 포스처를 남기세요.</div>
         ) : (
           <div className="tbl-wrap">
             <table className="tbl">
@@ -384,7 +384,7 @@ export default async function InspectionPage() {
             <button type="submit" className="btn sm">계획 업로드</button>
           </form>
           <div className="dim" style={{ fontSize: 11.5, marginTop: 8 }}>
-            항목·주기는 기준관리(Template)에서 온다 — 전년 계획은 상단 '전년 불러오기'로 복제, 다건은 CSV 업로드(점검항목코드·예정월·점검자).
+            항목·주기는 기준관리(Template)에서 온다 — 전년 계획은 상단 ‘전년 불러오기’로 복제, 다건은 CSV 업로드(점검항목코드·예정월·점검자).
           </div>
         </Card>
 
