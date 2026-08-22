@@ -711,12 +711,17 @@ try {
   check('반납·유휴: 연체·임박 대여에 반환 독촉 발송 버튼 노출', rtHtml.includes('반환 독촉 발송'))
   check('반납·유휴: 대여 대장 엑셀 반출 버튼 노출 (감사 대응)', rtHtml.includes('/api/export/loans') && rtHtml.includes('대여 대장 엑셀'))
   const apUser = await (await get('/workflow/approvals', 'USER')).text()
+  const apSec0 = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('신청 상신: 사용자에게 신청 UI 노출', apUser.includes('신청 상신') && apUser.includes('신청하기'))
   check('상신 취소: 본인 대기 신청에 취소 버튼 노출', apUser.includes('상신 취소') && apUser.includes('APR-2607-121'))
   // 소유자 확인은 결재가 아니라 부서 응답 — 요청받은 부서(플랫폼개발팀=김민준)에게만 응답 버튼이 뜬다
   check('소유자 확인: 해당 부서 사용자에게 응답 버튼', apUser.includes('APR-2607-114') && apUser.includes('본인 자산'))
   // 결재함 데이터 스코핑 — USER 는 본인 상신분(+부서 소유자확인)만 조회('신청·결재' 조회='p' own-scope). 타 부서 결재(APR-2607-112 격리·보안운영팀)는 미노출.
   check('결재함 스코핑(USER): 타 부서 결재 미노출(본인·부서 소유자확인만 · 조회 own-scope)', !apUser.includes('APR-2607-112'))
+  // 목록만 스코핑하고 상단 KPI 가 전사 집계를 쓰면 같은 화면 머리에서 다시 새어 나간다 — 타일도 조회 스코프를 따라야 한다.
+  //  격리 요청 건수는 보안 운영 지표라 USER 자리에는 본인 부서 소유자 확인 요청을 대신 노출한다(역할에 맞는 할 일).
+  check('결재함 KPI 스코핑(USER): 전사 격리 요청 건수 미노출 · 소유자 확인 요청으로 대체', !apUser.includes('격리 요청 (보안담당)') && apUser.includes('소유자 확인 요청 (우리 부서)'))
+  check('결재함 KPI(담당자): 격리 요청 타일은 그대로', apSec0.includes('격리 요청 (보안담당)'))
   const apSec = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('소유자 확인: 타 부서에는 응답 버튼 미노출', apSec.includes('APR-2607-114') && apSec.includes('부서 응답 대기'))
   const insHtml = await (await get('/ai/insights', 'SEC_MGR')).text()
