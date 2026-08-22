@@ -1286,6 +1286,12 @@ try {
   check('사용자: MFA 미등록자 등록 요구 버튼(보안 정책)', usrHtml.includes('MFA 미등록자 등록 요구') && usrHtml.includes('미적용'))
   check('사용자 · 결재선: 필수 결재선 잠금 표시(🔒)', usrHtml.includes('🔒') && usrHtml.includes('해제할 수 없'))
   check('사용자 · 결재선: 선택 결재선 토글 버튼 렌더', /class="[^"]*btn[^"]*sm/.test(usrHtml))
+  // 오프보딩 명세서 반출도 감사 대상 — 대장·감사 로그·발송 이력 반출은 "누가 무엇을 몇 건 받았는지"를 남기는데
+  //  개인 단위 오프보딩 명세서는 고정 URL 로 받아도 흔적이 없었다(리포트 반출은 생성이 필요해 e2e 에서 확인).
+  const offDl = await get('/api/offboard-sheet/%EA%B9%80%EB%AF%BC%EC%A4%80', 'ASSET_MGR')
+  const auditAfterDl = await (await get('/platform/integrations', 'SEC_MGR')).text()
+  check('감사: 오프보딩 명세서 반출이 감사 로그에 기록', offDl.status === 200 && auditAfterDl.includes('오프보딩 명세서 반출'))
+
   const intHtml = await (await get('/platform/integrations', 'SEC_MGR')).text()
   check('연동 · 인프라: 커넥터·감사 로그(검색·필터) 렌더', intHtml.includes('EDR · 백신 콘솔') && intHtml.includes('감사 로그') && intHtml.includes('수행자·동작·대상 검색') && intHtml.includes('권한 밖 화면 접근 시도'))
   // 감사 로그 대상(target) 딥링크 — 시드 로그의 DSC- 대상이 발견 자산 화면 링크로 렌더된다
