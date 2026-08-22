@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { addDays, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
+import { addDays, isStaleVerify, isValidDate, roundProgressPct, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -31,7 +31,7 @@ export async function planRound(input: {
 
   const name = input.name.trim()
   if (!name) return { ok: false, message: '회차명을 입력해 주세요.' }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate)) return { ok: false, message: '기한을 선택해 주세요.' }
+  if (!isValidDate(input.dueDate)) return { ok: false, message: '기한을 선택해 주세요.' }
   if (input.dueDate < today()) return { ok: false, message: '기한은 오늘 이후로 지정해 주세요.' }
 
   const s = getStore()

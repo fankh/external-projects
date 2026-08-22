@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { isQnaOverdue, qnaAgeDays, today } from '@/lib/dates'
+import { isQnaOverdue, isValidDate, qnaAgeDays, today } from '@/lib/dates'
 import { noticeTargets } from '@/lib/notice'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -185,7 +185,7 @@ export async function postNotice(title: string, body: string, pinned: boolean, p
   if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
   const pub = publishAt?.trim() || undefined
   // 형식만 검증한다. 과거·오늘 날짜는 즉시 발행으로 처리(publishAt 미설정), 미래 날짜만 예약으로 남긴다.
-  if (pub && !/^\d{4}-\d{2}-\d{2}$/.test(pub)) return { ok: false, message: '예약 발행일을 선택해 주세요.' }
+  if (pub && !isValidDate(pub)) return { ok: false, message: '예약 발행일을 선택해 주세요.' }
   const cat: NoticeCategory = NOTICE_CATEGORIES.includes(category as NoticeCategory) ? (category as NoticeCategory) : '일반'
 
   const s = getStore()

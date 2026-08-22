@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { addYears, daysUntil, isIntakeOverdue, today } from '@/lib/dates'
+import { addYears, daysUntil, isIntakeOverdue, isValidDate, today } from '@/lib/dates'
 import { checklistFor } from '@/lib/intake'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -128,7 +128,7 @@ export async function preRegisterLot(input: { contractId: string; srNo: string; 
   if (!srNo) return { ok: false, message: 'SR·발주 번호를 입력하세요.' }
   if (!m) return { ok: false, message: '모델명을 입력하세요.' }
   if (!Number.isInteger(input.qty) || input.qty < 1 || input.qty > 1000) return { ok: false, message: '수량은 1~1000 사이여야 합니다.' }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.expectedDate)) return { ok: false, message: '도착 예정일을 YYYY-MM-DD 로 입력하세요.' }
+  if (!isValidDate(input.expectedDate)) return { ok: false, message: '도착 예정일을 실재하는 날짜(YYYY-MM-DD)로 입력하세요.' }
 
   const id = nextId('LOT')
   s.intakeLots.unshift({

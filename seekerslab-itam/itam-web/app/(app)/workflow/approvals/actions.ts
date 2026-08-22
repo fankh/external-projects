@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { approvalAgeDays, isApprovalOverdue, today } from '@/lib/dates'
+import { approvalAgeDays, isApprovalOverdue, isValidDate, today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
 import { canDecideApproval } from '@/lib/approval'
 import { classifyDiscoveredType } from '@/lib/classify'
@@ -51,7 +51,7 @@ export async function raiseRequest(input: {
     const asset = s.assets.find((a) => a.assetNo === input.assetNo)
     if (!asset) return { ok: false, message: '대여할 자산을 선택해 주세요.' }
     if (asset.status !== '유휴') return { ok: false, message: `대여 가능한 상태가 아닙니다 — ${asset.assetNo} (${asset.status}). 유휴 재고만 대여 신청할 수 있습니다.` }
-    if (!input.loanDueDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.loanDueDate) || input.loanDueDate < today()) {
+    if (!input.loanDueDate || !isValidDate(input.loanDueDate) || input.loanDueDate < today()) {
       return { ok: false, message: '반환 기한을 오늘 이후로 지정해 주세요.' }
     }
     const dup = s.approvals.find((a) => a.status === '대기' && a.refId === asset.assetNo && a.kind === '대여')

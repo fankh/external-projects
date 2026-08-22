@@ -1443,6 +1443,29 @@ try {
   const routeClaims = [...claims(readme, /\((\d+) 라우트 × 4/g), ...claims(summary, /(\d+) 라우트 × 4/g)]
   check(`문서: 라우트 수 ${routes}개 일치`, allSame(routeClaims, routes), `주장=${routeClaims.join(',')} 실제=${routes}`)
 
+  // 날짜 입력 검증 — 서버 액션이 날짜를 형식(YYYY-MM-DD)만 보고 받으면 2026-02-31·평년 2/29 같은
+  //  실재하지 않는 날이 그대로 저장된다. 화면·엑셀은 입력값을 그대로 찍는데 daysUntil 은 Date 파싱으로
+  //  3/3·3/1 로 굴러가(V8 rollover) 표시일과 잔여일이 어긋나고, 같은 함수 안의 문자열 비교(due <= today())는
+  //  굴러가기 전 리터럴을 보므로 한 판정의 두 축이 다른 날을 가리킨다. 2026-13-45 처럼 파싱 자체가 실패하면
+  //  daysUntil 이 null → '?? 999' 폴백이라 정기 점검·연체 경보가 영영 뜨지 않는다(경보가 조용히 꺼진다).
+  //  달력 규칙은 lib/dates 의 isValidDate 한 곳에 두고, 액션이 형식 정규식으로 되돌아가지 않는지 본다.
+  const BS = String.fromCharCode(92)
+  const FORMAT_ONLY = '/^' + BS + 'd{4}-' + BS + 'd{2}-' + BS + 'd{2}$/.test('
+  const actionFiles = []
+  const walkActions = (dir) => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      if (ent.isDirectory()) walkActions(path.join(dir, ent.name))
+      else if (ent.name === 'actions.ts') actionFiles.push(path.join(dir, ent.name))
+    }
+  }
+  walkActions(path.join(ROOT, 'app'))
+  const fileLabel = (f) => path.basename(path.dirname(f))
+  const formatOnly = actionFiles.filter((f) => readFileSync(f, 'utf8').includes(FORMAT_ONLY))
+  const calendarChecked = actionFiles.filter((f) => readFileSync(f, 'utf8').includes('isValidDate('))
+  check(`날짜 입력: 액션 ${calendarChecked.length}개 파일이 달력 검증(isValidDate) 사용 · 형식만 보는 검사 0개`,
+    formatOnly.length === 0 && calendarChecked.length >= 7,
+    `형식만=${formatOnly.map(fileLabel).join(',')} · 달력검증=${calendarChecked.map(fileLabel).join(',')}`)
+
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')

@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, today } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isValidDate, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -213,7 +213,7 @@ export async function sendToRepair(assetNo: string, rawVendor: string, eta: stri
   if (asset.status !== '수리중') return { ok: false, message: `수리중 자산이 아닙니다 — ${assetNo} (${asset.status})` }
   const vendor = rawVendor.trim()
   if (!vendor) return { ok: false, message: '수리 업체를 입력해 주세요.' }
-  if (eta && (!/^\d{4}-\d{2}-\d{2}$/.test(eta) || eta < today())) return { ok: false, message: '예상 반환일을 오늘 이후로 지정해 주세요.' }
+  if (eta && (!isValidDate(eta) || eta < today())) return { ok: false, message: '예상 반환일을 오늘 이후로 지정해 주세요.' }
 
   asset.repair = { vendor, sentAt: today(), eta: eta || undefined, estCost: Number.isFinite(estCost) && estCost > 0 ? Math.round(estCost) : undefined }
   asset.history.push({ date: today(), kind: '수리', detail: `수리 의뢰 — ${vendor}${eta ? ` · 예상 반환 ${eta}` : ''}${estCost > 0 ? ` · 견적 ${estCost.toLocaleString()}원` : ''}`, actor: session.name })
