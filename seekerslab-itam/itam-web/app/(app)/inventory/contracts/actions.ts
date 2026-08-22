@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { missingContractDocs } from '@/lib/contract'
-import { daysUntil, fmtAmount, today } from '@/lib/dates'
+import { addYears, daysUntil, fmtAmount, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
@@ -367,8 +367,7 @@ export async function renewContract(id: string, termYears: number) {
 
   // 기준일: 만료 전이면 만료일 기준(주기 승계), 이미 지났으면 오늘 기준. 문자열 비교로 TZ 문제를 피한다.
   const base = c.end >= today() ? c.end : today()
-  const [y, m, d] = base.split('-')
-  const newEnd = `${Number(y) + termYears}-${m}-${d}`
+  const newEnd = addYears(base, termYears)
   const oldEnd = c.end
   c.end = newEnd
   // 갱신 이력을 계약에 남긴다 — 전역 감사 로그만으론 계약별 기간 변천을 추적하기 어렵다(등록→갱신×N→만료/해지)
@@ -394,8 +393,7 @@ export async function renewLicense(id: string, termYears: number) {
   if (l.expiry === '-') return { ok: false, message: '영구 라이선스는 갱신 대상이 아닙니다.' }
 
   const base = l.expiry >= today() ? l.expiry : today()
-  const [y, m, d] = base.split('-')
-  const newExpiry = `${Number(y) + termYears}-${m}-${d}`
+  const newExpiry = addYears(base, termYears)
   const oldExpiry = l.expiry
   l.expiry = newExpiry
   ;(l.renewals ??= []).push({ date: today(), from: oldExpiry, to: newExpiry, termYears, by: session.name })

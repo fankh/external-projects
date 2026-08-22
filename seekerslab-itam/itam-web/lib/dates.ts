@@ -100,6 +100,29 @@ export function daysUntil(dateStr: string): number | null {
   return Math.round((d - t) / 86_400_000)
 }
 
+/** 해당 연·월의 마지막 날(1~12월 외에는 31 폴백) — 윤년은 그레고리력 규칙. */
+function daysInMonth(y: number, m: number): number {
+  if (m === 2) return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1] ?? 31
+}
+
+/** 날짜 문자열(`YYYY-MM-DD`) 연 단위 가감 — years 가 음수면 소급. 대상 연도에 없는 날(2/29)은
+ *  그 달의 마지막 날로 당긴다(2028-02-29 +1년 → 2029-02-28). Date 객체를 쓰지 않아 TZ 영향이 없다.
+ *  그동안 각 호출부가 `${Number(y) + n}-${m}-${d}` 로 연도만 올려 윤년 2/29 기준 갱신이 실재하지 않는
+ *  날짜(2029-02-29)를 만들었다 — 저장·표시·엑셀 반출·갱신 이력에 남고, Date 파싱은 3/1 로 굴러가
+ *  표시일과 잔여일이 하루 어긋났으며 재갱신마다 오염이 승계됐다. 보증 연장·계약/라이선스 갱신·
+ *  정기 점검 재예약·검수 등록 보증 산정·교체 내용연수 기준일이 이 한 함수를 공유한다. 형식 불명은 원본 반환(방어). */
+export function addYears(dateStr: string, years: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
+  if (!m) return dateStr
+  const mo = Number(m[2])
+  if (mo < 1 || mo > 12) return dateStr
+  const y = Number(m[1]) + years
+  if (!Number.isFinite(y) || y < 1) return dateStr
+  const d = Math.min(Number(m[3]), daysInMonth(y, mo))
+  return `${String(y).padStart(4, '0')}-${m[2]}-${String(d).padStart(2, '0')}`
+}
+
 /** 미답변 QnA SLA(일) — 등록 후 이 기간을 넘겨도 답변이 없으면 응답 지연으로 본다(헬프데스크 SLA). */
 export const QNA_SLA_DAYS = 3
 

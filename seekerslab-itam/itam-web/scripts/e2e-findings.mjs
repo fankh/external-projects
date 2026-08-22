@@ -2518,6 +2518,18 @@ try {
   await pWY.goto(`${BASE}/assets/register?sel=AST-2022-000641`, { waitUntil: 'networkidle' })
   ok('보증 연장(로24): 연장 → 보증 만료일 +1년(2027-09-30)', ((await pWY.textContent('body')) || '').includes('2027-09-30'))
   await ctxWY.close()
+  // 윤년 보증 연장 회귀 — 2/29 만료 자산(AST-2025-000701 · 보증 2028-02-29)을 1년 연장하면 실재하지 않는 2029-02-29 가 아니라 말일 2029-02-28 이어야 한다(lib/dates addYears 클램프).
+  //  그전엔 호출부가 연도만 +1 해 달력에 없는 날짜가 대장·보증연장 이력·엑셀 반출·갱신 원장에 남고, Date 파싱이 3/1 로 굴러 표시일과 잔여일이 하루 어긋났다(재연장마다 승계).
+  const ctxLY = await browser.newContext(); await ctxLY.addCookies([cookie(ASSET)]); const pLY = await ctxLY.newPage()
+  await pLY.goto(`${BASE}/assets/register?sel=AST-2025-000701`, { waitUntil: 'networkidle' })
+  await pLY.locator('button', { hasText: /^보증 연장$/ }).first().click()
+  await pLY.waitForTimeout(200)
+  await pLY.locator('button', { hasText: /^1년$/ }).first().click()
+  await pLY.waitForTimeout(700)
+  await pLY.goto(`${BASE}/assets/register?sel=AST-2025-000701`, { waitUntil: 'networkidle' })
+  const lyBody = (await pLY.textContent('body')) || ''
+  ok('윤년 보증 연장: 2028-02-29 +1년 → 말일 2029-02-28 (달력에 없는 2029-02-29 미생성)', lyBody.includes('2029-02-28') && !lyBody.includes('2029-02-29'))
+  await ctxLY.close()
   // 거버넌스 가드(로19) — 본인/마지막 관리자 강등 방지 + 필수 결재선 잠금. UI 가 서버 규칙(lastAdmin · MANDATORY_APPROVAL_KINDS)을 반영해 잠근다. 그동안 오프보딩 읽기만 있고 가드는 미검증(잠금 풀리면 관리자 락아웃·필수 보안 결재 제거).
   const ctxGD = await browser.newContext(); await ctxGD.addCookies([cookie(ADMIN)]); const pGD = await ctxGD.newPage()
   await pGD.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
