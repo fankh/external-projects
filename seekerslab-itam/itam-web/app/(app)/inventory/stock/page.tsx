@@ -5,7 +5,7 @@ import { acquisitionCostOf, bookValueOf } from '@/lib/cost'
 import { today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { getStore } from '@/lib/store'
-import { lowStockCategories } from '@/lib/stock'
+import { availableAssets, lowStockCategories } from '@/lib/stock'
 import { ASSET_CATEGORIES, type Asset } from '@/lib/types'
 import { ReorderButton } from './ReorderButton'
 import { StockBreakdown, type StockRow } from './StockBreakdown'
@@ -34,7 +34,10 @@ export default async function StockPage() {
   const byDept = aggBy((a) => a.dept)
   const byLoc = aggBy((a) => a.location)
 
+  // 가용 재고 = 유휴 AND 폐기 절차 미진입 — 바로 아래 안전재고 경보·어시스턴트 '유휴(재배치 가능)' 답변과 같은 lib/stock 판정.
+  //  그전엔 이 타일만 상태 '유휴' 를 그대로 세어, 폐기 선정된 유휴 자산까지 '가용'으로 잡아 같은 화면 안에서 경보와 어긋났다.
   const idleTotal = s.assets.filter((a) => a.status === '유휴').length
+  const availableTotal = availableAssets(s.assets, s.disposals).length
   // 안전재고 경보 — 불출형 유형(단말·주변기기)의 가용(유휴·폐기 진행 아님) 재고가 안전재고 미만인 유형. 재고 화면·대시보드 공유 판정.
   const lowStock = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
 
@@ -63,7 +66,8 @@ export default async function StockPage() {
 
       <div className="stat-row">
         <Stat value={s.assets.length} label="총 보유 자산" />
-        <Stat value={idleTotal} label="유휴 · 가용 재고" tone="ok" delta={{ text: '재배치 우선 원칙', dir: 'flat' }} />
+        <Stat value={availableTotal} label="가용 재고 (재배치 가능)" tone="ok"
+          delta={{ text: idleTotal > availableTotal ? `유휴 ${idleTotal}대 · 폐기 선정 ${idleTotal - availableTotal}대 제외` : '재배치 우선 원칙', dir: 'flat' }} />
         <Stat value={`${fmt(Math.round(totalBook / 10_000))}만`} label="자산 잔존가치 (장부가 총액)" tone="accent" delta={{ text: `취득가 ${fmt(Math.round(totalAcq / 10_000))}만원 기준`, dir: 'flat' }} />
         <Stat value={s.inventoryRounds.filter((r) => r.status !== '완료').length} label="진행·계획 중 재물조사" tone="accent" />
       </div>

@@ -667,8 +667,11 @@ try {
   check('불출·이동: 미집행 승인 이동이 대기열에 노출', mvHtml.includes('APR-2607-101') && mvHtml.includes('본사 9F'))
   // 재배치 우선 원칙 — 승인된 자산 신청(APR-2607-116, 희망 유형 단말)이 불출 대기에 노출되고 희망 유형이 표시된다
   check('불출: 승인 자산 신청 불출 대기 + 희망 유형 노출', mvHtml.includes('APR-2607-116') && mvHtml.includes('희망 유형') && mvHtml.includes('노트북 지급'))
-  // 유형 매칭 추천 — 단말 신청에 일치하는 유휴 단말(AST-2021-000432)이 ✓ 표기로 우선 추천된다
-  check('불출: 희망 유형 일치 유휴 재고 우선 추천(✓)', mvHtml.includes('✓ AST-2021-000432') && mvHtml.includes('· 단말'))
+  // 유형 매칭 추천 — 단말 신청에 일치하는 배정 가능 단말(AST-2025-000033 · 검수중 미배정분)이 ✓ 표기로 우선 추천된다
+  check('불출: 희망 유형 일치 배정 가능 재고 우선 추천(✓)', mvHtml.includes('✓ AST-2025-000033') && mvHtml.includes('· 단말'))
+  // 폐기 선정 자산 제외 — 배정 가능 재고는 불출 가드(dispatchAsset)와 같은 판정(lib/stock assignableAssets)이어야 한다.
+  //  시드 AST-2021-000432(유휴 단말)는 폐기 대상 선정(DSP-02) 상태라 불출이 거부된다 — 화면이 추천하면 담당자가 막다른 길에 빠진다.
+  check('불출: 폐기 선정된 유휴 자산은 배정 가능 재고에서 제외(불출 가드와 동일 판정)', !mvHtml.includes('AST-2021-000432'))
   // 배정 가능 재고에 유형 다양성(주변기기 유휴) — 유형 불일치 시연 근거
   check('불출: 배정 가능 재고에 주변기기 유휴(유형 다양성)', mvHtml.includes('AST-2023-000704') && mvHtml.includes('주변기기'))
   // 불출·이동 처리 시 신청자에게 자동 통보한다는 안내 (요청자 루프 폐쇄 · dispatch 자산 불출·자산 이동)
@@ -1191,6 +1194,9 @@ try {
   // 자산 가치 현황 — 유형별 취득가·잔존가치(정액법 감가상각) + 장부가 총액 KPI
   check('재고 현황: 유형별 자산 가치(취득가·잔존가치·감가상각률)', stockHtml.includes('유형별 자산 가치') && stockHtml.includes('총 취득가') && stockHtml.includes('총 잔존가치(장부가)') && stockHtml.includes('감가상각률'))
   check('재고 현황: 자산 잔존가치(장부가 총액) KPI', stockHtml.includes('자산 잔존가치 (장부가 총액)'))
+  // 가용 재고 KPI ↔ 안전재고 경보 정합 — 타일이 상태 '유휴' 를 그대로 세면 폐기 선정된 유휴 자산까지 '가용'으로 잡혀
+  //  같은 화면 아래 경보(가용 제외)·어시스턴트 '재배치 가능' 답변과 어긋난다. lib/stock availableAssets 단일 소스.
+  check('재고 현황: 가용 재고 KPI 가 폐기 선정 유휴를 제외(경보·어시스턴트와 동일 판정)', stockHtml.includes('가용 재고 (재배치 가능)') && stockHtml.includes('폐기 선정'))
   // 안전재고 경보 — 불출형 유형(단말·주변기기) 가용 재고가 안전재고(2대) 미만이면 경보. 시드: 단말 유휴 1대(AST-2021-000432)는 폐기 선정(대상 선정)이라 가용 제외 → 가용 0(재고 소진), 주변기기 가용 1.
   check('재고 현황: 안전재고 경보 카드(가용 부족 발주 검토)', stockHtml.includes('안전재고 경보') && stockHtml.includes('발주 검토'))
   check('재고 현황: 폐기 선정 유휴는 가용 제외 → 단말 재고 소진(가용 0)', stockHtml.includes('단말') && stockHtml.includes('재고 소진'))
