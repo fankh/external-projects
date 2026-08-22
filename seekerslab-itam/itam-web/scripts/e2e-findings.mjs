@@ -2884,6 +2884,44 @@ try {
   await pRA2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   ok('리포트 반출 감사: 감사 로그에 반출 기록(누가 무엇을 몇 건)', ((await pRA2.textContent('body')) || '').includes('리포트 반출'))
   await ctxRA2.close(); await ctxRA.close()
+  // 대여 승인 미집행 통보 — 요청~승인 사이에 자산이 빠지면 집행 가드가 막는다(폐기 예정분 대여 방지). 그런데 그때 아무 신호가 없었다:
+  //  승인 통보만 나가고 자산은 오지 않으며, 대여는 자산 신청·이동과 달리 '승인 후 미집행' 대기열이 없어 어디에도 드러나지 않는다.
+  //  신청 → 같은 자산을 담당자가 먼저 직접 대여 → 승인 순으로 재현하고, 감사와 신청자 통보가 남는지 본다.
+  const ctxLM = await browser.newContext(); await ctxLM.addCookies([cookie(ASSET)]); const pLM = await ctxLM.newPage()
+  await pLM.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await pLM.locator('button', { hasText: /^신청하기$/ }).first().click() // 상신 폼은 접혀 있다
+  await pLM.waitForTimeout(300)
+  const lmForm = pLM.locator('.card', { hasText: '신청 상신' }).first()
+  await lmForm.locator('select').first().selectOption({ label: '대여 (임시 반출)' })
+  await pLM.waitForTimeout(300)
+  const lmAssetSel = lmForm.locator('select').nth(1)
+  const lmAssetNo = ((await lmAssetSel.inputValue()) || '').trim()
+  ok('대여 승인 미집행: 대여 신청 대상 유휴 자산 확보', /^AST-/.test(lmAssetNo))
+  await lmForm.locator('input[type="date"]').first().fill('2026-12-31')
+  await lmForm.locator('textarea[placeholder="신청 사유"]').first().fill('e2e — 대여 승인 미집행 통보 회귀')
+  await lmForm.locator('button', { hasText: /^상신$/ }).first().click()
+  await pLM.waitForTimeout(900)
+  // 담당자가 같은 자산을 먼저 직접 대여 처리 → 승인 시점엔 유휴가 아니다
+  await pLM.goto(`${BASE}/assets/register?sel=${lmAssetNo}`, { waitUntil: 'networkidle' })
+  await pLM.locator('button', { hasText: /^대여 처리 \(반출\)$/ }).first().click()
+  await pLM.waitForTimeout(300)
+  const lmLoan = pLM.locator('div.vstack', { hasText: '대여 처리 (반출)' }).last() // 상세 패널의 대여 입력 묶음
+  await lmLoan.locator('input[placeholder="대여자 (성명)"]').fill('선점자')
+  await lmLoan.locator('input[placeholder="부서"]').fill('인재개발팀')
+  await lmLoan.locator('input[type="date"]').first().fill('2026-12-15')
+  await lmLoan.locator('button', { hasText: /^대여 확정$/ }).first().click() // 확정 버튼 라벨은 '대여 확정'
+  await pLM.waitForTimeout(900)
+  await ctxLM.close()
+  const ctxLM2 = await browser.newContext(); await ctxLM2.addCookies([cookie(ADMIN)]); const pLM2 = await ctxLM2.newPage()
+  await pLM2.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const lmRow = pLM2.locator('tbody tr', { hasText: lmAssetNo }).filter({ hasText: '대여' }).first() // 목록에 신청 사유는 안 나온다 — 자산번호로 잡는다
+  await lmRow.locator('td button', { hasText: /^승인$/ }).first().click()
+  await pLM2.waitForTimeout(1000)
+  await pLM2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const lmAudit = (await pLM2.textContent('body')) || ''
+  ok('대여 승인 미집행: 사유와 함께 감사에 기록', lmAudit.includes('대여 승인 미집행'))
+  ok('대여 승인 미집행: 신청자에게 재신청 안내 통보', lmAudit.includes('더 이상 대여할 수 없어 집행되지 않았습니다'))
+  await ctxLM2.close()
   await browser.close()
 } catch (err) {
   fail++
