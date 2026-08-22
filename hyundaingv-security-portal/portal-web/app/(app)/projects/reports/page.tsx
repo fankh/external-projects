@@ -38,7 +38,7 @@ export default async function ReportsPage() {
       </div>
 
       <Card title="작성">
-        <form action={addNote} className="hstack">
+        <form action={addNote} className="hstack" style={{ flexWrap: 'wrap' }}>
           <select aria-label="projectId" className="select" name="projectId">
             {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id} · {p.title}</option>)}
           </select>

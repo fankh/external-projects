@@ -43,7 +43,7 @@ ROUTES = [
     '/platform/integrations', '/search',
 ]
 
-WIDTHS = (1280, 1366, 1440)  # 사내 노트북 상용 폭 + 기준 폭
+WIDTHS = (768, 1024, 1280, 1366, 1440)  # 태블릿·사내 노트북 상용 폭 + 기준 폭
 ADMIN = {'login': 'admin', 'name': '시스템관리자', 'dept': '정보기획팀', 'role': 'ADMIN'}
 SECRET_STR = os.environ.get('SESSION_SECRET', 'ngv-gate-nondefault-secret')
 
