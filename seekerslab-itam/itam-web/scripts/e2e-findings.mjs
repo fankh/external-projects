@@ -2791,6 +2791,22 @@ try {
   ok('발견 자산: 편입 권한 복원 시 편입 요청 버튼 재노출(양성 대조)', ((await pDA2.textContent('body')) || '').includes('편입 요청 (결재)'))
   await ctxDA2.close()
   await ctxDG.close()
+  // 채번 자산의 보증 시작일 — 대장이 도입일로 기록하는 입고일 기준이어야 한다. 채번일 기준이면 입고 후 검수·채번이 늦어진 만큼
+  //  공급사 보증이 실제보다 길게 기록되고(시드 IN-2606-42: 입고 2026-06-20, 검수 완료 상태로 대기 중), 보증 만료 임박 알림·교체 판정도 그만큼 늦게 잡힌다.
+  const ctxWB = await browser.newContext(); await ctxWB.addCookies([cookie(ASSET)]); const pWB = await ctxWB.newPage()
+  await pWB.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  await pWB.locator('tr', { has: pWB.locator('td', { hasText: 'IN-2606-42' }) }).first().click()
+  await pWB.waitForTimeout(300)
+  await pWB.locator('button', { hasText: '자산번호 채번' }).first().click()
+  await pWB.waitForTimeout(900)
+  const wbMsg = (await pWB.textContent('body')) || ''
+  const wbNo = (wbMsg.match(/채번 완료 — (AST-[0-9-]+)/) || [])[1] || ''
+  ok('채번: 자산번호 발번 성공(보증 기산 검증 대상 확보)', wbNo !== '')
+  await pWB.goto(`${BASE}/assets/register?sel=${wbNo}`, { waitUntil: 'networkidle' })
+  const wbBody = (await pWB.textContent('body')) || ''
+  ok('채번 보증 기산: 도입일(입고일 2026-06-20)이 대장에 기록', wbBody.includes('2026-06-20'))
+  ok('채번 보증 기산: 보증 만료 = 입고일 +3년(2029-06-20) — 채번일 기준으로 부풀리지 않음', wbBody.includes('2029-06-20'))
+  await ctxWB.close()
   await browser.close()
 } catch (err) {
   fail++
