@@ -2820,6 +2820,16 @@ try {
   const wsOpts = (await wsSel.locator('option').allTextContents()).map((t) => t.trim())
   ok('폐기 일괄 소거: 처분 선택지에 매각 없음(대금 건별 입력 강제)', wsOpts.includes('폐기(파쇄)') && !wsOpts.includes('매각'))
   await ctxWS.close()
+  // 통지·감사의 연결 문서 링크 — 위협 대응(크리덴셜·계정·미인가 SW·USB·로컬 VM·IOC)과 재물조사 독촉도 ref 를 남기지만
+  //  entityHref 매핑이 자산·결재·계약·리포트 등에만 있어, 조치 화면이 있는데도 발송 이력에 링크 없는 텍스트로만 찍혔다.
+  //  이 스위트 앞부분이 실제로 대응을 눌러 통지를 쌓아 두므로, 그 ref 들이 링크로 렌더되는지 확인한다.
+  const ctxRL = await browser.newContext(); await ctxRL.addCookies([cookie(SEC)]); const pRL = await ctxRL.newPage()
+  await pRL.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const rlExternal = await pRL.locator('a[href="/discovery/external"]').count()
+  const rlFound = await pRL.locator('a[href="/discovery/found"]').count()
+  ok('발송 이력 딥링크: 외부 위협 ref(크리덴셜·IOC·노출)가 외부 위협 화면으로 연결', rlExternal > 0)
+  ok('발송 이력 딥링크: 발견 채널 ref(계정·미인가 SW·USB·로컬 VM)가 발견 화면으로 연결', rlFound > 0)
+  await ctxRL.close()
   await browser.close()
 } catch (err) {
   fail++
