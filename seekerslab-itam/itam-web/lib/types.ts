@@ -372,6 +372,18 @@ export function approvalRoute(steps: string[]): string[] {
   return steps.filter((st) => st !== '신청자' && st !== 'Discovery 엔진')
 }
 
+/** 결재선 안에서 현재 단계의 위치 — 결재함 버튼(클라)·큐 판정(lib/approval)·결재 처리(decide)가 공유한다.
+ *  결재선이 아예 없으면(예: 라이선스 품의 같은 시스템 상신) -1 → 호출부가 단일 단계로 처리한다.
+ *  결재선은 있는데 현재 단계가 그 안에 없으면 남은 경로의 처음(0)으로 본다 — 상신 뒤 Admin 이 결재선을
+ *  바꿔 그 단계가 사라진 경우다. 예전엔 이 경우를 '결재선 없음'과 똑같이 취급해 마지막 단계로 보고
+ *  레거시 역할(격리=보안담당·그 외=자산담당)에게 한 번의 승인으로 확정시켰다 — 화면은 새 결재선을
+ *  보여주는데 실제로는 그 단계들을 전부 건너뛰어, 결재선 변경이 통제가 아니라 구멍이 됐다. */
+export function approvalStepIndex(route: string[], currentStep: string): number {
+  if (route.length === 0) return -1
+  const i = route.indexOf(approvalStepLabel(currentStep))
+  return i >= 0 ? i : 0
+}
+
 export interface Approval {
   id: string
   kind: ApprovalKind

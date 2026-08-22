@@ -3006,6 +3006,67 @@ try {
   await pWIN.waitForTimeout(800)
   ok('스캔 시간대: 정상 값은 저장(정규화된 HH:MM 창)', ((await pWIN.textContent('body')) || '').includes('22:00 ~ 06:00'))
   await ctxWIN.close()
+  // 결재선 변경 후 단계 재고정 — 상신 뒤 Admin 이 결재선을 바꿔 현재 단계가 결재선에서 사라지면, 예전엔 이를
+  //  '결재선 없음'(라이선스 품의 같은 시스템 상신)과 똑같이 취급해 마지막 단계로 보고 레거시 역할(격리=보안담당·
+  //  그 외=자산담당)이 한 번의 승인으로 확정했다 — 화면은 새 결재선을 보여주는데 실제로는 그 단계들을 전부
+  //  건너뛰어 결재선 변경이 통제가 아니라 구멍이 됐다. 이제 남은 경로의 처음으로 재고정한다.
+  const alNote = '결재선 재고정 회귀'
+  const ctxAL = await browser.newContext(); await ctxAL.addCookies([cookie(USER)]); const pAL = await ctxAL.newPage()
+  await pAL.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await pAL.locator('button', { hasText: /^신청하기$/ }).click()
+  await pAL.locator('textarea[placeholder="신청 사유"]').fill(alNote)
+  await pAL.locator('button', { hasText: /^상신$/ }).click()
+  await pAL.waitForTimeout(900)
+  const alRow = pAL.locator('tr', { hasText: alNote }).first()
+  ok('결재선 재고정: 자산 신청 상신 → 기본 결재선 첫 단계(부서장)에서 대기', ((await alRow.textContent()) || '').includes('부서장'))
+  await ctxAL.close()
+
+  // Admin 이 결재선을 [보안담당 → IT기획팀장] 으로 바꾼다 — 방금 상신한 건의 현재 단계(부서장)가 사라진다.
+  const ctxAL2 = await browser.newContext(); await ctxAL2.addCookies([cookie(ADMIN)]); const pAL2 = await ctxAL2.newPage()
+  await pAL2.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
+  const alLine = pAL2.locator('tr', { has: pAL2.locator('td', { hasText: '자산 신청' }) }).first()
+  await alLine.locator('button', { hasText: /^편집$/ }).click()
+  await pAL2.waitForTimeout(300)
+  await alLine.locator('label', { hasText: '부서장' }).locator('input').uncheck()
+  await alLine.locator('label', { hasText: '자산담당' }).locator('input').uncheck()
+  await alLine.locator('label', { hasText: '보안담당' }).locator('input').check()
+  await alLine.locator('label', { hasText: 'IT기획팀장' }).locator('input').check()
+  await alLine.locator('button', { hasText: /^저장$/ }).click()
+  await pAL2.waitForTimeout(900)
+  ok('결재선 재고정: 결재선 변경 저장(보안담당 → IT기획팀장)', ((await pAL2.textContent('body')) || '').includes('보안담당 → IT기획팀장'))
+
+  // 자산담당(레거시 역할)은 이 건을 결재할 수 없다 — 새 결재선의 첫 단계는 보안담당이다.
+  const ctxAL3 = await browser.newContext(); await ctxAL3.addCookies([cookie(ASSET)]); const pAL3 = await ctxAL3.newPage()
+  await pAL3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const alRowAsset = pAL3.locator('tr', { hasText: alNote }).first()
+  ok('결재선 재고정: 사라진 단계를 레거시 역할(자산담당)이 한 번에 확정하지 못함',
+    (await alRowAsset.locator('button', { hasText: /^승인$/ }).count()) === 0)
+  await ctxAL3.close()
+
+  // 보안담당은 결재할 수 있고, 승인해도 확정이 아니라 다음 단계(IT기획팀장)로 넘어간다.
+  const ctxAL4 = await browser.newContext(); await ctxAL4.addCookies([cookie(SEC)]); const pAL4 = await ctxAL4.newPage()
+  await pAL4.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const alRowSec = pAL4.locator('tr', { hasText: alNote }).first()
+  ok('결재선 재고정: 새 결재선 첫 단계(보안담당)가 결재 가능', (await alRowSec.locator('button', { hasText: /^승인$/ }).count()) === 1)
+  await alRowSec.locator('button', { hasText: /^승인$/ }).click()
+  await pAL4.waitForTimeout(900)
+  ok('결재선 재고정: 승인이 확정이 아니라 다음 단계로 진행(새 결재선 집행)',
+    ((await pAL4.textContent('body')) || '').includes('다음 단계'))
+  await ctxAL4.close()
+
+  // 결재선 원복 — 이후 검사가 기본 결재선(부서장 → 자산담당)을 전제한다.
+  await pAL2.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
+  const alLineBack = pAL2.locator('tr', { has: pAL2.locator('td', { hasText: '자산 신청' }) }).first()
+  await alLineBack.locator('button', { hasText: /^편집$/ }).click()
+  await pAL2.waitForTimeout(300)
+  await alLineBack.locator('label', { hasText: '보안담당' }).locator('input').uncheck()
+  await alLineBack.locator('label', { hasText: 'IT기획팀장' }).locator('input').uncheck()
+  await alLineBack.locator('label', { hasText: '부서장' }).locator('input').check()
+  await alLineBack.locator('label', { hasText: '자산담당' }).locator('input').check()
+  await alLineBack.locator('button', { hasText: /^저장$/ }).click()
+  await pAL2.waitForTimeout(900)
+  ok('결재선 재고정: 기본 결재선 원복(부서장 → 자산담당)', ((await pAL2.textContent('body')) || '').includes('부서장 → 자산담당'))
+  await ctxAL2.close()
   await browser.close()
 } catch (err) {
   fail++

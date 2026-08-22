@@ -8,7 +8,7 @@ import { classifyDiscoveredType } from '@/lib/classify'
 import { reclaimLicenseSeats } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextAssetNo, nextId } from '@/lib/store'
-import { approvalRoute, approvalStepLabel } from '@/lib/types'
+import { approvalRoute, approvalStepIndex } from '@/lib/types'
 import type { ApprovalKind, AssetCategory } from '@/lib/types'
 
 /** 신청 상신 — 사용자가 직접 올리는 3종 (자산 신청 / 반납 / 이동).
@@ -247,13 +247,14 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     return { ok: false, message: '반려 사유를 입력해 주세요 — 신청자에게 전달되고 감사 로그에 남습니다.' }
   }
 
-  // 현재 위치를 결재선에서 찾는다. 매핑되지 않으면(예: 라이선스 품의) 단일 단계로 취급(레거시 안전).
+  // 현재 위치를 결재선에서 찾는다(approvalStepIndex — 결재함 버튼·큐 판정과 같은 해석).
+  //  결재선 자체가 없으면(예: 라이선스 품의) 단일 단계로 취급하고(레거시 안전), 결재선은 있는데 현재 단계가
+  //  사라졌으면(상신 뒤 Admin 이 결재선 변경) 남은 경로의 처음부터 밟는다 — 예전엔 이 경우도 마지막 단계로 보아
+  //  한 번의 승인으로 확정돼 새 결재선의 단계를 전부 건너뛰었다.
   const line = s.approvalLines.find((l) => l.kind === a.kind)
   const route = approvalRoute(line?.steps ?? [])
-  const curLabel = approvalStepLabel(a.currentStep)
-  let idx = route.indexOf(curLabel)
+  const idx = approvalStepIndex(route, a.currentStep)
   const mapped = idx >= 0
-  if (!mapped) idx = route.length - 1
 
   // 역할 게이트 — 대시보드 '내 결재 대기' 큐와 동일한 판정(canDecideApproval)을 쓴다.
   // 매트릭스는 필요조건일 뿐 — 켜준다고 결재 종류별 규칙을 넘지 못한다.
