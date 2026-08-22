@@ -4,7 +4,7 @@ import { buildLicenseUsage } from './license-usage'
 import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { getStore } from './store'
-import type { PermMenu, Role } from './types'
+import { ASSET_CATEGORIES, type PermMenu, type Role } from './types'
 import type { Sheet } from './xlsx'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
@@ -77,6 +77,9 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
   if (kind === 'stock') {
     // 재고는 집계가 본질이므로 유형별·부서별·위치별 3장으로 나눈다.
     // 대수 집계는 화면(StockPage.aggBy)과 동일하게 전 자산을 센다 — 폐기완료를 빼면 합계가 화면 '총 보유'와 어긋나 반출본이 화면과 불일치한다(화면 불변식: 집계 합계 = 총 보유 수).
+    // 열 구성도 화면(StockBreakdown)과 같다 — '기타'(검수중·대여중·수리중·분실·폐기 등 나머지 상태)를 빼면
+    //  보유 ≠ 사용중 + 유휴·반납대기 가 되어 반출본만으로는 차이가 어디로 갔는지 대사할 수 없다(결재 첨부·감사 대응 자료).
+    // 화면 tfoot 과 같은 합계 행을 각 시트 끝에 둔다 — 회계·감사가 엑셀 안에서 바로 검산한다(리포트 금액 표 합계 행과 동일 규약).
     const live = s.assets.filter((a) => a.status !== '폐기완료')
     const agg = (key: (a: (typeof s.assets)[number]) => string) => {
       const m = new Map<string, { total: number; inUse: number; idle: number }>()
@@ -88,25 +91,34 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         if (['유휴', '반납대기'].includes(a.status)) cur.idle += 1
         m.set(k, cur)
       }
-      return [...m.entries()]
+      const rows: (string | number)[][] = [...m.entries()]
         .sort((x, y) => y[1].total - x[1].total)
-        .map(([k, v]) => [k, v.total, v.inUse, v.idle, v.total ? Math.round((v.idle / v.total) * 100) : 0])
+        .map(([k, v]) => [k, v.total, v.inUse, v.idle, v.total - v.inUse - v.idle, v.total ? Math.round((v.idle / v.total) * 100) : 0])
+      const sum = (i: number) => rows.reduce((n, r) => n + (r[i] as number), 0)
+      const total = sum(1), idle = sum(3)
+      return [...rows, ['합계', total, sum(2), idle, sum(4), total ? Math.round((idle / total) * 100) : 0]]
     }
-    const header = ['구분', '보유', '사용중', '유휴·반납대기', '유휴율(%)']
+    const header = ['구분', '보유', '사용중', '유휴·반납대기', '기타', '유휴율(%)']
     // 유형별 자산 가치 — 취득가·잔존가치(정액법 감가상각). SW·가상자원은 자산 단위 취득가 없어 제외.
+    // 행 순서는 화면과 같은 표준 유형 순서(ASSET_CATEGORIES) — 자산 배열 등장 순서로 뽑으면 화면과 행 순서가 어긋난다.
     const t = today()
     const valued = live.filter((a) => acquisitionCostOf(a) > 0)
-    const valueRows = [...new Set(valued.map((a) => a.category))].map((cat) => {
-      const list = valued.filter((a) => a.category === cat)
-      const acq = list.reduce((n, a) => n + acquisitionCostOf(a), 0)
-      const book = list.reduce((n, a) => n + bookValueOf(a, t), 0)
-      return [cat, list.length, acq, book, acq > 0 ? Math.round((1 - book / acq) * 100) : 0]
-    })
+    const valueRows: (string | number)[][] = ASSET_CATEGORIES
+      .map((cat) => {
+        const list = valued.filter((a) => a.category === cat)
+        const acq = list.reduce((n, a) => n + acquisitionCostOf(a), 0)
+        const book = list.reduce((n, a) => n + bookValueOf(a, t), 0)
+        return [cat, list.length, acq, book, acq > 0 ? Math.round((1 - book / acq) * 100) : 0]
+      })
+      .filter((r) => (r[1] as number) > 0)
+    const vSum = (i: number) => valueRows.reduce((n, r) => n + (r[i] as number), 0)
+    const vAcq = vSum(2), vBook = vSum(3)
+    const valueTotal = ['합계', vSum(1), vAcq, vBook, vAcq > 0 ? Math.round((1 - vBook / vAcq) * 100) : 0]
     return [
       { name: '유형별', header, rows: agg((a) => a.category) },
       { name: '부서별', header, rows: agg((a) => a.dept) },
       { name: '위치별', header, rows: agg((a) => a.location) },
-      { name: '유형별 가치', header: ['유형', '대수', '총 취득가', '총 잔존가치', '감가상각률(%)'], rows: valueRows },
+      { name: '유형별 가치', header: ['유형', '대수', '총 취득가', '총 잔존가치', '감가상각률(%)'], rows: [...valueRows, valueTotal] },
     ]
   }
 

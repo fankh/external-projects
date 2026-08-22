@@ -1202,6 +1202,11 @@ try {
   check('재고 엑셀: 유형별 가치 시트(취득가·잔존가치) 반출', stockBuf.includes('총 취득가') && stockBuf.includes('총 잔존가치') && stockBuf.includes('감가상각률'))
   // 재고 엑셀 대수 집계 ↔ 화면 정합 — 화면 aggBy 는 전 자산(폐기완료 포함)을 세어 합계=총 보유 불변식을 지킨다. 반출본도 동일해야 한다(폐기완료 자산 위치 '폐기 처리 완료' 행 포함). 폐기완료를 빼면 반출본이 화면과 어긋난다.
   check('재고 엑셀: 대수 집계가 화면과 동일(위치별에 폐기완료 행 포함 · 합계=총 보유)', stockBuf.includes('폐기 처리 완료'))
+  // 재고 엑셀 열 구성 ↔ 화면 정합 — 화면(StockBreakdown)에 있는 '기타'(검수중·대여중·수리중·분실·폐기 등 나머지 상태) 열이 반출본에 없으면
+  //  보유 ≠ 사용중 + 유휴·반납대기 가 되어 결재 첨부·감사 대응 자료만으로는 차이가 어디로 갔는지 대사할 수 없다.
+  check('재고 엑셀: 화면과 동일한 열 구성(기타 열 포함 · 보유 대사 가능)', stockBuf.includes('유휴·반납대기') && stockBuf.includes('기타') && stockBuf.includes('유휴율(%)'))
+  // 합계 행 — 화면 tfoot 과 동형. 회계·감사가 엑셀 안에서 바로 검산한다(리포트 금액 표 합계 행과 동일 규약)
+  check('재고 엑셀: 집계 시트·유형별 가치에 합계 행(엑셀 내 검산)', stockBuf.includes('합계'))
   // 필터 딥링크가 자산 대장에서 실제로 유효 (cat 파라미터 수용)
   const drillHtml = await (await get('/assets/register?cat=%EC%84%9C%EB%B2%84', 'ASSET_MGR')).text()
   check('자산 대장: ?cat= 딥링크 진입 정상 렌더', drillHtml.includes('상태 — 전체') && drillHtml.includes('AST-2023-000561'))
