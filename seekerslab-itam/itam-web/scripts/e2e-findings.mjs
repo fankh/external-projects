@@ -676,6 +676,16 @@ try {
   const scanChanBody = (await page.textContent('body')) || ''
   ok('스캔 실행: 재탐지 주기 경과 채널에 재탐지 지연 칩', scanChanBody.includes('채널별 수집 현황') && scanChanBody.includes('재탐지 지연'))
 
+  // 컴플라이언스 증적의 '미등록 발견 자산 N건(편입 대상)' — 편입하지 않기로 판정된 건(관리 제외·격리 요청)까지 세면
+  //  실재하지 않는 통제 갭을 ISMS/ISO 감사 증적에 올리게 된다. 시드 미등록 8건 중 격리 요청 1건(DSC-2607-0031)을 빼 7건.
+  //  아래 발견 자산 처리 테스트들이 미등록 집합을 바꾸므로 그 앞에서 확인한다.
+  const ctxCE = await browser.newContext(); await ctxCE.addCookies([cookie(ASSET)]); const pCE = await ctxCE.newPage()
+  await pCE.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  await pCE.locator('.card', { hasText: '리포트 유형' }).locator('tr', { hasText: '정보보호 컴플라이언스 증적' }).locator('button', { hasText: /^생성$/ }).click()
+  await pCE.waitForTimeout(1200)
+  ok('컴플라이언스 증적: 편입 대상 집계에서 격리 요청·관리 제외 제외(7건)', ((await pCE.textContent('body')) || '').includes('미등록 발견 자산 7건(편입 대상)'))
+  await ctxCE.close()
+
   // 발견 자산 관리 제외 — 관리 대상이 아닌 비자산(협력사 장비·게스트 단말)을 편입/격리 아닌 판정으로 미등록 갭에서 뺀다(사유 필수·해제 가능).
   //  그동안 편입/격리/확인만 있어 비자산 발견 건은 미등록 갭에 영구 잔존했다(컨셉 §3 '목록만 쌓인다'). DSC-2607-0046 제외 → 해제(원복).
   await page.goto(`${BASE}/discovery/found?sel=DSC-2607-0046`, { waitUntil: 'networkidle' })
