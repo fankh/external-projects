@@ -5,7 +5,7 @@
 import { createSign } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 
-const [, , keyFile, nameId, audience, acsUrl, notOnOrAfter, flag] = process.argv
+const [, , keyFile, nameId, audience, _acsUrl, notOnOrAfter, flag] = process.argv
 const key = readFileSync(keyFile, 'utf8')
 
 const assertion =

@@ -13,6 +13,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
       {error.digest && <div className="mono dim" style={{ fontSize: 11.5 }}>digest: {error.digest}</div>}
       <div className="hstack" style={{ marginTop: 6 }}>
         <button type="button" className="btn pri" onClick={() => reset()}>다시 시도</button>
+        {/* 여기서는 의도적으로 <Link> 가 아닌 <a> 다 — 클라이언트 내비게이션은 깨진 렌더 트리를 그대로 안고 이동하므로, 전체 문서를 다시 읽어 확실히 버린다. */}
         <a className="btn" href="/dashboard">개인별현황으로 이동</a>
       </div>
     </div>

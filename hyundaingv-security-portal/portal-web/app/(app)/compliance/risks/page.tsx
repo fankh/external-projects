@@ -6,7 +6,7 @@ import { groupGrantsAction, requireAction, requireMenu, requireMenuRole } from '
 import { today } from '@/lib/dates'
 import { computeRiskKpis, isRiskClosed, riskScore, riskTier, upsertRiskSnapshot } from '@/lib/risk'
 import { getStore, nextNo } from '@/lib/store'
-import { RISK_STATUSES, RISK_TREATMENTS } from '@/lib/types'
+import { RISK_TREATMENTS } from '@/lib/types'
 import type { RiskStatus, RiskTreatment } from '@/lib/types'
 
 const ST_CHIP: Record<RiskStatus, 'neutral' | 'warn' | 'ok'> = { 식별: 'neutral', 조치중: 'warn', 완료: 'ok' }
@@ -280,7 +280,7 @@ export default async function RisksPage() {
           {canManage && <form action={recordRiskSnapshot}><button type="submit" className="btn sm" title="현재 위험 KPI 를 당월 스냅샷으로 기록 — 위험 감소 추이(ISMS 전기 대비 개선)">현황 스냅샷 기록</button></form>}
         </div>}>
         {s.riskSnapshots.length === 0 ? (
-          <div className="empty">기록된 스냅샷이 없습니다 — &lsquo;현황 스냅샷 기록&rsquo;으로 이번 달 위험 현황을 남기세요.</div>
+          <div className="empty">기록된 스냅샷이 없습니다 — ‘현황 스냅샷 기록’으로 이번 달 위험 현황을 남기세요.</div>
         ) : (
           <div className="tbl-wrap">
             <table className="tbl">

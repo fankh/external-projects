@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { filterAuditLogs, type AuditAction } from '@/lib/audit'
 import { requireMenu } from '@/lib/authz'
@@ -65,7 +66,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           <input aria-label="종료일" className="input" type="date" name="to" defaultValue={f.to} title="종료일(포함)" style={{ width: 150 }} />
           <input aria-label="검색어" className="input" name="q" defaultValue={f.q} placeholder="상세·행위자 검색" style={{ flex: 1, minWidth: 140 }} />
           <button type="submit" className="btn pri">조회</button>
-          {active && <a className="btn" href="/settings/audit">초기화</a>}
+          {active && <Link className="btn" href="/settings/audit">초기화</Link>}
         </form>
       </Card>
 
