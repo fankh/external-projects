@@ -278,6 +278,10 @@ try {
   check('대시보드 최근 공지: 부서 지정 공지가 대상 밖 사용자에게 미노출(유출 방지)', !dashUserHtml.includes('ZZMKTGSCOPE'))
   const dashAdminHtml = await (await get('/dashboard', 'ADMIN')).text()
   check('대시보드 최근 공지: 부서 지정 공지가 Admin 에겐 노출(스코핑이지 소실 아님 · 양성 대조)', dashAdminHtml.includes('ZZMKTGSCOPE'))
+  // '내 결재 차례'·결재함 배지는 실제로 결재함에서 처리할 수 있는 건만 세야 한다 — 소유자 확인은 결재(decide)가 아니라
+  //  요청받은 부서의 응답(answerOwnerConfirm)이라 서버가 거부하고 결재함도 승인 버튼을 내주지 않는다.
+  //  Admin 은 역할 오버라이드로 전부 통과하므로 시드의 대기 소유자 확인 2건(APR-2607-114·109)이 그대로 큐에 섞여 13건으로 보였다(→ 11).
+  check('대시보드: 결재 큐가 소유자 확인(결재 아님)을 세지 않음 — 들어가도 처리 못 하는 건 제외', dashAdminHtml.includes('결재함 <!-- -->11<!-- --> →'))
   // 운영 대기 우선순위 — 큐가 화면마다 흩어져 20여 개로 늘어, 긴급(err)을 주의(warn)보다 위로 정렬하고 헤더에 긴급·주의 집계를 노출.
   check('대시보드: 운영 대기 긴급·주의 요약 헤더', dashHtml.includes('긴급 ') && dashHtml.includes('주의 '))
   // 긴급 우선 정렬 검증 — err 큐(라이선스 초과 사용)가 warn 큐(입고 검수 대기)보다 앞. 삽입 순서(입고가 먼저)와 반대여야 정렬이 동작.
