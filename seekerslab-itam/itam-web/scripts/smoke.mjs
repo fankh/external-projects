@@ -1365,6 +1365,17 @@ try {
   }
   check(`시드 참조 무결성: 자산 ${seededAssets.size}건 · 참조가 모두 실재 자산을 가리킴`, danglingRefs.length === 0, danglingRefs.slice(0, 5).join(', '))
 
+
+  // 시드 ID 유일성 — 레코드 조회는 전부 find(x => x.id === id) 라 같은 ID 가 둘이면 뒤엣것은 영원히 손이 닿지 않는다.
+  //  실제로 결재 APR-2607-118 이 '자산 신청'과 '반납' 두 건에 함께 붙어 있었다: 결재함에서 반납 행의 승인을 눌러도
+  //  서버는 앞의 자산 신청을 찾아 처리했고, 반납은 대기에 남아 자산이 회수되지 않았다(화면·감사 로그는 성공으로 보인다).
+  //  e2e 의 스테일 반납 회귀조차 이 때문에 엉뚱한 레코드를 눌러 왔다. 접두어가 종류를 가르므로 전체를 한 이름공간으로 본다.
+  const seededIdCounts = new Map()
+  for (const m of storeSrc.matchAll(/id: '([A-Z][A-Z0-9-]*-[0-9A-Za-z-]+)'/g)) {
+    seededIdCounts.set(m[1], (seededIdCounts.get(m[1]) ?? 0) + 1)
+  }
+  const dupIds = [...seededIdCounts.entries()].filter(([, n]) => n > 1).map(([id, n]) => `${id}×${n}`)
+  check(`시드 ID 유일성: ${seededIdCounts.size}개 ID 중복 없음(가려진 레코드 방지)`, dupIds.length === 0, dupIds.slice(0, 5).join(', '))
   // 자산 외 참조도 같은 방식으로 — 계약·라이선스·조사 회차는 화면이 실제로 조회에 쓴다(자산 상세의 연계 계약 링크,
   //  좌석 대사, 회차별 실사 집계). 끊기면 조회가 빈손이 되거나 집계에서 조용히 빠진다.
   //  폐기 레코드의 approvalId 는 제외한다 — 시드는 최근 결재만 담고 과거 폐기 건은 당시 결재번호를 증적으로 적어 둔다
