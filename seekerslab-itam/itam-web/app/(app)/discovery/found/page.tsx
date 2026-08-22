@@ -1,5 +1,6 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { can } from '@/lib/perm'
 import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
@@ -25,6 +26,10 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
   // 전역 검색·딥링크(?sel=DSC-…)로 특정 발견 자산 상세를 바로 연다(대장·계약·게시판 딥링크와 동형)
   const initialSel = sel && d.some((x) => x.id === sel) ? sel : undefined
   const unreg = d.filter((x) => x.state === '미등록' && !x.action)
+  // 편입·격리요청은 권한 매트릭스가 서버에서 강제하는 기능이다(메뉴 정의의 enforced 목록). 화면도 같은 원천을 봐야
+  //  매트릭스에서 회수했을 때 버튼이 남아 눌러도 아무 일이 없는 상태가 되지 않는다(엑셀 반출과 같은 규약).
+  const canOnboard = can('발견 자산 · CMDB 대사', '편입', session.role)
+  const canQuarantine = can('발견 자산 · CMDB 대사', '격리요청', session.role)
 
   // 지문이 다른데 호스트명·IP 가 겹치는 쌍 = 자동 병합이 잡지 못한 중복 후보.
   // 자동 병합은 지문 일치에만 적용되므로(MAC 교체·클라우드 리소스 등) 담당자 확인이 필요하다.
@@ -97,7 +102,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
       <EscalateBar waiting={awaiting.length} overdue={overdue.length} deadlineDays={s.opsPolicy.confirmDeadlineDays} />
 
       <Card pad={false}>
-        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} initialState={initialState} initialSel={initialSel} />
+        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} canOnboard={canOnboard} canQuarantine={canQuarantine} initialState={initialState} initialSel={initialSel} />
       </Card>
 
       <Card kicker="Account Hygiene · Channel 06" title="휴면 계정 — AD/IdP·SSO 계정 위생" pad={false}>

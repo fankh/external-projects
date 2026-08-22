@@ -12,12 +12,16 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
 const STATES: ReconcileState[] = ['등록·일치', '등록·불일치', '미등록', '미확인']
 const RISKS: RiskLevel[] = ['높음', '중간', '낮음']
 
-export function FoundView({ items, observations, mergeCandidates, canExport, initialState, initialSel }: {
+export function FoundView({ items, observations, mergeCandidates, canExport, canOnboard, canQuarantine, initialState, initialSel }: {
   items: DiscoveredAsset[]
   observations: ChannelObservation[]
   /** 지문이 갈렸지만 같은 장비로 의심되는 쌍 — 수동 병합 대상 */
   mergeCandidates: { primary: DiscoveredAsset; duplicate: DiscoveredAsset; reason: string }[]
   canExport: boolean
+  /** 권한 매트릭스의 '발견 자산 · CMDB 대사 × 편입' — 편입 요청·일괄 편입·대사 확인·생존 확인의 서버 게이트와 같은 원천 */
+  canOnboard: boolean
+  /** 권한 매트릭스의 '발견 자산 · CMDB 대사 × 격리요청' — NAC 격리 요청의 서버 게이트와 같은 원천 */
+  canQuarantine: boolean
   /** CMDB 대사 화면에서 상태별 드릴다운으로 진입할 때 초기 상태 필터 (?state=) */
   initialState?: ReconcileState
   /** 전역 검색·딥링크로 특정 발견 자산 상세를 바로 열 때 (?sel=) */
@@ -108,9 +112,11 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
           <button className="btn sm" disabled={pending || checked.size === 0} onClick={bulkOwnerConfirm} title="선택한 정체 불명 장비의 소유 부서를 일괄 조회(편입 전 조사)">
             선택 일괄 소유자 확인 ({checked.size})
           </button>
-          <button className="btn sm pri" disabled={pending || checked.size === 0} onClick={bulkOnboard}>
-            선택 일괄 편입 요청 ({checked.size})
-          </button>
+          {canOnboard && (
+            <button className="btn sm pri" disabled={pending || checked.size === 0} onClick={bulkOnboard}>
+              선택 일괄 편입 요청 ({checked.size})
+            </button>
+          )}
           {checked.size > 0 && (
             <span className="hstack" style={{ gap: 4 }}>
               <input className="input" style={{ height: 28, width: 150 }} placeholder="관리 제외 사유" value={bulkDismissReason} disabled={pending} onChange={(e) => setBulkDismissReason(e.target.value)} title="협력사 장비·게스트 단말 등 비자산을 같은 사유로 일괄 관리 제외(사유 필수)" />
@@ -237,14 +243,21 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                   </button>
                 )}
                 <div className="hstack" style={{ gap: 8 }}>
-                  <button className="btn pri" disabled={pending}
-                    onClick={() => startTransition(() => requestOnboard(sel.id))}>
-                    편입 요청 (결재)
-                  </button>
-                  <button className="btn danger" disabled={pending}
-                    onClick={() => startTransition(() => requestQuarantine(sel.id))}>
-                    NAC 격리 요청
-                  </button>
+                  {canOnboard && (
+                    <button className="btn pri" disabled={pending}
+                      onClick={() => startTransition(async () => setMsg((await requestOnboard(sel.id)).message))}>
+                      편입 요청 (결재)
+                    </button>
+                  )}
+                  {canQuarantine && (
+                    <button className="btn danger" disabled={pending}
+                      onClick={() => startTransition(async () => setMsg((await requestQuarantine(sel.id)).message))}>
+                      NAC 격리 요청
+                    </button>
+                  )}
+                  {!canOnboard && !canQuarantine && (
+                    <span className="mut" style={{ fontSize: 11 }}>편입·격리 요청 권한이 없습니다 (권한 · 정책에서 부여).</span>
+                  )}
                 </div>
                 {/* 관리 제외 — 관리 대상이 아닌 알려진 비자산(협력사 장비·게스트 단말·비관리 어플라이언스). 편입도 격리도 아닌 판정으로 미등록 갭에서 뺀다(사유 필수). */}
                 <div className="hstack" style={{ gap: 6, borderTop: '1px solid var(--line)', paddingTop: 8, marginTop: 2 }}>
@@ -271,10 +284,12 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                   <a className="btn sm" href={`/assets/register?sel=${sel.matchedAssetNo}`}
                     title="대장 자산을 열어 위치·구성 불일치를 보정">대장에서 보정 → {sel.matchedAssetNo}</a>
                 )}
-                <button className="btn sm pri" disabled={pending}
-                  onClick={() => startTransition(async () => setMsg((await confirmReconcile(sel.id)).message))}
-                  title={sel.mismatchField ? '실측값을 대장에 반영하고 등록·일치로 종결' : '불일치를 검토·정정했으면 대사를 등록·일치로 종결'}>
-                  {sel.mismatchField ? '대사 확인 — 실측 보정·종결' : '대사 확인 (등록·일치 처리)'}</button>
+                {canOnboard && (
+                  <button className="btn sm pri" disabled={pending}
+                    onClick={() => startTransition(async () => setMsg((await confirmReconcile(sel.id)).message))}
+                    title={sel.mismatchField ? '실측값을 대장에 반영하고 등록·일치로 종결' : '불일치를 검토·정정했으면 대사를 등록·일치로 종결'}>
+                    {sel.mismatchField ? '대사 확인 — 실측 보정·종결' : '대사 확인 (등록·일치 처리)'}</button>
+                )}
                 <span className="mut" style={{ fontSize: 11 }}>
                   {sel.mismatchField ? '대사 확인이 실측값을 대장에 반영한 뒤 등록·일치로 종결합니다.' : '대장을 보정한 뒤 대사 확인하면 등록·일치로 종결됩니다.'}</span>
               </div>
@@ -291,9 +306,11 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                   <div className="callout" style={{ padding: '8px 11px', fontSize: 12 }}>
                     {sel.channel} 재관측(최근 {sel.lastSeen}) — 생존 확인 시 대장 <b>{sel.matchedAssetNo}</b>의 최근 실측일이 갱신되어 장기 미실측(유령 자산 후보)에서 빠집니다.
                   </div>
-                  <button className="btn sm pri" disabled={pending}
-                    onClick={() => startTransition(async () => setMsg((await confirmSurvival(sel.id)).message))}
-                    title="네트워크·EDR 재관측을 대장 최근 실측일로 확정">생존 확인 — 최근 실측일 갱신</button>
+                  {canOnboard && (
+                    <button className="btn sm pri" disabled={pending}
+                      onClick={() => startTransition(async () => setMsg((await confirmSurvival(sel.id)).message))}
+                      title="네트워크·EDR 재관측을 대장 최근 실측일로 확정">생존 확인 — 최근 실측일 갱신</button>
+                  )}
                 </div>
               )
             )}

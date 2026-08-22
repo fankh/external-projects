@@ -2756,6 +2756,41 @@ try {
   ok('결재함: 결재 권한 복원 시 승인 버튼 재노출(양성 대조)', (await pAM2.locator('td button', { hasText: /^승인$/ }).count()) > 0)
   await ctxAM2.close()
   await ctxPM.close()
+  // 발견 편입·격리 버튼도 권한 매트릭스를 따르는지(라운드트립) — 서버 requestOnboard/requestQuarantine 은 can('발견 자산 · CMDB 대사', 편입/격리요청)을
+  //  강제하고 메뉴 정의도 이 둘을 enforced 로 선언하는데, 화면은 아무 권한 게이트 없이 버튼을 내줬다. 게다가 거부가 undefined 반환이라
+  //  권한 없는 담당자가 눌러도 아무 일도 일어나지 않았다(에러도 안내도 없는 무반응). 기능 단위 통제라 편입만 회수하면 격리는 남아야 한다.
+  // 기준선 먼저 — 대상이 (앞선 테스트로 이미 처리돼) 애초에 편입 대상이 아니면 '버튼 없음'이 권한과 무관하게 통과해 위양성이 된다.
+  //  스위트 진행에 따라 미처리 미등록 건이 달라지므로 지금 실제로 편입 버튼이 뜨는 건을 하나 찾아 그 건으로 검증한다.
+  const ctxDB = await browser.newContext(); await ctxDB.addCookies([cookie(ASSET)]); const pDB = await ctxDB.newPage()
+  await pDB.goto(`${BASE}/discovery/found?state=%EB%AF%B8%EB%93%B1%EB%A1%9D`, { waitUntil: 'networkidle' })
+  const dgIds = (await pDB.locator('td.code').allTextContents()).map((t) => t.trim()).filter((t) => /^DSC-/.test(t))
+  let dgTarget = ''
+  for (const id of dgIds) {
+    await pDB.goto(`${BASE}/discovery/found?sel=${id}`, { waitUntil: 'networkidle' })
+    if (((await pDB.textContent('body')) || '').includes('편입 요청 (결재)')) { dgTarget = id; break }
+  }
+  ok('발견 자산: 기준선 — 편입 권한이 있으면 편입 요청 버튼 노출(미처리 미등록 건)', dgTarget !== '')
+  await ctxDB.close()
+  const ctxDG = await browser.newContext(); await ctxDG.addCookies([cookie(ADMIN)]); const pDG = await ctxDG.newPage()
+  await pDG.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
+  const dgRow = pDG.locator('tr', { has: pDG.locator('td.strong', { hasText: '발견 자산 · CMDB 대사' }) }).first()
+  const dgCell = dgRow.locator('td').nth(12) // 라벨(0) + 자산담당(역할 2번째) × 편입(기능 5번째) = 1 + 7 + 4
+  ok('권한 매트릭스: 발견 자산 × 편입(자산담당) 초기 허용', ((await dgCell.textContent()) || '').includes('✓'))
+  await dgCell.click(); await pDG.waitForTimeout(600) // 허용 → 본인
+  await dgCell.click(); await pDG.waitForTimeout(800) // 본인 → 불가
+  const ctxDA = await browser.newContext(); await ctxDA.addCookies([cookie(ASSET)]); const pDA = await ctxDA.newPage()
+  await pDA.goto(`${BASE}/discovery/found?sel=${dgTarget}`, { waitUntil: 'networkidle' })
+  const dgBody = (await pDA.textContent('body')) || ''
+  ok('발견 자산: 매트릭스 편입 회수 시 편입 요청 버튼 미노출(서버 게이트와 정합)', !dgBody.includes('편입 요청 (결재)'))
+  ok('발견 자산: 편입만 회수하면 NAC 격리 요청은 남는다(기능 단위 통제)', dgBody.includes('NAC 격리 요청'))
+  await ctxDA.close()
+  await dgCell.click(); await pDG.waitForTimeout(800) // 불가 → 허용 복원
+  ok('권한 매트릭스: 발견 자산 × 편입 복원(허용)', ((await dgCell.textContent()) || '').includes('✓'))
+  const ctxDA2 = await browser.newContext(); await ctxDA2.addCookies([cookie(ASSET)]); const pDA2 = await ctxDA2.newPage()
+  await pDA2.goto(`${BASE}/discovery/found?sel=${dgTarget}`, { waitUntil: 'networkidle' })
+  ok('발견 자산: 편입 권한 복원 시 편입 요청 버튼 재노출(양성 대조)', ((await pDA2.textContent('body')) || '').includes('편입 요청 (결재)'))
+  await ctxDA2.close()
+  await ctxDG.close()
   await browser.close()
 } catch (err) {
   fail++
