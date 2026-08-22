@@ -1383,6 +1383,25 @@ try {
   for (const href of Object.keys(ROUTES)) if (!navRoles[href]) navDiff.push(`${href}(가드에만 있음)`)
   check(`라우트 권한: 내비(menus.ts) ${Object.keys(navRoles).length}개와 화면 가드 매트릭스 일치`, navDiff.length === 0, navDiff.join(', '))
 
+  // 화면 파일 ↔ 내비 정합 — 라우트 권한 3중 정합의 마지막 한 변이다. app/(app) 아래 page.tsx 가 내비에 없으면
+  //  메뉴로 도달할 수 없고 스모크 접근 매트릭스·헬스 대상에서도 빠져 아무 스위트가 열어보지 않는 화면이 된다.
+  //  반대로 내비에만 있으면 메뉴를 눌러 404 가 난다. (헬스는 내비에서 대상을 읽으므로 이 검사가 그 전제를 지킨다.)
+  const pageDirs = []
+  const walkPages = (dir, rel) => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      if (ent.isDirectory()) walkPages(path.join(dir, ent.name), `${rel}/${ent.name}`)
+      else if (ent.name === 'page.tsx' && rel) pageDirs.push(rel)
+    }
+  }
+  walkPages(path.join(ROOT, 'app', '(app)'), '')
+  const navHrefs = new Set(Object.keys(navRoles))
+  const orphanPages = pageDirs.filter((r) => !navHrefs.has(r))
+  const deadNav = [...navHrefs].filter((r) => !pageDirs.includes(r))
+  check(`라우트 권한: 화면 파일 ${pageDirs.length}개와 내비 항목 일치(고아 화면·죽은 메뉴 없음)`,
+    orphanPages.length === 0 && deadNav.length === 0,
+    `내비에 없는 화면=${orphanPages.join(',')} · 화면 없는 내비=${deadNav.join(',')}`)
+
+
   const routeClaims = [...claims(readme, /\((\d+) 라우트 × 4/g), ...claims(summary, /(\d+) 라우트 × 4/g)]
   check(`문서: 라우트 수 ${routes}개 일치`, allSame(routeClaims, routes), `주장=${routeClaims.join(',')} 실제=${routes}`)
 
