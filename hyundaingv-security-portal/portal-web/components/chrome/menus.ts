@@ -115,6 +115,7 @@ export const NAV: NavGroup[] = [
       { href: '/settings/permissions', label: '메뉴권한', ico: 'lock', roles: ADM },
       { href: '/settings/groups', label: '사용자 그룹', ico: 'usergroup', roles: ADM },
       { href: '/settings/codes', label: '공통코드', ico: 'hash', roles: ADM },
+      { href: '/settings/objects', label: '객체 관리', ico: 'layers', roles: ADM },
       { href: '/settings/forms', label: '엑셀양식 관리', ico: 'table', roles: ADM },
       { href: '/settings/audit', label: '감사 이력', ico: 'history', roles: ADM },
     ],
@@ -170,6 +171,9 @@ export const SCREEN_ACTIONS: Record<string, Partial<Record<ActionKey, Role[]>>> 
   '/finance/expense': { confirm: ['BIZ_MGR', 'ADMIN'] },
   // SR 관리 저장 — CI 배정·접수·처리(ci)와 SR 진행·상신·중지/재개(manage)의 관리자 처리. 신청·재상신(본인 스코프)은
   // 별개로 기존 가드 유지. 한 화면의 저장 기능이 그 화면 관리 액션을 함께 통제한다.
+  // 보안준수 객체 삭제 — 점검 근거가 사라지는 행위라 관리자급으로 통제.
+  // 준수 기록이 있는 객체는 화면에서 별도로 삭제를 막는다(무결성 가드).
+  '/settings/objects': { delete: ['BIZ_MGR', 'ADMIN'] },
   '/sr/ci': { save: ['BIZ_MGR', 'ADMIN'] },
   '/sr/manage': { save: ['BIZ_MGR', 'ADMIN'] },
 }

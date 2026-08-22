@@ -75,6 +75,7 @@ const ROUTES = {
   '/settings/permissions': ADM,
   '/settings/groups': ADM,
   '/settings/codes': ADM,
+  '/settings/objects': ADM,
   '/settings/forms': ADM,
   '/settings/audit': ADM,
   '/platform/integrations': ADM,
@@ -273,6 +274,9 @@ async function main() {
     ['/finance/invest', 'DEPT_MGR', ['class="clip"']],  // 계약 첨부 뱃지 — 계약은 관리자급만 열람
     // 환경설정 잔여 4종 — 공통코드·메뉴·권한 매트릭스·엑셀양식
     ['/settings/codes', 'ADMIN', ['FAULT_GRADE', '장애등급', '코드 중심 운영', '2등급', '사용기간', '코드 추가']],
+    ['/settings/objects', 'ADMIN', ['객체 관리', '전송구간 암호화', '접근통제', 'ISMS 2.7 암호화', '시스템별 준수 현황', '미준수 내역', '준수 기록이 있는 객체는 삭제할 수 없다', 'OBJ-01', '객체 등록']],
+    // 정의(환경설정)와 결과(인프라)가 이어졌는지 — 요구사항 75행 비고의 '인프라>시스템관리>보안준수 참고'
+    ['/infra/systems', 'BIZ_MGR', ['보안준수', '미준수', '보안 미준수']],
     ['/settings/menus', 'ADMIN', ['LV1 도메인', '메뉴 체계', '/sr/new', '구현']],
     ['/settings/permissions', 'ADMIN', ['권한 매트릭스', '최소권한 모델', '개인별현황', '런타임 제한', '제한 불가']],
     ['/settings/groups', 'ADMIN', ['사용자 그룹', '가법 위임', '부여 기능', '인프라 열람 위임', '그룹 등록', '위임 현황']],

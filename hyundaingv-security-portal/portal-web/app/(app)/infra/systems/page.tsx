@@ -104,6 +104,13 @@ export default async function SystemsPage() {
     return s.incidents.filter((i) => i.system === n || i.system === n.replace(' (개발계)', ''))
   }
   const physicals = s.hardware.filter((h) => h.kind === '물리서버')
+  // 보안준수 현황 — 정의는 환경설정>객체 관리가 단일 원천이고 여기서는 집계만 읽는다.
+  const activeObjectIds = new Set(s.securityObjects.filter((o) => o.enabled).map((o) => o.id))
+  const complianceOf = (systemId: string) => {
+    const rows = s.objectCompliance.filter((c) => c.systemId === systemId && activeObjectIds.has(c.objectId))
+    return { breach: rows.filter((c) => c.status === '미준수').length, checked: rows.length }
+  }
+  const totalBreach = s.systems.reduce((n, x) => n + complianceOf(x.id).breach, 0)
 
   return (
     <>
@@ -115,6 +122,7 @@ export default async function SystemsPage() {
         <Stat value={s.servers.length} label="서버" note={`랙 ${new Set(s.servers.map((v) => v.rack)).size}개`} />
         <Stat value={diskWarns} label={`디스크 경고 (>${DISK_WARN}%)`} tone={diskWarns > 0 ? 'err' : undefined} />
         {canSeeIncidents && <Stat value={s.incidents.filter((i) => i.status === '조치중').length} label="조치중 장애" tone={s.incidents.some((i) => i.status === '조치중') ? 'warn' : undefined} />}
+        <Stat value={totalBreach} label="보안 미준수" note="객체 관리 기준" tone={totalBreach > 0 ? 'err' : undefined} href="/settings/objects" />
       </div>
 
       <Card title="시스템 현황 — 애플리케이션" pad={false}
@@ -122,7 +130,7 @@ export default async function SystemsPage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>코드</th><th>시스템</th><th>구분</th><th>접속 URL</th><th>서버</th><th>담당</th>{canSeeIncidents && <th className="num">장애 이력</th>}<th className="c">삭제</th></tr>
+              <tr><th>코드</th><th>시스템</th><th>구분</th><th>접속 URL</th><th>서버</th><th>담당</th><th>보안준수</th>{canSeeIncidents && <th className="num">장애 이력</th>}<th className="c">삭제</th></tr>
             </thead>
             <tbody>
               {s.systems.map((x) => {
@@ -136,6 +144,15 @@ export default async function SystemsPage() {
                     <td className="mono" style={{ fontSize: 11.5 }}>{x.url}</td>
                     <td>{x.serverIds.map((id) => s.servers.find((v) => v.id === id)?.hostname).join(' · ')}</td>
                     <td>{x.owner}</td>
+                    <td>
+                      {(() => {
+                        const { breach, checked } = complianceOf(x.id)
+                        if (!checked) return <span className="mut">미점검</span>
+                        return breach > 0
+                          ? <Link href="/settings/objects"><Chip tone="err" bare>미준수 {breach}건</Chip></Link>
+                          : <Chip tone="ok" bare>준수</Chip>
+                      })()}
+                    </td>
                     {canSeeIncidents && (
                     <td className="num">
                       {inc.length > 0
@@ -238,7 +255,8 @@ export default async function SystemsPage() {
 
       <div className="callout">
         <b>연계</b> — 장애 이력은 <b>장애관리</b>의 시스템명 기준 집계이고, 배치·인터페이스·디스크 상세는{' '}
-        <b>배치 · 인터페이스 · 디스크</b> 화면에서 관리한다. 랙·H/W 는 <b>랙 · H/W 관리</b>에서 등록한다.
+        <b>배치 · 인터페이스 · 디스크</b> 화면에서 관리한다. 랙·H/W 는 <b>랙 · H/W 관리</b>에서 등록한다.{' '}
+        보안준수 항목의 정의는 <b>환경설정 · 객체 관리</b>가 단일 원천이다.
       </div>
     </>
   )
