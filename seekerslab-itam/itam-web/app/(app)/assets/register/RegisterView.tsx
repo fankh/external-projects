@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -638,8 +638,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                           ? <Chip tone="warn" bare>반환 임박 D-{daysBetween(props.today, sel.loanDueDate)}</Chip>
                           : null
                     )}
-                    <a className="btn sm" href={`/api/loan-agreement/${sel.assetNo}`} target="_blank" rel="noopener"
-                      title="대여 확인서 인쇄 — 반출 책임·반환 의무 서면 증적">🖨 대여 확인서</a>
+                    {props.canDoc && <a className="btn sm" href={`/api/loan-agreement/${sel.assetNo}`} target="_blank" rel="noopener"
+                      title="대여 확인서 인쇄 — 반출 책임·반환 의무 서면 증적">🖨 대여 확인서</a>}
                   </dd>
                   {/* 대여 연장 요청/처리 — 대여자(사용자)는 연장을 신청하고, 자산담당은 요청대로 연장 또는 반려한다. */}
                   {sel.loanExtendRequest ? (
@@ -712,8 +712,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 <>
                   <dt>인수인계</dt>
                   <dd className="hstack" style={{ gap: 6 }}>
-                    <a className="btn sm" href={`/api/handover-sheet/${sel.assetNo}`} target="_blank" rel="noopener"
-                      title="자산 인수인계서 인쇄 — 영구 불출 인계·인수 책임 서면 증적(대여 확인서의 불출 대응)">🖨 인수인계서</a>
+                    {props.canDoc && <a className="btn sm" href={`/api/handover-sheet/${sel.assetNo}`} target="_blank" rel="noopener"
+                      title="자산 인수인계서 인쇄 — 영구 불출 인계·인수 책임 서면 증적(대여 확인서의 불출 대응)">🖨 인수인계서</a>}
                     {sel.receiptPending && <Chip tone="warn" bare>수령 확인 대기</Chip>}
                   </dd>
                 </>
@@ -932,8 +932,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       const r = await selectForDisposal(sel.assetNo, '분실 미회수 확정')
                       setLostMsg(r.message)
                     })}>미회수 확정 → 폐기</button>
-                  <a className="btn sm" href={`/api/loss-report/${sel.assetNo}`} target="_blank" rel="noopener"
-                    title="분실·도난 신고서 인쇄 — 보험 청구·보안 사고·감사 증적용">🖨 분실·도난 신고서</a>
+                  {props.canDoc && <a className="btn sm" href={`/api/loss-report/${sel.assetNo}`} target="_blank" rel="noopener"
+                    title="분실·도난 신고서 인쇄 — 보험 청구·보안 사고·감사 증적용">🖨 분실·도난 신고서</a>}
                 </span>
               </div>
             )}
