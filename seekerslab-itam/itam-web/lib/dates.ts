@@ -10,6 +10,7 @@
  *  시연에서 특정 날짜를 재현하려면 `ITAM_TODAY=YYYY-MM-DD`, 표준시를 바꾸려면 `ITAM_TZ`.
  *  서버 전용 모듈 — 클라이언트에서 쓰면 하이드레이션 불일치가 생긴다.
  */
+import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, IntakeLot } from '@/lib/types'
 
 const TZ = process.env.ITAM_TZ || 'Asia/Seoul'
@@ -223,7 +224,7 @@ export function isMaintenanceDue(a: Asset, windowDays = 30): boolean {
   // 운영 상태 자산만 대상 — 폐기/분실은 물론, 이미 수리중이거나 반납대기(보유자 이탈 중)인 자산은 예방 정비 대상이 아니다
   // (isLoanOverdue/isRepairOverdue 처럼 상태로 가른다 — 잔여 maintenanceDue 로 인한 큐 오염·오독촉 방지).
   // windowDays 는 운영 정책(opsPolicy.maintenanceWindowDays) 값을 호출부가 넘긴다(isStaleVerify 와 동일 규약). 기본 30.
-  if (!a.maintenanceDue || ['폐기완료', '폐기예정', '분실', '수리중', '반납대기'].includes(a.status)) return false
+  if (!a.maintenanceDue || NON_OPERATIONAL_STATUSES.includes(a.status)) return false
   return (daysUntil(a.maintenanceDue) ?? 999) <= windowDays
 }
 
@@ -231,7 +232,7 @@ export function isMaintenanceDue(a: Asset, windowDays = 30): boolean {
  *  독촉 대상 판정에 쓴다 — 임박(D-30)은 예고, 경과는 이미 넘긴 것이라 소유 부서 앞으로 점검 독촉을 보낸다. 서버 전용. */
 export function isMaintenanceOverdue(a: Asset): boolean {
   // isMaintenanceDue 와 동일 운영 상태 게이트 — 분실·수리중·반납대기 자산에 정기 점검 독촉이 나가지 않게 한다.
-  if (!a.maintenanceDue || ['폐기완료', '폐기예정', '분실', '수리중', '반납대기'].includes(a.status)) return false
+  if (!a.maintenanceDue || NON_OPERATIONAL_STATUSES.includes(a.status)) return false
   return (daysUntil(a.maintenanceDue) ?? 999) < 0
 }
 

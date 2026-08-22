@@ -1487,6 +1487,27 @@ try {
     localWindowParsers.length === 0 && failsClosed,
     `액션 내 파싱=${localWindowParsers.map(fileLabel).join(',')} · fail-closed=${failsClosed}`)
 
+  // 비운영 상태 목록 단일 소스 — '운영 중이 아닌 자산'(폐기 경로·분실·수리중·반납대기)은 예방 정비 큐(lib/dates)와
+  //  EOL 교체 대상 판정(lib/eol)이 함께 쓰는 하나의 개념인데, 두 모듈이 각자 같은 배열을 적어 두고 주석으로 서로를
+  //  '동일하게'라고 가리켰다. 상태가 하나 늘면 한쪽만 고쳐도 통과해, 같은 자산이 점검 대상인데 교체 대상은 아니게 된다.
+  //  목록은 lib/types 의 NON_OPERATIONAL_STATUSES 하나만 두고, 다른 파일이 다시 적지 않는지 본다.
+  const STATUS_LITERAL = "'분실', '수리중', '반납대기'"
+  const sourceFiles = []
+  const walkSrc = (dir) => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      if (ent.name === 'node_modules' || ent.name === '.next') continue
+      const p = path.join(dir, ent.name)
+      if (ent.isDirectory()) walkSrc(p)
+      else if (/\.tsx?$/.test(ent.name)) sourceFiles.push(p)
+    }
+  }
+  for (const d of ['app', 'lib', 'components']) walkSrc(path.join(ROOT, d))
+  const statusDupes = sourceFiles
+    .filter((f) => readFileSync(f, 'utf8').includes(STATUS_LITERAL))
+    .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
+    .filter((rel) => rel !== 'lib/types.ts')
+  check(`비운영 상태 목록: lib/types 한 곳만 정의(소스 ${sourceFiles.length}개 검사)`, statusDupes.length === 0, `중복 정의=${statusDupes.join(', ')}`)
+
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')

@@ -14,6 +14,13 @@ export const ASSET_CATEGORIES: AssetCategory[] = ['단말', '서버', '네트워
 
 /** 수명주기 5단계 (도입·검수 → 등록 → 운영·이동 → 반납·유휴 → 폐기) */
 export type AssetStatus = '검수중' | '사용중' | '유휴' | '대여중' | '반납대기' | '수리중' | '분실' | '폐기예정' | '폐기완료'
+/** 실물이 '운영 중'이 아닌 자산 상태 — 폐기 경로(폐기완료·폐기예정)와 손에서 떠난 상태(분실·수리중·반납대기).
+ *  운영 자산만 대상으로 삼는 주기적 조치 큐가 이 목록을 공유한다: 예방 정비 도래·경과 판정(lib/dates 의
+ *  isMaintenanceDue·isMaintenanceOverdue)과 EOL 교체·업그레이드 대상 판정(lib/eol 의 isEolTarget).
+ *  실물이 없거나 운영 중이 아닌 자산에 점검·교체 통보가 나가지 않게 하려는 같은 이유의 게이트다.
+ *  그동안 두 모듈이 각자 같은 목록을 적어 두고 주석으로 서로를 '동일하게'라고 가리켰다 — 상태가 하나 늘면
+ *  한쪽만 고쳐도 아무도 모르고, 두 큐가 조용히 갈린다(같은 자산이 점검 대상인데 교체 대상은 아니게 된다). */
+export const NON_OPERATIONAL_STATUSES: AssetStatus[] = ['폐기완료', '폐기예정', '분실', '수리중', '반납대기']
 
 export interface AssetHistoryItem {
   date: string
