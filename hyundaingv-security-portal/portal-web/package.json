@@ -12,9 +12,10 @@
     "health": "node scripts/pyrun.mjs scripts/client_health.py",
     "load": "node scripts/load_probe.mjs",
     "a11y": "node scripts/a11y.mjs",
+    "layout": "node scripts/pyrun.mjs scripts/layout_sweep.py",
     "keycheck": "node scripts/session_keycheck.mjs",
     "emptystate": "node scripts/emptystate.mjs",
-    "gates": "npm run lint && npm run build && npm run smoke && npm run a11y && npm run emptystate && npm run keycheck && npm run health && npm run e2e"
+    "gates": "npm run lint && npm run build && npm run smoke && npm run a11y && npm run layout && npm run emptystate && npm run keycheck && npm run health && npm run e2e"
   },
   "dependencies": {
     "next": "^15.1.6",
