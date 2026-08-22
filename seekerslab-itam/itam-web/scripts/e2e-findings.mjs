@@ -2678,6 +2678,16 @@ try {
   await pQB.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
   ok('대장 자산 격리(로70): 2단계 승인 → NAC 격리 집행(대장 격리 표시)', ((await pQB.locator('tr', { has: pQB.locator('td', { hasText: 'AST-2024-000377' }) }).first().textContent()) || '').includes('격리'))
   await ctxQB.close()
+  // 격리 집행 후 이상 행위 목록 정합 — 나머지 세 축(미인가 SW·USB·유휴 자산 사용)은 모두 미조치분만 세는데,
+  //  이상탐지 제안만 '반려 아님' 기준이라 NAC 차단이 집행된 뒤에도 이탈 목록·심각도 집계에 영구히 남았다.
+  const ctxQC = await browser.newContext(); await ctxQC.addCookies([cookie(SEC)]); const pQC = await ctxQC.newPage()
+  await pQC.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  const qcCard = pQC.locator('.card', { hasText: '이상 자산 행위 탐지' }).first()
+  const qcText = (await qcCard.textContent()) || ''
+  ok('이상 행위 탐지: NAC 격리 집행된 자산은 이탈 목록에서 제외', !qcText.includes('AST-2024-000377'))
+  // 양성 대조 — 패널이 그냥 비어서 통과한 게 아님을 확인한다(격리와 무관한 이탈은 그대로 남아야 한다)
+  ok('이상 행위 탐지: 격리와 무관한 이탈은 그대로 노출(패널 비어서 통과한 것 아님)', /AST-|printer-3f-old/.test(qcText))
+  await ctxQC.close()
   // 반납 폐기 권고 → 소유자 정리 불변식(홀더-상태) — 폐기 권고 접수는 정상·수리 필요 분기와 달리 소유자를 비우지 않아, 폐기 취소·반려로 유휴 복귀 시 떠난 보유자가 대장에 오귀속됐다(부서별 비용 배분 오염). 접수 즉시 owner='미지정' 이어야 한다. 시드 AST-2025-000513(반납대기·한도윤)을 폐기 권고로 접수 → 소유자 미지정 검증. 정리가 없으면 한도윤이 남아 실패.
   const ctxRT = await browser.newContext(); await ctxRT.addCookies([cookie(ADMIN)]); const pRT = await ctxRT.newPage()
   await pRT.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
