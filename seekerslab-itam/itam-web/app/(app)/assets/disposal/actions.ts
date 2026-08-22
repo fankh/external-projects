@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
+import { clearDependencyRefs } from '@/lib/cmdb'
 import { reclaimLicenseSeats } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
@@ -131,6 +132,13 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
     // 폐기 좌석 회수 — 폐기된 자산에 물린 라이선스 좌석을 회수한다(로56). 존재하지 않는 자산에 좌석이 남으면 비용·대사가 샌다.
     const freed = reclaimLicenseSeats(asset.assetNo, session.name, '폐기')
     if (freed.length) asset.history.push({ date: today(), kind: '폐기', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (폐기)`, actor: session.name })
+    // CMDB 의존 참조 정리 — 좌석 회수와 같은 이유다. 사라진 자산을 상위로 두던 하위 자산의 dependsOn 을 그대로 두면
+    //  없는 장비가 단일 장애점(SPOF)으로 계속 잡히고, 폐기완료는 저하 상태라 큐 맨 위로 올라간다.
+    const detached = clearDependencyRefs(asset.assetNo)
+    if (detached.length) {
+      asset.history.push({ date: today(), kind: '폐기', detail: `CMDB 의존 참조 정리 — ${detached.join(', ')} 의 상위 의존에서 제외 (폐기)`, actor: session.name })
+      appendAudit({ actor: session.name, action: `CMDB 의존 참조 정리 — ${asset.assetNo} 폐기로 ${detached.length}건 상위 의존 해제`, target: asset.assetNo })
+    }
     asset.receiptPending = undefined // 미확인 수령 대기 해제 — 폐기 자산은 인수 대기 대상이 아니다
   }
   appendAudit({ actor: session.name, action: `폐기 데이터 소거 (${method}) · 처분 ${dispLabel}`, target: d.assetNo })
@@ -169,6 +177,8 @@ export async function recordWipeMany(ids: string[], method: WipeMethod, disposit
       asset.history.push({ date: today(), kind: '폐기', detail: `데이터 소거 완료 (${method}) · 처분 ${disposition} · 증적 ${d.certNo} 보존 (일괄)`, actor: session.name })
       const freed = reclaimLicenseSeats(asset.assetNo, session.name, '폐기')
       if (freed.length) asset.history.push({ date: today(), kind: '폐기', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (폐기)`, actor: session.name })
+      const detached = clearDependencyRefs(asset.assetNo) // 단건 소거와 동일 — 유령 의존 참조 정리
+      if (detached.length) asset.history.push({ date: today(), kind: '폐기', detail: `CMDB 의존 참조 정리 — ${detached.join(', ')} 의 상위 의존에서 제외 (폐기 · 일괄)`, actor: session.name })
       asset.receiptPending = undefined
     }
   }
