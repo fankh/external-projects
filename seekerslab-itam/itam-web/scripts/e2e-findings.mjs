@@ -452,6 +452,11 @@ async function aiPeriodQuery(page) {
   ok('AI SaaS질의: SaaS 없는 부서 → 해당 없음(전체 미확장)', sInfra.includes('인프라운영팀에서 사용하는 미인가(Shadow) SaaS는 없습니다'))
   const sDev = await ask('플랫폼개발팀에서 쓰는 미인가 SaaS')
   ok('AI SaaS질의: SaaS 있는 부서 → 부서 스코프', sDev.includes('플랫폼개발팀의 미인가') || sDev.includes('플랫폼개발팀에서 사용하는'))
+  // 차단 판정 완료분은 '판정 대기' 미인가가 아니다 — 답변이 '인가·차단 판정은 …에서 처리합니다'로 맺으므로,
+  //  이미 차단한 서비스를 세면 처리 끝난 건을 다시 판정하라고 안내하게 된다. 시드 Dropbox(카탈로그 차단·차단 집행 요청 발송)로 확인.
+  const sAll = await ask('미인가 SaaS 알려줘')
+  ok('AI SaaS질의: 차단 판정 완료 서비스는 미인가 목록에서 제외(Dropbox)', !sAll.includes('Dropbox'))
+  ok('AI SaaS질의: 판정 대기 미인가는 그대로 노출(ChatGPT)', sAll.includes('ChatGPT'))
 }
 
 try {
