@@ -4,7 +4,12 @@ import { Chip, RiskChip } from '@/components/ui'
 import type { SaasUsage } from '@/lib/types'
 import { classifyShadowSaas } from './actions'
 
-export function ShadowSaasTable({ rows, canDecide, depts = [] }: { rows: SaasUsage[]; canDecide: boolean; depts?: string[] }) {
+export function ShadowSaasTable({ rows, canDecide, depts = [], blockedServices = [] }: {
+  rows: SaasUsage[]; canDecide: boolean; depts?: string[]
+  /** 카탈로그에서 차단 판정이 난 서비스 — 미인가지만 '판정 대기'는 아니다(프록시·DNS 차단 집행 요청까지 나간 상태). */
+  blockedServices?: string[]
+}) {
+  const blocked = new Set(blockedServices)
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -69,7 +74,7 @@ export function ShadowSaasTable({ rows, canDecide, depts = [] }: { rows: SaasUsa
                 <td>{x.dept}</td>
                 <td className="num tnum">{x.users.toLocaleString()}</td>
                 <td className="num tnum">{x.monthlyVisits.toLocaleString()}</td>
-                <td className="c">{x.sanctioned ? <Chip tone="ok">인가</Chip> : <Chip tone="err">미인가</Chip>}</td>
+                <td className="c">{x.sanctioned ? <Chip tone="ok">인가</Chip> : blocked.has(x.service) ? <Chip tone="neutral">차단 판정</Chip> : <Chip tone="err">미인가</Chip>}</td>
                 <td className="c"><RiskChip risk={x.risk} /></td>
                 {canDecide && (
                   <td className="c">
