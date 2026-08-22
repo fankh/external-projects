@@ -43,6 +43,7 @@ ROUTES = [
     '/platform/integrations', '/search',
 ]
 
+WIDTHS = (768, 1024, 1280, 1366, 1440)  # 태블릿·사내 노트북 상용 폭 + 기준 폭
 ADMIN = {'login': 'admin', 'name': '시스템관리자', 'dept': '정보기획팀', 'role': 'ADMIN'}
 SECRET_STR = os.environ.get('SESSION_SECRET', 'ngv-gate-nondefault-secret')
 
@@ -89,14 +90,17 @@ def main() -> int:
                 time.sleep(0.5)
         with sync_playwright() as p:
             browser = p.chromium.launch()
-            ctx = browser.new_context(viewport={'width': 1440, 'height': 900})
-            ctx.add_cookies([cookie_for(ADMIN)])
-            page = ctx.new_page()
-            for route in ROUTES:
-                page.goto(BASE + route, wait_until='networkidle')
-                page.wait_for_timeout(150)
-                for hit in page.evaluate(PROBE):
-                    failures.append(f'{route}: {hit["t"]} 이 카드 밖 {hit["by"]}px (스크롤 조상 없음)')
+            # 폭마다 c2 그리드 반폭이 달라진다 — 1440 만 보면 1280 에서만 나는 이탈을 놓친다
+            for width in WIDTHS:
+                ctx = browser.new_context(viewport={'width': width, 'height': 900})
+                ctx.add_cookies([cookie_for(ADMIN)])
+                page = ctx.new_page()
+                for route in ROUTES:
+                    page.goto(BASE + route, wait_until='networkidle')
+                    page.wait_for_timeout(120)
+                    for hit in page.evaluate(PROBE):
+                        failures.append(f'w={width} {route}: {hit["t"]} 이 카드 밖 {hit["by"]}px (스크롤 조상 없음)')
+                ctx.close()
             browser.close()
     finally:
         if sys.platform == 'win32':
@@ -107,9 +111,9 @@ def main() -> int:
     if failures:
         for f in failures:
             print('✗ ' + f)
-        print(f'✗ layout: {len(ROUTES)}화면 중 {len(failures)}건 도달 불가 이탈')
+        print(f'✗ layout: {len(ROUTES)}화면 x {len(WIDTHS)}폭 중 {len(failures)}건 도달 불가 이탈')
         return 1
-    print(f'✓ layout: {len(ROUTES)}화면 카드 이탈 컨트롤 없음')
+    print(f'✓ layout: {len(ROUTES)}화면 x {len(WIDTHS)}폭 카드 이탈 컨트롤 없음')
     return 0
 
 

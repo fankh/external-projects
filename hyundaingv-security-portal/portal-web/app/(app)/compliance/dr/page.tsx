@@ -100,7 +100,7 @@ export default async function DrPage() {
 
       {canManage && (
         <Card title="복구계획 등록">
-          <form action={addDrPlan} className="hstack">
+          <form action={addDrPlan} className="hstack" style={{ flexWrap: 'wrap' }}>
             <input aria-label="대상 업무·시스템" className="input" name="system" required maxLength={60} placeholder="대상 업무·시스템" style={{ width: 150 }} />
             <input aria-label="계획명" className="input" name="title" required maxLength={120} placeholder="복구계획명" style={{ flex: 1 }} />
             <select aria-label="등급" className="select" name="tier">{DR_TIERS.map((x) => <option key={x}>{x}</option>)}</select>
