@@ -284,7 +284,19 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     }]
   }
 
-  // approvals — 결재함(ApprovalList)의 상태·구분·검색·내 상신만 필터를 그대로 반영
+  // approvals — 결재함(ApprovalList)의 상태·구분·검색·내 상신만 필터를 그대로 반영.
+  //  여기는 폴백이 아니라 이 종류 전용 구간이다. 위 분기에 걸리지 않은 종류가 그대로 떨어지면 결재 이력
+  //  (기안자·반려 사유·연결 문서)이 그 종류의 라벨·파일명으로 반출되고, 권한도 그 종류의 메뉴 '엑셀' 칸으로
+  //  판정돼(canExport) 결재를 볼 수 없어야 할 역할에게 나갈 수 있다. 종류 추가 시 분기 누락을 조용히 넘기지 않는다
+  //  (라우트가 EXPORT_KINDS 밖 값은 404 로 먼저 막으므로, 이 가드는 목록에 추가하고 분기를 빠뜨린 경우를 잡는다).
+  if (kind !== 'approvals') {
+    return [{
+      name: '정의 없음',
+      header: ['항목'],
+      rows: [[`'${kind}' 반출은 시트 정의가 없습니다 — EXPORT_KINDS 에 종류를 추가할 때 buildSheets 분기도 함께 등록하세요.`]],
+    }]
+  }
+
   const t = today()
   const aq = (filter?.q ?? '').trim().toLowerCase()
   const astatus = filter?.status ?? '전체'

@@ -1338,6 +1338,14 @@ try {
   const reportClaims = [...claims(readme, /리포트 (\d+)종/g), ...claims(summary, /리포트 (\d+)종/g)]
   check(`문서: 리포트 ${reportKinds.length}종 일치`, allSame(reportClaims, reportKinds.length), `주장=${reportClaims.join(',')} 실제=${reportKinds.length}`)
 
+  // 반출 종류 — EXPORT_KINDS 항목마다 buildSheets 분기가 있어야 한다. 분기를 빠뜨리면 마지막 구간(결재 이력)이
+  //  그 종류의 라벨·파일명으로 반출되고, 권한도 그 종류의 메뉴 '엑셀' 칸으로 판정돼 결재를 볼 수 없어야 할 역할에게 나간다.
+  const exportsSrc = readFileSync(path.join(ROOT, 'lib', 'exports.ts'), 'utf8')
+  const exportKinds = [...((exportsSrc.match(/EXPORT_KINDS = \[([^\]]*)\]/) || [])[1] || '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const sheetBranches = new Set([...exportsSrc.matchAll(/kind (?:===|!==) '([^']+)'/g)].map((m) => m[1]))
+  const exportsNoBranch = exportKinds.filter((k) => !sheetBranches.has(k))
+  check(`반출: 종류 ${exportKinds.length}종 모두 시트 분기 보유(라벨·내용 불일치 방지)`, exportsNoBranch.length === 0, `분기 없음=${exportsNoBranch.join(',')}`)
+
   const routeClaims = [...claims(readme, /\((\d+) 라우트 × 4/g), ...claims(summary, /(\d+) 라우트 × 4/g)]
   check(`문서: 라우트 수 ${routes}개 일치`, allSame(routeClaims, routes), `주장=${routeClaims.join(',')} 실제=${routes}`)
 
