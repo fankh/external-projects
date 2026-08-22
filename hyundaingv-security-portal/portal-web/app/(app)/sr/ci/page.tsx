@@ -128,7 +128,7 @@ export default async function SrCiPage() {
                     <td className="strong">{r.title}<Clip count={attachCount(r.srNo)} title="SR 첨부" /></td>
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
                     <td colSpan={3}>
-                      <form action={assignCi} className="hstack" style={{ padding: '3px 0' }}>
+                      <form action={assignCi} className="hstack" style={{ padding: '3px 0', flexWrap: 'wrap' }}>
                         <input type="hidden" name="srNo" value={r.srNo} />
                         <select aria-label="ci" className="select" name="ci" required style={{ height: 25, fontSize: 11.5 }}>
                           {ciCandidates.map((c) => <option key={c.login} value={c.name}>{c.name} ({c.dept})</option>)}
