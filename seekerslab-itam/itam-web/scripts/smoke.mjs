@@ -1489,6 +1489,29 @@ try {
 
 
 
+
+  // CMDB 의존 그래프 형태 — 자기 참조·순환이 없어야 한다. 탐색(assetDependenciesFrom)은 방문 집합으로 순환에
+  //  빠지지 않지만, 순환이 있으면 그 자산이 자기 영향 범위(blast radius)에 포함돼 단일 장애점 수가 부풀고
+  //  '이 자산 장애 시 영향받는 하위'에 자기 자신이 나열된다. dependsOn 은 시드에서만 정의되고 편집 경로가
+  //  없으므로(폐기 시 정리만 한다) 시드 형태를 정적으로 못박아 둔다. 없는 상위 참조는 위 시드 참조 무결성이 본다.
+  const depGraph = {}
+  for (const line of storeSrc.split(/\r?\n/)) {
+    const no = /assetNo: '(AST-[^']+)'/.exec(line)
+    const dp = /dependsOn: \[([^\]]*)\]/.exec(line)
+    if (no && dp) depGraph[no[1]] = [...dp[1].matchAll(/'([^']+)'/g)].map((x) => x[1])
+  }
+  const selfDeps = Object.entries(depGraph).filter(([k, v]) => v.includes(k)).map(([k]) => k)
+  const depCycles = []
+  const walkDep = (node, stack, seen) => {
+    if (stack.includes(node)) { depCycles.push([...stack.slice(stack.indexOf(node)), node].join('→')); return }
+    if (seen.has(node)) return
+    seen.add(node)
+    for (const up of depGraph[node] ?? []) walkDep(up, [...stack, node], seen)
+  }
+  for (const node of Object.keys(depGraph)) walkDep(node, [], new Set())
+  check(`CMDB 의존 그래프: 자기 참조·순환 없음(의존 정의 ${Object.keys(depGraph).length}건)`,
+    Object.keys(depGraph).length > 0 && selfDeps.length === 0 && depCycles.length === 0,
+    `자기참조=${selfDeps.join(',')} 순환=${[...new Set(depCycles)].join(' | ')}`)
   // SaaS 판정 SLA 의 전제 — 검토중 항목에는 검토 접수일(reviewSince)이 있어야 경과일을 셀 수 있다. 없으면
   //  판정 기한 경과를 계산할 수 없어(지금은 fail safe 로 경과 처리한다) 큐가 '경과일 미상' 항목으로 채워진다.
   //  등재 경로(수동 등재·상태 전이)는 모두 접수일을 남기므로, 시드가 그 전제를 지키는지 정적으로 못박아 둔다.
