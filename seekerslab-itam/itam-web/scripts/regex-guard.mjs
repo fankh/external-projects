@@ -10,6 +10,9 @@ const BS = String.fromCharCode(92)
 const RE_LITERAL = new RegExp(BS + '/[^/' + BS + 'n]{2,}' + BS + '/', 'g')
 // 역슬래시 없는 d{n} — '\d{4}' 가 'd{4}' 로 떨어진 흔적
 const SUSPECT = new RegExp('[^' + BS + BS + ']d' + BS + '{[0-9]')
+// 문자 클래스가 통째로 역슬래시를 잃은 흔적 — [\s\S] 가 [sS] 로, [\w] 가 [w] 로 떨어지면
+//  정규식은 그 글자만 찾는 다른 뜻이 된다([sS] 는 s 또는 S 한 글자). 소스에 이 형태를 일부러 쓸 이유가 없다.
+const SUSPECT_CLASS = new RegExp(BS + '[(sS|wW|dD)' + BS + ']')
 const EOL = new RegExp(BS + 'r?' + BS + 'n')
 
 /** 손상 의심 위치 목록 ('경로:줄') — 비어 있으면 정상. */
@@ -18,7 +21,7 @@ export function damagedRegexLiterals(files, rel = (f) => f) {
   for (const f of files) {
     readFileSync(f, 'utf8').split(EOL).forEach((ln, n) => {
       for (const m of ln.matchAll(RE_LITERAL)) {
-        if (SUSPECT.test(m[0])) bad.push(rel(f) + ':' + (n + 1))
+        if (SUSPECT.test(m[0]) || SUSPECT_CLASS.test(m[0])) bad.push(rel(f) + ':' + (n + 1))
       }
     })
   }
