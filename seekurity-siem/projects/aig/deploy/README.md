@@ -3,14 +3,26 @@
 `../../../INSTALLATION_GUIDE.md` (v6.10, Rocky/RHEL 9.x) 를 AIG 프로젝트용으로 실행 가능하게 옮긴 것.
 전부 **대상 서버에서** 실행한다.
 
-## 실행 전 필요한 것 (현재 미확보)
+## 대상 서버 (2026-08-23 확인)
 
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| 대상 서버 (Rocky/RHEL 9.x) | ❌ 미지정 | 접속 정보 필요 |
-| 설치 패키지 (`install.sh`, `bootstrap-infra.sh`, `bin/*.jar` 7개, `console/`, `sql/`, `rpms/`) | ❌ 미확보 | 작업 PC 어디에도 없음 |
-| `license.json` | ❌ 미확보 | 없으면 라이선스 INVALID 로 차단 |
-| Log Source 실제 목록 | ❌ 미확정 | `logsources.csv` 가 아직 샘플(`x.x.x.x`) |
+| 항목 | 값 |
+|------|-----|
+| 호스트 | 10.1.30.4 (SSH 9348, operuser) |
+| OS | Rocky Linux 9.7 (Blue Onyx), 32 core / 30GB RAM |
+| 설치 상태 | **이미 설치됨** — 2026-08-16 설치, 2026-08-21 패치(ss-api.jar, ss-log-stream.jar) |
+| 라이선스 | `LIC-2026-AIG`, maxLogSources 300, 만료 2031-08-16 |
+| 설치 패키지 | 서버 내 `/home/operuser/siem-full/seekurity-siem-installer` |
+| 데이터 볼륨 | `/data` 100GB (PostgreSQL `data_directory` = `/data/pgsql/14/data` — 정상 분리) |
+
+따라서 `00-preflight.sh` / `10-install.sh` 는 **재설치 용도로만** 쓴다. 이미 돌아가는 서버에 실행하지 말 것.
+
+로그 유입이 0건이었던 원인과 조치는 `INGEST-TROUBLESHOOTING.md` 참조.
+
+## 아직 필요한 것
+
+- 실제 AIG 장비 목록(IP/벤더/모델). `logsources.csv` 의 `x.x.x.x` 행이 채워져야 한다.
+- 웹 콘솔 admin 비밀번호. API 로 등록하려면 필요하다.
+  **5회 실패 시 계정이 잠기므로 추측 시도 금지** — 현재는 DB 직접 등록으로 우회했다.
 
 ## 순서
 
