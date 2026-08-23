@@ -8,8 +8,8 @@
     python scripts/weekly_report_manager.py generate aig      # JSON -> Excel
     python scripts/weekly_report_manager.py generate aig --week 2026-W34
 
-입력  projects/<project>/weekly/<YYYY-Www>.json
-출력  projects/<project>/workbooks/<PROJECT>_주간보고_<YYYYMMDD>.xlsx
+입력  projects/<project>/01.사업관리/주간보고/데이터/<YYYY-Www>.json
+출력  projects/<project>/01.사업관리/주간보고/<PROJECT>_주간보고_<YYYYMMDD>.xlsx
 """
 import argparse
 import datetime as dt
@@ -23,6 +23,10 @@ from openpyxl.utils import get_column_letter
 
 ROOT = Path(__file__).resolve().parent.parent
 PROJECTS = ROOT / "projects"
+
+# 한국 SI 표준 산출물 구조 — 주간보고는 사업관리 단계에 둔다
+REPORT_DIR = "01.사업관리/주간보고"
+DATA_DIR = REPORT_DIR + "/데이터"
 
 COLORS = {
     "title": "1F3864",
@@ -65,7 +69,7 @@ def week_range(week):
 
 
 def data_path(project, week):
-    return PROJECTS / project / "weekly" / (week + ".json")
+    return PROJECTS / project / DATA_DIR / (week + ".json")
 
 
 def skeleton(project, week):
@@ -390,7 +394,7 @@ def cmd_generate(args):
     out = (
         PROJECTS
         / args.project
-        / "workbooks"
+        / REPORT_DIR
         / ("%s_주간보고_%s.xlsx" % (data["project"], stamp))
     )
     build(data, out)
