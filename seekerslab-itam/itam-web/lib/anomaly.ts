@@ -32,6 +32,8 @@ export function buildAnomalies(): AnomalyResult {
   // 폐기 경로 자산 — 소거·처분됐거나 폐기 선정된 장비의 설치·반출 기록은 '지금 일어나는 행위 이탈'이 아니다.
   //  제거·차단을 요청할 대상이 없는데 목록과 '높음 심각도' 집계를 차지해 실재하는 이탈을 밀어낸다
   //  (취약점 조치 우선순위의 EOL·미인가 SW 축이 쓰는 기준과 동일). 위반 기록 자체는 각 화면에 그대로 남는다.
+  //  네 축(미인가 SW·유휴 자산 사용·비정상 외부 통신·USB 반출)에 모두 적용한다 — 두 축에만 걸어 두면 같은 자산이
+  //  축에 따라 사라졌다 남았다 해서, '조치할 수 없는 건은 뺀다'는 규칙이 목록 안에서 반쪽만 지켜진다.
   const disposedAsset = new Set(s.assets.filter((a) => ['폐기완료', '폐기예정'].includes(a.status)).map((a) => a.assetNo))
 
   // 1) 미인가 SW 설치 — 평시 설치 SW 프로파일 대비 이탈(EDR 인벤토리). 미조치분.
@@ -40,7 +42,7 @@ export function buildAnomalies(): AnomalyResult {
   }
 
   // 2) 유휴 자산 사용 — 대장상 유휴(휴면)인데 실사에서 사용 중 발견(미승인 불출). 상태 불일치 미해결.
-  for (const d of s.surveyDiffs.filter((x) => x.kind === '상태 불일치' && x.actual.includes('사용') && x.status !== '조정 완료')) {
+  for (const d of s.surveyDiffs.filter((x) => x.kind === '상태 불일치' && x.actual.includes('사용') && x.status !== '조정 완료' && !disposedAsset.has(x.assetNo))) {
     items.push({ id: `AN-${d.id}`, kind: '유휴 자산 사용', target: d.assetNo, detail: `대장 '${d.expected}' / 실사 '${d.actual}'`, severity: '높음', basis: `재물조사 실사 상태 이탈 · ${d.roundId}`, href: '/inventory/survey' })
   }
 
@@ -52,7 +54,7 @@ export function buildAnomalies(): AnomalyResult {
   const quarantined = new Set(s.assets.filter((a) => a.quarantinedAt).map((a) => a.assetNo))
   for (const n of s.insights.filter((x) => x.kind === '이상탐지' && x.status !== '반려')) {
     const tgt = n.refId ?? (n.title.includes('—') ? n.title.split('—').pop()!.trim() : n.title)
-    if (quarantined.has(tgt)) continue
+    if (quarantined.has(tgt) || disposedAsset.has(tgt)) continue
     items.push({ id: `AN-${n.id}`, kind: '서버 비정상 외부 통신', target: tgt, detail: n.title.split('—')[0].trim(), severity: n.severity, basis: `AI 비지도 이상탐지 · 평시 프로파일 이탈 · ${n.evidence}`, href: '/ai/insights' })
   }
 
