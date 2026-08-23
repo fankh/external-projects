@@ -3394,6 +3394,43 @@ try {
     ((await pTC.textContent('body')) || '').includes('CT-2023-014')
     && (await pTC.locator('.chip', { hasText: /^계약 해지됨$/ }).count()) === 0)
   await ctxTC.close()
+  // 스테일 이동 방어 — 승인된 이동 신청을 처리하기 전에 자산이 분실·폐기 경로로 떠났으면 집행하면 안 된다.
+  //  형제 집행 경로(불출·반납·라이선스)는 모두 같은 방어를 두는데 이동만 없었다: 폐기·분실 확정 자산의 위치만
+  //  바뀌고 신청자에게 '이동 완료' 통보까지 나갔다. 시드 이동 건은 앞선 검사가 이미 처리했으므로 새로 만들어 쓴다.
+  const ctxMV = await browser.newContext(); await ctxMV.addCookies([cookie(USER)]); const pMV = await ctxMV.newPage()
+  await pMV.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await pMV.locator('button', { hasText: /^신청하기$/ }).click()
+  await pMV.locator('select').first().selectOption('이동')
+  await pMV.waitForTimeout(300)
+  const mvAsset = (await pMV.locator('select').nth(1).inputValue()) || ''
+  await pMV.locator('select').nth(2).selectOption({ index: 1 })
+  await pMV.locator('textarea[placeholder="신청 사유"]').fill('회귀 — 스테일 이동 방어')
+  await pMV.locator('button', { hasText: /^상신$/ }).click()
+  await pMV.waitForTimeout(900)
+  ok(`스테일 이동: 이동 신청 상신 (${mvAsset})`, /^AST-/.test(mvAsset))
+  const mvApr = ((await pMV.locator('tbody tr').first().locator('td').filter({ hasText: /^APR-/ }).first().textContent()) || '').trim()
+  ok(`스테일 이동: 결재번호 확보 (${mvApr})`, /^APR-/.test(mvApr))
+  await ctxMV.close()
+
+  const ctxMV2 = await browser.newContext(); await ctxMV2.addCookies([cookie(ASSET)]); const pMV2 = await ctxMV2.newPage()
+  await pMV2.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await pMV2.locator('tr', { has: pMV2.locator('td', { hasText: mvApr }) }).first().locator('button', { hasText: /^승인$/ }).first().click()
+  await pMV2.waitForTimeout(900)
+  await pMV2.goto(`${BASE}/assets/movement`, { waitUntil: 'networkidle' })
+  const mvRow = () => pMV2.locator('tr', { has: pMV2.locator('td', { hasText: mvAsset }) }).first()
+  ok('스테일 이동: 정상 상태에서는 이동 처리 버튼 노출(양성 대조)',
+    (await mvRow().locator('button', { hasText: /^이동 처리$/ }).count()) === 1)
+  // 자산을 분실로 신고한다 — 승인은 그대로 남고 실물만 사라진 상황.
+  await pMV2.goto(`${BASE}/assets/register?sel=${mvAsset}`, { waitUntil: 'networkidle' })
+  await pMV2.locator('button', { hasText: /^분실 · 도난 신고$/ }).first().click()
+  await pMV2.locator('input[placeholder^="정황"]').fill('회귀 — 이동 처리 전 분실 확정')
+  await pMV2.locator('button', { hasText: /^신고 확정$/ }).click()
+  await pMV2.waitForTimeout(900)
+  await pMV2.goto(`${BASE}/assets/movement`, { waitUntil: 'networkidle' })
+  ok('스테일 이동: 분실 자산은 처리 불가로 표시(버튼 잠금 · 신청은 목록에 유지)',
+    ((await mvRow().textContent()) || '').includes('처리 불가 (분실)')
+    && (await mvRow().locator('button', { hasText: /^이동 처리$/ }).count()) === 0)
+  await ctxMV2.close()
   await browser.close()
 } catch (err) {
   fail++

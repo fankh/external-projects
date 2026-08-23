@@ -22,6 +22,11 @@ export type AssetStatus = '검수중' | '사용중' | '유휴' | '대여중' | '
  *  한쪽만 고쳐도 아무도 모르고, 두 큐가 조용히 갈린다(같은 자산이 점검 대상인데 교체 대상은 아니게 된다). */
 export const NON_OPERATIONAL_STATUSES: AssetStatus[] = ['폐기완료', '폐기예정', '분실', '수리중', '반납대기']
 
+/** 손을 떠난 자산 상태 — 분실이거나 폐기 절차에 들어간 자산. 승인된 운영 처리를 더는 적용하지 않는 기준이다
+ *  (이동 집행 등). NON_OPERATIONAL_STATUSES 와 달리 수리중·반납대기는 빼는데, 그 둘은 돌아올 자산이라
+ *  위치·연계가 여전히 유효하기 때문이다. 서버 액션 파일은 상수를 내보낼 수 없어('use server') 여기에 둔다. */
+export const GONE_STATUSES: AssetStatus[] = ['분실', '폐기예정', '폐기완료']
+
 export interface AssetHistoryItem {
   date: string
   kind: '등록' | '불출' | '이동' | '구성변경' | '점검' | '반납' | '폐기' | '편입' | '보증연장' | '수리' | '분실' | '대여'
