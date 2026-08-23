@@ -14,7 +14,7 @@ export interface LicenseUsageRow {
   /** 좌석 ∩ 설치 */
   matched: number
   /** 배정 밖 설치 — 설치는 관측됐으나 배정 좌석이 없는 자산(무단 사용) */
-  offSeat: { assetNo: string; host: string; user: string; dept: string }[]
+  offSeat: { assetNo: string; host: string; user: string; dept: string; status?: string }[]
   /** 미설치 좌석 — 좌석은 배정됐으나 설치가 관측되지 않은 자산(회수 후보) */
   unusedSeat: { assetNo: string; user: string; dept: string }[]
   collectedAt?: string
@@ -46,7 +46,12 @@ export function buildLicenseUsage(): {
         seatCount: seats.length,
         installCount: lInstalls.length,
         matched: seats.filter((x) => installSet.has(x.assetNo)).length,
-        offSeat: lInstalls.filter((i) => !seatSet.has(i.assetNo)).map((i) => ({ assetNo: i.assetNo, host: i.host, user: i.user, dept: i.dept })),
+        // 자산 상태를 함께 싣는다 — 종료 상태(분실·폐기완료) 자산에는 좌석을 배정할 수 없어(assignLicenseSeat 가 거부)
+        //  화면이 '좌석 배정' 버튼을 내주면 눌러야 거부되는 막다른 길이 된다. 행 자체는 남긴다(설치가 남아 있는 것은 SAM 리스크다).
+        offSeat: lInstalls.filter((i) => !seatSet.has(i.assetNo)).map((i) => ({
+          assetNo: i.assetNo, host: i.host, user: i.user, dept: i.dept,
+          status: s.assets.find((a) => a.assetNo === i.assetNo)?.status,
+        })),
         unusedSeat: seats.filter((x) => !installSet.has(x.assetNo)).map((x) => ({ assetNo: x.assetNo, user: x.user, dept: x.dept })),
         collectedAt: l.usageCollectedAt,
       }

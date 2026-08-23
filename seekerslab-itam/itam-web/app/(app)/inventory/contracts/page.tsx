@@ -212,7 +212,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="num tnum">{r.seatCount}</td>
                   <td className="num tnum">{r.installCount}</td>
                   <td className="num tnum">{r.matched}</td>
-                  <td><SeatResolveCell licenseId={r.id} kind="offSeat" canEdit={canEditLicense} assets={r.offSeat.map((o) => ({ assetNo: o.assetNo, label: o.dept }))} /></td>
+                  <td><SeatResolveCell licenseId={r.id} kind="offSeat" canEdit={canEditLicense} assets={r.offSeat.map((o) => ({ assetNo: o.assetNo, label: o.dept, status: o.status }))} /></td>
                   <td><SeatResolveCell licenseId={r.id} kind="unusedSeat" canEdit={canEditLicense} assets={r.unusedSeat.map((u) => ({ assetNo: u.assetNo, label: u.user }))} /></td>
                   <td className="tnum">{r.collectedAt ?? <span className="dim">미수집</span>}</td>
                 </tr>
