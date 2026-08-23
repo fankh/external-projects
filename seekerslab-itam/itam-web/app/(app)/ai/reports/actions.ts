@@ -6,6 +6,7 @@ import { REPORT_KINDS, createReport, isScheduleOverdue } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { dispatch } from '@/lib/notify'
 import { getStore } from '@/lib/store'
+import { can } from '@/lib/perm'
 import type { ReportKind } from '@/lib/types'
 
 export async function generateReport(kind: ReportKind) {
@@ -154,6 +155,8 @@ export async function deleteReport(id: string) {
   const session = await getSession()
   // 사유 없이 끝내지 않는다 — 다른 화면이 먼저 지운 리포트를 누르면 무반응으로 끝난다.
   if (!session || session.role === 'USER') return { ok: false, message: '리포트 삭제 권한이 없습니다 (담당자·Admin).' }
+  // 매트릭스 '삭제' 칸도 필요조건 — 조회·저장 게이트와 같은 규약(회수하면 실제로 막힌다).
+  if (!can('AI 어시스턴트', '삭제', session.role)) return { ok: false, message: '리포트 삭제 권한이 회수되었습니다 (권한 · 정책의 AI 어시스턴트 삭제).' }
   const s = getStore()
   const report = s.reports.find((r) => r.id === id)
   if (!report) return { ok: false, message: '이미 삭제된 리포트입니다 — 새로고침 후 확인하세요.' }

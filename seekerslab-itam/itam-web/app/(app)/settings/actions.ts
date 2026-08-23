@@ -10,7 +10,7 @@ import { decideSaasStatus } from '@/lib/saas'
 import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
 import { getStore, nextId } from '@/lib/store'
 import { saasEscalateTargets } from '@/lib/reminders'
-import { PERM_ACTIONS } from '@/lib/perm'
+import { can, PERM_ACTIONS } from '@/lib/perm'
 import { LOCKED_AI_POLICY_TOGGLES, SCAN_INTERVALS, type Channel, type PermAction, type SaasCatalogEntry } from '@/lib/types'
 
 /** 정책 변경은 전량 추적 (§07 감사) — 적재는 lib/audit 로 일원화 */
@@ -302,6 +302,8 @@ export async function setAiModel(rawModel: string, rawPrompt: string) {
 export async function toggleCodeValue(groupId: string, code: string) {
   const session = await requireAdmin()
   if (!session) return { ok: false, message: '권한이 없습니다.' }
+  // 매트릭스 '삭제'(레코드 삭제·비활성화) 칸도 필요조건 — 코드 미사용 전환이 곧 비활성화다.
+  if (!can('권한 · 정책', '삭제', session.role)) return { ok: false, message: '코드 미사용 전환 권한이 회수되었습니다 (권한 · 정책의 삭제).' }
   const s = getStore()
   const g = s.codeGroups.find((x) => x.id === groupId)
   const v = g?.values.find((x) => x.code === code)
