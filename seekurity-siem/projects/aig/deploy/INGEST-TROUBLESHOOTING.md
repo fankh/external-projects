@@ -76,3 +76,47 @@ strict_date_time_no_millis || yyyy-MM-dd'T'HH:mm:ss || epoch_millis
 실제 AIG 장비(Firewall/IPS/VPN 등)는 아직 IP 미확정이라 등록되지 않았다.
 `logsources.csv` 를 실제 값으로 채운 뒤 `20-configure-logsources.sh --apply` → `30-verify-ingest.sh` 순으로 진행하면 된다.
 장비별 파서는 `log_device_types` 에 이미 55종(Palo Alto, FortiGate, Cisco ASA, SECUI MF2 등)이 시드되어 있다.
+
+---
+
+# DB 직접 등록 시 주의 — primitive 컬럼에 NULL 을 남기지 말 것
+
+로그 소스를 SQL 로 직접 넣은 뒤 웹 콘솔 대시보드가 **500 Internal Server Error** 로 떴다.
+로그인 자체는 정상이고 URL 은 `/dashboard/dashboard` 로 넘어가는데 화면만 500 이다.
+
+ss-api 스택트레이스:
+
+```
+JpaSystemException: Null value was assigned to a property
+  [com.seekers.siem.api.model.infra.InfraCollector.lastReadLine] of primitive type setter
+java.lang.IllegalArgumentException: Can not set int field ...InfraCollector.lastReadLine to null value
+```
+
+대시보드는 구 엔드포인트 `/infra/collector` 를 호출하고, 그 엔티티 `InfraCollector` 는
+`lastReadLine` 등을 **primitive int/boolean** 으로 매핑한다. 컬럼이 NULL 이면 Hibernate 가
+매핑 단계에서 터지므로, 한 행만 NULL 이어도 목록 조회 전체가 500 이 된다.
+
+INSERT 시 다음 컬럼을 반드시 채울 것(기본값이 있는 것도 있으나 전부 확인 권장):
+
+```sql
+last_read_line=0, alive_check_time=0, regex_count=0,
+timezone_hour=0, timezone_minute=0, timezone_is_add=true,
+batch_size, collect_interval_seconds, retention_days,
+is_deleted=false, is_disabled=false, is_running=false
+```
+
+기존 행 일괄 보정:
+
+```sql
+UPDATE log_sources SET
+  last_read_line   = COALESCE(last_read_line, 0),
+  alive_check_time = COALESCE(alive_check_time, 0),
+  regex_count      = COALESCE(regex_count, 0),
+  timezone_hour    = COALESCE(timezone_hour, 0),
+  timezone_minute  = COALESCE(timezone_minute, 0),
+  timezone_is_add  = COALESCE(timezone_is_add, true)
+WHERE NOT is_deleted;
+```
+
+> 웹 콘솔(`/log/source` API)로 등록하면 서버가 기본값을 채우므로 이 문제가 없다.
+> DB 직접 등록은 admin 비밀번호를 모를 때의 우회책이며, 가능하면 API 경로를 쓸 것.
