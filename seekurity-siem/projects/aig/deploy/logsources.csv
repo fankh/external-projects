@@ -1,0 +1,10 @@
+# AIG Log Source 인벤토리 — 20-configure-logsources.sh 입력
+# system_type: Network Security | Endpoint Security | Data & Application
+# protocol: Syslog | SNMP | Agent | API
+# 현재 값은 workbooks/AIG_Log연동설계.xlsx 의 샘플 행 그대로다. 실제 IP/장비로 교체해야 한다.
+system_type,system_name,protocol,log_source_name,ip_address,port,vendor,device_type,parser,manager
+Network Security,Firewall,Syslog,AIG_Main_Internet_FW,x.x.x.x,514,,,,
+Network Security,IPS/IDS,Syslog,AIG_Main_Internet_IPS,x.x.x.x,514,,,,
+Endpoint Security,Windows Server,Agent,AIG_WinServer_01,x.x.x.x,,,,,
+Endpoint Security,Linux Server,Syslog,AIG_LinuxServer_01,x.x.x.x,514,,,,
+Data & Application,Database,Syslog,AIG_DB_01,x.x.x.x,514,,,,
