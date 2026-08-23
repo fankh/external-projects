@@ -31,5 +31,11 @@ export function entityHref(ref?: string): { href: string; external?: boolean } |
   if (['EXT-', 'EASM-', 'IOC-', 'CRED-', 'LEAK-'].some((k) => ref.startsWith(k))) return { href: '/discovery/external' }
   // 재물조사 회차 — 회차 딥링크(?round=)가 이미 있는데 기한 경과 독촉 통지의 ref 만 텍스트로 남았다.
   if (ref.startsWith('INV-')) return { href: `/inventory/survey?round=${encodeURIComponent(ref)}` }
+  // 보증 만료 임박 통지 — 자산마다 보내지 않고 부서 단위로 묶어 보내므로 참조 ID 가 WRT-{부서}다(lib/expiry).
+  //  계약·라이선스 통지는 CT-·LIC- 로 대상 화면이 열리는데 보증만 링크가 없어, 통지를 받은 쪽이 어느 자산인지
+  //  찾아 들어갈 경로가 없었다. 대장의 보증 임박 필터에 그 부서를 얹어 통지가 가리킨 집합 그대로 연다.
+  if (ref.startsWith('WRT-')) return { href: `/assets/register?warranty=soon&q=${encodeURIComponent(ref.slice(4))}` }
+  // 안전재고 미달 발주 요청 — 유형 여러 종을 한 통에 묶어 보내 대상 ID 가 없다. 재고 화면이 그 판정을 그대로 보여준다.
+  if (ref === 'STOCK') return { href: '/inventory/stock' }
   return null
 }
