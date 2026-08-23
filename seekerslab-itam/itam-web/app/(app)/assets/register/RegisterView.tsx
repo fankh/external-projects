@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -334,21 +334,21 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             {loanRetOnly ? '✓ ' : ''}반납 신청 {loanRetSet.size}
           </button>
         )}
-        {props.canEdit && (props.receiptPendingCount ?? 0) > 0 && (
+        {props.canManage && (props.receiptPendingCount ?? 0) > 0 && (
           <button className="btn sm warn" disabled={pending}
             onClick={() => startTransition(async () => setRcptRemindMsg((await remindReceipts()).message))}
             title="불출 후 수령(인수) 확인이 안 된 자산의 사용자에게 확인 요청을 발송한다">
             수령 확인 독촉 발송 ({props.receiptPendingCount})
           </button>
         )}
-        {props.canEdit && (props.maintOverdueCount ?? 0) > 0 && (
+        {props.canManage && (props.maintOverdueCount ?? 0) > 0 && (
           <button className="btn sm warn" disabled={pending}
             onClick={() => startTransition(async () => setMaintRemindMsg((await remindMaintenance()).message))}
             title="예방 정비 예정일이 지났는데도 미시행인 자산의 소유 부서에 점검 시행 요청을 발송한다">
             정기 점검 독촉 발송 ({props.maintOverdueCount})
           </button>
         )}
-        {props.canEdit && eolSet.size > 0 && (
+        {props.canManage && eolSet.size > 0 && (
           <button className="btn sm danger" disabled={pending}
             onClick={() => startTransition(async () => setEolNoticeMsg((await notifyEolUpgrade()).message))}
             title="OS 지원 종료(EOL) 자산의 소유 부서에 업그레이드·교체 검토를 통보한다 (당일 중복 발송 차단)">
@@ -415,14 +415,19 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
           {checked.size > 0 ? (
             <>
               <b>선택 {checked.size}건</b>
+              {/* 보증 일괄 연장 — 서버 액션이 자산담당·Admin 전용이라 보안담당에게는 내주지 않는다(누르면 거부되는 막다른 길 방지) */}
+              {props.canManage && (
               <span className="hstack" style={{ gap: 6 }}>
                 <span className="mut" style={{ fontSize: 12 }}>보증 일괄 연장</span>
                 {[1, 2, 3].map((y) => (
                   <button key={y} className="btn sm pri" disabled={pending} onClick={() => bulkExtend(y)}>{y}년</button>
                 ))}
               </span>
+              )}
               {props.canExport && <a className="btn sm" href={exportHref} download>⤓ 선택 {checked.size}건 내보내기</a>}
               <a className="btn sm" href={`/api/labels?nos=${encodeURIComponent([...checked].join(','))}`} target="_blank" rel="noopener">🏷 선택 라벨 인쇄</a>
+              {/* 자산 운영 일괄 조치(회수·재배정·대여·점검·계약·중요도) — 서버 액션이 자산담당·Admin 전용이라 보안담당에게는 내주지 않는다(누르면 거부되는 막다른 길 방지) */}
+              {props.canManage && (<>
               {checkedUsable.length > 0 && (
                 <button className="btn sm warn" disabled={pending} onClick={bulkRecover}
                   title="선택한 사용 중 자산을 일괄 회수 — 오프보딩·재배정(반납 접수 대기열로)">일괄 회수 (사용중 {checkedUsable.length})</button>
@@ -475,6 +480,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 </select>
                 <button className="btn sm" disabled={pending || !bulkCrit} onClick={bulkSetCrit}>지정</button>
               </span>
+              </>)}
               <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
             </>
           ) : null}
@@ -551,7 +557,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                     <b>대장 정합성 미흡</b> — 핵심 필드 보정 필요:
                     {issues.map((it) => <Chip key={it} tone="warn" bare>{it}</Chip>)}
                   </div>
-                  {props.canEdit && (
+                  {props.canManage && (
                     <div className="vstack" style={{ gap: 6, marginTop: 8 }}>
                       {issues.map((it) => {
                         const field = fieldOf[it]
@@ -607,8 +613,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <dd>
                 <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
                   <Chip tone={sel.criticality === '핵심' ? 'err' : sel.criticality === '중요' ? 'warn' : 'neutral'}>{sel.criticality ?? '일반'}</Chip>
-                  {props.canEdit && <span className="mut" style={{ fontSize: 11 }}>변경:</span>}
-                  {props.canEdit && (['핵심', '중요', '일반'] as const).map((lv) => (
+                  {props.canManage && <span className="mut" style={{ fontSize: 11 }}>변경:</span>}
+                  {props.canManage && (['핵심', '중요', '일반'] as const).map((lv) => (
                     (sel.criticality ?? '일반') !== lv && (
                       <button key={lv} className="btn sm ghost" style={{ padding: '1px 8px', fontSize: 11 }} disabled={pending}
                         title={`업무 중요도를 ${lv}으로 지정 — 취약점 우선순위 스코어링에 반영`}
@@ -671,7 +677,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       <dd className="vstack" style={{ gap: 6 }}>
                         <span><Chip tone="warn" bare>연장 요청</Chip> {sel.loanExtendRequest.newDueDate}로 · {sel.loanExtendRequest.by} <span className="dim" style={{ fontSize: 11 }}>— {sel.loanExtendRequest.reason}</span></span>
                         {loanExtMsg && <span className="dim" style={{ fontSize: 11.5 }}>{loanExtMsg}</span>}
-                        {props.canEdit && (
+                        {props.canManage && (
                           <span className="hstack" style={{ gap: 6 }}>
                             <button className="btn sm pri" disabled={pending}
                               onClick={() => startTransition(async () => setLoanExtMsg((await grantLoanExtension(sel.assetNo)).message))}>요청대로 연장</button>
@@ -731,7 +737,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   )}
                 </>
               )}
-              {sel.status === '사용중' && props.canEdit && (
+              {sel.status === '사용중' && props.canManage && (
                 <>
                   <dt>인수인계</dt>
                   <dd className="hstack" style={{ gap: 6 }}>
@@ -790,7 +796,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 {sel.contractId
                   ? <a className="code" href={contractHref(sel.contractId)} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a>
                   : <span className="mut" style={{ fontSize: 11 }}>미연계</span>}
-                {props.canEdit && (props.contracts?.length ?? 0) > 0 && (
+                {props.canManage && (props.contracts?.length ?? 0) > 0 && (
                   <div className="hstack" style={{ gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                     <select className="input" style={{ minWidth: 180, height: 25, fontSize: 11 }} value={ctPick} disabled={pending}
                       onChange={(e) => setCtPick(e.target.value)}>
@@ -926,13 +932,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             {props.canEdit && (
               <div className="hstack" style={{ marginTop: 16 }}>
                 <a className="btn sm" href={`/api/label/${sel.assetNo}`} target="_blank" rel="noopener">라벨 인쇄</a>
-                <Link className="btn sm" href="/assets/intake">라벨 · 검수</Link>
+                {props.canManage && <Link className="btn sm" href="/assets/intake">라벨 · 검수</Link>}
                 <Link className="btn sm" href="/assets/movement">이동 처리</Link>
                 <Link className="btn sm danger" href="/assets/disposal">폐기 처리</Link>
               </div>
             )}
 
-            {props.canEdit && sel.status === '분실' && (
+            {props.canManage && sel.status === '분실' && (
               <div style={{ marginTop: 12 }}>
                 {lostMsg && <div className="callout" style={{ marginBottom: 10 }}>{lostMsg}</div>}
                 <div className="callout warn" style={{ marginBottom: 10, padding: '8px 11px' }}>
@@ -961,7 +967,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </div>
             )}
 
-            {props.canEdit && sel.status !== '분실' && sel.status !== '폐기예정' && sel.status !== '폐기완료' && (
+            {props.canManage && sel.status !== '분실' && sel.status !== '폐기예정' && sel.status !== '폐기완료' && (
               <div style={{ marginTop: 12 }}>
                 {lostMsg && <div className="callout" style={{ marginBottom: 10 }}>{lostMsg}</div>}
                 {!lostOpen ? (
@@ -1010,7 +1016,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </div>
             )}
             {/* 정기 점검 — 예방 정비 예정일이 잡힌 자산에 점검 완료 액션(§03 유지보수). 완료 시 12개월 후로 재예약. 자산담당만(canEdit). */}
-            {props.canEdit && sel.maintenanceDue && (
+            {props.canManage && sel.maintenanceDue && (
               <div className="callout" style={{ marginTop: 12, padding: '10px 12px' }}>
                 {maintMsg ? maintMsg : (
                   <>
@@ -1041,7 +1047,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </div>
             )}
             {/* 정기 점검 일정 등록 — 예방 정비 예정이 아직 없는 운영 자산을 정비 사이클에 편입(§03 점검). 완료 재예약과 달리 최초 등록 접점. 자산담당만(canEdit). */}
-            {props.canEdit && !sel.maintenanceDue && !['폐기완료', '폐기예정'].includes(sel.status) && (
+            {props.canManage && !sel.maintenanceDue && !['폐기완료', '폐기예정'].includes(sel.status) && (
               <div style={{ marginTop: 12 }}>
                 {schedMsg && <div className="callout" style={{ marginBottom: 10 }}>{schedMsg}</div>}
                 {!schedOpen ? (
@@ -1092,7 +1098,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             )}
 
             {/* 자산 회수(반납 처리) — 사용 중 자산을 자산담당이 직접 회수(오프보딩·재배정). 반납대기로 보내 반납 점검 흐름을 탄다. 자산담당만(canEdit). */}
-            {props.canEdit && sel.status === '사용중' && (
+            {props.canManage && sel.status === '사용중' && (
               <div style={{ marginTop: 12 }}>
                 {recoverMsg && <div className="callout" style={{ marginBottom: 10 }}>{recoverMsg}</div>}
                 {!recoverOpen ? (
@@ -1117,7 +1123,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             )}
 
             {/* 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 후임/동료에게 직접 인계. 새 보유자 수령 확인 대기. 자산담당만(canEdit). */}
-            {props.canEdit && sel.status === '사용중' && (props.users?.length ?? 0) > 0 && (
+            {props.canManage && sel.status === '사용중' && (props.users?.length ?? 0) > 0 && (
               <div style={{ marginTop: 12 }}>
                 {reassignMsg && <div className="callout" style={{ marginBottom: 10 }}>{reassignMsg}</div>}
                 {!reassignOpen ? (
@@ -1145,11 +1151,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </div>
             )}
 
-            {props.canEdit && sel.status === '유휴' && disposalSet.has(sel.assetNo) && (
+            {props.canManage && sel.status === '유휴' && disposalSet.has(sel.assetNo) && (
               <div className="mut" style={{ marginTop: 12, fontSize: 11 }}>폐기 절차(대상 선정~소거 대기) 중인 자산이라 대여·재불출 대상이 아닙니다 — 먼저 폐기 대상 선정을 취소하세요.</div>
             )}
 
-            {props.canEdit && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && (
+            {props.canManage && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && (
               <div style={{ marginTop: 12 }}>
                 {loanMsg && <div className="callout" style={{ marginBottom: 10 }}>{loanMsg}</div>}
                 {!loanOpen ? (
@@ -1178,7 +1184,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </div>
             )}
 
-            {props.canEdit && sel.status === '대여중' && (
+            {props.canManage && sel.status === '대여중' && (
               <div style={{ marginTop: 12 }}>
                 {loanMsg && <div className="callout" style={{ marginBottom: 10 }}>{loanMsg}</div>}
                 {sel.returnRequest && (

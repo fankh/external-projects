@@ -3319,6 +3319,40 @@ try {
   ok('격리 해제: 감사 로그에 해제 기록',
     (await pQD.locator('tr').filter({ hasText: 'AST-2024-000377' }).filter({ hasText: 'NAC 격리 해제' }).count()) >= 1)
   await ctxQD.close()
+  // 대장 조작 컨트롤의 역할 게이트 — 자산 운영 액션(재배정·대여·보증 연장·폐기 선정·정합성 보정·일괄 조치)은
+  //  서버가 자산담당·Admin 전용인데, 화면은 canEdit(사용자만 제외)로 묶어 보안담당에게도 전부 내주고 있었다.
+  //  보안담당이 누르면 전부 거부된다(권한 없으면 컨트롤을 내주지 않는다는 이 화면의 규약 위반).
+  //  보안담당이 정당하게 쓰는 것(라벨 인쇄·장애 신고)은 그대로 남긴다.
+  const ctxMG = await browser.newContext(); await ctxMG.addCookies([cookie(SEC)]); const pMG = await ctxMG.newPage()
+  await pMG.goto(`${BASE}/assets/register?status=사용중`, { waitUntil: 'networkidle' })
+  const mgAsset = ((await pMG.locator('tbody tr.clickable').first().locator('td')
+    .filter({ hasText: /^AST-\d{4}-\d{6}$/ }).first().textContent()) || '').trim()
+  await pMG.goto(`${BASE}/assets/register?sel=${mgAsset}`, { waitUntil: 'networkidle' })
+  const mgSecBody = (await pMG.textContent('body')) || ''
+  ok(`대장 조작 게이트: 보안담당 상세에 자산 운영 컨트롤 미노출 (${mgAsset})`,
+    !mgSecBody.includes('자산 재배정 (직접 인계)') && !mgSecBody.includes('폐기 대상 선정'))
+  ok('대장 조작 게이트: 보안담당이 쓰는 컨트롤(라벨 인쇄)은 유지', mgSecBody.includes('라벨 인쇄'))
+  await pMG.locator('tbody tr.clickable').first().locator('input[type="checkbox"]').first().check()
+  await pMG.waitForTimeout(300)
+  // body 텍스트에는 스크립트·RSC 페이로드가 섞이므로 DOM 요소로 센다(문자열 포함 검사는 위양성이 난다).
+  const mgSecWarranty = await pMG.locator('span', { hasText: /^보증 일괄 연장$/ }).count()
+  const mgSecRecover = await pMG.locator('button', { hasText: /^일괄 회수/ }).count()
+  const mgSecLabel = await pMG.locator('a', { hasText: /라벨 인쇄/ }).count()
+  ok(`대장 조작 게이트: 보안담당 일괄 바에는 운영 일괄 조치 미노출(보증 ${mgSecWarranty} · 회수 ${mgSecRecover})`,
+    mgSecWarranty === 0 && mgSecRecover === 0)
+  await ctxMG.close()
+
+  const ctxMG2 = await browser.newContext(); await ctxMG2.addCookies([cookie(ASSET)]); const pMG2 = await ctxMG2.newPage()
+  await pMG2.goto(`${BASE}/assets/register?sel=${mgAsset}`, { waitUntil: 'networkidle' })
+  ok('대장 조작 게이트: 자산담당 상세에는 그대로 노출(양성 대조)',
+    ((await pMG2.textContent('body')) || '').includes('자산 재배정 (직접 인계)'))
+  await pMG2.goto(`${BASE}/assets/register?status=사용중`, { waitUntil: 'networkidle' })
+  await pMG2.locator('tbody tr.clickable').first().locator('input[type="checkbox"]').first().check()
+  await pMG2.waitForTimeout(300)
+  ok('대장 조작 게이트: 자산담당 일괄 바에는 운영 일괄 조치 노출(양성 대조)',
+    (await pMG2.locator('span', { hasText: /^보증 일괄 연장$/ }).count()) === 1
+    && (await pMG2.locator('button', { hasText: /^일괄 회수/ }).count()) >= 0)
+  await ctxMG2.close()
   await browser.close()
 } catch (err) {
   fail++
