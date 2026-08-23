@@ -18,6 +18,9 @@ const SUITES = [
   { name: 'smoke', script: 'scripts/smoke.mjs', port: 3378 },
   { name: 'e2e', script: 'scripts/e2e-findings.mjs', port: 3396 },
   { name: 'health', script: 'scripts/client-health.mjs', port: 3388 },
+  // 리포트 샘플 드리프트 — docs/샘플_*.md·csv 가 현재 생성기 출력과 같은지 본다. 기준일을 고정해 돌리므로
+  //  결정적이고, 리포트 로직이 바뀌면 여기서 걸린다. 이 검사가 루프에 없던 동안 10종 전부가 밀려 있었다.
+  { name: 'samples', script: 'scripts/gen-samples.mjs', port: 3397, args: ['--check'] },
 ]
 
 /** 포트가 비었는지 — 실제로 바인딩해 본다(netstat 파싱보다 확실하고 OS 중립적). */
@@ -72,9 +75,11 @@ for (const s of SUITES) {
     console.error(`✗ ${s.name}: 포트 ${s.port} 가 계속 사용 중입니다 — 다른 실행이 끝난 뒤 다시 시도하세요.`)
     process.exit(1)
   }
-  const r = await run(process.execPath, [path.join(ROOT, s.script)], s.name)
+  const r = await run(process.execPath, [path.join(ROOT, s.script), ...(s.args ?? [])], s.name)
   const m = /결과: (\d+) passed \/ (\d+) failed/.exec(r.tail)
-  results.push({ name: s.name, code: r.code, passed: m?.[1] ?? '?', failed: m?.[2] ?? '?' })
+  // 샘플 검사는 '결과: N passed' 대신 자체 요약을 낸다 — 두 형식을 모두 읽어 한 줄로 정리한다.
+  const sm = /(\d+)종 샘플 최신/.exec(r.tail)
+  results.push({ name: s.name, code: r.code, passed: m?.[1] ?? (sm ? `${sm[1]}종 최신` : '?'), failed: m?.[2] ?? (r.code === 0 ? '0' : '?') })
   if (r.code !== 0) break
 }
 
@@ -86,4 +91,4 @@ if (bad || results.length !== SUITES.length) {
   console.error(`✗ ${bad?.name ?? '중단'} 에서 실패 — 위 출력에서 첫 ✗ 를 보세요.`)
   process.exit(1)
 }
-console.log('✓ 빌드 · 스모크 · e2e · 헬스 전부 통과')
+console.log('✓ 빌드 · 스모크 · e2e · 헬스 · 샘플 전부 통과')
