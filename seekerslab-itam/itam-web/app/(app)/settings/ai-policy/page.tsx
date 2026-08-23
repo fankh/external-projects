@@ -2,6 +2,8 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { effectiveClassifyAccuracy, feedbackJudged } from '@/lib/ai-accuracy'
 import { deidentify, egressPolicy } from '@/lib/ai-egress'
+import { aiAuditLogs } from '@/lib/ai-status'
+import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import type { AiPolicy } from '@/lib/types'
 import { AiPolicyPanel } from './AiPolicyPanel'
@@ -17,13 +19,8 @@ export default async function AiPolicyPage() {
   const p = s.aiPolicy
   // AI 거버넌스는 "제안·질의·응답 전체" 보존을 요구한다. 사용자가 던진 질의와 제안 판정도
   // AI 활동이므로 함께 모은다 — actor 가 'AI 서비스'인 건만 보면 실제 질의가 빠진다.
-  const aiLogs = s.auditLogs.filter(
-    (l) =>
-      l.actor === 'AI 서비스' ||
-      l.target === 'AI 정책' ||
-      l.target === 'AI 어시스턴트' ||
-      l.action.startsWith('AI 제안'),
-  )
+  // 보존 기간까지 함께 적용한다 — 정책 숫자가 조회 범위를 실제로 정하도록(lib/ai-status aiAuditLogs).
+  const aiLogs = aiAuditLogs(s.auditLogs, s.aiPolicy.auditRetentionDays, today())
 
   return (
     <>
