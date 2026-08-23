@@ -13,6 +13,8 @@ export function ReportsView(props: {
 }) {
   const [pending, startTransition] = useTransition()
   const [attMsg, setAttMsg] = useState<string | null>(null)
+  // 삭제 결과·거부 사유 — 그전엔 액션이 아무것도 반환하지 않아 이미 지워진 리포트를 눌러도 무반응이었다.
+  const [delMsg, setDelMsg] = useState<string | null>(null)
   const [pickApr, setPickApr] = useState('')
   // 선택이 없으면 항상 최신 리포트를 펼친다 — 생성 직후 결과가 바로 보이도록
   const [selId, setSelId] = useState<string | null>(null)
@@ -27,6 +29,7 @@ export function ReportsView(props: {
   return (
     <>
       <Card kicker="Templates" title="리포트 유형" pad={false}>
+          {delMsg && <div className="callout" style={{ margin: 14 }}>{delMsg}</div>}
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>리포트</th><th className="c">주기</th><th>내용</th><th className="c">생성</th></tr></thead>
@@ -75,7 +78,7 @@ export function ReportsView(props: {
                         {r.id === openId ? '접기' : '펼치기'}
                       </button>
                       <button className="btn sm danger" disabled={pending}
-                        onClick={() => startTransition(() => deleteReport(r.id))}>삭제</button>
+                        onClick={() => startTransition(async () => setDelMsg((await deleteReport(r.id)).message))}>삭제</button>
                     </span>
                   </td>
                 </tr>

@@ -89,10 +89,11 @@ export async function scanAsset(roundId: string, rawCode: string, location: stri
 /** 차이 조정 결재 상신 — 필수 결재 (결재선: 자산담당 → IT기획팀장) */
 export async function raiseAdjustment(roundId: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '차이 조정 상신 권한이 없습니다 (자산담당·Admin).' }
   const s = getStore()
   const pending = s.surveyDiffs.filter((d) => d.roundId === roundId && d.status === '미조치')
-  if (pending.length === 0) return
+  // 사유 없이 끝내지 않는다 — 이미 상신했거나 다른 화면이 조정을 끝냈으면 버튼이 무반응이 된다.
+  if (pending.length === 0) return { ok: false, message: '조정 상신할 미조치 차이가 없습니다.' }
 
   const round = s.inventoryRounds.find((r) => r.id === roundId)
   // 필수 결재선(AL-07 차이 조정: 자산담당 → IT기획팀장)의 첫 결재 단계에서 시작한다 — 폐기·격리와 동형(마지막 단계 하드코딩 제거).
@@ -114,6 +115,7 @@ export async function raiseAdjustment(roundId: string) {
 
   appendAudit({ actor: session.name, action: `재물조사 차이 조정 상신 (${pending.length}건)`, target: roundId })
   revalidatePath('/', 'layout')
+  return { ok: true, message: `차이 ${pending.length}건 조정 상신 — 결재함에서 진행 상태를 확인하세요.` }
 }
 
 /** 조사 회차 완료 처리 — 미해결 차이(미조치·조정 상신)가 남아 있으면 마감할 수 없다.

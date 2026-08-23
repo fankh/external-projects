@@ -72,10 +72,11 @@ export async function selectForDisposalMany(items: { assetNo: string; reason: st
 /** 폐기 결재 상신 — 필수 결재 (자산담당 → IT기획팀장) */
 export async function raiseDisposalApproval() {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '폐기 결재 상신 권한이 없습니다 (자산담당·Admin).' }
   const s = getStore()
   const targets = s.disposals.filter((d) => d.status === '대상 선정')
-  if (targets.length === 0) return
+  // 사유 없이 끝내지 않는다 — 다른 화면에서 이미 상신했으면 대상이 비어 버튼이 무반응이 된다.
+  if (targets.length === 0) return { ok: false, message: '상신할 폐기 대상이 없습니다 (대상 선정 단계 건만 상신).' }
   // 필수 결재선(AL-04 폐기: 자산담당 → IT기획팀장)의 첫 결재 단계에서 시작한다 — 격리 요청(보안담당→IT기획팀장)과 동형.
   //  그전엔 마지막 단계(IT기획팀장)로 하드코딩돼 필수 자산담당 결재가 생략되고, 관리자가 결재선을 편집해도 반영되지 않았다.
   const line = s.approvalLines.find((l) => l.kind === '폐기')
@@ -95,6 +96,7 @@ export async function raiseDisposalApproval() {
   for (const d of targets) { d.status = '결재 대기'; d.approvalId = aprId }
   appendAudit({ actor: session.name, action: `폐기 상신 (${targets.length}건)`, target: aprId })
   revalidatePath('/', 'layout')
+  return { ok: true, message: `폐기 결재 상신 ${targets.length}건 — 결재함에서 진행 상태를 확인하세요.` }
 }
 
 /** 데이터 소거 처리 + 물리 처분 + 증적 보존 — 승인된 건만 가능 */

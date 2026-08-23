@@ -152,10 +152,11 @@ export async function runDueSchedules() {
 
 export async function deleteReport(id: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return
+  // 사유 없이 끝내지 않는다 — 다른 화면이 먼저 지운 리포트를 누르면 무반응으로 끝난다.
+  if (!session || session.role === 'USER') return { ok: false, message: '리포트 삭제 권한이 없습니다 (담당자·Admin).' }
   const s = getStore()
   const report = s.reports.find((r) => r.id === id)
-  if (!report) return
+  if (!report) return { ok: false, message: '이미 삭제된 리포트입니다 — 새로고침 후 확인하세요.' }
   s.reports = s.reports.filter((r) => r.id !== id)
   // 참조 무결성 — 결재에 근거 리포트로 첨부돼 있던 참조(reportRefs)도 함께 정리한다. 안 하면 삭제된 리포트가
   //  결재의 '근거 리포트'로 남아 클릭 시 404 되는 죽은 링크가 된다(detachReportFromApproval 과 동일한 filter 규약).
@@ -165,4 +166,5 @@ export async function deleteReport(id: string) {
   }
   appendAudit({ actor: session.name, action: `AI 리포트 삭제 — ${report.kind}${detached ? ` · 결재 첨부 참조 ${detached}건 정리` : ''}`, target: id })
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${report.kind} 리포트 삭제${detached ? ` · 결재 첨부 참조 ${detached}건 정리` : ''}` }
 }

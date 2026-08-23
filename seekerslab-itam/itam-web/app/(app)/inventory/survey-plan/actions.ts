@@ -171,13 +171,17 @@ export async function remindRound(roundId: string) {
 /** 계획 → 진행중 전환. 실사 화면은 '완료'가 아닌 회차만 대상으로 하므로 즉시 스캔이 가능해진다. */
 export async function startRound(roundId: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return
+  // 거부를 값 없이 끝내면 버튼이 아무 반응 없이 죽는다 — 다른 화면이 이미 개시한 회차를 열어 둔 채 누르면
+  //  무슨 일이 일어났는지 알 길이 없다. 다른 액션과 같이 사유를 돌려준다.
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '재물조사 개시 권한이 없습니다 (자산담당·Admin).' }
   const s = getStore()
   const round = s.inventoryRounds.find((r) => r.id === roundId)
-  if (!round || round.status !== '계획') return
+  if (!round) return { ok: false, message: '회차를 찾을 수 없습니다.' }
+  if (round.status !== '계획') return { ok: false, message: `이미 ${round.status} 상태인 회차입니다 — 새로고침 후 확인하세요.` }
   round.status = '진행중'
   appendAudit({ actor: session.name, action: '재물조사 개시', target: roundId })
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${round.name} 조사 개시 — 실사 화면에서 스캔을 시작하세요.` }
 }
 
 /** 재물조사 계획 취소 — 아직 개시하지 않은 계획 회차를 폐기한다 (잘못 만든/연기된 회차 정리).

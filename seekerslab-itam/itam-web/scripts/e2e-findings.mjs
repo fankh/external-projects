@@ -2412,8 +2412,17 @@ try {
   const stvRowText = (await p4.locator('tr', { has: p4.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().textContent()) || ''
   ok(`재물조사 자동 편성: 회차 기한이 기준일 +14일(${kstDue} · 오늘 ${kstToday} 아님)`, stvRowText.includes(kstDue) && !stvRowText.includes('기한 경과'))
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  // 낡은 화면에서 누른 '조사 개시' — 다른 화면이 이미 개시한 회차를 열어 둔 채 누르면 액션이 값 없이 끝나
+  //  버튼이 아무 반응 없이 죽었다(무엇이 잘못됐는지 알 길이 없다). 사유를 돌려주는지 확인한다.
+  const pStale = await p4.context().newPage()
+  await pStale.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  ok('재물조사(낡은 화면): 개시 전 계획 회차에 조사 개시 버튼(양성 대조)', (await pStale.locator('tr', { has: pStale.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().locator('button', { hasText: /^조사 개시$/ }).count()) > 0)
   await p4.locator('tr', { has: p4.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().locator('button', { hasText: /^조사 개시$/ }).click()
   await p4.waitForTimeout(800)
+  await pStale.locator('tr', { has: pStale.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().locator('button', { hasText: /^조사 개시$/ }).click()
+  await pStale.waitForTimeout(700)
+  ok('재물조사(낡은 화면): 이미 개시된 회차 재개시는 사유를 돌려준다(무반응 버튼 제거)', ((await pStale.textContent('body')) || '').includes('이미 진행중 상태인 회차입니다'))
+  await pStale.close()
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
   const surveyHref = await p4.locator('tr', { has: p4.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().locator('a', { hasText: '실사 화면' }).getAttribute('href')
   await p4.goto(`${BASE}${surveyHref}`, { waitUntil: 'networkidle' })

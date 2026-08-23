@@ -122,7 +122,7 @@ export function SurveyConsole(props: {
         <Card kicker="Differences" title="차이 항목 · 조정" pad={false}
           actions={
             <button className="btn sm pri" disabled={pending || pendingDiffs.length === 0}
-              onClick={() => startTransition(() => raiseAdjustment(props.roundId))}>
+              onClick={() => startTransition(async () => { const x = await raiseAdjustment(props.roundId); setFeedback({ ok: x.ok, result: x.ok ? '조정 상신' : undefined, message: x.message }) })}>
               조정 결재 상신 ({pendingDiffs.length})
             </button>
           }>
