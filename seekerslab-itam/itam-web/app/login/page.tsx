@@ -1,5 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { appendAudit } from '@/lib/audit'
+import { nowMinute } from '@/lib/dates'
+import { getStore } from '@/lib/store'
 import { ACCOUNTS, SESSION_COOKIE } from '@/lib/session'
 import { ROLE_LABEL } from '@/lib/types'
 
@@ -10,6 +13,12 @@ async function loginAs(formData: FormData) {
   if (!acct) return
   const jar = await cookies()
   jar.set(SESSION_COOKIE, JSON.stringify(acct), { httpOnly: true, sameSite: 'lax', path: '/' })
+  // 로그인 사실을 대장에 남긴다 — 사용자·그룹 화면의 '최근 로그인'은 시드 값에 멈춰 있어 방금 들어온 사람도
+  //  예전 시각으로 보였고(표시가 사실과 다름), 접근 기록(로그인)이 감사 로그에 아예 없었다(ISMS 접근 기록 항목).
+  const user = getStore().users.find((u) => u.login === acct.login)
+  if (user) user.lastLogin = nowMinute()
+  // 권한그룹은 스토어가 단일 출처다(getSession 과 동일 규약) — 목업 IdP 계정에 박힌 역할이 아니라 현재 값으로 남긴다.
+  appendAudit({ actor: acct.name, action: `로그인 — ${ROLE_LABEL[user?.role ?? acct.role]}`, target: acct.login })
   redirect('/dashboard')
 }
 
