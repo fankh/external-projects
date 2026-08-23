@@ -2,7 +2,7 @@ import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { can } from '@/lib/perm'
-import { getSession } from '@/lib/session'
+import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { ApprovalList } from './ApprovalList'
 import { RequestForm } from './RequestForm'
@@ -10,7 +10,7 @@ import { RequestForm } from './RequestForm'
 export const dynamic = 'force-dynamic'
 
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
-  const session = (await getSession())!
+  const session = await requireView('/workflow/approvals', 'USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const { sel } = await searchParams
   const s = getStore()
   // USER 는 본인 상신분만 조회 — 권한 매트릭스 '신청·결재' 조회='p'(own-scope)를 화면이 강제한다(전역 검색·AI 어시스턴트·대장과 동일 규약).

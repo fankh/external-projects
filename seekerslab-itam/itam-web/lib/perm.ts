@@ -47,7 +47,7 @@ export function isLocked(menu: PermMenu, action: PermAction, role: Role): boolea
  *  매핑되지 않은 화면(공지·QnA·연동 이력처럼 매트릭스에 대응 메뉴가 없는 것)은 라우트 역할 게이트만 적용한다.
  *  매트릭스는 필요조건이므로 이 매핑은 접근을 더 좁힐 뿐 넓히지 않는다. */
 export const ROUTE_MENU: Record<string, PermMenu> = {
-  '/dashboard': '대시보드',
+  // 대시보드는 매핑하지 않는다 — 진입 거부의 회귀 지점이라 여기까지 막으면 자기 자신으로 돌려보내는 고리가 된다.
   '/assets/register': '자산 대장',
   '/assets/lifecycle': '수명주기',
   '/assets/intake': '수명주기',

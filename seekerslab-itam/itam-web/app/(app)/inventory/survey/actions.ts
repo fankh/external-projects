@@ -6,6 +6,7 @@ import { dispatch } from '@/lib/notify'
 import { createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
+import { can } from '@/lib/perm'
 import type { SurveyDiffKind } from '@/lib/types'
 
 /** 스캔 시각 — 표준시 처리는 lib/dates 에 위임한다 (프로세스 TZ 에 의존하지 않도록) */
@@ -15,7 +16,7 @@ const stamp = nowMinute
  *  대장과 대조해 위치·상태 차이를 즉시 판정하고, 대장에 없는 코드는 미등록으로 기록한다. */
 export async function scanAsset(roundId: string, rawCode: string, location: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '실사 권한이 없습니다.' }
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return { ok: false, message: '실사 권한이 없습니다.' }
 
   const code = rawCode.trim().toUpperCase()
   if (!code) return { ok: false, message: '코드가 비어 있습니다.' }
@@ -89,7 +90,7 @@ export async function scanAsset(roundId: string, rawCode: string, location: stri
 /** 차이 조정 결재 상신 — 필수 결재 (결재선: 자산담당 → IT기획팀장) */
 export async function raiseAdjustment(roundId: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '차이 조정 상신 권한이 없습니다 (자산담당·Admin).' }
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return { ok: false, message: '차이 조정 상신 권한이 없습니다 (자산담당·Admin).' }
   const s = getStore()
   const pending = s.surveyDiffs.filter((d) => d.roundId === roundId && d.status === '미조치')
   // 사유 없이 끝내지 않는다 — 이미 상신했거나 다른 화면이 조정을 끝냈으면 버튼이 무반응이 된다.
@@ -122,7 +123,7 @@ export async function raiseAdjustment(roundId: string) {
  *  실사와 차이 조정이 모두 끝나야 회차를 닫는다(제품안내서 §03 재물조사 마감). */
 export async function completeRound(roundId: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) {
     return { ok: false, message: '조사 완료 권한이 없습니다 (자산담당·Admin).' }
   }
   const s = getStore()

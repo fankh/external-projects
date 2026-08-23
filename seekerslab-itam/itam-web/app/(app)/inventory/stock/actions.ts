@@ -5,6 +5,7 @@ import { today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { can } from '@/lib/perm'
 import { lowStockCategories } from '@/lib/stock'
 
 /** 발주 요청 발송 — 안전재고 미달(가용 재고 부족) 유형에 대해 구매·IT기획팀에 보충 발주를 요청한다(루프 57).
@@ -12,7 +13,7 @@ import { lowStockCategories } from '@/lib/stock'
  *  부족 수량을 유형별로 담아 발송하고, 당일 중복 발송은 차단한다. 자산담당·Admin. */
 export async function requestReorder() {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) {
     return { ok: false, message: '발주 요청 권한이 없습니다 (자산담당·Admin).' }
   }
   const s = getStore()
