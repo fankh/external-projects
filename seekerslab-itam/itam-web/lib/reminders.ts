@@ -1,10 +1,12 @@
-import { isLoanDueSoon, isLoanOverdue, isMaintenanceOverdue, isQnaOverdue, isRepairEtaMissing, isRepairOverdue, today } from './dates'
+import { isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceOverdue, isQnaOverdue, isRepairEtaMissing, isRepairOverdue, today } from './dates'
+import { missingContractDocs } from './contract'
 import { isEolTarget } from './eol'
 import { buildMaintenance } from './maintenance'
 import { buildProcurement } from './procurement'
 import { replacementCandidates } from './reports'
+import { buildSaasReview } from './saas-review'
 import { getStore } from './store'
-import type { Asset, BoardPost } from './types'
+import type { Asset, BoardPost, IntakeLot } from './types'
 
 /** 독촉·통보 **신규** 발송 대상 — 대상 조건에 들면서 오늘 아직 보내지 않은 자산만 추린다.
  *  (같은 대상에 하루 두 번 보내지 않는다 — 알림 피로가 알림을 무력화한다. 만료 임박 통지의 lib/expiry 와 같은 규약.)
@@ -88,4 +90,22 @@ export function procurementRemindTargets() {
 export function replacementNoticeTargets() {
   const sent = sentTodayRefs('교체 검토 통보')
   return replacementCandidates().cands.filter(({ a }) => !sent.has(a.assetNo))
+}
+
+/** SaaS 판정 기한 경과 에스컬레이션 대상 — 판정 SLA 를 넘긴 검토중 SaaS(오늘 발송분 제외). */
+export function saasEscalateTargets() {
+  const sent = sentTodayRefs('SaaS 판정 독촉')
+  return buildSaasReview().overdue.filter((e) => !sent.has(e.id))
+}
+
+/** 계약 부속서류 제출 요청 대상 — 필수 부속서류가 누락된 계약(오늘 발송분 제외). */
+export function contractDocsTargets() {
+  const sent = sentTodayRefs('부속서류 제출 요청')
+  return getStore().contracts.filter((c) => missingContractDocs(c).length > 0 && !sent.has(c.id))
+}
+
+/** 입고 지연 독촉 대상 — 도착 예정일이 지난 도입 예정(발주) 로트(오늘 발송분 제외). */
+export function intakeRemindTargets(): IntakeLot[] {
+  const sent = sentTodayRefs('입고 독촉')
+  return getStore().intakeLots.filter((l) => isIntakeOverdue(l) && !sent.has(l.id))
 }

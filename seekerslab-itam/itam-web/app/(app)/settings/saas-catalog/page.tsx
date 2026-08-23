@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { buildSaasReview } from '@/lib/saas-review'
 import { getStore } from '@/lib/store'
+import { saasEscalateTargets } from '@/lib/reminders'
 import { CatalogTable } from './CatalogTable'
 import { SaasEscalateButton } from './SaasEscalateButton'
 
@@ -42,7 +43,8 @@ export default async function SaasCatalogPage() {
           <b>판정 기한 경과 {review.overdue.length}건 (최장 {review.oldestDays}일).</b> 검토중 SaaS 는 접수 후 {review.slaDays}일 내 인가/차단으로 판정해야 합니다.
           기한 경과분은 대시보드 에스컬레이션 큐에 노출됩니다{review.overdueSensitive > 0 ? <> — 이 중 <b>민감·기밀 등급 {review.overdueSensitive}건</b>은 데이터 반출 위험으로 우선 판정하세요</> : null}.
           {' '}대상: {review.overdue.map((e) => `${e.service}(${e.dataGrade})`).join(', ')}.
-          <SaasEscalateButton overdue={review.overdue.length} />
+          {/* 버튼 건수는 '오늘 아직 안 보낸' 대상 수(lib/reminders · 액션과 같은 소스) — 위 문구의 경과 건수(신호)와 집합이 다르다 */}
+          <SaasEscalateButton overdue={saasEscalateTargets().length} />
         </div>
       )}
 

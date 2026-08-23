@@ -6,6 +6,7 @@ import { checklistFor } from '@/lib/intake'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo, nextId } from '@/lib/store'
+import { intakeRemindTargets } from '@/lib/reminders'
 import type { Asset, AssetCategory } from '@/lib/types'
 
 /** 입고 재검수 — 반려된 로트를 다시 검수 대기열에 올린다 (공급사 교체품 도착·반려 정정 시).
@@ -197,10 +198,8 @@ export async function remindIntakeOverdue() {
     return { ok: false, message: '입고 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
   }
 
-  const s = getStore()
-  const t = today()
-  const alreadyToday = new Set(s.dispatches.filter((m) => m.kind === '입고 독촉' && m.at.startsWith(t)).map((m) => m.ref))
-  const due = s.intakeLots.filter((l) => isIntakeOverdue(l) && !alreadyToday.has(l.id))
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 납기 경과 + 당일 발송분 제외.
+  const due = intakeRemindTargets()
   let n = 0
   for (const l of due) {
     const late = -(daysUntil(l.expectedDate!) ?? 0)

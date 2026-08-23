@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/authz'
 import { isIntakeOverdue, today } from '@/lib/dates'
 import { barcodeSvg, qrSvg } from '@/lib/label'
 import { getStore } from '@/lib/store'
+import { intakeRemindTargets } from '@/lib/reminders'
 import { IntakeView } from './IntakeView'
 
 export const dynamic = 'force-dynamic'
@@ -52,7 +53,7 @@ export default async function IntakePage() {
         그대로 사용됩니다.
       </div>
 
-      <IntakeView lots={lots} labels={labels} contracts={purchaseContracts} today={today()} />
+      <IntakeView lots={lots} labels={labels} contracts={purchaseContracts} today={today()} remindCount={intakeRemindTargets().length} />
     </>
   )
 }

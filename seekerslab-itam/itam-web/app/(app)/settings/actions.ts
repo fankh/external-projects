@@ -9,6 +9,7 @@ import { getSession } from '@/lib/session'
 import { decideSaasStatus } from '@/lib/saas'
 import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
 import { getStore, nextId } from '@/lib/store'
+import { saasEscalateTargets } from '@/lib/reminders'
 import { PERM_ACTIONS } from '@/lib/perm'
 import { LOCKED_AI_POLICY_TOGGLES, SCAN_INTERVALS, type Channel, type PermAction, type SaasCatalogEntry } from '@/lib/types'
 
@@ -136,15 +137,10 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
 export async function escalateSaasReview() {
   const session = await requireSaasPolicy()
   if (!session) return { ok: false, message: 'SaaS 판정 에스컬레이션 권한이 없습니다 (보안담당·Admin).' }
-  const s = getStore()
-  const t = today()
-  const sentToday = new Set(
-    s.dispatches.filter((m) => m.kind === 'SaaS 판정 독촉' && m.at.startsWith(t)).map((m) => m.ref),
-  )
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 기한 경과 + 당일 발송분 제외.
 
   let n = 0
-  for (const e of buildSaasReview().overdue) {
-    if (sentToday.has(e.id)) continue
+  for (const e of saasEscalateTargets()) {
     // 접수일이 없는 건도 에스컬레이션 대상이다(isSaasReviewOverdue fail safe) — 경과일을 0 으로 적으면
     //  '오늘 접수'처럼 읽히므로 기록 없음을 그대로 말한다.
     const age = saasReviewAgeDays(e)

@@ -16,7 +16,7 @@ function intakeLateDays(expectedDate: string | undefined, today: string): number
   return Math.floor((Date.parse(today) - Date.parse(expectedDate)) / 86_400_000)
 }
 
-export function IntakeView({ lots, labels, contracts, today }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[]; today: string }) {
+export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[]; today: string; remindCount?: number }) {
   // 도입 예정(사전 등록) 건과 실제 입고 건을 분리한다 — 도입 예정은 아직 검수 대상이 아니다
   const plannedLots = lots.filter((l) => l.status === '도입 예정')
   const arrivedLots = lots.filter((l) => l.status !== '도입 예정')
@@ -71,11 +71,12 @@ export function IntakeView({ lots, labels, contracts, today }: { lots: IntakeLot
 
       <Card kicker="ITSM · Procurement" title={`도입 예정 — ITSM SR·발주 연계 ${plannedLots.length > 0 ? `(${plannedLots.length})` : ''}`} pad={false}
         actions={<span className="hstack" style={{ gap: 6 }}>
-          {plannedLots.filter((l) => intakeLateDays(l.expectedDate, today) > 0).length > 0 && (
+          {/* 버튼 건수는 '오늘 아직 안 보낸' 대상 수(lib/reminders · 액션과 같은 소스) — 표의 납기 경과 배지(신호)와 집합이 다르다 */}
+          {remindCount > 0 && (
             <button className="btn sm" disabled={pending}
               title="도착 예정일이 지난 발주 로트의 공급사(발주처)에 납기 확인을 독촉합니다 (발송 이력·감사)"
               onClick={() => startTransition(async () => { const r = await remindIntakeOverdue(); setMsg({ ok: r.ok, text: r.message }) })}>
-              입고 지연 독촉 발송 {plannedLots.filter((l) => intakeLateDays(l.expectedDate, today) > 0).length}건
+              입고 지연 독촉 발송 {remindCount}건
             </button>
           )}
           {contracts.length > 0 && <button className="btn sm pri" disabled={pending} onClick={() => { setPreOpen((o) => !o); setMsg(null) }}>{preOpen ? '취소' : '＋ 도입 예정 등록'}</button>}

@@ -8,7 +8,7 @@ import { buildLicenseUsage } from '@/lib/license-usage'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { contractAssetCount, getStore } from '@/lib/store'
-import { maintenanceBudgetTargets, maintenanceExecTargets, maintenanceSlaTargets, procurementRemindTargets } from '@/lib/reminders'
+import { contractDocsTargets, maintenanceBudgetTargets, maintenanceExecTargets, maintenanceSlaTargets, procurementRemindTargets } from '@/lib/reminders'
 import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ContractDocsButton, ExpiryNoticeButton } from './LicenseActions'
 import { LicenseTable } from './LicenseTable'
@@ -47,7 +47,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
       <Card kicker="Contracts" title="구매 · 유지보수 계약" pad={false}
         actions={<span className="hstack" style={{ gap: 8 }}>
           {docGap > 0 && <Chip tone="warn">📎 부속서류 미비 {docGap}건</Chip>}
-          {docGap > 0 && ['ASSET_MGR', 'ADMIN'].includes(session.role) && <ContractDocsButton gap={docGap} />}
+          {docGap > 0 && ['ASSET_MGR', 'ADMIN'].includes(session.role) && <ContractDocsButton gap={contractDocsTargets().length} />}
           <ExportButton kind="contracts" role={session.role} label="계약·라이선스 엑셀" />
           <ExpiryNoticeButton due={dueCount} />
         </span>}>
