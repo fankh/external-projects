@@ -7,6 +7,7 @@ import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo, nextId } from '@/lib/store'
+import { requiresApproval } from '@/lib/approval'
 import { can } from '@/lib/perm'
 import { eolNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
@@ -259,6 +260,8 @@ export async function extendWarrantyMany(assetNos: string[], termYears: number) 
 export async function loanAsset(assetNo: string, rawTo: string, rawDept: string, dueDate: string) {
   const session = await guard()
   if (!session) return { ok: false, message: '대여 처리 권한이 없습니다 (자산담당·Admin).' }
+  // 필수 결재 지정(사용자·결재선 STEP 4)이면 직접 실행을 막는다 — 표시만 되고 막지 않으면 지정이 무의미하다.
+  if (requiresApproval('대여')) return { ok: false, message: '대여는 필수 결재로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.' }
 
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
@@ -293,6 +296,8 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
 export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: string, dueDate: string) {
   const session = await guard()
   if (!session) return { ok: false, message: '대여 처리 권한이 없습니다 (자산담당·Admin).' }
+  // 필수 결재 지정(사용자·결재선 STEP 4)이면 직접 실행을 막는다 — 표시만 되고 막지 않으면 지정이 무의미하다.
+  if (requiresApproval('대여')) return { ok: false, message: '대여는 필수 결재로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.' }
   const to = rawTo.trim()
   const dept = rawDept.trim()
   if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }
@@ -619,6 +624,8 @@ export async function recoverFromUser(assetNo: string, rawReason: string) {
 export async function reassignAsset(assetNo: string, rawNewOwner: string, rawNote: string) {
   const session = await guard()
   if (!session) return { ok: false, message: '자산 재배정 권한이 없습니다 (자산담당·Admin).' }
+  // 필수 결재 지정(사용자·결재선 STEP 4)이면 직접 실행을 막는다 — 표시만 되고 막지 않으면 지정이 무의미하다.
+  if (requiresApproval('이동')) return { ok: false, message: '이동(재배정)은 필수 결재로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.' }
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
@@ -676,6 +683,8 @@ export async function recoverManyFromUser(assetNos: string[], rawReason: string)
 export async function reassignAssetMany(assetNos: string[], rawNewOwner: string, rawNote: string) {
   const session = await guard()
   if (!session) return { ok: false, message: '자산 재배정 권한이 없습니다 (자산담당·Admin).' }
+  // 필수 결재 지정(사용자·결재선 STEP 4)이면 직접 실행을 막는다 — 표시만 되고 막지 않으면 지정이 무의미하다.
+  if (requiresApproval('이동')) return { ok: false, message: '이동(재배정)은 필수 결재로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.' }
   const s = getStore()
   const user = s.users.find((u) => u.name === rawNewOwner.trim())
   if (!user) return { ok: false, message: '재배정 대상 사용자를 선택해 주세요.' }
