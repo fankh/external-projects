@@ -45,7 +45,7 @@ async function waitForPort(port, name) {
 
 function run(cmd, args, label) {
   return new Promise((resolve) => {
-    const p = spawn(cmd, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], shell: false })
+    const p = spawn(cmd, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], shell: false, env: { ...process.env, ITAM_BUILT_BY_VERIFY: '1' } })
     let tail = ''
     const keep = (buf) => {
       const s = String(buf)
@@ -61,6 +61,8 @@ function run(cmd, args, label) {
 const started = Date.now()
 const nextBin = path.join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next')
 
+// 러너가 세운 빌드를 스위트가 그대로 검증하도록 표시를 넘긴다 — 러너가 도는 동안 소스를 건드려도
+//  뒤 스위트가 신선도 가드에 걸려 멈추지 않게 한다(빌드 자체는 아래에서 항상 먼저, 끝까지 돌린다).
 console.log('▶ 빌드')
 const build = await run(process.execPath, [nextBin, 'build'], 'build')
 if (build.code !== 0) {
