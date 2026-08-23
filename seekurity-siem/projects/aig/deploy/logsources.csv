@@ -1,12 +1,17 @@
-# AIG Log Source 인벤토리 — 20-configure-logsources.sh 입력
+# AIG Log Source 인벤토리 — 출처: workbooks/AIG_로그수집정보_20260806.xlsx "SIEM 로그 연동 대상"
+# status: registered = SIEM 에 등록 완료 / pending-ip = 문서에 IP 없음 / out-of-scope = 문서상 대상아님
 # system_type: Network Security | Endpoint Security | Data & Application
-# protocol: Syslog | SNMP | Agent | API
-#
-# 2026-08-23 기준 10.1.30.4 에 실제 등록된 것은 첫 행 하나뿐이다.
-# 나머지는 workbooks/AIG_Log연동설계.xlsx 가 아직 샘플이라 IP 미확정 상태로 남겨 둔다(등록·검증에서 SKIP).
-system_type,system_name,protocol,log_source_name,ip_address,port,vendor,device_type,parser,manager
-Endpoint Security,Linux Server,Syslog,AIG_SIEM_Host_Linux,10.1.30.4,514,기타,기타 장비,Linux Syslog RFC3164,
-Network Security,Firewall,Syslog,AIG_Main_Internet_FW,x.x.x.x,514,,,,
-Network Security,IPS/IDS,Syslog,AIG_Main_Internet_IPS,x.x.x.x,514,,,,
-Endpoint Security,Windows Server,Agent,AIG_WinServer_01,x.x.x.x,,,,,
-Data & Application,Database,Syslog,AIG_DB_01,x.x.x.x,514,,,,
+system_type,system_name,protocol,log_source_name,ip_address,port,vendor,device_type,parser,status
+Endpoint Security,Linux Server,Syslog,AIG_WAS01_Linux,10.1.30.2,514,Linux,Syslog,Linux Syslog RFC3164,registered
+Endpoint Security,Linux Server,Syslog,AIG_WAS02_Linux,10.1.30.3,514,Linux,Syslog,Linux Syslog RFC3164,registered
+Data & Application,Web Server,Syslog,AIG_WEB01_Nginx,211.47.20.228,514,Nginx,Web Server,Linux Syslog RFC3164,registered
+Data & Application,Web Server,Syslog,AIG_WEB02_Nginx,211.47.20.229,514,Nginx,Web Server,Linux Syslog RFC3164,registered
+Data & Application,Application,Syslog,AIG_GW01_Linux,211.47.20.230,514,Linux,Syslog,Linux Syslog RFC3164,registered
+Network Security,WAF,Syslog,AIG_WAF,,514,모니터랩,,,pending-ip
+Network Security,Firewall,Syslog,AIG_SSLVPN,,514,Fortinet,FortiGate,,pending-ip
+Network Security,IDS/IPS,Syslog,AIG_IPS_VPN,,514,Fortinet,FortiGate,,pending-ip
+Network Security,Firewall,Syslog,AIG_FW,,514,Fortinet,FortiGate,,pending-ip
+Network Security,L4 Switch,Syslog,AIG_DMZ_L4,,514,Piolink,,,pending-ip
+Network Security,L4 Switch,Syslog,AIG_INT_L4,,514,Piolink,,,pending-ip
+Network Security,L3 Switch,Syslog,AIG_L3_Switch,,514,HP,,,pending-ip
+Endpoint Security,Linux Server,Syslog,AIG_SIEM_Host_Linux,10.1.30.4,514,기타,기타 장비,Linux Syslog RFC3164,out-of-scope
