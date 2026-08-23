@@ -8,7 +8,7 @@ import { classifyDiscoveredType } from '@/lib/classify'
 import { reclaimLicenseSeats } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextAssetNo, nextId } from '@/lib/store'
-import { approvalRoute, approvalStepIndex } from '@/lib/types'
+import { approvalRoute, approvalStepIndex , GONE_STATUSES } from '@/lib/types'
 import type { ApprovalKind, AssetCategory } from '@/lib/types'
 
 /** 신청 상신 — 사용자가 직접 올리는 3종 (자산 신청 / 반납 / 이동).
@@ -512,7 +512,20 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     if (asset && verdict === '승인') {
       // 대장 관리 자산 격리 요청(AI 이상탐지) 최종 승인 = NAC 차단 집행 — 발견 자산 격리(d.action='격리완료')의 대장 자산 대응.
       // 상태는 유지한 채 네트워크만 격리하고, 이메일 상세 + 문자로 즉시 차단을 알린다.
-      if (a.kind === '격리 요청' && !asset.quarantinedAt) {
+      // 스테일 격리 방어 — 상신 후 자산이 분실·폐기로 떠났으면 차단을 집행하지 않는다(바로 아래 반납 방어와 동형).
+      //  없는 장비를 차단하라고 NAC 운영에 야간 문자까지 나가고, 폐기 확정 자산에 격리 표시가 영구히 남는다
+      //  (해제는 보안담당이 따로 해야 한다). 결재는 승인으로 두되 미집행 사유를 감사와 신청자에게 남긴다
+      //  — 라이선스 조치 미적용·대여 승인 미집행과 같은 규약.
+      if (a.kind === '격리 요청' && !asset.quarantinedAt && GONE_STATUSES.includes(asset.status)) {
+        appendAudit({ actor: session.name, action: `NAC 격리 미집행 — ${asset.assetNo} (${asset.status}) · 차단 대상 아님`, target: a.id })
+        dispatch({
+          channel: '이메일',
+          to: a.requester,
+          subject: `격리 요청 승인 미집행 — ${asset.assetNo} ${asset.model} 은(는) ${asset.status} 상태입니다 (${a.id})`,
+          kind: '격리 통보',
+          ref: asset.assetNo,
+        })
+      } else if (a.kind === '격리 요청' && !asset.quarantinedAt) {
         asset.quarantinedAt = today()
         asset.history.push({ date: today(), kind: '점검', detail: `NAC 격리 집행 — AI 이상행위 탐지 결재 승인, 네트워크 차단 (${a.id})`, actor: session.name })
         escalate({ to: '보안운영팀 · NAC', subject: `NAC 격리 집행 — ${asset.assetNo} (${asset.model}) 결재 승인, 네트워크 차단 요청`, kind: '격리 통보', ref: asset.assetNo, sms: `NAC 격리 집행 ${asset.assetNo} — 즉시 차단` })
