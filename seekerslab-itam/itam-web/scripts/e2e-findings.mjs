@@ -2385,6 +2385,14 @@ try {
   const composeBtn = stvCard.locator('button', { hasText: /^자동 편성$/ })
   if (await composeBtn.isEnabled().catch(() => false)) { await composeBtn.click(); await p4.waitForTimeout(900) }
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  // 새 회차의 기한은 기준일 +14일이어야 한다 — lib/dates 의 addDays 가 날짜를 파싱하지 못하면(정규식의 역슬래시가
+  //  떨어지면 문법 오류 없이 아무것도 매칭하지 않는다) 입력 날짜를 그대로 돌려줘 기한이 '오늘'로 잡히고,
+  //  만들자마자 기한 경과로 독촉 대상이 된다. 실제로 그렇게 깨져 있었다(리포트 다음 실행일·EASM 재스캔 주기도 같은 함수).
+  const kstToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const kstDue = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 14 * 86400000))
+  const stvRowText = (await p4.locator('tr', { has: p4.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().textContent()) || ''
+  ok(`재물조사 자동 편성: 회차 기한이 기준일 +14일(${kstDue} · 오늘 ${kstToday} 아님)`, stvRowText.includes(kstDue) && !stvRowText.includes('기한 경과'))
+  await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
   await p4.locator('tr', { has: p4.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().locator('button', { hasText: /^조사 개시$/ }).click()
   await p4.waitForTimeout(800)
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
