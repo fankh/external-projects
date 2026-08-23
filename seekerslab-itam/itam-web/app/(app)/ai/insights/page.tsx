@@ -1,6 +1,7 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
+import { openableRoutes } from '@/lib/perm'
 import type { InsightKind } from '@/lib/types'
 import { AutoClassify } from './AutoClassify'
 import { AnomalyDetection } from './AnomalyDetection'
@@ -81,7 +82,7 @@ export default async function InsightsPage() {
 
       <AutoClassify />
 
-      <AnomalyDetection role={session.role} />
+      <AnomalyDetection role={session.role} openable={openableRoutes(session.role)} />
 
       <LifecyclePrediction canNotify={['ASSET_MGR', 'ADMIN'].includes(session.role)} />
 

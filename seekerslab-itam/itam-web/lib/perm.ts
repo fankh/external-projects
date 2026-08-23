@@ -83,3 +83,11 @@ export function canViewMenu(href: string, role: Role): boolean {
   const menu = ROUTE_MENU[href.split('?')[0]]
   return !menu || can(menu, '조회', role)
 }
+
+/** 이 권한그룹이 실제로 열 수 있는 화면 경로 — 라우트 역할 게이트 ∩ 매트릭스 조회 칸.
+ *  클라이언트 컴포넌트(발송 이력·감사 로그·이상행위 표)가 참조 링크를 내줄지 판단할 때 쓴다.
+ *  can() 은 스토어를 읽어 서버 전용이라 클라이언트에서 부를 수 없다 — 서버에서 목록을 만들어 넘긴다.
+ *  '감출 목록'이 아니라 '열 수 있는 목록'을 넘기는 이유는 사이드바와 같다(권한 밖 경로를 페이로드에 싣지 않는다). */
+export function openableRoutes(role: Role): string[] {
+  return Object.keys(ROUTE_MENU).filter((href) => canViewMenu(href, role))
+}
