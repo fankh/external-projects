@@ -68,6 +68,27 @@ try {
     const badLinks = []
     const badApis = []
     const seenApi = new Set()
+    // 한 화면에서 링크 두 종류를 함께 본다 — 화면 링크는 라우트 권한, API 링크는 실제 응답으로 판정한다.
+    const collectLinks = async (page, label) => {
+      try {
+        const hrefs = await page.$$eval('a[href^="/"]', (as) => as.map((a) => a.getAttribute('href') || ''))
+        for (const raw of hrefs) {
+          const path0 = raw.split('?')[0].split('#')[0]
+          const allowed = ROUTE_ROLES[path0]
+          if (!allowed || allowed.includes(acct.role)) continue
+          badLinks.push(`${label} → ${path0}`)
+        }
+      } catch (e) { badLinks.push(`${label} → 링크 수집 실패: ${e.message}`) }
+      try {
+        const apis = await page.$$eval('a[href^="/api/"]', (as) => as.map((a) => a.getAttribute('href') || ''))
+        for (const raw of [...new Set(apis)]) {
+          if (seenApi.has(raw)) continue
+          seenApi.add(raw)
+          const res = await ctx.request.get(`${BASE}${raw}`)
+          if (res.status() >= 400) badApis.push(`${label} → ${raw} (HTTP ${res.status()})`)
+        }
+      } catch (e) { badApis.push(`${label} → API 링크 확인 실패: ${e.message}`) }
+    }
     const ctx = await browser.newContext()
     await ctx.addCookies([cookie(acct)])
     for (const route of routes) {
@@ -85,30 +106,17 @@ try {
         httpStatus = res ? res.status() : 0
         await page.waitForTimeout(400)
         crashed = (await page.content()).includes('client-side exception')
-      // 화면에 놓인 내부 링크가 이 권한그룹이 열 수 있는 화면을 가리키는지 — 못 여는 화면으로 보내는 링크는
-      //  눌러야 대시보드로 튕기는 막다른 길이다(권한 없으면 컨트롤을 내주지 않는다는 규약의 링크판).
-      //  내비 정의(menus.ts)에 있는 경로만 판정한다 — /login·/api·외부 링크는 대상이 아니다.
-      try {
-        const hrefs = await page.$$eval('a[href^="/"]', (as) => as.map((a) => a.getAttribute('href') || ''))
-        for (const raw of hrefs) {
-          const path0 = raw.split('?')[0].split('#')[0]
-          const allowed = ROUTE_ROLES[path0]
-          if (!allowed || allowed.includes(acct.role)) continue
-          badLinks.push(`${route} → ${path0}`)
+        await collectLinks(page, route)
+        // 상세 패널 링크 — 목록 화면은 행을 선택해야 문서 발급·딥링크가 나타난다(로드만으로는 보이지 않아,
+        //  자산 문서 발급 링크 같은 상세 전용 컨트롤이 이 순회의 사각이었다). 첫 행을 선택해 한 번 더 훑는다.
+        const firstRow = page.locator('tbody tr.clickable').first()
+        if ((await firstRow.count()) > 0) {
+          try {
+            await firstRow.click()
+            await page.waitForTimeout(400)
+            await collectLinks(page, `${route}(상세)`)
+          } catch { /* 선택이 없는 표(읽기 전용)는 건너뛴다 */ }
         }
-      } catch (e) { badLinks.push(`${route} → 링크 수집 실패: ${e.message}`) }
-      // 화면에 놓인 API 링크(문서 인쇄·엑셀 반출)도 이 권한그룹이 실제로 받을 수 있어야 한다 — 라우트 가드와
-      //  API 가드는 별개라, 화면이 내준 링크가 403 으로 거부되면 누르고 나서야 알게 된다(문서 발급 링크에서
-      //  실제로 그랬다). 화면에 있는 링크만 대상이므로 부작용이 있는 반출도 '이미 그 역할에게 열려 있는' 것뿐이다.
-      try {
-        const apis = await page.$$eval('a[href^="/api/"]', (as) => as.map((a) => a.getAttribute('href') || ''))
-        for (const raw of [...new Set(apis)]) {
-          if (seenApi.has(raw)) continue
-          seenApi.add(raw)
-          const res = await ctx.request.get(`${BASE}${raw}`)
-          if (res.status() >= 400) badApis.push(`${route} → ${raw} (HTTP ${res.status()})`)
-        }
-      } catch (e) { badApis.push(`${route} → API 링크 확인 실패: ${e.message}`) }
       } catch (e) { errs.push('GOTO: ' + e.message) }
       const ok = errs.length === 0 && !crashed && httpStatus < 400
       ok ? pass++ : fail++

@@ -794,7 +794,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <dt>연계 계약</dt>
               <dd>
                 {sel.contractId
-                  ? <a className="code" href={contractHref(sel.contractId)} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a>
+                  ? (props.canManage
+                    ? <a className="code" href={contractHref(sel.contractId)} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a>
+                    // 계약 화면은 자산담당·Admin 전용 — 다른 역할에게는 계약 번호를 텍스트로만 남긴다(정보는 유지, 막다른 링크는 제거)
+                    : <span className="code">{sel.contractId}</span>)
                   : <span className="mut" style={{ fontSize: 11 }}>미연계</span>}
                 {/* 근거 계약이 해지된 자산 — 라이선스의 '근거 해지'와 같은 신호. 링크만 살아 있으면 유지보수 근거가
                     사라진 것을 알 수 없다(해지 계약은 연계 선택 목록에서 빠져 화면이 스스로 알아낼 수 없다). */}
@@ -850,7 +853,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <dt>배정 라이선스</dt>
                   <dd className="vstack" style={{ gap: 3, alignItems: 'stretch' }}>
                     {props.licenseSeatsByAsset![sel.assetNo].map((l) => (
-                      <a key={l.id} className="hstack" href="/inventory/contracts" title="라이선스 좌석 배정 대장(계약·라이선스)으로 이동"
+                      // 계약·라이선스 화면은 자산담당·Admin 전용 — 권한이 없으면 링크 없이 배정 사실만 보여준다(막다른 링크 제거)
+                      <a key={l.id} className="hstack" href={props.canManage ? '/inventory/contracts' : undefined} title="라이선스 좌석 배정 대장(계약·라이선스)으로 이동"
                         style={{ gap: 6, justifyContent: 'space-between', color: 'inherit', textDecoration: 'none' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name} <span className="dim" style={{ fontSize: 11 }}>· {l.vendor}</span></span>
                         <span className="code" style={{ color: 'var(--accent-deep)', flex: 'none' }}>{l.id}</span>
@@ -937,8 +941,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <div className="hstack" style={{ marginTop: 16 }}>
                 <a className="btn sm" href={`/api/label/${sel.assetNo}`} target="_blank" rel="noopener">라벨 인쇄</a>
                 {props.canManage && <Link className="btn sm" href="/assets/intake">라벨 · 검수</Link>}
-                <Link className="btn sm" href="/assets/movement">이동 처리</Link>
-                <Link className="btn sm danger" href="/assets/disposal">폐기 처리</Link>
+                {/* 이동·폐기 처리 화면은 자산담당·Admin 전용 — 보안담당에게 내주면 눌러야 대시보드로 튕긴다 */}
+                {props.canManage && <Link className="btn sm" href="/assets/movement">이동 처리</Link>}
+                {props.canManage && <Link className="btn sm danger" href="/assets/disposal">폐기 처리</Link>}
               </div>
             )}
 
