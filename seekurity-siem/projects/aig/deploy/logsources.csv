@@ -8,7 +8,7 @@ Data & Application,Web Server,Syslog,AIG_WEB01_Nginx,211.47.20.228,514,Nginx,Web
 Data & Application,Web Server,Syslog,AIG_WEB02_Nginx,211.47.20.229,514,Nginx,Web Server,Linux Syslog RFC3164,registered
 Data & Application,Application,Syslog,AIG_GW01_Linux,211.47.20.230,514,Linux,Syslog,Linux Syslog RFC3164,registered
 Network Security,WAF,Syslog,AIG_WAF,,514,모니터랩,,,pending-ip
-Network Security,Firewall,Syslog,AIG_SSLVPN,,514,Fortinet,FortiGate,,pending-ip
+Network Security,Firewall,Syslog,AIG_SSLVPN_FW,10.1.1.1,514,Fortinet,FortiGate 81F,FortiGate KV,registered
 Network Security,IDS/IPS,Syslog,AIG_IPS_VPN,,514,Fortinet,FortiGate,,pending-ip
 Network Security,Firewall,Syslog,AIG_FW,,514,Fortinet,FortiGate,,pending-ip
 Network Security,L4 Switch,Syslog,AIG_DMZ_L4,,514,Piolink,,,pending-ip
