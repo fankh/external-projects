@@ -3133,6 +3133,29 @@ try {
   await invCell.click(); await pSQP.waitForTimeout(800) // 복원
   await pDQ.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('대시보드 큐: 조회 복원 시 큐 재노출(양성 대조)', (await pDQ.locator('a[href="/inventory/survey-plan"]').count()) > 0)
+  // 어시스턴트 근거 링크도 같은 규약 — 열 수 없는 화면으로 보내는 '자산 대장' 링크가 남으면 눌러도 튕긴다.
+  const ctxAE = await browser.newContext(); await ctxAE.addCookies([cookie(ASSET)]); const pAE = await ctxAE.newPage()
+  const askAE = async (q) => {
+    await pAE.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+    const before = await pAE.locator('.msg.assistant .bub').count()
+    await pAE.locator('.chat-in input').fill(q)
+    await pAE.locator('.chat-in input').press('Enter')
+    await pAE.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, before, { timeout: 8000 })
+    await pAE.waitForTimeout(300)
+    return pAE.locator('.msg.assistant').last()
+  }
+  const aeMsg = await askAE('유휴(재배치 가능) 자산 목록 알려줘')
+  ok('어시스턴트 근거(양성 대조): 자산 대장 링크 제공', (await aeMsg.locator('.refs a[href^="/assets/register"]').count()) > 0)
+  await pSQP.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
+  const aeRow = pSQP.locator('tr', { has: pSQP.locator('td.strong', { hasText: '자산 대장' }) }).first()
+  const aeCell = aeRow.locator('td').nth(8) // 자산담당 × 조회
+  for (let k = 0; k < 4 && !((await aeCell.textContent()) || '').includes('·'); k++) { await aeCell.click(); await pSQP.waitForTimeout(700) }
+  ok('권한 매트릭스: 자산담당 × 자산 대장 조회 회수(불가) 반영', ((await aeCell.textContent()) || '').includes('·'))
+  const aeMsg2 = await askAE('유휴(재배치 가능) 자산 목록 알려줘')
+  ok('어시스턴트 근거: 조회 회수 시 대장 링크가 사라진다(막다른 링크 방지)', (await aeMsg2.locator('.refs a[href^="/assets/register"]').count()) === 0)
+  await aeCell.click(); await pSQP.waitForTimeout(800) // 복원
+  ok('권한 매트릭스: 자산 대장 조회 권한 복원(허용)', ((await aeCell.textContent()) || '').includes('✓'))
+  await ctxAE.close()
   await ctxDQ.close()
   await ctxSRCH.close(); await ctxSQP.close()
   await ctxLI2.close(); await ctxLI.close()

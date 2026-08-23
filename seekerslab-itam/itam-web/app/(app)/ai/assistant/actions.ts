@@ -16,6 +16,7 @@ import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates,
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { buildAnomalies } from '@/lib/anomaly'
 import { getSession } from '@/lib/session'
+import { canViewMenu } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 import { canDecideApproval } from '@/lib/approval'
 import { ASSET_CATEGORIES } from '@/lib/types'
@@ -933,6 +934,18 @@ function auditQuery(actor: string, question: string, route: string, chars: numbe
 }
 
 export async function askAssistant(question: string): Promise<ChatMessage> {
+  // 근거 링크는 '가서 확인하라'는 이동이다 — 열 수 없는 화면으로 보내면 눌러도 대시보드로 튕긴다.
+  //  답변마다 흩어진 evidence 를 여기 한 곳에서 걸러 사이드바·검색·대시보드와 같은 규약으로 맞춘다
+  //  (매핑 없는 경로·외부 문서 링크는 그대로 둔다 — canViewMenu 가 매핑 없는 화면을 허용한다).
+  const answer = await answerAssistant(question)
+  const session0 = await getSession()
+  if (!session0 || !answer.evidence?.length) return answer
+  const role0 = session0.role
+  const kept = answer.evidence.filter((e) => e.href.startsWith('/api/') || canViewMenu(e.href, role0))
+  return kept.length === answer.evidence.length ? answer : { ...answer, evidence: kept }
+}
+
+async function answerAssistant(question: string): Promise<ChatMessage> {
   const session = await getSession()
   if (!session) return { role: 'assistant', text: '세션이 만료되었습니다. 다시 로그인해 주세요.' }
   const isUser = session.role === 'USER'
