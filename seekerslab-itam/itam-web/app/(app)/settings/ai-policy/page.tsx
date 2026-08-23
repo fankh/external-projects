@@ -1,7 +1,7 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { effectiveClassifyAccuracy, feedbackJudged } from '@/lib/ai-accuracy'
-import { egressPolicy } from '@/lib/ai-egress'
+import { deidentify, egressPolicy } from '@/lib/ai-egress'
 import { getStore } from '@/lib/store'
 import type { AiPolicy } from '@/lib/types'
 import { AiPolicyPanel } from './AiPolicyPanel'
@@ -71,6 +71,39 @@ export default async function AiPolicyPage() {
               </tbody>
             </table>
           </div>
+          {/* 비식별 미리보기 — 정책 표는 '비식별 적용'이라고 말하지만, 실제로 무엇이 지워지는지는 볼 수 없었다.
+              외부로 나가는 문장을 대장 실데이터 한 줄로 만들어 마스킹 전/후를 나란히 보여준다(관리자가 반출 범위를
+              눈으로 확인·감사할 수 있게). 어시스턴트가 실제로 쓰는 lib/ai-egress 의 deidentify 를 그대로 호출하므로
+              표시와 강제가 갈릴 수 없다. 온프레미스·하이브리드에서는 반출 자체가 없으므로 참고용임을 명시한다. */}
+          {(() => {
+            const sample = s.assets[0]
+            const cred = s.credentials[0]
+            const raw = [
+              sample && `- ${sample.assetNo} | ${sample.model} | ${sample.status} | ${sample.owner}/${sample.dept} | IP:${sample.ip ?? '-'}`,
+              cred && `- ${cred.id} | 크리덴셜 노출 | ${cred.service} ${cred.host}:${cred.port} | ${cred.issue}`,
+              `- 문의: ${s.users[0]?.name ?? ''} (${s.users[0]?.login ?? ''}@corp.example.com) · MAC 00:1A:2B:3C:4D:5E`,
+            ].filter(Boolean).join('\n')
+            const masked = deidentify(raw, s.users.map((u) => u.name))
+            return (
+              <div style={{ marginTop: 14 }}>
+                <div className="kicker mute">비식별 미리보기 — 외부 반출 시 실제 적용 결과</div>
+                <div className="cols c2" style={{ gap: 10, marginTop: 6 }}>
+                  <div>
+                    <div className="mut" style={{ fontSize: 11.5, marginBottom: 4 }}>원본(내부)</div>
+                    <pre className="mono" style={{ whiteSpace: 'pre-wrap', fontSize: 11, margin: 0 }}>{raw}</pre>
+                  </div>
+                  <div>
+                    <div className="mut" style={{ fontSize: 11.5, marginBottom: 4 }}>반출본(비식별)</div>
+                    <pre className="mono" style={{ whiteSpace: 'pre-wrap', fontSize: 11, margin: 0 }}>{masked}</pre>
+                  </div>
+                </div>
+                <div className="mut" style={{ fontSize: 11, marginTop: 6 }}>
+                  이름은 결정적 토큰([사용자N])으로, IP 는 상위 2옥텟만, MAC·이메일은 마스킹됩니다.
+                  {egressPolicy(p.deployment).egress === '차단' && ' 현재 실행 환경은 외부 반출이 차단돼 있어 이 변환은 참고용입니다.'}
+                </div>
+              </div>
+            )
+          })()}
         </Card>
 
         <Card kicker="Audit" title="AI 관련 감사 로그" pad={false}>
