@@ -7,6 +7,7 @@ import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo, nextId } from '@/lib/store'
+import { can } from '@/lib/perm'
 import { eolNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
@@ -116,6 +117,9 @@ const IMPORT_CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주�
 async function guard() {
   const session = await getSession()
   if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return null
+  // 매트릭스 '저장' 칸도 필요조건 — 관리자가 회수하면 이 화면의 변경 액션이 모두 막힌다(조회 게이트와 같은 규약).
+  //  그전에는 저장·삭제 칸이 어디서도 읽히지 않아 매트릭스에서 빼도 저장이 그대로 됐다(표시만 되는 정책).
+  if (!can('자산 대장', '저장', session.role)) return null
   return session
 }
 

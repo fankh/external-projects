@@ -10,6 +10,7 @@ import { buildProcurement } from '@/lib/procurement'
 import { raiseLicenseApproval } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
+import { can } from '@/lib/perm'
 import { contractDocsTargets, maintenanceBudgetTargets, maintenanceExecTargets, maintenanceSlaTargets, procurementRemindTargets } from '@/lib/reminders'
 import { CONTRACT_DOC_TYPES, type ContractDocType } from '@/lib/types'
 
@@ -89,6 +90,9 @@ export async function collectLicenseUsage() {
 async function guard() {
   const session = await getSession()
   if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return null
+  // 매트릭스 '저장' 칸도 필요조건 — 관리자가 회수하면 이 화면의 변경 액션이 모두 막힌다(조회 게이트와 같은 규약).
+  //  그전에는 저장·삭제 칸이 어디서도 읽히지 않아 매트릭스에서 빼도 저장이 그대로 됐다(표시만 되는 정책).
+  if (!can('계약 · 라이선스', '저장', session.role)) return null
   return session
 }
 

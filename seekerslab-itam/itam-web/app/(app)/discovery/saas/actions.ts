@@ -4,12 +4,16 @@ import { appendAudit } from '@/lib/audit'
 import { decideSaasStatus } from '@/lib/saas'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
+import { can } from '@/lib/perm'
 import type { SaasCatalogEntry } from '@/lib/types'
 
 async function guard() {
   const session = await getSession()
   // 판정·격리 요청은 보안담당 권한 (화면 콜아웃과 일치). Admin 도 허용.
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return null
+  // 매트릭스 '저장' 칸도 필요조건 — 관리자가 회수하면 이 화면의 변경 액션이 모두 막힌다(조회 게이트와 같은 규약).
+  //  그전에는 저장·삭제 칸이 어디서도 읽히지 않아 매트릭스에서 빼도 저장이 그대로 됐다(표시만 되는 정책).
+  if (!can('Shadow SaaS', '저장', session.role)) return null
   return session
 }
 

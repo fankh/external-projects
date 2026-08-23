@@ -3022,6 +3022,31 @@ try {
   await pLC2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
   ok('화면 가드: 조회 복원 시 수명주기 재진입·메뉴 재노출(양성 대조)', pLC2.url().endsWith('/assets/lifecycle') && (await pLC2.locator('a[href="/assets/lifecycle"]').count()) > 0)
   await ctxLC2.close()
+  // 저장 칸도 실제로 막는가(라운드트립) — 조회와 같은 이유로 저장·삭제 칸도 어디서도 읽히지 않아, 회수해도
+  //  변경 액션이 그대로 성공했다. 자산 대장 × 저장 을 회수한 뒤 보증 연장을 시도하고 복원한다.
+  const wsRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '자산 대장' }) }).first()
+  const wsCell = wsRow.locator('td').nth(9) // 라벨(0) + 자산담당(역할 2번째) × 저장(기능 2번째)
+  await wsCell.click(); await pPM.waitForTimeout(600) // 허용 → 본인
+  await wsCell.click(); await pPM.waitForTimeout(800) // 본인 → 불가
+  ok('권한 매트릭스: 자산담당 × 자산 대장 저장 회수(불가) 반영', ((await wsCell.textContent()) || '').includes('·'))
+  const ctxSG = await browser.newContext(); await ctxSG.addCookies([cookie(ASSET)]); const pSG = await ctxSG.newPage()
+  await pSG.goto(`${BASE}/assets/register?sel=AST-2022-000640`, { waitUntil: 'networkidle' })
+  await pSG.locator('button', { hasText: /^보증 연장$/ }).first().click()
+  await pSG.waitForTimeout(200)
+  await pSG.locator('button', { hasText: /^1년$/ }).first().click()
+  await pSG.waitForTimeout(800)
+  ok('저장 게이트: 매트릭스 저장 회수 시 자산 대장 변경 액션 거부(사유 표기)', ((await pSG.textContent('body')) || '').includes('보증 연장 권한이 없습니다'))
+  await ctxSG.close()
+  await wsCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
+  ok('권한 매트릭스: 자산 대장 저장 권한 복원(허용)', ((await wsCell.textContent()) || '').includes('✓'))
+  const ctxSG2 = await browser.newContext(); await ctxSG2.addCookies([cookie(ASSET)]); const pSG2 = await ctxSG2.newPage()
+  await pSG2.goto(`${BASE}/assets/register?sel=AST-2022-000640`, { waitUntil: 'networkidle' })
+  await pSG2.locator('button', { hasText: /^보증 연장$/ }).first().click()
+  await pSG2.waitForTimeout(200)
+  await pSG2.locator('button', { hasText: /^1년$/ }).first().click()
+  await pSG2.waitForTimeout(800)
+  ok('저장 게이트: 저장 복원 시 변경 액션 성공(양성 대조)', ((await pSG2.textContent('body')) || '').includes('보증 연장'))
+  await ctxSG2.close()
   await ctxPM.close()
   // 발견 편입·격리 버튼도 권한 매트릭스를 따르는지(라운드트립) — 서버 requestOnboard/requestQuarantine 은 can('발견 자산 · CMDB 대사', 편입/격리요청)을
   //  강제하고 메뉴 정의도 이 둘을 enforced 로 선언하는데, 화면은 아무 권한 게이트 없이 버튼을 내줬다. 게다가 거부가 undefined 반환이라
