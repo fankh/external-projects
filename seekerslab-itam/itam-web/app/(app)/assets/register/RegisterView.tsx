@@ -428,11 +428,17 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <a className="btn sm" href={`/api/labels?nos=${encodeURIComponent([...checked].join(','))}`} target="_blank" rel="noopener">🏷 선택 라벨 인쇄</a>
               {/* 자산 운영 일괄 조치(회수·재배정·대여·점검·계약·중요도) — 서버 액션이 자산담당·Admin 전용이라 보안담당에게는 내주지 않는다(누르면 거부되는 막다른 길 방지) */}
               {props.canManage && (<>
+              {/* 필수 결재로 지정된 종류는 일괄 조치에서도 뺀다 — 상세 컨트롤만 내리고 일괄 바에 남겨 두면 같은 규칙이 반쪽이 된다. */}
+              {(props.loanNeedsApproval || props.moveNeedsApproval) && (
+                <span className="mut" style={{ fontSize: 11.5 }}>
+                  {[props.loanNeedsApproval ? '대여' : '', props.moveNeedsApproval ? '재배정(이동)' : ''].filter(Boolean).join('·')}은 필수 결재 — 신청 · 결재로 상신
+                </span>
+              )}
               {checkedUsable.length > 0 && (
                 <button className="btn sm warn" disabled={pending} onClick={bulkRecover}
                   title="선택한 사용 중 자산을 일괄 회수 — 오프보딩·재배정(반납 접수 대기열로)">일괄 회수 (사용중 {checkedUsable.length})</button>
               )}
-              {checkedUsable.length > 0 && (props.users?.length ?? 0) > 0 && (
+              {checkedUsable.length > 0 && !props.moveNeedsApproval && (props.users?.length ?? 0) > 0 && (
                 <span className="hstack" style={{ gap: 6 }} title="선택한 사용 중 자산을 한 사람에게 일괄 직접 인계(팀 인수인계·후임 승계) — 회수와 달리 유휴 왕복 없이 보유자만 바뀌고 좌석도 승계, 새 보유자 수령 확인 대기">
                   <span className="mut" style={{ fontSize: 12 }}>일괄 재배정 (사용중 {checkedUsable.length})</span>
                   <select className="input" style={{ height: 28, width: 130 }} value={bulkReassignTo} disabled={pending} onChange={(e) => setBulkReassignTo(e.target.value)}>
@@ -443,7 +449,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <button className="btn sm" disabled={pending || !bulkReassignTo} onClick={bulkReassign}>재배정</button>
                 </span>
               )}
-              {checkedIdle.length > 0 && (
+              {checkedIdle.length > 0 && !props.loanNeedsApproval && (
                 <span className="hstack" style={{ gap: 6 }} title="선택한 유휴 재고를 한 대여자·부서·반환 기한으로 일괄 대여(교육·행사용 로너 풀)">
                   <span className="mut" style={{ fontSize: 12 }}>일괄 대여 (유휴 {checkedIdle.length})</span>
                   <input className="input" style={{ height: 28, width: 90 }} placeholder="대여자" value={bulkLoanTo} disabled={pending} onChange={(e) => setBulkLoanTo(e.target.value)} />
