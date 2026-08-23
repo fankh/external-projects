@@ -3359,6 +3359,27 @@ try {
     (await pMG2.locator('span', { hasText: /^보증 일괄 연장$/ }).count()) === 1
     && (await pMG2.locator('button', { hasText: /^일괄 회수/ }).count()) >= 0)
   await ctxMG2.close()
+  // 검수 완료 로트의 되돌릴 길 — 반려 가드가 '채번 시작'과 '검수 완료'를 함께 막아, 채번 0건인 검수 완료 로트는
+  //  반려도 재검수도 체크리스트 수정도 안 되고 앞으로(채번) 말고는 갈 곳이 없었다(시드 IN-2606-42 가 그 상태).
+  //  검수를 마친 뒤 결함을 발견하는 것은 정상적인 일이므로, 채번 전이면 반려 → 재검수로 돌아갈 수 있어야 한다.
+  const ctxIR = await browser.newContext(); await ctxIR.addCookies([cookie(ASSET)]); const pIR = await ctxIR.newPage()
+  await pIR.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  await pIR.locator('tr.clickable', { has: pIR.locator('td', { hasText: 'IN-2607-02' }) }).first().click()
+  await pIR.waitForTimeout(400)
+  ok('입고 반려 게이트: 채번 전 검수 완료 로트에 반려 컨트롤 노출(IN-2607-02)',
+    (await pIR.locator('button', { hasText: /^검수 반려$/ }).count()) === 1)
+  await pIR.locator('button', { hasText: /^검수 반려$/ }).click()
+  await pIR.locator('input[placeholder^="반려 사유"]').fill('회귀 — 검수 후 발견된 외관 불량')
+  await pIR.locator('button', { hasText: /^반려 확정$/ }).click()
+  await pIR.waitForTimeout(900)
+  const irBody = (await pIR.textContent('body')) || ''
+  ok('입고 반려 게이트: 검수 완료 로트 반려 처리(공급사 반품 통보)', irBody.includes('검수 반려'))
+  // 되돌아온 길 — 반려분은 재검수로 입고 대기에 다시 편성된다(체크리스트 초기화).
+  await pIR.locator('button', { hasText: /^재검수 \(교체품 도착\)$/ }).click()
+  await pIR.waitForTimeout(900)
+  ok('입고 반려 게이트: 재검수로 입고 대기 복귀(되돌릴 길 확보)',
+    ((await pIR.locator('tr.clickable', { has: pIR.locator('td', { hasText: 'IN-2607-02' }) }).first().textContent()) || '').includes('입고 대기'))
+  await ctxIR.close()
   await browser.close()
 } catch (err) {
   fail++

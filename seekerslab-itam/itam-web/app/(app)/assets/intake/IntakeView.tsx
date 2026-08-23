@@ -220,7 +220,10 @@ export function IntakeView({ lots, labels, contracts, today }: { lots: IntakeLot
                 })}>
                 자산번호 채번 · 대장 등록
               </button>
-              {['입고 대기', '검수 중'].includes(sel.status) && sel.issued.length === 0 && (
+              {/* 검수 완료 로트도 채번 전이면 반려할 수 있다(서버 rejectIntakeLot 과 같은 조건) — 검수를 마친 뒤 결함을
+                  발견했을 때 되돌릴 길이 있어야 한다. 체크리스트는 검수 완료에서 잠기고 재검수는 반려분만 받으므로,
+                  여기서 막으면 앞으로(채번) 말고는 갈 곳이 없다. 채번이 시작된 로트는 그대로 막는다. */}
+              {['입고 대기', '검수 중', '검수 완료'].includes(sel.status) && sel.issued.length === 0 && (
                 rejecting ? (
                   <span className="hstack" style={{ gap: 6 }}>
                     <input className="input" style={{ width: 180, height: 28 }} autoFocus
