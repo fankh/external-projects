@@ -826,25 +826,40 @@ try {
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   const rcptBtn = p2.locator('button', { hasText: /수령 확인 독촉 발송/ })
   ok('수령 확인 독촉: 미확인 있으면 자산담당에 독촉 버튼 노출', (await rcptBtn.count()) > 0)
+  const rcptN = Number((((await rcptBtn.first().innerText()) || '').match(/\((\d+)\)/) || [])[1] || '0')
   await rcptBtn.first().click()
   await p2.waitForTimeout(700)
   const rcptBody = (await p2.locator('body').textContent()) || ''
   ok('수령 확인 독촉: 발송 성공(미확인 사용자 통보·발송 이력)', rcptBody.includes('수령 확인 독촉') && rcptBody.includes('발송'))
+  // 화면-액션 정합 — 버튼이 보인 건수와 실제 발송 건수가 같아야 한다. 화면이 미확인 자산 전부를 세고 액션만 당일 발송분을
+  //  제외하면(만료 임박 알림에서 닫은 드리프트) 다 보낸 뒤에도 버튼이 같은 건수로 남고 누르면 '대상 없음'이 된다.
+  ok(`수령 확인 독촉(화면-액션 정합): 버튼 건수 = 발송 건수(${rcptN}건 · lib/reminders 단일 소스)`, rcptN > 0 && rcptBody.includes(`수령 확인 독촉 ${rcptN}건 발송`))
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  ok('수령 확인 독촉(중복 억제): 발송 직후 신규 대상 0 · 버튼 소멸(유령 컨트롤 제거)', (await p2.locator('button', { hasText: /수령 확인 독촉 발송/ }).count()) === 0)
   // 정기 점검 독촉 — 예방 정비 예정일이 경과(미시행)한 자산(시드 AST-2022-000640/641)의 소유 부서에 점검 시행 요청 발송(수령·반환 독촉과 같은 컴플라이언스 독촉). 점검 완료(뒤 단계) 전에 검증.
   const maintRemindBtn = p2.locator('button', { hasText: /정기 점검 독촉 발송/ })
   ok('정기 점검 독촉: 예정 경과 있으면 자산담당에 독촉 버튼 노출', (await maintRemindBtn.count()) > 0)
+  const maintN = Number((((await maintRemindBtn.first().innerText()) || '').match(/\((\d+)\)/) || [])[1] || '0')
   await maintRemindBtn.first().click()
   await p2.waitForTimeout(700)
   const maintRemindBody = (await p2.locator('body').textContent()) || ''
   ok('정기 점검 독촉: 발송 성공(소유 부서 점검 시행 요청·발송 이력)', maintRemindBody.includes('정기 점검 독촉') && maintRemindBody.includes('발송'))
+  ok(`정기 점검 독촉(화면-액션 정합): 버튼 건수 = 발송 건수(${maintN}건 · lib/reminders 단일 소스)`, maintN > 0 && maintRemindBody.includes(`정기 점검 독촉 ${maintN}건 발송`))
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  ok('정기 점검 독촉(중복 억제): 발송 직후 신규 대상 0 · 버튼 소멸', (await p2.locator('button', { hasText: /정기 점검 독촉 발송/ }).count()) === 0)
   // EOL OS 업그레이드 통보(로61) — 지원 종료 OS 자산(시드 Windows 10 Pro·CentOS 7.9)의 소유 부서에 업그레이드·교체 검토 통보(폐기 외 조치 접점). 정기 점검·수령 독촉과 같은 컴플라이언스 통보.
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   const eolBtn = p2.locator('button', { hasText: /EOL 업그레이드 통보/ })
   ok('EOL 업그레이드 통보: EOL OS 자산 있으면 자산담당에 통보 버튼 노출', (await eolBtn.count()) > 0)
+  const eolN = Number((((await eolBtn.first().innerText()) || '').match(/\((\d+)\)/) || [])[1] || '0')
   await eolBtn.first().click()
   await p2.waitForTimeout(700)
   const eolBody = (await p2.locator('body').textContent()) || ''
   ok('EOL 업그레이드 통보: 발송 성공(소유 부서 업그레이드·교체 요청·발송 이력)', eolBody.includes('EOL 업그레이드 통보') && eolBody.includes('발송'))
+  ok(`EOL 업그레이드 통보(화면-액션 정합): 버튼 건수 = 발송 건수(${eolN}건 · lib/reminders 단일 소스)`, eolN > 0 && eolBody.includes(`EOL 업그레이드 통보 ${eolN}건 발송`))
+  // EOL 필터 칩(브라우즈용 전량)은 그대로 남는다 — 통보 버튼만 '오늘 아직 안 보낸' 대상이라 사라진다(집합이 다르다).
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  ok('EOL 업그레이드 통보(중복 억제): 발송 직후 통보 버튼 소멸 · EOL 필터 칩은 유지', (await p2.locator('button', { hasText: /EOL 업그레이드 통보/ }).count()) === 0 && (await p2.locator('button').filter({ hasText: /^EOL OS \d+$/ }).count()) > 0)
   // 교체 검토 통보(fn03 수명예측 조치) — 교체 대상 자산(내용연수·보증·장애 이력)의 소유 부서에 교체 검토 요청 발송. EOL 통보의 수명예측 판, 그동안 수명예측 패널이 읽기 전용 표로 dead-end 였다.
   await p2.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
   const replBtn = p2.locator('button', { hasText: /교체 검토 통보/ })
