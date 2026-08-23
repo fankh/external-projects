@@ -256,7 +256,6 @@ export interface Contract {
   start: string
   end: string
   amount: number
-  assetCount: number
   ownerDept: string
   /** 계약 상태 — 미설정/유효는 진행 중, 해지는 조기 종료(만료 임박 집계·알림에서 제외) */
   status?: '유효' | '해지'

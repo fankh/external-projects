@@ -6,7 +6,8 @@ import { fmtAmount } from '@/lib/dates'
 import { CONTRACT_DOC_TYPES, type Contract, type ContractDocType } from '@/lib/types'
 import { addContract, addContractCost, addContractDoc, removeContractCost, removeContractDoc, renewContract, setContractSla, terminateContract } from './actions'
 
-type Row = Contract & { d: number | null }
+// assetCount 는 저장 필드가 아니라 화면이 넘겨주는 실측 파생값(store contractAssetCount) — '표시 수 = 드릴다운(?q=) 결과' 불변식.
+type Row = Contract & { d: number | null; assetCount: number }
 
 export function AddContract() {
   const [open, setOpen] = useState(false)

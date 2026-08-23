@@ -3261,6 +3261,19 @@ try {
   ok('휴면 경과일: 로그인 이력 없는 계정은 숫자를 지어내지 않고 이력 없음으로 표기',
     dmNoLogin.includes('이력 없음') && !/\b402\b/.test(dmNoLogin))
   await ctxDM.close()
+  // 계약 '연계 자산' 수 ↔ 드릴다운 결과 정합 — 이 숫자는 저장 필드가 아니라 실측 파생(contractAssetCount)이어야 하고,
+  //  셀의 링크가 여는 대장 검색(?q=계약ID) 결과 수와 같아야 한다. 저장 카운터를 그대로 찍으면 등록 시 0 으로 시작해
+  //  갱신되지 않으므로, 표는 0 인데 드릴다운에는 수십 대가 나오는 식으로 갈린다(그래서 저장 필드를 걷어냈다).
+  const ctxCA = await browser.newContext(); await ctxCA.addCookies([cookie(ASSET)]); const pCA = await ctxCA.newPage()
+  await pCA.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const caLink = pCA.locator('a[href^="/assets/register?q=CT-"]').first()
+  const caCount = Number(((await caLink.textContent()) || '').trim())
+  const caHref = (await caLink.getAttribute('href')) || ''
+  await pCA.goto(`${BASE}${caHref}`, { waitUntil: 'networkidle' })
+  const caRows = await pCA.locator('tbody tr.clickable').count()
+  ok(`계약 연계 자산: 표시 ${caCount}대 = 드릴다운(${caHref.replace('/assets/register?q=', '')}) ${caRows}대`,
+    caCount >= 1 && caCount === caRows)
+  await ctxCA.close()
   await browser.close()
 } catch (err) {
   fail++
