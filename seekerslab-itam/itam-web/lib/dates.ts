@@ -157,6 +157,16 @@ export function addDays(dateStr: string, days: number): string {
 export const QNA_SLA_DAYS = 3
 
 /** QnA 등록 후 경과일 — today 기준(음수면 미래 등록, 방어). 지연 판정·경과일 표기에 쓴다. */
+/** 휴면 경과일 — 마지막 로그인 이후 지난 일수. 로그인 이력이 없으면(lastLogin '-') null.
+ *  저장값이 아니라 파생값이다 — 예전엔 발견 레코드에 dormantDays 를 함께 박아 두어 시간이 지나면
+ *  마지막 로그인과 어긋났다(시드 기준 24일 차이). 계약 연계 자산 수(contractAssetCount)를 실측 파생으로
+ *  돌린 것과 같은 이유 — 갱신되지 않는 저장 카운터는 화면에서 조용히 틀린 숫자가 된다.
+ *  로그인 이력이 아예 없는 계정은 경과일을 셀 수 없지만 휴면 위험이 가장 큰 쪽이므로 호출부가 강조 처리한다. */
+export function dormantDaysOf(a: { lastLogin: string }): number | null {
+  if (!a.lastLogin || a.lastLogin === '-') return null
+  return Math.max(0, -(daysUntil(a.lastLogin) ?? 0))
+}
+
 export function qnaAgeDays(createdAt: string): number {
   return Math.max(0, -(daysUntil(createdAt) ?? 0))
 }

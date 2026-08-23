@@ -787,7 +787,6 @@ export interface AccountFinding {
   /** 마지막 로그인 일자 — 로그인 이력이 없으면 '-' */
   lastLogin: string
   /** 마지막 로그인 이후 경과일 (로그인 이력 없으면 계정 생성 이후 경과) */
-  dormantDays: number
   source: 'AD' | 'Entra ID' | 'SSO'
   risk: RiskLevel
   note?: string

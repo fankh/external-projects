@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { daysUntil, today } from '@/lib/dates'
+import { daysUntil, dormantDaysOf, today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
 import { can } from '@/lib/perm'
 import { getSession } from '@/lib/session'
@@ -398,7 +398,7 @@ export async function respondToAccount(accountId: string, kind: '비활성화' |
   a.actedAt = today()
   if (kind === '비활성화') {
     a.action = '비활성화 요청'
-    dispatch({ channel: '이메일', to: '보안운영팀', subject: `휴면 계정 비활성화 집행 요청 — ${a.account} (${a.displayName}·${a.dept}, ${a.dormantDays}일 미로그인)`, kind: '위협 대응', ref: a.id })
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `휴면 계정 비활성화 집행 요청 — ${a.account} (${a.displayName}·${a.dept}, ${dormantDaysOf(a) === null ? '로그인 이력 없음' : `${dormantDaysOf(a)}일 미로그인`})`, kind: '위협 대응', ref: a.id })
     appendAudit({ actor: session.name, action: `휴면 계정 비활성화 요청 (${a.kind}) — ${a.account}`, target: a.id })
   } else {
     a.action = '소유자 확인 요청'
@@ -424,7 +424,7 @@ export async function respondToAccountMany(ids: string[], kind: '비활성화' |
     a.actedAt = today()
     if (kind === '비활성화') {
       a.action = '비활성화 요청'
-      dispatch({ channel: '이메일', to: '보안운영팀', subject: `휴면 계정 비활성화 집행 요청 — ${a.account} (${a.displayName}·${a.dept}, ${a.dormantDays}일 미로그인)`, kind: '위협 대응', ref: a.id })
+      dispatch({ channel: '이메일', to: '보안운영팀', subject: `휴면 계정 비활성화 집행 요청 — ${a.account} (${a.displayName}·${a.dept}, ${dormantDaysOf(a) === null ? '로그인 이력 없음' : `${dormantDaysOf(a)}일 미로그인`})`, kind: '위협 대응', ref: a.id })
     } else {
       a.action = '소유자 확인 요청'
       dispatch({ channel: '이메일', to: a.dept, subject: `휴면 계정 사용 여부 확인 요청 — ${a.account} (${a.displayName}), 마지막 로그인 ${a.lastLogin}`, kind: '소유자 확인', ref: a.id })
