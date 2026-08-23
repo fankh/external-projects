@@ -1,6 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, today } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { warrantySavingsOf } from '@/lib/cost'
 import { buildRepairVendors } from '@/lib/repair-vendors'
@@ -64,7 +64,8 @@ export default async function ReturnsPage() {
   const overdueLoans = loans.filter((l) => l.overdue).length
   // 독촉 대상 — 연체 + 반환 임박(D-7). 대여자에게 반환 요청을 보낼 수 있는 건수
   const remindable = s.assets.filter((a) => isLoanOverdue(a) || isLoanDueSoon(a)).length
-  const repairRemindable = s.assets.filter(isRepairOverdue).length
+  // 버튼 건수 = 실제 발송 대상(remindRepairs) — 예상 반환 경과 + 일정 미회신. 어긋나면 눌러도 안 나가는 건수가 생긴다.
+  const repairRemindable = s.assets.filter((a) => isRepairOverdue(a) || isRepairEtaMissing(a)).length
   const todayStr = today()
 
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])

@@ -143,7 +143,7 @@ export function ReturnsView(props: {
         <Card kicker="Maintenance" title={`수리 대기 ${props.repairing.length}건`} pad={false}
           actions={props.repairRemindable > 0
             ? <button className="btn sm" disabled={pending}
-                title="예상 반환일이 지난 수리 자산의 업체에 진행·반환 일정 회신을 독촉합니다 (발송 이력·감사)"
+                title="예상 반환일이 지났거나 아직 반환 일정을 받지 못한 수리 자산의 업체에 진행·반환 일정 회신을 독촉합니다 (발송 이력·감사)"
                 onClick={() => startTransition(async () => setMsg((await remindRepairs()).message))}>업체 독촉 발송 {props.repairRemindable}건</button>
             : undefined}>
           <div className="tbl-wrap">

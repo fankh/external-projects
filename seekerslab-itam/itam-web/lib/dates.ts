@@ -211,6 +211,15 @@ export function isRepairOverdue(a: Asset): boolean {
   return (daysUntil(a.repair.eta) ?? 0) < 0
 }
 
+/** 수리 예상 반환일 미기재 — 수리 의뢰는 접수됐는데 업체가 아직 반환 일정을 주지 않은 상태(eta 선택 입력).
+ *  경과일을 셀 수 없어 isRepairOverdue 로는 영원히 잡히지 않는다 — 일정이 없는 수리일수록 독촉 대상에서
+ *  빠지는 역설이라, 업체 독촉(remindRepairs)이 이 건도 대상으로 삼는다. 독촉 문구가 원래 '진행 상황·반환
+ *  일정 회신 요청'이라 일정을 못 받은 건이야말로 그 요청의 대상이다. 지연(경과) 판정 자체는 넓히지 않는다 —
+ *  의뢰 당일 건까지 '예상 반환 경과'로 셀 수는 없으므로 대시보드 큐·리포트·업체 성과는 그대로 eta 기준이다. */
+export function isRepairEtaMissing(a: Asset): boolean {
+  return a.status === '수리중' && !!a.repair && !a.repair.eta
+}
+
 /** 도입 예정(발주) 입고 지연 — 도착 예정일이 지났는데 아직 입고되지 않은 사전 등록 로트.
  *  제품안내서 §06 ITSM·구매 연동(SR·발주 연계) — 발주처 독촉·납기 관리의 기준. 서버 전용. */
 export function isIntakeOverdue(l: IntakeLot): boolean {
