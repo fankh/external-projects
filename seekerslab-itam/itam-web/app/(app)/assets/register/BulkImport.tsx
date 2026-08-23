@@ -16,7 +16,11 @@ export function BulkImport() {
 
   const parsed = useMemo(() => {
     const out: { row: Row; valid: boolean; reason: string }[] = []
-    for (const raw of text.split(/\r?\n/)) {
+    // 템플릿(/api/asset-template.csv)은 Excel 이 한글을 깨지 않도록 BOM 을 붙여 내려간다 — 그 파일을 그대로
+    //  붙여넣으면 첫 글자가 보이지 않는 BOM 이라 헤더 판정이 빗나가고, 헤더 행이 데이터로 읽혀 유형 오류로
+    //  건너뛴다(사용자는 왜 1행이 빠졌는지 알 수 없다). 앞머리 BOM 을 걷어낸 뒤 파싱한다.
+    const body = text.replace(/^\uFEFF/, '')
+    for (const raw of body.split(/\r?\n/)) {
       const line = raw.trim()
       if (!line) continue
       const c = line.split(',').map((v) => v.trim())
