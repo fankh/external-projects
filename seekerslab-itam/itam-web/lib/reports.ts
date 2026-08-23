@@ -179,7 +179,12 @@ export function buildSections(kind: ReportKind): ReportSection[] {
   const s = getStore()
 
   if (kind === '주간 Shadow IT 브리핑') {
-    const unreg = s.discovered.filter((d) => d.state === '미등록')
+    // 편입 대상만 센다(onboardTargets) — 관리 제외(우리 자산이 아니라는 판정)·격리 요청(차단 절차)은 편입하지 않기로
+    //  판정된 건이라 Shadow IT 갭이 아니다. 이 절의 형제 신호(외부 노출·크리덴셜·휴면 계정·미인가 SW·USB·로컬 VM)가
+    //  모두 미조치만 세는데 미등록 자산만 state 로만 걸러, 격리 요청까지 끝낸 건(시드 DSC-2607-0031)이 손대지 않은
+    //  갭으로 브리핑 첫 표에 실리고 같은 리포트의 '조치 현황'에서 격리 요청으로 또 세어졌다(이중 계상).
+    //  컴플라이언스 증적·AI 자동분류 패널이 이미 같은 기준을 쓴다.
+    const unreg = onboardTargets()
     const handled = s.discovered.filter((d) => d.action)
     const shadowSaas = shadowSaasPending() // 차단 판정 완료분 제외 — 이 절은 '판정이 필요한' 미인가를 센다
     const extOpenUnreg = s.external.filter((e) => e.state === '미등록' && !e.action) // 미조치 외부 노출 — 형제 신호와 같은 기준
@@ -192,7 +197,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     return [
       {
         title: '신규 발견 미등록 자산',
-        note: `총 ${unreg.length}건 — 위험도 높음 ${unreg.filter((d) => d.risk === '높음').length}건`,
+        note: `편입 대상 ${unreg.length}건 — 위험도 높음 ${unreg.filter((d) => d.risk === '높음').length}건 (관리 제외·격리 요청 제외)`,
         columns: ['발견 ID', '호스트명', '유형', '채널', '위험도', '처리 상태'],
         rows: unreg.map((d) => [d.id, d.hostname, d.type, d.channel, d.risk, d.action ?? '미처리']),
       },
@@ -1202,7 +1207,10 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const swN = s.unauthorizedSw.filter((w) => !w.action).length
     const usbN = s.usbFindings.filter((u) => !u.action).length
     const vmN = s.localVms.filter((v) => !v.action).length
-    return `이번 주 미등록 자산 ${n('신규 발견')}건이 발견되었고, 이 중 위험도 높음은 ${s.discovered.filter((d) => d.state === '미등록' && d.risk === '높음').length}건입니다. `
+    // 위험도 높음도 표와 같은 집합(편입 대상)에서 센다 — 표는 관리 제외·격리 요청을 빼는데 서술만 전체 미등록을 세면
+    //  같은 리포트 안에서 'N건 중 높음 M건'의 M 이 N 을 넘을 수 있다.
+    const unregW = onboardTargets()
+    return `이번 주 편입 대상 미등록 자산은 ${n('신규 발견')}건이며, 이 중 위험도 높음은 ${unregW.filter((d) => d.risk === '높음').length}건입니다. `
       + `외부 공격표면에서는 미등록 노출 자산 ${n('외부 공격표면')}건이 확인되었으며 CVE가 확인된 자산이 ${s.external.filter((e) => e.cve).length}건 포함됩니다. `
       + `미인가 SaaS는 ${n('미인가 SaaS')}종으로, 소유자 확인 후 편입 또는 차단 판정이 필요합니다. `
       + `인증·계정·엔드포인트 위생에서는 크리덴셜 노출 ${credN}건·휴면 계정 ${acctN}건·미인가 SW ${swN}건·USB 매체 ${usbN}건·로컬 VM ${vmN}건이 미조치 상태로, 보안담당의 차단·제거·회수·비활성화·소유자 확인 조치가 필요합니다.`
