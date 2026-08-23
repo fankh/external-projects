@@ -1,5 +1,5 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { codeUsage } from '@/lib/codes'
 import { getStore } from '@/lib/store'
 import { CodeGroups } from './CodeGroups'
@@ -7,7 +7,7 @@ import { CodeGroups } from './CodeGroups'
 export const dynamic = 'force-dynamic'
 
 export default async function CodesPage() {
-  await requireRole('ADMIN')
+  await requireView('/settings/codes', 'ADMIN')
   const s = getStore()
   const total = s.codeGroups.reduce((n, g) => n + g.values.length, 0)
   const inactive = s.codeGroups.reduce((n, g) => n + g.values.filter((v) => !v.active).length, 0)

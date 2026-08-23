@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { ReconcileState } from '@/lib/types'
 
@@ -15,7 +15,7 @@ const OUTCOMES: { state: ReconcileState; meaning: string; handle: string; tone: 
 ]
 
 export default async function ReconcilePage() {
-  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireView('/discovery/reconcile', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const count = (st: ReconcileState) => s.discovered.filter((d) => d.state === st).length
   // 재물조사 계획은 자산담당 화면이므로, 보안담당에게는 링크를 노출하지 않는다 (권한 밖 이동 방지)

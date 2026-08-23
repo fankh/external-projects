@@ -1,5 +1,5 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { effectiveClassifyAccuracy, feedbackJudged } from '@/lib/ai-accuracy'
 import { deidentify, egressPolicy } from '@/lib/ai-egress'
 import { aiAuditLogs } from '@/lib/ai-status'
@@ -14,7 +14,7 @@ const DEPLOYMENTS: AiPolicy['deployment'][] = ['온프레미스 LLM', '외부 AP
 export const dynamic = 'force-dynamic'
 
 export default async function AiPolicyPage() {
-  await requireRole('ADMIN')
+  await requireView('/settings/ai-policy', 'ADMIN')
   const s = getStore()
   const p = s.aiPolicy
   // AI 거버넌스는 "제안·질의·응답 전체" 보존을 요구한다. 사용자가 던진 질의와 제안 판정도

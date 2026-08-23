@@ -1,6 +1,6 @@
 import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { DisposalView } from './DisposalView'
@@ -8,7 +8,7 @@ import { DisposalView } from './DisposalView'
 export const dynamic = 'force-dynamic'
 
 export default async function DisposalPage() {
-  const session = await requireRole('ASSET_MGR', 'ADMIN')
+  const session = await requireView('/assets/disposal', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
 
   // 폐기 후보 — 보증 만료 경과 + 현재 폐기 절차에 없는 자산

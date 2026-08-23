@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { acquisitionCostOf, bookValueOf } from '@/lib/cost'
 import { today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
@@ -13,7 +13,7 @@ import { StockBreakdown, type StockRow } from './StockBreakdown'
 export const dynamic = 'force-dynamic'
 
 export default async function StockPage() {
-  const session = await requireRole('ASSET_MGR', 'ADMIN')
+  const session = await requireView('/inventory/stock', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
   // 유형·부서·위치별 보유 현황 (제품안내서 §03). 세 기준 모두 같은 집계 함수로 산출한다.
   // 유형은 미사용 공통코드로 걸러내지 않는다 — 걸러내면 합계가 총 보유 수와 어긋나 대장이 틀려 보인다.

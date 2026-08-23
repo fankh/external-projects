@@ -1,5 +1,5 @@
 import { ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { assignableAssets } from '@/lib/stock'
 import { getStore } from '@/lib/store'
 import { GONE_STATUSES } from '@/lib/types'
@@ -8,7 +8,7 @@ import { MovementView } from './MovementView'
 export const dynamic = 'force-dynamic'
 
 export default async function MovementPage() {
-  await requireRole('ASSET_MGR', 'ADMIN')
+  await requireView('/assets/movement', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
 
   // 승인됐지만 아직 집행되지 않은 건 = 실제 처리 대기열.

@@ -1,6 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { ExportButton } from '@/components/ExportButton'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { nowMinute } from '@/lib/dates'
 import { isScanOverdue } from '@/lib/scan-policy'
 import { getStore } from '@/lib/store'
@@ -23,7 +23,7 @@ function inWindow(window: string, hhmm: string): boolean {
 const RUN_TONE = { 완료: 'ok', '실행 중': 'info', 중단: 'warn' } as const
 
 export default async function ScanPage() {
-  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireView('/discovery/scan', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const now = nowMinute()
   const clock = now.slice(11, 16)

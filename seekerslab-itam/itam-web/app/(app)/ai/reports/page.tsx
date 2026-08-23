@@ -1,6 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { aiStatus } from '@/lib/ai-status'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { isScheduleOverdue, nextRunOf, REPORT_KINDS } from '@/lib/reports'
 import { ScheduleCard } from './ScheduleCard'
 import { getStore } from '@/lib/store'
@@ -9,7 +9,7 @@ import { ReportsView } from './ReportsView'
 export const dynamic = 'force-dynamic'
 
 export default async function ReportsPage() {
-  await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  await requireView('/ai/reports', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const ai = aiStatus()
   const DAY = ['', '월', '화', '수', '목', '금', '토', '일']

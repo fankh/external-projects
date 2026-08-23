@@ -1,6 +1,6 @@
 import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { saasConsolidationCandidates } from '@/lib/reports'
 import { getStore } from '@/lib/store'
 import { ConsolidationCard } from './ConsolidationCard'
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 const RISK_RANK: Record<string, number> = { 높음: 3, 중간: 2, 낮음: 1 }
 
 export default async function SaasPage() {
-  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireView('/discovery/saas', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const rows = [...s.saas].sort((a, b) => b.monthlyVisits - a.monthlyVisits)
   // 차단 판정이 끝난 서비스는 판정 대기 갭이 아니다 — sanctioned 는 인가/미인가 두 값뿐이라 차단을 담지 못한다.

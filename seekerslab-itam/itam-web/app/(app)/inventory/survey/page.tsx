@@ -1,5 +1,5 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { roundProgressPct } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -9,7 +9,7 @@ import { UnscannedTargets } from './UnscannedTargets'
 export const dynamic = 'force-dynamic'
 
 export default async function SurveyPage({ searchParams }: { searchParams: Promise<{ round?: string }> }) {
-  await requireRole('ASSET_MGR', 'ADMIN')
+  await requireView('/inventory/survey', 'ASSET_MGR', 'ADMIN')
   const session = (await getSession())!
   const { round: roundParam } = await searchParams
   const s = getStore()

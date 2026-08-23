@@ -3003,6 +3003,25 @@ try {
   await pAM2.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   ok('결재함: 결재 권한 복원 시 승인 버튼 재노출(양성 대조)', (await pAM2.locator('td button', { hasText: /^승인$/ }).count()) > 0)
   await ctxAM2.close()
+  // 조회 칸도 실제로 막는가(라운드트립) — 매트릭스의 조회·저장·삭제는 어디서도 읽히지 않아, 조회를 빼도 화면이
+  //  그대로 열렸다. can() 주석과 ACTION_DEF 의 '화면 가드' 표기가 실제와 달랐다(표시만 되고 강제되지 않는 정책).
+  //  자산담당 × 수명주기 조회를 회수한 뒤 직접 진입·사이드바를 확인하고 복원한다(스위트 상태 불변).
+  const lcRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '수명주기' }) }).first()
+  const lcCell = lcRow.locator('td').nth(8) // 라벨(0) + 자산담당(역할 2번째) × 조회(기능 1번째)
+  await lcCell.click(); await pPM.waitForTimeout(600) // 허용 → 본인
+  await lcCell.click(); await pPM.waitForTimeout(800) // 본인 → 불가
+  ok('권한 매트릭스: 자산담당 × 수명주기 조회 회수(불가) 반영', ((await lcCell.textContent()) || '').includes('·'))
+  const ctxLC = await browser.newContext(); await ctxLC.addCookies([cookie(ASSET)]); const pLC = await ctxLC.newPage()
+  await pLC.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
+  ok('화면 가드: 조회 회수 시 수명주기 직접 진입 차단(대시보드로)', pLC.url().endsWith('/dashboard'))
+  ok('사이드바: 조회 회수 시 수명주기 메뉴 미노출(보이는데 튕기는 링크 방지)', (await pLC.locator('a[href="/assets/lifecycle"]').count()) === 0)
+  await ctxLC.close()
+  await lcCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
+  ok('권한 매트릭스: 수명주기 조회 권한 복원(허용)', ((await lcCell.textContent()) || '').includes('✓'))
+  const ctxLC2 = await browser.newContext(); await ctxLC2.addCookies([cookie(ASSET)]); const pLC2 = await ctxLC2.newPage()
+  await pLC2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
+  ok('화면 가드: 조회 복원 시 수명주기 재진입·메뉴 재노출(양성 대조)', pLC2.url().endsWith('/assets/lifecycle') && (await pLC2.locator('a[href="/assets/lifecycle"]').count()) > 0)
+  await ctxLC2.close()
   await ctxPM.close()
   // 발견 편입·격리 버튼도 권한 매트릭스를 따르는지(라운드트립) — 서버 requestOnboard/requestQuarantine 은 can('발견 자산 · CMDB 대사', 편입/격리요청)을
   //  강제하고 메뉴 정의도 이 둘을 enforced 로 선언하는데, 화면은 아무 권한 게이트 없이 버튼을 내줬다. 게다가 거부가 undefined 반환이라
