@@ -150,7 +150,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="c">{r.settled ? <Chip tone="neutral">정산 완료 {r.settledAt}</Chip> : r.atRisk ? <Chip tone="err">발주 미이행</Chip> : r.settleable ? <Chip tone="warn">정산 종결 가능</Chip> : r.pendingInspection > 0 ? <Chip tone="warn">검수 진행</Chip> : <Chip tone="ok">정상</Chip>}</td>
                 </tr>
               ))}
-              {proc.rows.length === 0 && <tr><td colSpan={10}><div className="empty">입고 로트가 연계된 구매 계약이 없습니다</div></td></tr>}
+              {proc.rows.length === 0 && <tr><td colSpan={10}><div className="empty">등록된 구매 계약이 없습니다</div></td></tr>}
             </tbody>
           </table>
         </div>
