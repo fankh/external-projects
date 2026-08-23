@@ -1,7 +1,7 @@
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf, repairTotalOf } from './cost'
 import { buildLicenseUsage } from './license-usage'
-import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState } from './dates'
+import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { getStore } from './store'
 import { ASSET_CATEGORIES, type PermMenu, type Role } from './types'
@@ -43,9 +43,8 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     const cat = filter?.cat ?? '전체'
     const status = filter?.status ?? '전체'
     const nos = filter?.nos && filter.nos.length ? new Set(filter.nos) : null
-    // 보증 임박 — 운영 중 자산 중 보증 90일 이내(경과 포함). 대장 화면의 warrantySet 과 같은 기준.
-    const warrantySoon = (a: (typeof s.assets)[number]) =>
-      !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90
+    // 보증 임박 — 운영 중 자산 중 보증 만료가 운영 정책 만료창 안(경과 포함). 대장 화면의 warrantySet 과 같은 lib/dates 판정.
+    const warrantySoon = (a: (typeof s.assets)[number]) => isWarrantyExpiring(a, s.opsPolicy.expiryWindowDays)
     const rows = (role === 'USER' ? s.assets.filter((a) => a.owner === userName) : s.assets)
       .filter((a) => {
         if (nos) return nos.has(a.assetNo)

@@ -1,5 +1,5 @@
 import { Card, ScreenHeader } from '@/components/ui'
-import { daysUntil, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today } from '@/lib/dates'
+import { daysUntil, isMaintenanceDue, isMaintenanceOverdue, isWarrantyExpiring, isStaleVerify, today } from '@/lib/dates'
 import { isEolTarget } from '@/lib/eol'
 import { canExport } from '@/lib/exports'
 import { hasDataIssue } from '@/lib/quality'
@@ -38,10 +38,8 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const initialSel = sel && scoped.some((a) => a.assetNo === sel) ? sel : undefined
   // 장기 미실측(유령 자산 후보) — 대장 필터·재물조사 편성이 공유하는 lib/dates 의 isStaleVerify 기준
   const staleNos = scoped.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).map((a) => a.assetNo)
-  // 보증 만료 임박·경과 — 운영 중 자산 중 보증 90일 이내(경과 포함). 보증 없는 자산(SW·가상자원)은 제외.
-  const warrantyNos = scoped
-    .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90)
-    .map((a) => a.assetNo)
+  // 보증 만료 임박·경과 — 운영 중 자산 중 보증 만료가 알림 창(운영 정책 expiryWindowDays) 안(경과 포함). 통지·대시보드와 같은 lib/dates 판정.
+  const warrantyNos = scoped.filter((a) => isWarrantyExpiring(a, s.opsPolicy.expiryWindowDays)).map((a) => a.assetNo)
   // 정합성 미흡(필드 누락·불일치) — 대장·대시보드가 공유하는 lib/quality 의 hasDataIssue 기준
   const dqNos = scoped.filter(hasDataIssue).map((a) => a.assetNo)
   // EOL OS(지원 종료 경과) — 운영 중 자산 중 OS 지원 종료가 지난 것. 미패치 취약점 상시 노출 → 교체·업그레이드 대상. (제품안내서 §05 취약점 우선순위)
@@ -88,7 +86,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       {/* CSV 일괄 등록은 bulkRegisterAssets(자산담당·Admin)를 부른다 — 보안담당에게 내주면 붙여넣고 눌러야 거부된다 */}
       {canManage && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canDoc={['ASSET_MGR', 'ADMIN'].includes(session.role)} canQuarantine={['SEC_MGR', 'ADMIN'].includes(session.role)} canManage={canManage} terminatedContracts={terminatedContracts} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canDoc={['ASSET_MGR', 'ADMIN'].includes(session.role)} canQuarantine={['SEC_MGR', 'ADMIN'].includes(session.role)} canManage={canManage} terminatedContracts={terminatedContracts} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} expiryWindowDays={s.opsPolicy.expiryWindowDays} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
       </Card>
     </>
   )

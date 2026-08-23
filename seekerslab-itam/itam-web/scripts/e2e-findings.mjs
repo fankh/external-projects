@@ -1475,6 +1475,13 @@ try {
     ok('불변식: 자동분류 NAS → 서버', await clsRow('NAS', '서버'))
   }
 
+  // 보증 임박(대장 필터)도 운영 정책 만료창을 따라야 한다 — 정책 변경 전 기본창(90일) 건수를 먼저 잡는다(양성 대조).
+  await p3.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const wBtn = () => p3.locator('button', { hasText: /^보증 임박 \d+$/ }).first()
+  const wCount = async () => Number(((await wBtn().textContent()) || '').replace(/[^0-9]/g, '') || '0')
+  const w90 = await wCount()
+  ok(`대장 보증 임박: 기본 만료창(90일) 기준 건수 노출(양성 대조 · ${w90}건)`, w90 > 0)
+
   // 운영 정책(임계값) 편집 — 소유자 확인 기한을 5일로 바꾸면 발견 처리 화면 에스컬레이션 기한에 반영된다(스토어 단일 출처).
   //  전역 opsPolicy 를 바꾸므로 마지막 컨텍스트의 맨 끝에서 수행한다(다른 검증에 영향 없음).
   await p3.goto(`${BASE}/settings/ai-policy`, { waitUntil: 'networkidle' })
@@ -1505,6 +1512,33 @@ try {
   const mid = decodeURIComponent((mh.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const mmd = await (await p3.request.get(`${BASE}/api/reports/${encodeURIComponent(mid)}?format=md`)).text()
   ok('운영 정책 다운스트림: 리포트 만료 임박 창 60일 반영', mmd.includes('만료 임박 계약 (60일 이내)') && !mmd.includes('(90일 이내)'))
+  // 대장 '보증 임박' 집합도 같은 만료창을 써야 한다 — 통지(expiryNoticeTargets)만 정책을 따르고 대장 필터·대시보드 큐·
+  //  어시스턴트·반출·복합 위험 신호는 90 을 박아 둬, 관리자가 만료창을 바꾸면 '보증 만료 임박 자산 N건' 통지와
+  //  화면의 보증 임박 집합이 서로 다른 것을 가리켰다(정책 화면은 '계약·보증·라이선스' 기준이라고 안내한다).
+  await p3.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const w60 = await wCount()
+  ok(`대장 보증 임박: 칩 설명이 설정 만료창 표기(60일 · ${w60}건)`, ((await wBtn().getAttribute('title')) || '').includes('60일 이내'))
+  // 창을 넓히면 집합이 커진다 — 판정이 정말 정책값을 쓰는지 양방향으로 본다(시드 보증 만료는 2026~2029 에 걸쳐 있다).
+  await p3.goto(`${BASE}/settings/ai-policy`, { waitUntil: 'networkidle' })
+  await opsCard.locator('button', { hasText: /^정책 편집$/ }).click()
+  await p3.waitForTimeout(250)
+  await opsCard.locator('input[type="number"]').nth(3).fill('365')
+  await opsCard.locator('button', { hasText: /^저장$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const w365 = await wCount()
+  ok(`대장 보증 임박: 만료창 확대(60 → 365일)가 집합에 반영(${w60} → ${w365}건)`, w365 > w60)
+  // 이후 검사들은 만료창 60 을 전제하므로 되돌린다(전역 정책이라 남기면 뒤 검사가 흔들린다).
+  await p3.goto(`${BASE}/settings/ai-policy`, { waitUntil: 'networkidle' })
+  await opsCard.locator('button', { hasText: /^정책 편집$/ }).click()
+  await p3.waitForTimeout(250)
+  await opsCard.locator('input[type="number"]').nth(3).fill('60')
+  await opsCard.locator('button', { hasText: /^저장$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  ok('대장 보증 임박: 만료창 복원(60일) 후 건수 원복', (await wCount()) === w60)
+  // 이 블록이 화면을 옮겼으므로 어시스턴트로 돌려놓는다 — 뒤 검사들은 p3 가 /ai/assistant 에 있다고 전제한다.
+  await p3.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
   // 월간 자산 현황에 폐기 진행 현황(완료 전 파이프라인) 섹션이 포함된다 — 처분 실적(완료)의 짝
   ok('리포트: 월간 자산 현황에 폐기 진행 현황 섹션', mmd.includes('폐기 진행 현황') && mmd.includes('자산 처분 실적'))
   // 수명주기 처리 대상 섹션 화면-리포트 정합(#4107 리포트 내용 감사) — 화면 대기열(lifecycle/page)은 종결(폐기완료)을 제외하는데 리포트가 사용중만 제외해 종결 자산이 '처리 대상'(할 일)에 남던 드리프트. 폐기완료 AST-2018-000090 은 이 섹션에만 없어야 한다(처분 실적·폐기 진행 섹션엔 정상 노출이라 섹션 스코프로 검증).

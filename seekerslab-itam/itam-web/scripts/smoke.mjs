@@ -1568,6 +1568,19 @@ try {
     .filter((rel) => rel !== 'lib/types.ts')
   check(`비운영 상태 목록: lib/types 한 곳만 정의(소스 ${sourceFiles.length}개 검사)`, statusDupes.length === 0, `중복 정의=${statusDupes.join(', ')}`)
 
+  // 보증 임박 판정 단일 소스 — 만료 알림 창(opsPolicy.expiryWindowDays)은 설정 화면이 '계약·보증·라이선스' 기준이라고
+  //  안내하는데, 보증만 여러 곳에 90 이 박혀 있었다(대장 필터·대시보드 큐·어시스턴트·반출·복합 위험 신호).
+  //  통지(lib/expiry)는 정책을 따랐으므로, 관리자가 창을 바꾸면 '보증 만료 임박 자산 N건' 통지와 화면 집합이 갈렸다.
+  //  판정은 lib/dates 의 isWarrantyExpiring 하나만 두고, 다른 파일이 보증 만료일에 직접 임계값을 대지 않는지 본다.
+  const warrantyHardcoded = sourceFiles
+    .filter((f) => {
+      const src = readFileSync(f, 'utf8')
+      return src.split(/\r?\n/).some((ln) => ln.includes('warrantyEnd') && /daysUntil\([a-zA-Z]+\.warrantyEnd\)[^]*<=/.test(ln))
+    })
+    .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
+    .filter((rel) => rel !== 'lib/dates.ts')
+  check(`보증 임박 판정: lib/dates 한 곳만 임계 비교(소스 ${sourceFiles.length}개 검사)`, warrantyHardcoded.length === 0, `직접 비교=${warrantyHardcoded.join(', ')}`)
+
 
   // AI 로그 보존 정책의 강제 — auditRetentionDays 는 화면·리포트에 숫자로만 찍히고 조회에는 쓰이지 않아,
   //  '90일 보존'이라 말하면서 그보다 오래된 로그를 그대로 보여줄 수 있었다(표시와 강제가 갈리는 계열).
