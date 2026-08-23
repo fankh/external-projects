@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/chrome/AppShell'
 import { NAV } from '@/components/chrome/menus'
+import { appendAudit } from '@/lib/audit'
 import { canDecideApproval } from '@/lib/approval'
 import { canViewMenu } from '@/lib/perm'
 import { getSession, SESSION_COOKIE } from '@/lib/session'
@@ -10,6 +11,10 @@ import { ROLE_LABEL } from '@/lib/types'
 
 async function logout() {
   'use server'
+  // 접근 기록의 짝 — 로그인만 남기고 로그아웃을 안 남기면 '언제까지 접속해 있었나'가 증적에서 빠진다.
+  //  쿠키를 지우기 전에 누구의 세션이었는지 확인해 남긴다(지운 뒤에는 알 수 없다).
+  const who = await getSession()
+  if (who) appendAudit({ actor: who.name, action: `로그아웃 — ${ROLE_LABEL[who.role]}`, target: who.login })
   const jar = await cookies()
   jar.delete(SESSION_COOKIE)
   redirect('/login')
