@@ -10,6 +10,7 @@ import { buildProcurement } from '@/lib/procurement'
 import { raiseLicenseApproval } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
+import { maintenanceBudgetTargets, maintenanceExecTargets, maintenanceSlaTargets, procurementRemindTargets } from '@/lib/reminders'
 import { CONTRACT_DOC_TYPES, type ContractDocType } from '@/lib/types'
 
 /** 계약 등록 — 신규 구매·유지보수 계약을 대장에 편입한다 (갱신·알림만 있고 등록 경로 부재).
@@ -140,16 +141,10 @@ export async function notifyMaintenanceBudget() {
   const session = await guard()
   if (!session) return { ok: false, message: '유지보수 예산 통보 권한이 없습니다 (자산담당·Admin).' }
 
-  const s = getStore()
-  const t = today()
-  const sentToday = new Set(
-    s.dispatches.filter((m) => m.kind === '유지보수 예산 통보' && m.at.startsWith(t)).map((m) => m.ref),
-  )
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 조건 + 당일 발송분 제외.
 
   let n = 0
-  for (const r of buildMaintenance().rows) {
-    if (r.status !== '예산 초과' && r.status !== '소진 임박') continue
-    if (sentToday.has(r.id)) continue
+  for (const r of maintenanceBudgetTargets()) {
     const ask = r.status === '예산 초과' ? '추가 예산·재협상 검토' : '잔여 집행 계획 점검'
     dispatch({
       channel: '이메일',
@@ -174,16 +169,10 @@ export async function remindMaintenanceExecution() {
   const session = await guard()
   if (!session) return { ok: false, message: '유지보수 이행 독촉 권한이 없습니다 (자산담당·Admin).' }
 
-  const s = getStore()
-  const t = today()
-  const sentToday = new Set(
-    s.dispatches.filter((m) => m.kind === '유지보수 이행 독촉' && m.at.startsWith(t)).map((m) => m.ref),
-  )
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 조건 + 당일 발송분 제외.
 
   let n = 0
-  for (const r of buildMaintenance().rows) {
-    if (r.status !== '미집행') continue
-    if (sentToday.has(r.id)) continue
+  for (const r of maintenanceExecTargets()) {
     dispatch({
       channel: '이메일',
       to: `${r.ownerDept} · ${r.vendor}`,
@@ -208,16 +197,10 @@ export async function escalateSlaBreach() {
   const session = await guard()
   if (!session) return { ok: false, message: 'SLA 이행 독촉 권한이 없습니다 (자산담당·Admin).' }
 
-  const s = getStore()
-  const t = today()
-  const sentToday = new Set(
-    s.dispatches.filter((m) => m.kind === '유지보수 SLA 위반 독촉' && m.at.startsWith(t)).map((m) => m.ref),
-  )
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 조건 + 당일 발송분 제외.
 
   let n = 0
-  for (const r of buildMaintenance().rows) {
-    if (r.slaBreach === 0) continue
-    if (sentToday.has(r.id)) continue
+  for (const r of maintenanceSlaTargets()) {
     dispatch({
       channel: '이메일',
       to: `${r.ownerDept} · ${r.vendor}`,
@@ -275,15 +258,10 @@ export async function remindProcurement() {
   const session = await guard()
   if (!session) return { ok: false, message: '발주 이행 독촉 권한이 없습니다 (자산담당·Admin).' }
 
-  const s = getStore()
-  const t = today()
-  const sentToday = new Set(
-    s.dispatches.filter((m) => m.kind === '발주 이행 독촉' && m.at.startsWith(t)).map((m) => m.ref),
-  )
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 조건 + 당일 발송분 제외.
 
   let n = 0
-  for (const r of buildProcurement().atRisk) {
-    if (sentToday.has(r.id)) continue
+  for (const r of procurementRemindTargets()) {
     dispatch({
       channel: '이메일',
       to: `${r.ownerDept} · ${r.vendor} · 구매팀`,

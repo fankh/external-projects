@@ -3,6 +3,7 @@ import { Card, Chip, Stat } from '@/components/ui'
 import { ACQ_COST } from '@/lib/cost'
 import { fmtAmount } from '@/lib/dates'
 import { replacementCandidates } from '@/lib/reports'
+import { replacementNoticeTargets } from '@/lib/reminders'
 import { ReplacementNotifyButton } from './ReplacementNotifyButton'
 
 // 교체 사유 태그별 톤 — 잦은 장애는 장애 이력 드라이버라 경고, 나머지는 노후·보증 경과.
@@ -22,6 +23,8 @@ function reasonTags(why: string): { label: string; tone: 'err' | 'warn' | 'neutr
  *  근거 산정은 연간 교체 계획 리포트와 동일한 replacementCandidates()를 재사용해 화면·리포트가 어긋나지 않게 한다. */
 export function LifecyclePrediction({ canNotify }: { canNotify?: boolean }) {
   const { cands, budget, residualBook } = replacementCandidates()
+  // 통보 버튼 건수 — 표의 교체 대상 수(전량)와 달리 '오늘 아직 안 보낸' 발송 대상 수다(lib/reminders · 액션과 같은 소스).
+  const noticeN = replacementNoticeTargets().length
   // 사유별 분해 — 한 대가 복수 사유를 가질 수 있어 합계는 대수와 일치하지 않는다.
   const agedN = cands.filter((x) => x.why.includes('내용연수')).length
   const warrN = cands.filter((x) => x.why.includes('보증 경과')).length
@@ -38,7 +41,7 @@ export function LifecyclePrediction({ canNotify }: { canNotify?: boolean }) {
       actions={
         <span className="hstack" style={{ gap: 10, alignItems: 'center' }}>
           <span className="dim" style={{ fontSize: 11.5 }}>내용연수·보증·장애 이력 · 총 {cands.length}대</span>
-          {canNotify && cands.length > 0 && <ReplacementNotifyButton />}
+          {canNotify && cands.length > 0 && <ReplacementNotifyButton n={noticeN} />}
         </span>
       }
     >
