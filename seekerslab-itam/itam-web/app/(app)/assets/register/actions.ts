@@ -1035,3 +1035,29 @@ export async function bulkRegisterAssets(rows: { category: string; model: string
   revalidatePath('/', 'layout')
   return { ok: true, message: `일괄 등록 완료 — ${created.length}건 대장 편입(검수중)${skipped.length ? `, ${skipped.length}행 건너뜀` : ''}`, created: created.length, skipped }
 }
+
+/** NAC 격리 해제 — 침해 조사·조치가 끝난 자산의 차단을 푼다. 보안담당·Admin.
+ *  격리 집행은 결재를 거치지만(격리 요청 → 승인 → quarantinedAt), 해제는 보안 운영의 조사 종결 판단이라
+ *  즉시 처리하고 사유·이력·통보를 남긴다. 그동안 격리는 되돌릴 수 없는 한쪽 문이었다 — 조사가 끝나도
+ *  자산에 격리 표시가 영구히 남고, 이상 행위 목록은 그 자산을 '차단 집행됨'으로 계속 빼둔다(신호가 영영 닫힌다).
+ *  해제하면 차단이 풀린 것이므로 이상 행위 신호도 다시 열린다 — 조치가 끝났는지는 제안 판정으로 닫는다. */
+export async function releaseQuarantine(assetNo: string, rawReason: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '격리 해제 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (!asset.quarantinedAt) return { ok: false, message: `격리 상태가 아닙니다 — ${assetNo}` }
+  const reason = rawReason.trim()
+  if (!reason) return { ok: false, message: '해제 사유를 입력해 주세요 — 조사 결과·보상통제가 감사 증적으로 남습니다.' }
+
+  const since = asset.quarantinedAt
+  asset.quarantinedAt = undefined
+  asset.history.push({ date: today(), kind: '구성변경', detail: `NAC 격리 해제 — ${reason} (격리 ${since})`, actor: session.name })
+  dispatch({ channel: '이메일', to: '보안운영팀', subject: `NAC 격리 해제 — ${assetNo} ${asset.model} (격리 ${since} · ${reason})`, kind: '격리 통보', ref: assetNo })
+  appendAudit({ actor: session.name, action: `NAC 격리 해제 — ${assetNo} (${reason})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} NAC 격리 해제 — 보안운영팀 통보·감사 적재 (격리 ${since})` }
+}
