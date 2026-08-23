@@ -91,3 +91,17 @@ export const NAV: NavGroup[] = [
 export const TITLE_BY_HREF: Record<string, { group: string; title: string }> = Object.fromEntries(
   NAV.flatMap((g) => g.items.map((i) => [i.href, { group: g.label, title: i.label }])),
 )
+
+/** 라우트별 허용 권한그룹 — 내비 정의에서 파생(화면 가드 requireRole 과 같은 집합이어야 하며 스모크가 대조한다). */
+export const ROUTE_ROLES: Record<string, Role[]> = Object.fromEntries(
+  NAV.flatMap((g) => g.items.map((i) => [i.href, i.roles])),
+)
+
+/** 이 권한그룹이 이 링크를 열 수 있는가 — 못 여는 화면으로 보내는 링크는 눌러야 대시보드로 튕기는 막다른 길이다.
+ *  딥링크(?sel=·?round=)는 경로만 보고 판정한다. 내비에 없는 경로(로그인·API·외부)는 판정 대상이 아니라 true.
+ *  화면이 스스로 '이 역할이 이 링크를 내줘도 되는가'를 물을 수 있게 순수 함수로 둔다(클라이언트 공용). */
+export function canOpenRoute(href: string, role: Role): boolean {
+  const path = href.split('?')[0].split('#')[0]
+  const roles = ROUTE_ROLES[path]
+  return !roles || roles.includes(role)
+}
