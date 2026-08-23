@@ -66,6 +66,8 @@ try {
 
   const checkRoutes = async (acct, routes, tag) => {
     const badLinks = []
+    const badApis = []
+    const seenApi = new Set()
     const ctx = await browser.newContext()
     await ctx.addCookies([cookie(acct)])
     for (const route of routes) {
@@ -95,6 +97,18 @@ try {
           badLinks.push(`${route} → ${path0}`)
         }
       } catch (e) { badLinks.push(`${route} → 링크 수집 실패: ${e.message}`) }
+      // 화면에 놓인 API 링크(문서 인쇄·엑셀 반출)도 이 권한그룹이 실제로 받을 수 있어야 한다 — 라우트 가드와
+      //  API 가드는 별개라, 화면이 내준 링크가 403 으로 거부되면 누르고 나서야 알게 된다(문서 발급 링크에서
+      //  실제로 그랬다). 화면에 있는 링크만 대상이므로 부작용이 있는 반출도 '이미 그 역할에게 열려 있는' 것뿐이다.
+      try {
+        const apis = await page.$$eval('a[href^="/api/"]', (as) => as.map((a) => a.getAttribute('href') || ''))
+        for (const raw of [...new Set(apis)]) {
+          if (seenApi.has(raw)) continue
+          seenApi.add(raw)
+          const res = await ctx.request.get(`${BASE}${raw}`)
+          if (res.status() >= 400) badApis.push(`${route} → ${raw} (HTTP ${res.status()})`)
+        }
+      } catch (e) { badApis.push(`${route} → API 링크 확인 실패: ${e.message}`) }
       } catch (e) { errs.push('GOTO: ' + e.message) }
       const ok = errs.length === 0 && !crashed && httpStatus < 400
       ok ? pass++ : fail++
@@ -105,6 +119,9 @@ try {
     const linkOk = badLinks.length === 0
     linkOk ? pass++ : fail++
     console.log(`${linkOk ? '✓' : '✗'} [${tag}] 링크 권한 정합 — 접근 불가 화면으로 가는 링크 없음${linkOk ? '' : ' — ' + [...new Set(badLinks)].slice(0, 6).join(', ')}`)
+    const apiOk = badApis.length === 0
+    apiOk ? pass++ : fail++
+    console.log(`${apiOk ? '✓' : '✗'} [${tag}] API 링크 권한 정합 — 화면이 내준 API 링크가 모두 응답${apiOk ? '' : ' — ' + [...new Set(badApis)].slice(0, 6).join(', ')}`)
     await ctx.close()
   }
 
