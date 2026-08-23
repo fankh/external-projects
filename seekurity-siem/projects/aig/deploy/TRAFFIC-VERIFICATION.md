@@ -66,3 +66,44 @@ type="traffic" subtype="local" level="notice" srcip=... dstip=... action="deny" 
 
 작업 PC 대역에서 514 가 막힌 것으로 보아, **각 대역에서 SIEM 514/udp 로의 허용 정책이 개별로 필요**하다.
 `AIG_방화벽정책.xlsx` 에 반영할 항목이다.
+
+---
+
+## 추가 발견 — 수집 대상이 방화벽에 막혀 있다 (211.47.6.115)
+
+FortiGate 로그를 수집하기 시작하자마자, **또 다른 장비가 SIEM 으로 syslog 를 보내려다 차단되고 있는 것**이 드러났다.
+
+```
+srcip=211.47.6.115 srcport=56566 srcintf="internal6"
+dstip=10.1.30.4    dstport=514   dstintf="internal1"
+proto=17 service="SYSLOG" action="deny" policyid=35 crlevel="high"
+```
+
+10.1.30.4:514 로 향하는 트래픽의 action 분포를 보면 성격이 분명하다.
+
+| dstIp=10.1.30.4 | 건수 |
+|---|---|
+| action=deny (전부 dstPort 514, srcIp 211.47.6.115) | 329 |
+| dstPort 443 (콘솔 접속) | 24 |
+| dstPort 9348 (SSH) | 7 |
+
+즉 **SIEM 으로 들어오는 syslog 는 FortiGate policy 35 에서 전량 차단**되고 있다.
+이 IP 는 `AIG_로그수집정보_20260806.xlsx` 목록에 없다(문서의 WEB/GW 는 211.47.20.228~230).
+어떤 자산인지 확인이 필요하다.
+
+### 조치 요청 (고객 네트워크 담당)
+
+FortiGate `AIG_SSLVPN_FW`(10.1.1.1)에 다음 허용 정책이 필요하다.
+
+| 항목 | 값 |
+|---|---|
+| 출발지 | 211.47.6.115 (및 향후 수집 대상 전체) |
+| 목적지 | 10.1.30.4 |
+| 서비스 | SYSLOG (UDP/514) |
+| 동작 | accept |
+
+현재 policy 35 가 이를 deny 하고 있다. `AIG_방화벽정책.xlsx` 에 반영할 것.
+
+> 이 상태 자체를 탐지하도록 `HIGH_Syslog_Collection_Blocked` 룰을 정의해 두었다
+> (`AIG_04-탐지시나리오정의서.md` §2.1). 수집 경로가 막히면 SIEM 은 조용히 눈이 머는데,
+> 이번처럼 방화벽 로그에 그 증거가 남으므로 룰로 잡을 수 있다.
