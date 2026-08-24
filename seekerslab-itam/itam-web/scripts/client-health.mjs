@@ -91,6 +91,34 @@ try {
     }
     const ctx = await browser.newContext()
     await ctx.addCookies([cookie(acct)])
+    // 대시보드 '운영 대기' 큐 ↔ 드릴다운 목록 정합 — 큐가 N 건이라고 말하면 그 링크가 여는 목록도 N 건이어야 한다.
+    //  큐 건수와 목적지 필터가 각자 조건을 적어 두면 조용히 갈린다(보증 임박 창이 정책을 안 따라 큐와 대장이 달랐던 계열).
+    //  대장 드릴다운(?receipt=1·?maint=1·?status=분실 …)만 대상 — 목록 화면이 '표시 N건 / 전체 M건'을 스스로 적는다.
+    const checkQueueParity = async () => {
+      const page = await ctx.newPage()
+      const bad = []
+      let queuesN = 0
+      try {
+        await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle', timeout: 20000 })
+        const queues = await page.$$eval('a[href^="/assets/register?"]', (as) => as
+          .map((a) => ({ href: a.getAttribute('href') || '', label: (a.querySelector('span')?.textContent || '').trim(), n: Number((a.querySelector('.chip')?.textContent || '').replace(/[^0-9]/g, '')) }))
+          .filter((q) => Number.isFinite(q.n) && q.n > 0))
+        // 링크를 하나도 못 찾으면 통과가 아니라 실패다 — 조용히 아무것도 검사하지 않는 공허한 통과를 막는다.
+        queuesN = queues.length
+        if (queues.length === 0) bad.push('대장 드릴다운 큐 링크를 찾지 못함 — 검사 무효')
+        for (const q of queues) {
+          await page.goto(`${BASE}${q.href}`, { waitUntil: 'networkidle', timeout: 20000 })
+          await page.waitForTimeout(200)
+          const cnt = (await page.locator('span.cnt').first().textContent().catch(() => '')) || ''
+          const shown = Number((cnt.match(/([0-9]+)건/) || [])[1] ?? -1)
+          if (shown !== q.n) bad.push(`${q.label || q.href}: 큐 ${q.n} ≠ 목록 ${shown} (${q.href})`)
+        }
+      } catch (e) { bad.push('큐 정합 확인 실패: ' + e.message) }
+      await page.close()
+      const okQ = bad.length === 0
+      okQ ? pass++ : fail++
+      console.log(`${okQ ? '✓' : '✗'} [${tag}] 운영 대기 큐 ↔ 대장 드릴다운 건수 정합(큐 ${queuesN}건)${okQ ? '' : ' — ' + bad.slice(0, 6).join(', ')}`)
+    }
     for (const route of routes) {
       const page = await ctx.newPage()
       const errs = []
@@ -145,6 +173,7 @@ try {
     const apiOk = badApis.length === 0
     apiOk ? pass++ : fail++
     console.log(`${apiOk ? '✓' : '✗'} [${tag}] API 링크 권한 정합 — 화면이 내준 API 링크가 모두 응답${apiOk ? '' : ' — ' + [...new Set(badApis)].slice(0, 6).join(', ')}`)
+    if (acct.role === 'ADMIN' || acct.role === 'ASSET_MGR') await checkQueueParity()
     await ctx.close()
   }
 
