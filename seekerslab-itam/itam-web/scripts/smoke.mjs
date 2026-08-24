@@ -1568,6 +1568,18 @@ try {
     .filter((rel) => rel !== 'lib/types.ts')
   check(`비운영 상태 목록: lib/types 한 곳만 정의(소스 ${sourceFiles.length}개 검사)`, statusDupes.length === 0, `중복 정의=${statusDupes.join(', ')}`)
 
+
+  // AI 로그 보존 정책의 강제 — auditRetentionDays 는 화면·리포트에 숫자로만 찍히고 조회에는 쓰이지 않아,
+  //  '90일 보존'이라 말하면서 그보다 오래된 로그를 그대로 보여줄 수 있었다(표시와 강제가 갈리는 계열).
+  //  AI 감사 로그 조회가 보존 기간을 적용하는지 구조로 못박는다 — 화면이 직접 필터를 짜면 다시 갈린다.
+  //  시드 AI 로그는 25일 전이고 최소 보존이 30일이라 런타임으로는 차이를 만들 수 없어(데이터를 늙힐 수 없다)
+  //  구조 검사로 둔다.
+  const aiPolicySrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'ai-policy', 'page.tsx'), 'utf8')
+  const aiStatusSrc = readFileSync(path.join(ROOT, 'lib', 'ai-status.ts'), 'utf8')
+  check('AI 로그 보존: 조회가 보존 정책(auditRetentionDays)을 적용',
+    aiPolicySrc.includes('aiAuditLogs(s.auditLogs, s.aiPolicy.auditRetentionDays')
+    && aiStatusSrc.includes('const cutoff = addDays(today, -Math.max(0, retentionDays))'),
+    '화면이 보존 기간 없이 직접 필터하고 있음')
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')
