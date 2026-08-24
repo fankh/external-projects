@@ -1020,6 +1020,17 @@ try {
   await repairLink.click()
   await p2.waitForTimeout(500)
   ok('수명주기 대기열 → 반납·유휴 화면으로 라우팅', p2.url().includes('/assets/returns'))
+  // 대기열 불변식 두 가지 — 모든 행이 처리 화면으로 이어지고(다음 처리가 '-'인 막다른 행 없음),
+  //  운영 중(사용중)·종결(폐기완료)은 처리할 일이 아니라 대기열에 없어야 한다. 상태가 하나 늘면 여기서 걸린다.
+  await p2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
+  const lifeStat = await p2.$$eval('table.tbl tbody tr', (rows) => {
+    const real = rows.filter((r) => r.querySelectorAll('td').length >= 6)
+    const noLink = real.filter((r) => !r.querySelector('td:last-child a')).length
+    const bad = real.filter((r) => /사용중|폐기완료/.test(r.querySelector('td:nth-child(4)')?.textContent || '')).length
+    return { total: real.length, noLink, bad }
+  })
+  ok(`수명주기 대기열: 모든 행이 처리 화면 링크를 가짐(${lifeStat.total}행 · 막다른 행 ${lifeStat.noLink})`, lifeStat.total > 0 && lifeStat.noLink === 0)
+  ok(`수명주기 대기열: 운영 중·종결 자산 제외(사용중·폐기완료 ${lifeStat.bad}행)`, lifeStat.bad === 0)
 
   // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
