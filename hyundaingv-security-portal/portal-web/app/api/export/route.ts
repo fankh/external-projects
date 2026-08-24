@@ -322,7 +322,7 @@ export async function GET(req: Request) {
     const weak = weakestPostureAxis(k)
     const rows: (string | number)[][] = [
       ['지표', '값', '비고'],
-      ['포스처 점수', `${score} / 100`, `등급 ${postureRating(score).label} · 5축(서약·이수·조치·점검·리스크) 균등`],
+      ['컴플라이언스 점수', `${score} / 100`, `등급 ${postureRating(score).label} · 5축(서약·이수·조치·점검·리스크) 균등`],
       ['개선 우선순위(최약 축)', `${weak.label} ${weak.pct}%`, weak.advice],
       ['일반 보안서약률', `${complianceKpiPct(k.signedCount, k.totalPeople)}%`, `${k.signedCount}/${k.totalPeople}명 (${currentYear()}년 현 개정본)`],
       ['보안교육 이수율', `${complianceKpiPct(k.eduDone, k.eduSlots)}%`, `완료 과정 ${k.doneCourses}건 · 대상 이수 ${k.eduDone}/${k.eduSlots}`],
@@ -339,7 +339,7 @@ export async function GET(req: Request) {
     // 컴플라이언스 포스처 추세 — 주기별 스냅샷(ISMS 감사 개선 추이). /compliance/inspection(BIZ) 게이트.
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const snaps = [...s.complianceSnapshots].sort((a, b) => String(a.period ?? '').localeCompare(String(b.period ?? '')))
-    const rows: (string | number)[][] = [['기간', '포스처 점수', '서약률(%)', '이수율(%)', '조치율(%)', '점검 완료', '점검 전체', '고위험 미조치', '미조치 취약점', '위반 완료', '위반 전체', '기록', '기록자']]
+    const rows: (string | number)[][] = [['기간', '컴플라이언스 점수', '서약률(%)', '이수율(%)', '조치율(%)', '점검 완료', '점검 전체', '고위험 미조치', '미조치 취약점', '위반 완료', '위반 전체', '기록', '기록자']]
     for (const x of snaps) rows.push([x.period, x.score, x.pledgeRate, x.eduRate, x.fixRate, x.inspDone, x.inspTotal, x.highVulns, x.openVulns, x.vDone, x.vTotal, x.at, x.by])
     return out('보안컴플라이언스_추세', rows)
   }

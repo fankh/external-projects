@@ -25,7 +25,7 @@ const ROUTES = [
   '/login', '/dashboard', '/sr/new', '/finance/expense', '/finance/invest',
   '/infra/incidents', '/infra/racks', '/infra/systems', '/infra/operations',
   '/compliance/inspection', '/awareness/remote', '/awareness/prints',
-  '/pledge/my', '/board/qna', '/settings/codes', '/settings/users',
+  '/pledge/my', '/board/qna', '/settings/codes', '/settings/objects', '/settings/users',
   '/settings/permissions', '/settings/groups', '/settings/forms', '/platform/integrations', '/work/approvals',
 ]
 
