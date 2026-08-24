@@ -2085,6 +2085,8 @@ try {
     /^AST-/.test(encNo) && encAsset.includes('미지정') && encAsset.includes('플랫폼개발팀'))
   ok('편입 자산 보유자: 소유자 미지정이 정합성 미흡으로 잡혀 실사 확정 대상이 된다',
     encAsset.includes('대장 정합성 미흡') && encAsset.includes('소유자 미지정'))
+  ok('편입 자산 위치: 자리표시자(실사 확인 필요)도 위치 누락으로 잡힌다(실사 확정 계기 유지)',
+    encAsset.includes('위치 누락') && encAsset.includes('실사 확인 필요'))
   // 등록·불일치(이미 대장에 매칭된 자산)는 편입 불가 — 편입하면 대장에 중복 자산이 생긴다. 불일치는 재물조사 차이 조정으로 대사.
   await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
   const mis029 = p3.locator('tr', { has: p3.locator('td', { hasText: 'DSC-2607-0029' }) }).first()

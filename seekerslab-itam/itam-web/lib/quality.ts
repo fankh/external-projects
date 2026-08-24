@@ -13,12 +13,15 @@ export function assetDataIssues(a: Asset): string[] {
   //  사용중·대여중 자산이 그 상태로 남으면 실물을 쥔 사람이 대장에 없는 것이다(문자열이 비어 있지 않다는 이유로
   //  정합성 큐에서 빠지면, 그 자산은 아무도 찾지 않는다).
   const noOwner = (v?: string) => blank(v) || v!.trim() === '미지정'
+  // 위치도 자리표시자('실사 확인 필요')를 값으로 치지 않는다 — 발견 편입이 위치 미상을 그 문구로 적어 두는데,
+  //  문자열이 비어 있지 않다는 이유로 정합성 큐에서 빠지면 실사로 위치를 확정할 계기가 사라진다(보유자와 같은 규약).
+  const noLocation = (v?: string) => blank(v) || v!.trim() === '실사 확인 필요'
   const physical = PHYSICAL.includes(a.category)
   // 사용중·대여중인데 소유자가 없다 — 실물을 쥔 사람이 대장에 없다(회수·재배정 누락)
   if ((a.status === '사용중' || a.status === '대여중') && noOwner(a.owner)) issues.push('소유자 미지정')
   // 시리얼·위치는 실물 자산(H/W)만 — SW·가상자원은 물리 시리얼·위치가 없어 오탐이 된다
   if (physical && blank(a.serial)) issues.push('시리얼 누락')
-  if (physical && blank(a.location)) issues.push('위치 누락')
+  if (physical && noLocation(a.location)) issues.push('위치 누락')
   return issues
 }
 
