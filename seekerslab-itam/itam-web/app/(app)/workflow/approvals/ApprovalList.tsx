@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
+import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepIndex } from '@/lib/types'
 import type { Approval, Role } from '@/lib/types'
 import { approvalAgeDays, isApprovalOverdue } from '@/lib/dates'
 import { answerOwnerConfirm, decide, decideMany, rejectMany, remindOverdueApprovals, resubmitRequest, withdrawRequest } from './actions'
@@ -71,7 +71,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
   // 현재 단계의 결재 역할 — 다단계 결재선에서 지금 처리할 수 있는 권한그룹
   const stepRoleOf = (a: Approval): Role | undefined => {
     const route = approvalRoute(linesByKind[a.kind] ?? [])
-    const idx = route.indexOf(approvalStepLabel(a.currentStep))
+    const idx = approvalStepIndex(route, a.currentStep)
     return idx >= 0 ? APPROVAL_STEP_ROLE[route[idx]] : undefined
   }
 
@@ -81,7 +81,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
     if (a.selfSubmitted && a.requester === viewer) return false // 직무 분리 — 본인 폼 상신은 결재 불가(서버 decide·큐와 정합). 취소만.
     if (role === 'ADMIN') return true
     const sr = stepRoleOf(a)
-    // 매핑되면 현재 단계 역할만, 아니면 레거시(격리=보안담당·그 외=자산담당)
+    // 결재선이 있으면 현재 단계(사라진 단계는 남은 경로의 처음) 역할만, 결재선 자체가 없으면 레거시(격리=보안담당·그 외=자산담당)
     return sr ? role === sr : a.kind === '격리 요청' ? role === 'SEC_MGR' : role === 'ASSET_MGR'
   }
 
