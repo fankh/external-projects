@@ -119,3 +119,85 @@ systemctl restart ss-syslog-receiver
 ```
 
 검증: 재기동 후 해당 파일 크기가 증가하는지 확인합니다.
+
+---
+
+## FIX-004 · 파싱은 되지만 콘솔 상세 화면에 값이 표시되지 않음
+
+**상태: 요청** (적용하지 않았습니다)
+
+### 증상
+
+로그 상세(Log Detail) 패널에서 표준 항목이 모두 `-` 로 표시됩니다.
+
+```
+Event Name        -
+Source Port       -
+Destination Port  -
+Protocol          -
+```
+
+### 원인 — 파싱 실패가 아니라 필드명 불일치입니다
+
+정규식은 정상 동작하고 있습니다. 색인된 FortiGate traffic 문서에는 값이 들어 있습니다.
+
+```
+action, srcIp, srcPort, dstIp, dstPort, level, eventCategory,
+deviceName, deviceId, logDate, logTime, priority, rawData ...
+```
+
+문제는 **이름**입니다. 콘솔 번들을 확인한 결과 상세 패널은 고정된 표준 필드명을 읽습니다.
+
+| 화면 라벨 | 콘솔이 읽는 필드 | 현재 파서가 넣는 이름 |
+|---|---|---|
+| Event Name | `eventName` | (없음) |
+| Source IP | `sourceIp` | `srcIp` |
+| Source Port | `sourcePort` | `srcPort` |
+| Destination IP | `destinationIp` | `dstIp` |
+| Destination Port | `destinationPort` | `dstPort` |
+| Protocol | `protocol` | (없음) |
+| Username | `username` | (없음) |
+
+제품 기본 파서(SECUI MF2)도 `generatedTime, eventName, startTime, machineName, fwRuleId, action, ...`
+처럼 표준 이름을 사용합니다. 파서를 만들 때 필드명을 임의로 정한 것이 원인입니다.
+
+### 영향
+
+- 상세 패널·대시보드·리포트 등 **표준 필드를 전제로 하는 화면에서 값이 보이지 않습니다**
+- 표준 필드명을 쓰는 탐지룰이 매칭되지 않습니다
+- 데이터 자체는 색인되어 있으므로 `srcIp` 등으로 검색하면 조회됩니다
+
+### 조치 (검토 후 적용 필요)
+
+파서의 `fields` 를 표준 이름으로 교체합니다.
+
+```sql
+-- FortiGate traffic
+UPDATE log_source_parsers
+   SET fields = 'priority,logDate,logTime,deviceName,deviceId,eventName,severity,sourceIp,sourcePort,destinationIp,destinationPort,action'
+ WHERE name = 'FortiGate KV (traffic)' AND NOT is_deleted;
+```
+
+Linux/Syslog 계열도 동일하게 `machineName,processName,processId,message` 중
+표준에 대응하는 항목을 맞춰야 합니다.
+
+### 적용 전 반드시 확인할 것
+
+1. **`sourceIp` 충돌** — 제품이 문서에 `sourceIp` 를 이미 넣고 있으며 현재 값은
+   **송신 장비 IP**(10.1.1.1)입니다. 파서가 같은 이름을 쓰면 트래픽 출발지로 덮어쓸 가능성이 있습니다.
+   방화벽 로그에서는 후자가 타당하지만, 다른 화면이 전자를 전제할 수 있어 영향 범위 확인이 필요합니다.
+2. **기존 색인 문서는 바뀌지 않습니다** — 이름 변경은 이후 수집분에만 적용됩니다.
+   변경 시점 이전 데이터를 함께 조회하려면 두 이름을 모두 질의하거나 reindex 가 필요합니다.
+3. 변경 후 `ss-log-stream` 재기동이 필요하며, 재기동 뒤 신규 문서에 표준 필드가
+   채워지는지와 색인 실패가 없는지 확인해야 합니다.
+
+### 검증
+
+```bash
+curl -s "http://localhost:19200/siem-logs-$(date +%Y-%m-%d)/_search?size=1" \
+  -H "Content-Type: application/json" \
+  -d '{"query":{"term":{"eventType":"fortigate_traffic"}},"sort":[{"generatedTime":"desc"}]}'
+# sourcePort / destinationPort / eventName 이 채워지는지 확인
+```
+
+콘솔에서 로그 상세를 열어 Source Port·Destination Port 가 값으로 표시되는지 확인합니다.
