@@ -2389,6 +2389,18 @@ try {
   await p4.locator('button', { hasText: /^3건 등록$/ }).click()
   await p4.waitForTimeout(900)
   ok('CSV 일괄 등록: 2건 생성·서버 시리얼 중복 건너뜀', (await p4.textContent('body')).includes('2건') && (await p4.textContent('body')).includes('시리얼 중복'))
+  // 템플릿 그대로 붙여넣기 — /api/asset-template.csv 는 Excel 한글 대응으로 BOM 을 붙여 내려간다.
+  //  BOM 을 안 걷어내면 헤더 판정이 빗나가 헤더 행이 데이터로 읽히고 '유형 오류'로 건너뛴다(보이지 않는 글자라 원인을 알 수 없다).
+  const tplRes = await p4.request.get(`${BASE}/api/asset-template.csv`)
+  const tplText = await tplRes.text()
+  ok('자산 템플릿: BOM 이 붙어 내려온다(Excel 한글 대응 · 양성 대조)', tplText.charCodeAt(0) === 0xFEFF)
+  await p4.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p4.locator('button', { hasText: /^＋ 일괄 등록$/ }).click()
+  await p4.waitForTimeout(200)
+  await p4.locator('textarea').fill(tplText.replace(/SN-EXAMPLE-001/, 'SN-TPL-E2E'))
+  await p4.locator('button', { hasText: /^미리보기$/ }).click()
+  await p4.waitForTimeout(300)
+  ok('자산 템플릿: 그대로 붙여넣으면 헤더가 건너뛰어지고 예시 3행이 유효(BOM 내성)', ((await p4.textContent('body')) || '').includes('파싱 3행') && ((await p4.textContent('body')) || '').includes('유효 3'))
 
   // 재물조사 기한 경과 독촉(로59) — 기한 지난 미완료 회차를 '기한 경과' 표시만 하던 것을 담당자 앞 독촉으로 닫는다. 시드 INV-2026-SP1(판교 수시·기한 08-08 경과·계획)이 대상.
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
