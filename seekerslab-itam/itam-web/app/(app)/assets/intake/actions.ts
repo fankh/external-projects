@@ -55,8 +55,12 @@ export async function rejectIntakeLot(lotId: string, reason: string) {
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
   if (!lot) return { ok: false, message: '입고 로트를 찾을 수 없습니다.' }
-  if (lot.status === '검수 완료' || lot.issued.length > 0) {
-    return { ok: false, message: '이미 채번된 로트는 반려할 수 없습니다.' }
+  // 막는 이유는 '채번이 시작됐다'이지 '검수를 마쳤다'가 아니다 — 대장에 자산이 생긴 뒤에는 그 자산부터 처리해야 하므로
+  //  반려로 되돌릴 수 없다. 그런데 검수 완료라는 이유만으로 함께 막으면(채번 0건인데도) 되돌릴 길이 사라진다:
+  //  체크리스트는 검수 완료 상태에서 토글이 잠기고(toggleCheck), 재검수는 '검수 반려'만 받는다. 그래서 검수를 마친 뒤
+  //  결함을 발견해도 앞으로(채번) 말고는 갈 곳이 없었다(시드 IN-2606-42 가 실제로 그 상태다). 반려 → 재검수로 돌아간다.
+  if (lot.issued.length > 0) {
+    return { ok: false, message: `이미 채번된 로트는 반려할 수 없습니다 — ${lot.issued.length}대가 대장에 등록됐습니다(해당 자산을 폐기·반품 절차로 처리하세요).` }
   }
   if (lot.status === '검수 반려') return { ok: false, message: '이미 반려된 로트입니다.' }
   const r = reason.trim()
