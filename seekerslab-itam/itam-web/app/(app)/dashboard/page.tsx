@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isQnaOverdue, isRepairOverdue, isStaleVerify, nowMinute, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isWarrantyExpiring, isQnaOverdue, isRepairOverdue, isStaleVerify, nowMinute, roundProgressPct, today } from '@/lib/dates'
 import { isEasmRescanOverdue } from '@/lib/easm'
 import { criticalDependencies } from '@/lib/cmdb'
 import { upcomingSchedule } from '@/lib/upcoming'
@@ -113,7 +113,7 @@ export default async function DashboardPage() {
       { label: '장기 미실측 (재물조사 편성)', count: s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).length, href: '/inventory/survey-plan', tone: 'warn' },
       // 재물조사 기한 경과 — 기한이 지난 미완료(계획·진행중) 조사 회차. 회차 표의 '기한 경과' 표시를 담당자 일과 시작점으로 끌어올려 독촉으로 닫는다(로59).
       { label: '재물조사 기한 경과 (담당자 독촉)', count: s.inventoryRounds.filter((r) => r.status !== '완료' && r.dueDate < today()).length, href: '/inventory/survey-plan', tone: 'err' },
-      { label: '보증 만료 임박 자산 (연장·교체 검토)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90).length, href: '/assets/register?warranty=soon', tone: 'warn' },
+      { label: '보증 만료 임박 자산 (연장·교체 검토)', count: s.assets.filter((a) => isWarrantyExpiring(a, s.opsPolicy.expiryWindowDays)).length, href: '/assets/register?warranty=soon', tone: 'warn' },
       // EOL OS 자산 — OS 지원 종료 경과(미패치 취약점 상시 노출). 하드웨어 노후(보증·내용연수)와 별개인 SW 업그레이드·교체 트리거.
       { label: 'EOL OS 자산 (교체·업그레이드 대상)', count: s.assets.filter((a) => isEolTarget(a.status, a.os, today())).length, href: '/assets/register?os=eol', tone: 'err' },
       // 교체 대상 자산 — 내용연수 초과·보증 경과(이미 지난)·장애 이력(잦은 수리). 보증 '임박'(미래 90일)과 달리 이미 교체 시점이 도래한 계획 신호. 수명예측 패널과 같은 근거.

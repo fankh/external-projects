@@ -1,4 +1,4 @@
-import { daysUntil, today } from './dates'
+import { daysUntil, isWarrantyExpiring, today } from './dates'
 import { getStore } from './store'
 import type { Contract, SwLicense } from './types'
 
@@ -39,8 +39,7 @@ export function expiryNoticeTargets(): ExpiryNoticeTargets {
 
   const warrantyDepts = new Map<string, number>()
   for (const a of s.assets) {
-    if (a.warrantyEnd === '-' || ['폐기완료', '폐기예정'].includes(a.status)) continue
-    if (!within(a.warrantyEnd)) continue
+    if (!isWarrantyExpiring(a, windowDays)) continue // 대장 필터·대시보드 큐와 같은 판정(lib/dates)
     warrantyDepts.set(a.dept, (warrantyDepts.get(a.dept) ?? 0) + 1)
   }
   for (const dept of [...warrantyDepts.keys()]) {

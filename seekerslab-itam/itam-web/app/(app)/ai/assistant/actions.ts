@@ -4,7 +4,7 @@ import { recordAiCall } from '@/lib/ai-status'
 import { externalQueryAllowed, deidentify } from '@/lib/ai-egress'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
-import { daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today, isWarrantyExpiring } from '@/lib/dates'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
@@ -394,11 +394,14 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (!cat || a.category === cat))
       .filter((a) => !period || (a.warrantyEnd >= period.start && a.warrantyEnd <= period.end))
       .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
-    const soonN = scoped.filter((a) => (daysUntil(a.warrantyEnd) ?? 999) <= 90).length
+    // '임박' 판정 창은 운영 정책(만료창)을 따른다 — 화면 필터(?warranty=soon)·대시보드 큐·통지가 모두 같은 창을 쓰므로
+    //  여기만 90 을 박아 두면 정책을 줄였을 때 답변의 '창 내 N건'과 연결한 필터 결과가 어긋난다.
+    const wWin = s.opsPolicy.expiryWindowDays
+    const soonN = scoped.filter((a) => isWarrantyExpiring(a, wWin)).length
     const list = scoped.slice(0, 12)
     const headline = period
       ? `${cat ? `${cat} ` : ''}${period.label} 보증 만료 예정 — ${scoped.length}건 (${period.start} ~ ${period.end}).`
-      : `${cat ? `${cat} ` : ''}자산 보증 만료 현황 — 대상 ${scoped.length}건 (만료 임박순${soonN ? ` · 90일 내 ${soonN}건` : ''}).`
+      : `${cat ? `${cat} ` : ''}자산 보증 만료 현황 — 대상 ${scoped.length}건 (만료 임박순${soonN ? ` · ${wWin}일 내 ${soonN}건` : ''}).`
     return {
       role: 'assistant',
       text: [
@@ -408,7 +411,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         ...list.map((a) => `· ${a.assetNo} — ${a.model} (${a.category}, 보증 만료 ${a.warrantyEnd} · D-${daysUntil(a.warrantyEnd)})`),
         scoped.length > list.length ? `\n… 외 ${scoped.length - list.length}건은 대장 보증 임박 필터에서 확인하세요.` : ``,
       ].filter(Boolean).join('\n'),
-      // 기간 질의는 임의 창(예: 내년 1분기)이라 '보증 임박(≤90일)' 필터와 집합이 어긋난다 — 오연결 대신 유형/전체 대장으로(정직한 라벨).
+      // 기간 질의는 임의 창(예: 내년 1분기)이라 '보증 임박(≤만료창)' 필터와 집합이 어긋난다 — 오연결 대신 유형/전체 대장으로(정직한 라벨).
       //  기간 미지정(임박순)일 때만 보증 임박 필터로 연결(그 집합이 곧 답의 액션 대상). count↔destination 정합.
       evidence: period
         ? [{ label: cat ? `자산 대장 (${cat})` : '자산 대장', href: cat ? `/assets/register?cat=${encodeURIComponent(cat)}` : '/assets/register' }]
@@ -821,7 +824,8 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const owned = s.assets
       .filter((a) => a.owner === userName && !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-')
       .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
-    const soon = owned.filter((a) => (daysUntil(a.warrantyEnd) ?? 999) <= 90)
+    const uWin = s.opsPolicy.expiryWindowDays // 담당자 답변·대장 필터와 같은 만료창(운영 정책)
+    const soon = owned.filter((a) => isWarrantyExpiring(a, uWin))
     const dText = (a: (typeof owned)[number]) => {
       const d = daysUntil(a.warrantyEnd) ?? 0
       return d < 0 ? `만료 경과 ${-d}일` : `D-${d}`
@@ -831,7 +835,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       text: owned.length === 0
         ? `${userName}님 명의로 보증 관리 대상 자산이 없습니다. (폐기·SW·가상자원 등 보증 비대상 제외)`
         : [
-            `${userName}님 보유 자산 보증 현황 — ${owned.length}건${soon.length ? ` · 90일 내 만료 ${soon.length}건 (교체·연장 검토)` : ''}.`,
+            `${userName}님 보유 자산 보증 현황 — ${owned.length}건${soon.length ? ` · ${uWin}일 내 만료 ${soon.length}건 (교체·연장 검토)` : ''}.`,
             ``,
             ...owned.map((a) => `· ${a.assetNo} — ${a.model} (보증 만료 ${a.warrantyEnd} · ${dText(a)})`),
           ].join('\n'),

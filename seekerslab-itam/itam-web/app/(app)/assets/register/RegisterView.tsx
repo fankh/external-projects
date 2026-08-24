@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -270,7 +270,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
         )}
         {warrantySet.size > 0 && (
           <button className={`btn sm ${warrantyOnly ? 'warn' : ''}`} onClick={() => setWarrantyOnly((v) => !v)}
-            title="보증이 90일 이내 만료·경과한 자산 — 보증 연장·교체 검토 대상">
+            title={`보증이 ${props.expiryWindowDays ?? 90}일 이내 만료·경과한 자산 — 보증 연장·교체 검토 대상(운영 정책 만료창)`}>
             {warrantyOnly ? '✓ ' : ''}보증 임박 {warrantySet.size}
           </button>
         )}

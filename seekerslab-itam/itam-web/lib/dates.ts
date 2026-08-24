@@ -237,6 +237,17 @@ export function isIntakeOverdue(l: IntakeLot): boolean {
   return (daysUntil(l.expectedDate) ?? 0) < 0
 }
 
+/** 보증 만료 임박·경과 — 운영 중(폐기예정·폐기완료 제외) 자산 중 보증 만료가 알림 창 안에 든 것(경과 포함).
+ *  보증이 없는 자산(SW·가상자원)은 대상이 아니다.
+ *  창(windowDays)은 운영 정책 opsPolicy.expiryWindowDays 를 호출부가 넘긴다(isMaintenanceDue·isStaleVerify 와 동일 규약).
+ *  그전에는 통지(lib/expiry 의 expiryNoticeTargets)만 정책을 따르고 대장 필터·대시보드 큐·어시스턴트는 90 을 박아 둬,
+ *  관리자가 만료창을 줄이면 '보증 만료 임박 자산 N건' 통지와 화면의 보증 임박 집합이 서로 다른 것을 가리켰다.
+ */
+export function isWarrantyExpiring(a: Asset, windowDays: number): boolean {
+  if (!a.warrantyEnd || a.warrantyEnd === '-' || ['폐기완료', '폐기예정'].includes(a.status)) return false
+  return (daysUntil(a.warrantyEnd) ?? 999) <= windowDays
+}
+
 /** 정기 점검 대상 — 예방 정비 예정일이 30일 내로 도래했거나 지난(미시행) 운영 자산. 폐기 절차 자산은 제외. 서버 전용.
  *  반응형 수리(장애·반납)와 별개로, 사전 정비 일정이 도래한 자산을 대장·대시보드에 드러낸다(§03 유지보수). */
 export function isMaintenanceDue(a: Asset, windowDays = 30): boolean {
