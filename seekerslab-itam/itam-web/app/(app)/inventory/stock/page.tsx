@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { acquisitionCostOf, bookValueOf } from '@/lib/cost'
-import { today } from '@/lib/dates'
+import { ratioPct, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { getStore } from '@/lib/store'
 import { availableAssets, lowStockCategories } from '@/lib/stock'
@@ -49,7 +49,7 @@ export default async function StockPage() {
       const list = valued.filter((a) => a.category === cat)
       const acq = list.reduce((n, a) => n + acquisitionCostOf(a), 0)
       const book = list.reduce((n, a) => n + bookValueOf(a, t), 0)
-      return { cat, count: list.length, acq, book, dep: acq > 0 ? Math.round((1 - book / acq) * 100) : 0 }
+      return { cat, count: list.length, acq, book, dep: ratioPct(acq - book, acq) }
     })
     .filter((x) => x.count > 0)
   const totalAcq = valueByCat.reduce((n, x) => n + x.acq, 0)
@@ -112,7 +112,7 @@ export default async function StockPage() {
                 <td className="num tnum">{valueByCat.reduce((n, x) => n + x.count, 0)}</td>
                 <td className="num tnum">{fmt(totalAcq)}원</td>
                 <td className="num tnum">{fmt(totalBook)}원</td>
-                <td className="num tnum">{totalAcq > 0 ? Math.round((1 - totalBook / totalAcq) * 100) : 0}%</td>
+                <td className="num tnum">{ratioPct(totalAcq - totalBook, totalAcq)}%</td>
               </tr>
             </tbody>
           </table>

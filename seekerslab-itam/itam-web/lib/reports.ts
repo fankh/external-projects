@@ -6,7 +6,7 @@ import { buildMaintenance } from './maintenance'
 import { buildProcurement } from './procurement'
 import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
-import { addDays, addYears, dormantDaysOf, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
+import { ratioPct, addDays, addYears, dormantDaysOf, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
 import { ACQ_COST, USEFUL_LIFE_YEARS, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf, isEolTarget } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
@@ -348,7 +348,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         columns: ['라이선스', '공급사', '보유', '사용', '사용률', '만료일', '판정'],
         rows: s.licenses.map((l) => [
           l.name, l.vendor, String(l.purchased), String(l.used),
-          `${Math.round((l.used / l.purchased) * 100)}%`, l.expiry,
+          `${ratioPct(l.used, l.purchased)}%`, l.expiry,
           l.status === '해지' ? '해지' : licenseVerdict(l).label,
         ]),
       },
@@ -370,7 +370,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         note: '만료·갱신 시점의 우측 조정 근거 — 초과는 증설, 미사용은 감축, 적정은 현행 유지',
         columns: ['라이선스', '사용률', '만료일', '갱신 권고 수량', '협상 방향'],
         rows: active.map((l) => {
-          const rate = Math.round((l.used / l.purchased) * 100)
+          const rate = ratioPct(l.used, l.purchased)
           const rec = l.used > l.purchased ? Math.ceil(l.used * 1.05) : l.used / l.purchased < 0.6 ? Math.ceil(l.used * 1.1) : l.purchased
           const dir = l.used > l.purchased
             ? `증설 협상 — ${l.used - l.purchased}석 초과 (권고 ${rec}석)`
@@ -688,7 +688,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const approved = s.insights.filter((i) => i.status === '승인').length
     const rejected = s.insights.filter((i) => i.status === '반려').length
     const pending = s.insights.filter((i) => i.status === '제안').length
-    const adoption = approved + rejected ? Math.round((approved / (approved + rejected)) * 100) : null
+    const adoption = approved + rejected ? ratioPct(approved, approved + rejected) : null
     return [
       {
         title: '모델 · 프롬프트 · 실행 환경',
@@ -708,7 +708,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           const rows = s.insights.filter((i) => i.kind === k)
           const ok = rows.filter((i) => i.status === '승인').length
           const no = rows.filter((i) => i.status === '반려').length
-          return [k, String(rows.length), String(ok), String(no), ok + no ? `${Math.round((ok / (ok + no)) * 100)}%` : '판정 전']
+          return [k, String(rows.length), String(ok), String(no), ok + no ? `${ratioPct(ok, ok + no)}%` : '판정 전']
         }),
       },
       {
@@ -728,7 +728,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const liveC = s.assets.filter((a) => a.status !== '폐기완료')
     const unregC = onboardTargets().length // 편입 대상 — 관리 제외·격리 요청 제외(편입하지 않기로 판정된 건)
     const flaggedC = liveC.filter(hasDataIssue).length
-    const accuracyC = liveC.length ? Math.round(((liveC.length - flaggedC) / liveC.length) * 100) : 100
+    const accuracyC = liveC.length ? ratioPct(liveC.length - flaggedC, liveC.length) : 100
     const byCatC = [...new Set(liveC.map((a) => a.category))].map((c) => [c, String(liveC.filter((a) => a.category === c).length)])
     const licC = s.licenses.filter((l) => l.status !== '해지')
     const disposedC = s.disposals.filter((d) => d.status === '완료')
@@ -1053,7 +1053,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
 
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
-  const accuracy = live.length ? Math.round(((live.length - flagged.length) / live.length) * 100) : 100
+  const accuracy = live.length ? ratioPct(live.length - flagged.length, live.length) : 100
   const dqSection: ReportSection = flagged.length === 0
     ? { title: '대장 정합성 (CMDB 정확도)', note: `운영 자산 ${live.length}건 · 정확도 ${accuracy}% — 핵심 필드 누락·불일치 없음`, bullets: ['소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산이 없습니다.'] }
     : {
@@ -1255,7 +1255,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const p = s.aiPolicy
     const approved = s.insights.filter((i) => i.status === '승인').length
     const rejected = s.insights.filter((i) => i.status === '반려').length
-    const adoption = approved + rejected ? Math.round((approved / (approved + rejected)) * 100) : null
+    const adoption = approved + rejected ? ratioPct(approved, approved + rejected) : null
     return `AI 실행 환경은 ${p.deployment}(${p.modelId}, 프롬프트 ${p.promptVersion})이며 분류 정확도는 ${effectiveClassifyAccuracy(p, s.insights)}%입니다(승인·반려 판정 환류 반영). `
       + `AI 기능 제안의 누적 채택률은 ${adoption === null ? '판정 전' : `${adoption}%`}로, 승인·반려 결과가 재학습에 환류됩니다. `
       + `AI 제안·질의·응답은 ${p.auditRetentionDays}일 감사 보존되며, 권한 범위 필터가 ${p.scopeFilter ? '적용' : '미적용'}되고 제안 자동승인은 ${p.autoApprove ? '허용' : '차단(담당자 확인·결재 원칙)'}으로 운영됩니다.`
@@ -1287,8 +1287,8 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   }
   const liveA = s.assets.filter((a) => a.status !== '폐기완료')
   const flaggedA = liveA.filter(hasDataIssue).length
-  const accuracyA = liveA.length ? Math.round(((liveA.length - flaggedA) / liveA.length) * 100) : 100
-  return `사용자 ${s.users.length}명에 대해 화면·기능 단위 최소권한이 적용되어 있으며 MFA 적용률은 ${Math.round((s.users.filter((u) => u.mfa).length / s.users.length) * 100)}%입니다. `
+  const accuracyA = liveA.length ? ratioPct(liveA.length - flaggedA, liveA.length) : 100
+  return `사용자 ${s.users.length}명에 대해 화면·기능 단위 최소권한이 적용되어 있으며 MFA 적용률은 ${ratioPct(s.users.filter((u) => u.mfa).length, s.users.length)}%입니다. `
     + `필수 결재 지정 화면은 ${s.approvalLines.filter((l) => l.required).length}개이며, 탐지 채널 ${s.scanPolicies.filter((p) => p.enabled).length}/${s.scanPolicies.length}이 정책에 따라 운영 중입니다. `
     + `대장 정합성(CMDB 정확도)은 ${accuracyA}%로, 핵심 필드 누락·불일치 ${flaggedA}건은 정합성 보정 대상입니다.`
 }

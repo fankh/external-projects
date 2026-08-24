@@ -1,7 +1,7 @@
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf, repairTotalOf } from './cost'
 import { buildLicenseUsage } from './license-usage'
-import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
+import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { getStore } from './store'
 import { ASSET_CATEGORIES, type PermMenu, type Role } from './types'
@@ -92,10 +92,10 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       }
       const rows: (string | number)[][] = [...m.entries()]
         .sort((x, y) => y[1].total - x[1].total)
-        .map(([k, v]) => [k, v.total, v.inUse, v.idle, v.total - v.inUse - v.idle, v.total ? Math.round((v.idle / v.total) * 100) : 0])
+        .map(([k, v]) => [k, v.total, v.inUse, v.idle, v.total - v.inUse - v.idle, ratioPct(v.idle, v.total)])
       const sum = (i: number) => rows.reduce((n, r) => n + (r[i] as number), 0)
       const total = sum(1), idle = sum(3)
-      return [...rows, ['합계', total, sum(2), idle, sum(4), total ? Math.round((idle / total) * 100) : 0]]
+      return [...rows, ['합계', total, sum(2), idle, sum(4), ratioPct(idle, total)]]
     }
     const header = ['구분', '보유', '사용중', '유휴·반납대기', '기타', '유휴율(%)']
     // 유형별 자산 가치 — 취득가·잔존가치(정액법 감가상각). SW·가상자원은 자산 단위 취득가 없어 제외.
@@ -107,12 +107,12 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         const list = valued.filter((a) => a.category === cat)
         const acq = list.reduce((n, a) => n + acquisitionCostOf(a), 0)
         const book = list.reduce((n, a) => n + bookValueOf(a, t), 0)
-        return [cat, list.length, acq, book, acq > 0 ? Math.round((1 - book / acq) * 100) : 0]
+        return [cat, list.length, acq, book, ratioPct(acq - book, acq)]
       })
       .filter((r) => (r[1] as number) > 0)
     const vSum = (i: number) => valueRows.reduce((n, r) => n + (r[i] as number), 0)
     const vAcq = vSum(2), vBook = vSum(3)
-    const valueTotal = ['합계', vSum(1), vAcq, vBook, vAcq > 0 ? Math.round((1 - vBook / vAcq) * 100) : 0]
+    const valueTotal = ['합계', vSum(1), vAcq, vBook, ratioPct(vAcq - vBook, vAcq)]
     return [
       { name: '유형별', header, rows: agg((a) => a.category) },
       { name: '부서별', header, rows: agg((a) => a.dept) },

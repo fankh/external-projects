@@ -1,3 +1,4 @@
+import { ratioPct } from '@/lib/dates'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
@@ -33,13 +34,13 @@ export default async function InsightsPage() {
   const approved = s.insights.filter((i) => i.status === '승인').length
   const rejected = s.insights.filter((i) => i.status === '반려').length
   const judged = approved + rejected
-  const adoption = judged ? Math.round((approved / judged) * 100) : null
+  const adoption = judged ? ratioPct(approved, judged) : null
 
   const byKind = FUNCTIONS.map((f) => {
     const rows = s.insights.filter((i) => i.kind === f.kind)
     const ok = rows.filter((i) => i.status === '승인').length
     const no = rows.filter((i) => i.status === '반려').length
-    return { kind: f.kind, total: rows.length, ok, no, rate: ok + no ? Math.round((ok / (ok + no)) * 100) : null }
+    return { kind: f.kind, total: rows.length, ok, no, rate: ok + no ? ratioPct(ok, ok + no) : null }
   })
 
   return (

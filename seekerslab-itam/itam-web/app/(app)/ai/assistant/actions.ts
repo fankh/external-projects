@@ -4,7 +4,7 @@ import { recordAiCall } from '@/lib/ai-status'
 import { externalQueryAllowed, deidentify } from '@/lib/ai-egress'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
-import { daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today, isWarrantyExpiring } from '@/lib/dates'
+import { ratioPct, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today, isWarrantyExpiring } from '@/lib/dates'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
@@ -498,7 +498,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       text: `라이선스 대사 결과 초과 사용 ${over.length}건, 장기 미사용 보유 ${low.length}건이 검출되었습니다.\n\n${over
         .map((l) => `· ${l.name} — 보유 ${l.purchased}석 / 사용 ${l.used}석 (${l.used - l.purchased}석 초과, 감사 리스크)`)
         .join('\n')}\n${low
-        .map((l) => `· ${l.name} — 사용률 ${Math.round((l.used / l.purchased) * 100)}% (회수 후보 ${l.purchased - l.used}석, 연 ${Math.round(((l.purchased - l.used) * l.unitCost) / 10_000).toLocaleString()}만원 절감 가능)`)
+        .map((l) => `· ${l.name} — 사용률 ${ratioPct(l.used, l.purchased)}% (회수 후보 ${l.purchased - l.used}석, 연 ${Math.round(((l.purchased - l.used) * l.unitCost) / 10_000).toLocaleString()}만원 절감 가능)`)
         .join('\n')}`,
       evidence: [{ label: '라이선스 컴플라이언스', href: '/inventory/contracts' }],
     }
@@ -510,7 +510,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const totalAcq = valued.reduce((n, a) => n + acquisitionCostOf(a), 0)
     const totalBook = valued.reduce((n, a) => n + bookValueOf(a, t), 0)
     const totalRepair = valued.reduce((n, a) => n + (assetTco(a) - acquisitionCostOf(a)), 0)
-    const dep = totalAcq ? Math.round((1 - totalBook / totalAcq) * 100) : 0
+    const dep = ratioPct(totalAcq - totalBook, totalAcq)
     const byCat = [...new Set(valued.map((a) => a.category))]
       .map((c) => {
         const list = valued.filter((a) => a.category === c)
