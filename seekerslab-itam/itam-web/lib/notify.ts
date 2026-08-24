@@ -2,6 +2,14 @@ import { nowMinute } from './dates'
 import { getStore } from './store'
 import type { Dispatch } from './types'
 
+/** 통지 수신자 표기 — 보유자가 있으면 '이름 (부서)', 없으면 관리 부서 앞으로 보낸다.
+ *  보유자 자리에 '-'·'미지정' 같은 자리표시자가 그대로 실리면 '아무에게도 아닌 발송'이 되어 발송 이력만 남고
+ *  아무도 읽지 않는다(유휴·검수중 자산의 통지가 그렇게 샜다). 수신자를 만드는 곳은 이 함수 하나로 모은다. */
+export function recipientOf(owner: string | undefined, dept: string): string {
+  const o = (owner ?? '').trim()
+  return o && o !== '-' && o !== '미지정' ? `${o} (${dept})` : dept
+}
+
 /** 알림 발송 — 그룹웨어 메일·문자 채널로 나가는 통지의 단일 진입점.
  *  실제 전송은 배치·연동 서버 소관이므로 여기서는 발송 이력만 적재한다.
  *  이력을 남기지 않으면 "발송했다"는 주장을 감사에서 증명할 수 없다. */

@@ -5,7 +5,7 @@ import { notifyDependents } from '@/lib/cmdb'
 import { addYears, isMaintenanceOverdue, isValidDate, today } from '@/lib/dates'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
 import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
-import { dispatch, escalate } from '@/lib/notify'
+import { recipientOf, dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo, nextId } from '@/lib/store'
 import { requiresApproval } from '@/lib/approval'
@@ -625,7 +625,7 @@ export async function recoverFromUser(assetNo: string, rawReason: string) {
   asset.receiptPending = undefined // 미확인 수령 대기 해제 — 보유자를 떠난 자산은 인수 대기 대상이 아니다(스테일 수령 미확인 방지)
   // 회수 통보 — 보유자(부서)에게 회수 사실을 알린다
   if (holder && holder !== '미지정' && holder !== '-') {
-    dispatch({ channel: '이메일', to: `${holder} (${asset.dept})`, subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
+    dispatch({ channel: '이메일', to: recipientOf(holder, asset.dept), subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
   }
   appendAudit({ actor: session.name, action: `자산 회수(반납 처리) — ${asset.model} (${holder})`, target: assetNo })
   revalidatePath('/', 'layout')
@@ -684,7 +684,7 @@ export async function recoverManyFromUser(assetNos: string[], rawReason: string)
     if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (오프보딩)`, actor: session.name })
     asset.receiptPending = undefined // 미확인 수령 대기 해제 (스테일 수령 미확인 방지)
     if (holder && holder !== '미지정' && holder !== '-') {
-      dispatch({ channel: '이메일', to: `${holder} (${asset.dept})`, subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
+      dispatch({ channel: '이메일', to: recipientOf(holder, asset.dept), subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
     }
     n += 1
   }
@@ -866,7 +866,7 @@ export async function remindReceipts() {
   // 대상 판정은 화면 버튼 건수와 한 소스를 쓴다(lib/reminders) — 당일 발송분 제외까지 포함한다.
   let n = 0
   for (const a of receiptRemindTargets()) {
-    dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `자산 수령 확인 요청(독촉) — ${a.assetNo} ${a.model} 인수 확인 부탁드립니다`, kind: '수령 확인', ref: a.assetNo })
+    dispatch({ channel: '이메일', to: recipientOf(a.owner, a.dept), subject: `자산 수령 확인 요청(독촉) — ${a.assetNo} ${a.model} 인수 확인 부탁드립니다`, kind: '수령 확인', ref: a.assetNo })
     n += 1
   }
   if (n === 0) return { ok: false, message: '수령 확인 독촉 대상이 없습니다 (미확인 없음·오늘 발송분 제외).' }
@@ -887,7 +887,7 @@ export async function remindMaintenance() {
   let n = 0
   for (const a of maintenanceRemindTargets()) {
     // 보유자 없는 자산(유휴·검수중)은 관리 부서 앞으로 — '- (부서)' 아무에게도 아닌 발송 방지(다른 owner 발송 사이트와 동일 가드).
-    const to = a.owner && a.owner !== '미지정' && a.owner !== '-' ? `${a.owner} (${a.dept})` : a.dept
+    const to = recipientOf(a.owner, a.dept)
     dispatch({ channel: '이메일', to, subject: `정기 점검(예방 정비) 독촉 — ${a.assetNo} ${a.model} 예정 ${a.maintenanceDue} 경과, 점검 시행 부탁드립니다`, kind: '정기 점검 독촉', ref: a.assetNo })
     a.history.push({ date: t, kind: '점검', detail: `정기 점검 독촉 발송 — 예정 ${a.maintenanceDue} 경과 (${a.owner})`, actor: session.name })
     n += 1
@@ -937,7 +937,7 @@ export async function notifyEolUpgrade() {
   for (const a of eolNoticeTargets()) {
     const eol = eolOsOf(a.os, t)!
     // 보유자 없는 자산(유휴·검수중)은 관리 부서 앞으로 — '- (부서)' 아무에게도 아닌 발송 방지(다른 owner 발송 사이트와 동일 가드).
-    const to = a.owner && a.owner !== '미지정' && a.owner !== '-' ? `${a.owner} (${a.dept})` : a.dept
+    const to = recipientOf(a.owner, a.dept)
     dispatch({ channel: '이메일', to, subject: `EOL OS 업그레이드·교체 검토 요청 — ${a.assetNo} ${a.model} (${eol.label} 지원 종료 ${eol.eol}), 미패치 취약점 상시 노출`, kind: 'EOL 업그레이드 통보', ref: a.assetNo })
     a.history.push({ date: t, kind: '구성변경', detail: `EOL OS 업그레이드·교체 통보 발송 — ${eol.label} 지원 종료 ${eol.eol} (${a.owner} · ${a.dept})`, actor: session.name })
     n += 1
@@ -983,7 +983,7 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
   // 보유자에게 신고 사실을 통보한다 — 회수(recoverFromUser)·반납·재배정처럼 '보유 이탈'은 당사자에게 알린다.
   // 분실·도난으로 배정 자산이 회수되고 라이선스 좌석이 회수됐음을 보유자가 알아야 한다(도난의 보안운영팀 통보와 별개로 당사자 통보).
   if (asset.owner && asset.owner !== '미지정' && asset.owner !== '-') {
-    dispatch({ channel: '이메일', to: `${asset.owner} (${asset.dept})`, subject: `자산 ${type} 신고 — ${asset.assetNo} ${asset.model} 분실 처리 (${note})${freed.length ? ` · 라이선스 좌석 ${freed.length}건 회수` : ''}`, kind: '분실 신고', ref: asset.assetNo })
+    dispatch({ channel: '이메일', to: recipientOf(asset.owner, asset.dept), subject: `자산 ${type} 신고 — ${asset.assetNo} ${asset.model} 분실 처리 (${note})${freed.length ? ` · 라이선스 좌석 ${freed.length}건 회수` : ''}`, kind: '분실 신고', ref: asset.assetNo })
   }
 
   if (type === '도난') {

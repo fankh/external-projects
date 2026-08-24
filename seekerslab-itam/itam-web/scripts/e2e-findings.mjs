@@ -1761,6 +1761,12 @@ try {
   await rmSpan.locator('button', { hasText: /^제거 요청$/ }).first().click()
   await p3.waitForTimeout(800)
   ok('라이선스 STEP2: 제거 요청 발송 성공(소유 부서 통지·발송 이력)', ((await step2Card().textContent()) || '').includes('통지·감사 적재'))
+  // 수신자 표기(신규) — 보유자가 없는 자산(유휴·검수중)의 통지가 "- (부서)" 앞으로 나가면 발송 이력에는 남지만
+  //  아무도 읽지 않는다. 보유자가 없으면 관리 부서 앞으로 보낸다(lib/notify recipientOf 단일 소스).
+  await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const rmRow = ((await p3.locator('tr', { hasText: '라이선스 배정 밖 설치 제거 요청' }).first().textContent()) || '').replace(/\s+/g, ' ')
+  ok('라이선스 제거 요청 수신자: 보유자 없는 자산은 관리 부서 앞으로(자리표시자 수신자 방지)',
+    rmRow.includes('자산관리팀') && !rmRow.includes('- (자산관리팀)') && !rmRow.includes('미지정 ('))
 
   // 좌석 배정 이탈-자산 가드 — 폐기·분실·반납대기 등 이탈한 자산에 좌석을 새로 배정하면 좌석 자동 회수(이탈 시점에만 돎)가 다시 돌지 않아 좌석이 영구 누수된다(보유 초과·사용량 과대·SAM 배정 대장 오기록, 로56 무결성). 폐기완료 자산(AST-2018-000090) 배정 시도 → 거부·배정 2석 유지.
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
