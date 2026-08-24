@@ -106,6 +106,22 @@ function daysInMonth(y: number, m: number): number {
   return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1] ?? 31
 }
 
+/** 실재하는 달력 날짜인가 — `YYYY-MM-DD` 형식이면서 월 1~12, 일 1~그 달의 마지막 날(윤년 반영).
+ *  입력 검증이 형식만 보던 자리를 대신한다. 형식만 통과시키면 2026-02-31·2026-02-29(평년) 같은
+ *  없는 날이 그대로 저장되는데, 화면·엑셀은 입력값을 그대로 찍고 daysUntil 은 Date 파싱으로 3/3·3/1 로
+ *  굴러가(V8 rollover) 표시일과 잔여일이 어긋난다. 같은 함수 안의 문자열 비교(`due <= today()`)는 굴러가기
+ *  전 리터럴을 보므로 한 판정의 두 축이 서로 다른 날을 가리킨다. 2026-13-45 처럼 파싱 자체가 실패하면
+ *  daysUntil 이 null → `?? 999` 폴백으로 정기 점검·연체 판정이 영영 뜨지 않는다(경보가 조용히 꺼진다).
+ *  addYears/addMonths 가 이미 daysInMonth 로 없는 날을 당기는 것과 같은 달력 규칙을 입력단에서 공유한다. */
+export function isValidDate(dateStr: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
+  if (!m) return false
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  if (mo < 1 || mo > 12) return false
+  return d >= 1 && d <= daysInMonth(Number(m[1]), mo)
+}
+
 /** 날짜 문자열(`YYYY-MM-DD`) 연 단위 가감 — years 가 음수면 소급. 대상 연도에 없는 날(2/29)은
  *  그 달의 마지막 날로 당긴다(2028-02-29 +1년 → 2029-02-28). Date 객체를 쓰지 않아 TZ 영향이 없다.
  *  그동안 각 호출부가 `${Number(y) + n}-${m}-${d}` 로 연도만 올려 윤년 2/29 기준 갱신이 실재하지 않는

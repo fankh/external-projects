@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { missingContractDocs } from '@/lib/contract'
-import { addYears, daysUntil, fmtAmount, today } from '@/lib/dates'
+import { addYears, daysUntil, fmtAmount, isValidDate, today } from '@/lib/dates'
 import { expiryNoticeTargets, warrantyNoticeRef } from '@/lib/expiry'
 import { dispatch } from '@/lib/notify'
 import { buildMaintenance } from '@/lib/maintenance'
@@ -25,8 +25,7 @@ export async function addContract(input: {
   const ownerDept = input.ownerDept.trim()
   if (!name || !vendor || !ownerDept) return { ok: false, message: '계약명·공급사·주관부서를 입력하세요.' }
   if (!['구매', '유지보수'].includes(input.kind)) return { ok: false, message: '계약 구분이 올바르지 않습니다.' }
-  const dateOk = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d)
-  if (!dateOk(input.start) || !dateOk(input.end)) return { ok: false, message: '시작일·만료일을 YYYY-MM-DD 로 입력하세요.' }
+  if (!isValidDate(input.start) || !isValidDate(input.end)) return { ok: false, message: '시작일·만료일을 실재하는 날짜(YYYY-MM-DD)로 입력하세요.' }
   if (input.end < input.start) return { ok: false, message: '만료일이 시작일보다 빠릅니다.' }
   if (!Number.isFinite(input.amount) || input.amount < 0) return { ok: false, message: '계약 금액을 0 이상으로 입력하세요.' }
 
@@ -49,7 +48,7 @@ export async function addLicense(input: { name: string; vendor: string; purchase
   const vendor = input.vendor.trim()
   if (!name || !vendor) return { ok: false, message: '라이선스명과 공급사를 입력하세요.' }
   if (!Number.isInteger(input.purchased) || input.purchased <= 0) return { ok: false, message: '보유 좌석 수를 1 이상 입력하세요.' }
-  if (input.expiry !== '-' && !/^\d{4}-\d{2}-\d{2}$/.test(input.expiry)) return { ok: false, message: '만료일을 YYYY-MM-DD 또는 -(영구)로 입력하세요.' }
+  if (input.expiry !== '-' && !isValidDate(input.expiry)) return { ok: false, message: '만료일을 실재하는 날짜(YYYY-MM-DD) 또는 -(영구)로 입력하세요.' }
   if (!Number.isFinite(input.unitCost) || input.unitCost < 0) return { ok: false, message: '단가를 0 이상으로 입력하세요.' }
 
   const s = getStore()
@@ -497,7 +496,7 @@ export async function addContractCost(contractId: string, date: string, rawItem:
   if (!session) return { ok: false, message: '비용 등록 권한이 없습니다 (자산담당·Admin).' }
 
   const item = rawItem.trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, message: '지출일을 YYYY-MM-DD 로 입력하세요.' }
+  if (!isValidDate(date)) return { ok: false, message: '지출일을 실재하는 날짜(YYYY-MM-DD)로 입력하세요.' }
   if (!item) return { ok: false, message: '비용 항목을 입력하세요.' }
   if (!Number.isFinite(amount) || amount < 0) return { ok: false, message: '금액을 0 이상으로 입력하세요.' }
 

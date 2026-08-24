@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { addYears, isMaintenanceOverdue, today } from '@/lib/dates'
+import { addYears, isMaintenanceOverdue, isValidDate, today } from '@/lib/dates'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
 import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
@@ -264,7 +264,7 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   const to = rawTo.trim()
   const dept = rawDept.trim()
   if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return { ok: false, message: '반환 기한을 선택해 주세요.' }
+  if (!isValidDate(dueDate)) return { ok: false, message: '반환 기한을 선택해 주세요.' }
   if (dueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
 
   asset.status = '대여중'
@@ -291,7 +291,7 @@ export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: 
   const to = rawTo.trim()
   const dept = rawDept.trim()
   if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return { ok: false, message: '반환 기한을 선택해 주세요.' }
+  if (!isValidDate(dueDate)) return { ok: false, message: '반환 기한을 선택해 주세요.' }
   if (dueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
   const s = getStore()
   // 유휴 재고만, 폐기 절차(완료 제외) 중인 자산은 제외 — 파기 예정 자산 재순환 방지(단건 가드·가용 재고 산정과 동일 판정).
@@ -323,7 +323,7 @@ export async function extendLoan(assetNo: string, newDueDate: string) {
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (asset.status !== '대여중') return { ok: false, message: '대여 중인 자산만 반환 기한을 연장할 수 있습니다.' }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDueDate)) return { ok: false, message: '새 반환 기한을 선택해 주세요.' }
+  if (!isValidDate(newDueDate)) return { ok: false, message: '새 반환 기한을 선택해 주세요.' }
   if (newDueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
   const cur = asset.loanDueDate ?? ''
   if (cur && newDueDate <= cur) return { ok: false, message: `현재 기한(${cur}) 이후로만 연장할 수 있습니다.` }
@@ -350,7 +350,7 @@ export async function requestLoanExtension(assetNo: string, rawNewDueDate: strin
   // 연장과 반납은 상반된 처분 — 반납 신청 중이면 연장 요청 불가(모순 상태·이중 큐 방지). 반납 신청을 먼저 취소해야 한다.
   if (asset.returnRequest) return { ok: false, message: '반납 신청 중인 자산입니다 — 반납 신청을 취소한 뒤 연장 요청하세요.' }
   const newDueDate = rawNewDueDate.trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDueDate) || newDueDate <= (asset.loanDueDate ?? today())) {
+  if (!isValidDate(newDueDate) || newDueDate <= (asset.loanDueDate ?? today())) {
     return { ok: false, message: `연장 기한은 현재 반환 기한(${asset.loanDueDate ?? '-'}) 이후로 지정하세요.` }
   }
   const reason = rawReason.trim()
@@ -735,7 +735,7 @@ export async function scheduleMaintenance(assetNo: string, rawDate: string) {
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (['폐기완료', '폐기예정'].includes(asset.status)) return { ok: false, message: '폐기 대상 자산은 정기 점검 일정을 등록할 수 없습니다.' }
   const due = rawDate.trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return { ok: false, message: '점검 예정일을 YYYY-MM-DD 형식으로 입력하세요.' }
+  if (!isValidDate(due)) return { ok: false, message: '점검 예정일을 실재하는 날짜(YYYY-MM-DD)로 입력하세요.' }
   const t = today()
   if (due <= t) return { ok: false, message: '점검 예정일은 오늘 이후로 지정하세요.' }
   const prevDue = asset.maintenanceDue
@@ -773,7 +773,7 @@ export async function scheduleMaintenanceMany(assetNos: string[], rawDate: strin
   if (!session) return { ok: false, message: '정기 점검 일정 등록 권한이 없습니다 (자산담당·Admin).' }
   if (!Array.isArray(assetNos) || assetNos.length === 0) return { ok: false, message: '점검 예약할 자산을 선택하세요.' }
   const due = rawDate.trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return { ok: false, message: '점검 예정일을 YYYY-MM-DD 형식으로 입력하세요.' }
+  if (!isValidDate(due)) return { ok: false, message: '점검 예정일을 실재하는 날짜(YYYY-MM-DD)로 입력하세요.' }
   const t = today()
   if (due <= t) return { ok: false, message: '점검 예정일은 오늘 이후로 지정하세요.' }
 
