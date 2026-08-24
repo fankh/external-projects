@@ -9,3 +9,5 @@ scripts/.saml-test-*.pem
 # 실배포 비밀값 — .env.example 은 추적, 실제 .env 는 커밋 금지
 .env
 .env.local
+# 디자인 검수 스크린샷 산출물 — 로컬 확인용
+shots/
