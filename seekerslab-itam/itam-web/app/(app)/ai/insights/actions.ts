@@ -4,7 +4,7 @@ import { appendAudit } from '@/lib/audit'
 import { classifyDiscoveredType } from '@/lib/classify'
 import { today } from '@/lib/dates'
 import { raiseLicenseApproval } from '@/lib/license'
-import { dispatch } from '@/lib/notify'
+import { recipientOf, dispatch } from '@/lib/notify'
 import { createReport, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
@@ -169,7 +169,7 @@ export async function notifyReplacement() {
   let n = 0
   for (const { a, why } of replacementNoticeTargets()) {
     // 보유자 없는 자산(유휴·검수중 등 owner 미지정/-)은 '- (부서)' 로 아무에게도 아닌 발송이 되지 않게 관리 부서 앞으로(다른 owner 발송 사이트와 동일 가드).
-    const to = a.owner && a.owner !== '미지정' && a.owner !== '-' ? `${a.owner} (${a.dept})` : a.dept
+    const to = recipientOf(a.owner, a.dept)
     dispatch({ channel: '이메일', to, subject: `자산 교체 검토 요청 — ${a.assetNo} ${a.model} (${why})`, kind: '교체 검토 통보', ref: a.assetNo })
     a.history.push({ date: t, kind: '구성변경', detail: `교체 검토 통보 발송 — ${why} (${a.owner} · ${a.dept})`, actor: session.name })
     n += 1

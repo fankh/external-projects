@@ -1603,6 +1603,21 @@ try {
   check(`화면 갱신 가드: 스토어를 바꾸는 액션이 모두 revalidatePath 호출(액션 파일 ${actionFiles.length}개 검사)`,
     staleScreens.length === 0, `갱신 없음=${staleScreens.join(',')}`)
 
+  // 통지 수신자 가드 — 보유자 자리에 자리표시자가 그대로 실리면 "- (자산관리팀)"·"미지정 (부서)" 앞으로 발송된다.
+  //  발송 이력에는 남지만 아무도 읽지 않는 통지가 되고, 조치는 아무도 하지 않은 채 큐만 비어 보인다.
+  //  수신자 표기는 lib/notify 의 recipientOf 한 곳에서 만든다(보유자 없으면 관리 부서로).
+  const rawRecipients = []
+  for (const f of actionFiles) {
+    const lines = readFileSync(f, 'utf8').split(/\r?\n/)
+    lines.forEach((line, li) => {
+      if (line.includes('recipientOf') || line.includes('ownerDept')) return
+      if (!/to:\s*`[^`]*\$\{[^}]*(owner|holder)/.test(line)) return
+      rawRecipients.push(`${fileLabel(f)}:${li + 1}`)
+    })
+  }
+  check(`통지 수신자: 보유자 표기가 lib/notify recipientOf 한 곳(액션 파일 ${actionFiles.length}개 검사)`,
+    rawRecipients.length === 0, `직접 표기=${rawRecipients.join(',')}`)
+
 
 
 

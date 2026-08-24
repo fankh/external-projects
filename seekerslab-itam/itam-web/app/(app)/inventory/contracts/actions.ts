@@ -4,7 +4,7 @@ import { appendAudit } from '@/lib/audit'
 import { missingContractDocs } from '@/lib/contract'
 import { addYears, daysUntil, fmtAmount, isValidDate, today } from '@/lib/dates'
 import { expiryNoticeTargets, warrantyNoticeRef } from '@/lib/expiry'
-import { dispatch } from '@/lib/notify'
+import { recipientOf, dispatch } from '@/lib/notify'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { raiseLicenseApproval } from '@/lib/license'
@@ -569,7 +569,7 @@ export async function requestOffSeatRemoval(licenseId: string, rawAssetNo: strin
   if (s.dispatches.some((m) => m.kind === '라이선스 제거 요청' && m.ref === ref && m.at.startsWith(t))) {
     return { ok: false, message: `오늘 이미 제거를 요청했습니다 — ${lic.name} @ ${assetNo}` }
   }
-  dispatch({ channel: '이메일', to: `${owner} (${dept})`, subject: `라이선스 배정 밖 설치 제거 요청 — ${lic.name} @ ${assetNo}, 좌석 미배정 무단 사용(제거 또는 좌석 신청 요망)`, kind: '라이선스 제거 요청', ref })
+  dispatch({ channel: '이메일', to: recipientOf(owner, dept), subject: `라이선스 배정 밖 설치 제거 요청 — ${lic.name} @ ${assetNo}, 좌석 미배정 무단 사용(제거 또는 좌석 신청 요망)`, kind: '라이선스 제거 요청', ref })
   appendAudit({ actor: session.name, action: `라이선스 배정 밖 설치 제거 요청 — ${lic.name} @ ${assetNo} (${owner}·${dept})`, target: licenseId })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${lic.name} 배정 밖 설치 제거 요청 — ${assetNo}(${owner}·${dept}) 소유 부서 통지·감사 적재 (다음 사용량 대사에서 반영)` }
