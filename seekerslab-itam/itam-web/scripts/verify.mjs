@@ -18,6 +18,9 @@ const SUITES = [
   { name: 'smoke', script: 'scripts/smoke.mjs', port: 3378 },
   { name: 'e2e', script: 'scripts/e2e-findings.mjs', port: 3396 },
   { name: 'health', script: 'scripts/client-health.mjs', port: 3388 },
+  // 레이아웃 스윕 — 카드 밖으로 이탈해 도달 불가한 컨트롤(스크롤 조상 없는 넘침)을 폭 5종에서 잡는다.
+  //  게이트로 만들어 두고 루프에서 돌리지 않으면, 있는 검사가 회귀를 못 막는다(2분 · 결정적).
+  { name: 'layout', script: 'scripts/layout-sweep.mjs', port: 3391 },
   // 리포트 샘플 드리프트 — docs/샘플_*.md·csv 가 현재 생성기 출력과 같은지 본다. 기준일을 고정해 돌리므로
   //  결정적이고, 리포트 로직이 바뀌면 여기서 걸린다. 이 검사가 루프에 없던 동안 10종 전부가 밀려 있었다.
   { name: 'samples', script: 'scripts/gen-samples.mjs', port: 3397, args: ['--check'] },
@@ -99,4 +102,4 @@ if (bad || results.length !== SUITES.length) {
   console.error(`✗ ${bad?.name ?? '중단'} 에서 실패 — 위 출력에서 첫 ✗ 를 보세요.`)
   process.exit(1)
 }
-console.log('✓ 빌드 · 스모크 · e2e · 헬스 · 샘플 전부 통과')
+console.log('✓ 빌드 · 스모크 · e2e · 헬스 · 레이아웃 · 샘플 전부 통과')
