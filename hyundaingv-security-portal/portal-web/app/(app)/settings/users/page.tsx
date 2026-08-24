@@ -37,7 +37,7 @@ export default async function UsersPage() {
   return (
     <>
       <ScreenHeader kicker="환경설정" title="사용자 · 그룹 · 결재선"
-        desc="인사정보 연동 계정과 권한그룹, 문서 유형별 기본 결재선을 관리한다 — 결재선 변경은 이후 상신부터 적용된다." />
+        desc="인사 연동 계정과 권한그룹, 문서별 기본 결재선. 결재선 변경은 이후 상신 건부터 적용된다." />
 
       <div className="stat-row">
         <Stat value={s.people.length} label="사용자" note="인사정보 연동" />
