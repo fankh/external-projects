@@ -1,7 +1,7 @@
 import { daysUntil } from './dates'
 import { nextRunOf } from './reports'
 import { getStore } from './store'
-import { NON_OPERATIONAL_STATUSES } from './types'
+import { GONE_STATUSES, NON_OPERATIONAL_STATUSES } from './types'
 
 export interface UpcomingItem { date: string; dday: number; kind: string; label: string; href: string; tone: 'warn' | 'info' }
 
@@ -17,7 +17,10 @@ export function upcomingSchedule(days = 14): UpcomingItem[] {
     items.push({ date, dday: n, kind, label, href, tone: n <= 3 ? 'warn' : 'info' })
   }
   for (const a of s.assets) {
-    if (['폐기완료', '폐기예정'].includes(a.status)) continue
+    // 손을 떠난 자산(분실·폐기예정·폐기완료)은 예정 일정에서 뺀다 — 없어진 장비의 보증 만료를 주간 계획에 올려 봐야
+    //  연장·교체 검토를 할 대상이 아니다. 그전에는 폐기 두 상태만 빼서 분실 자산의 보증 만료가 아젠다에 남았다
+    //  (같은 개념 두 정의 — 계약 커버리지·재배치 풀은 이미 GONE_STATUSES 한 기준을 쓴다).
+    if (GONE_STATUSES.includes(a.status)) continue
     // 정기 점검만 운영 상태 게이트를 더 좁게 본다 — 점검 도래 큐(isMaintenanceDue)·독촉(isMaintenanceOverdue)이
     //  분실·수리중·반납대기를 빼는데 아젠다만 폐기 두 상태로 걸러, 아무도 쫓지 않을 점검이 주간 계획에 실렸다(같은 개념 두 정의).
     if (a.maintenanceDue && !NON_OPERATIONAL_STATUSES.includes(a.status)) push(a.maintenanceDue, '정기 점검', `${a.assetNo} · ${a.model}`, `/assets/register?sel=${a.assetNo}`)
