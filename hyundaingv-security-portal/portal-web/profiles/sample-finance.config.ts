@@ -15,7 +15,7 @@ import type { ChannelBinding, PortalBrand } from '@/lib/integrations/types'
 
 export const PORTAL: PortalBrand = {
   customer: '나래금융 (예시)',
-  productName: 'NARAE FIN PORTAL',
+  productName: '나래 IT포털',
   productSub: 'IT·보안 거버넌스',
   version: 'v1.0',
 }
