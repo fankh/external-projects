@@ -782,12 +782,12 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       role: 'assistant',
       text: [
         `향후 30일 다가오는 일정은 ${up.length}건입니다 (날짜순 · 미경과 예정분).`,
-        ...(up.length === 0 ? ['', '향후 30일 예정된 정기 점검·계약/라이선스/보증 갱신·재물조사 마감·리포트 배포가 없습니다.'] : []),
+        ...(up.length === 0 ? ['', '향후 30일 예정된 정기 점검·계약/라이선스/보증 갱신·대여 반환·입고 예정·재물조사 마감·리포트 배포가 없습니다.'] : []),
         ...(up.length ? [''] : []),
         ...up.slice(0, 14).map((u) => `· ${u.date} (D-${u.dday}) — [${u.kind}] ${u.label}`),
         up.length > 14 ? `… 외 ${up.length - 14}건` : '',
         '',
-        `유형별: 정기 점검 ${byKind('정기 점검')} · 계약 만료 ${byKind('계약 만료')} · 라이선스 만료 ${byKind('라이선스 만료')} · 보증 만료 ${byKind('보증 만료')} · 재물조사 마감 ${byKind('재물조사 마감')} · 리포트 배포 ${byKind('리포트 배포')}.`,
+        `유형별: 정기 점검 ${byKind('정기 점검')} · 계약 만료 ${byKind('계약 만료')} · 라이선스 만료 ${byKind('라이선스 만료')} · 보증 만료 ${byKind('보증 만료')} · 대여 반환 ${byKind('대여 반환')} · 입고 예정 ${byKind('입고 예정')} · 재물조사 마감 ${byKind('재물조사 마감')} · 리포트 배포 ${byKind('리포트 배포')}.`,
       ].filter(Boolean).join('\n'),
       evidence: [
         { label: '대시보드 (다가오는 일정)', href: '/dashboard' },

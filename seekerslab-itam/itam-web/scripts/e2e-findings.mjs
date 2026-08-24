@@ -2908,7 +2908,9 @@ try {
   const lmLoan = pLM.locator('div.vstack', { hasText: '대여 처리 (반출)' }).last() // 상세 패널의 대여 입력 묶음
   await lmLoan.locator('input[placeholder="대여자 (성명)"]').fill('선점자')
   await lmLoan.locator('input[placeholder="부서"]').fill('인재개발팀')
-  await lmLoan.locator('input[type="date"]').first().fill('2026-12-15')
+  // 반환 기한은 오늘+5일 — 아래에서 '다가오는 일정' 아젠다(향후 30일)에 대여 반환이 잡히는지 함께 확인한다(고정 날짜면 시간이 지나며 창을 벗어난다)
+  const lmDue = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10)
+  await lmLoan.locator('input[type="date"]').first().fill(lmDue)
   await lmLoan.locator('button', { hasText: /^대여 확정$/ }).first().click() // 확정 버튼 라벨은 '대여 확정'
   await pLM.waitForTimeout(900)
   await ctxLM.close()
@@ -2921,6 +2923,17 @@ try {
   const lmAudit = (await pLM2.textContent('body')) || ''
   ok('대여 승인 미집행: 사유와 함께 감사에 기록', lmAudit.includes('대여 승인 미집행'))
   ok('대여 승인 미집행: 신청자에게 재신청 안내 통보', lmAudit.includes('더 이상 대여할 수 없어 집행되지 않았습니다'))
+  // 다가오는 일정 아젠다 — 대여 반환 기한은 연체·반환 임박 큐만 다루고 아젠다에는 빠져 있었다(도입 예정 입고도 같은 누락).
+  //  '경과분은 반응형 큐, 예정분은 아젠다'라는 분담대로면 아직 도래 전인 반환 기한이 아젠다에 있어야 한다. 위에서 오늘+5일로 대여했다.
+  await pLM2.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+  const lmBefore = await pLM2.locator('.msg.assistant .bub').count() // 어시스턴트 입력은 .chat-in input · Enter 전송(위 ask 헬퍼와 동일 규약)
+  await pLM2.locator('.chat-in input').fill('다가오는 일정 알려줘')
+  await pLM2.locator('.chat-in input').press('Enter')
+  await pLM2.waitForFunction((n2) => document.querySelectorAll('.msg.assistant .bub').length > n2, lmBefore, { timeout: 8000 })
+  // 답변 말풍선은 '분석 중…' 자리표시자로 먼저 뜬다 — 실제 답으로 바뀔 때까지 기다린다(자리표시자를 읽으면 항상 실패한다)
+  await pLM2.waitForFunction(() => { const b = document.querySelectorAll('.msg.assistant .bub'); return b.length > 0 && !(b[b.length - 1].textContent || '').includes('분석 중') }, null, { timeout: 15000 })
+  const lmAgenda = (await pLM2.locator('.msg.assistant .bub').last().textContent()) || ''
+  ok('다가오는 일정: 대여 반환 기한이 아젠다에 편입(유형별 집계 포함)', /대여 반환 [1-9]/.test(lmAgenda))
   await ctxLM2.close()
   await browser.close()
 } catch (err) {
