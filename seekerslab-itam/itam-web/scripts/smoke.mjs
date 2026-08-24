@@ -1345,6 +1345,26 @@ try {
 
   // 리포트 종류 — REPORT_KINDS 항목마다 buildSections 분기가 있어야 한다. 분기를 빠뜨리면 제목만 그 종류이고
   //  내용은 마지막 구간(감사 대응 자료)인 리포트가 만들어져 결재 근거 문서로 첨부되고 xlsx·md 로 반출된다.
+  // 시드 참조 무결성 — 자산번호를 참조하는 값이 실제 대장 자산을 가리키는지 본다. 이 배포 모델에서 시드는
+  //  유일한 데이터 원천이라, 자산 하나를 지우거나 번호를 고치면 좌석·SW 설치·폐기·CMDB 의존·재물조사 차이가
+  //  존재하지 않는 자산을 가리킨 채 남는다 — 화면에는 소유자·부서 없는 유령 행으로 나오고 집계만 늘어난다.
+  //  (런타임에서 같은 유령 참조를 만들지 않도록 폐기 시 좌석·SW 설치·의존 참조를 정리한다 — 그 정적 짝이다.)
+  //  '대장 미등록' 재물조사 차이는 정의상 대장에 없는 코드를 가리키므로 제외한다.
+  const storeSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const seedAssetsSrc = storeSrc.slice(storeSrc.indexOf('function seedAssets'), storeSrc.indexOf('\nfunction ', storeSrc.indexOf('function seedAssets') + 10))
+  const seededAssets = new Set([...seedAssetsSrc.matchAll(/assetNo: '([^']+)'/g)].map((m) => m[1]))
+  const danglingRefs = []
+  storeSrc.split(/\r?\n/).forEach((line, i) => {
+    for (const m of line.matchAll(/assetNo: '([^']+)'/g)) {
+      if (seededAssets.has(m[1]) || line.includes('대장 미등록')) continue
+      danglingRefs.push(`${i + 1}행 ${m[1]}`)
+    }
+  })
+  for (const m of storeSrc.matchAll(/dependsOn: \[([^\]]*)\]/g)) {
+    for (const d of m[1].matchAll(/'([^']+)'/g)) if (!seededAssets.has(d[1])) danglingRefs.push(`dependsOn ${d[1]}`)
+  }
+  check(`시드 참조 무결성: 자산 ${seededAssets.size}건 · 참조가 모두 실재 자산을 가리킴`, danglingRefs.length === 0, danglingRefs.slice(0, 5).join(', '))
+
   const reportsSrc = readFileSync(path.join(ROOT, 'lib', 'reports.ts'), 'utf8')
   const reportKinds = [...reportsSrc.matchAll(/\{ kind: '([^']+)', period:/g)].map((m) => m[1])
   const sectionBranches = new Set([...reportsSrc.matchAll(/kind (?:===|!==) '([^']+)'/g)].map((m) => m[1])) // '감사 대응 자료' 는 마지막 구간이라 !== 로 분기한다
