@@ -304,7 +304,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
         )}
         {impactSet.size > 0 && (
           <button className={`btn sm ${impactOnly ? 'err' : ''}`} onClick={() => setImpactOnly((v) => !v)}
-            title="하위 의존 영향 통지 대상 — 회수·분실·수리·폐기 절차로 운영에서 빠졌는데 하위 의존 자산 담당 부서에 오늘 아직 통지하지 않은 상위 자산(대시보드 큐와 같은 집합)">
+            title="하위 의존 영향 통지 대상 — 회수·분실·수리·폐기 절차나 NAC 격리로 운영에서 빠졌는데 하위 의존 자산 담당 부서에 오늘 아직 통지하지 않은 상위 자산(대시보드 큐와 같은 집합)">
             {impactOnly ? '✓ ' : ''}의존 영향 통지 대상 {impactSet.size}
           </button>
         )}
