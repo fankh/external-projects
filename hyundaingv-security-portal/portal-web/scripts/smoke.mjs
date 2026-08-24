@@ -75,6 +75,7 @@ const ROUTES = {
   '/settings/permissions': ADM,
   '/settings/groups': ADM,
   '/settings/codes': ADM,
+  '/settings/objects': ADM,
   '/settings/forms': ADM,
   '/settings/audit': ADM,
   '/platform/integrations': ADM,
@@ -213,7 +214,7 @@ async function main() {
     ['/board/notices', 'USER', ['8월 정기 서버 점검 안내']],
     ['/board/notices', 'ADMIN', ['공지 등록']],
     // 연동 프레임워크 — 채널 레지스트리·어댑터 바인딩·상태 제어
-    ['/platform/integrations', 'ADMIN', ['연동 채널', '그룹웨어 메일', '자산관리시스템', 'mock-asset', '인사정보 즉시 동기화', 'portal.config.ts', '어댑터 계약 자가진단', '전 프로필 적합', 'erp-asset', 'gov-asset', '검증기 자기점검', '정상', '채널 id 유일', '배포 준비 상태', '세션 서명 키', '영속화', 'SSO(SAML)', '미구성 (로컬 로그인)', '연동 어댑터', '전량 목업']],
+    ['/platform/integrations', 'ADMIN', ['연동 채널', '그룹웨어 메일', '자산관리시스템', 'mock-asset', '인사정보 즉시 동기화', '고객사 프로필', 'PORTAL_PROFILE', '어댑터 계약 자가진단', '전 프로필 적합', 'erp-asset', 'gov-asset', '검증기 자기점검', '정상', '채널 id 유일', '배포 준비 상태', '세션 서명 키', '영속화', 'SSO(SAML)', '미구성 (로컬 로그인)', '연동 어댑터', '전량 목업']],
     // 자산등록 — 자산관리 어댑터 조회·미등록 식별
     ['/finance/asset-reg', 'BIZ_MGR', ['SN-NB-88121', 'AST-2025-0112', '미등록', '등록번호 취득']],
     // 투자 루프 — 계획 스코핑(USER=본인 경영계획만), 재무 리포트(실적·계약·정산)는 관리자급
@@ -273,6 +274,9 @@ async function main() {
     ['/finance/invest', 'DEPT_MGR', ['class="clip"']],  // 계약 첨부 뱃지 — 계약은 관리자급만 열람
     // 환경설정 잔여 4종 — 공통코드·메뉴·권한 매트릭스·엑셀양식
     ['/settings/codes', 'ADMIN', ['FAULT_GRADE', '장애등급', '코드 중심 운영', '2등급', '사용기간', '코드 추가']],
+    ['/settings/objects', 'ADMIN', ['객체 관리', '전송구간 암호화', '접근통제', 'ISMS 2.7 암호화', '시스템별 준수 현황', '미준수 내역', '준수 기록이 있는 객체는 삭제할 수 없다', 'OBJ-01', '객체 등록']],
+    // 정의(환경설정)와 결과(인프라)가 이어졌는지 — 요구사항 75행 비고의 '인프라>시스템관리>보안준수 참고'
+    ['/infra/systems', 'BIZ_MGR', ['보안준수', '미준수', '보안 미준수']],
     ['/settings/menus', 'ADMIN', ['LV1 도메인', '메뉴 체계', '/sr/new', '구현']],
     ['/settings/permissions', 'ADMIN', ['권한 매트릭스', '최소권한 모델', '개인별현황', '런타임 제한', '제한 불가']],
     ['/settings/groups', 'ADMIN', ['사용자 그룹', '가법 위임', '부여 기능', '인프라 열람 위임', '그룹 등록', '위임 현황']],
@@ -283,7 +287,7 @@ async function main() {
     ['/platform/integrations', 'ADMIN', ['알림 배치 실행']],
     ['/work/approvals?sel=AP-2026-0712', 'BIZ_MGR', ['문서 상세 — AP-2026-0712', 'SR 유형', '월별 정산 데이터 추출', '요청 내용']],
     // 통합 검색 — 도메인 그룹·권한 스코핑
-    ['/search?q=ERP', 'BIZ_MGR', ['통합 검색', 'IT Request', '인프라 운영', 'SR-2026-0145', 'ERP 리포트 모듈 구축 계약', 'FL-2026-11']],
+    ['/search?q=ERP', 'BIZ_MGR', ['통합 검색', '서비스요청', '인프라 운영', 'SR-2026-0145', 'ERP 리포트 모듈 구축 계약', 'FL-2026-11']],
     ['/search?q=ERP', 'USER', ['SR-2026-0145']],
   ]
   for (const [route, role, needles] of CONTENT) {
@@ -500,7 +504,7 @@ async function main() {
     const compCsv = await get('/api/export?fmt=csv&type=compliance-summary', 'BIZ_MGR')
     const compCsvText = await compCsv.text()
     check(compCsv.status === 200 && compCsvText.includes('일반 보안서약률'), 'export: 컴플라이언스 종합 현황 CSV (BIZ_MGR)')
-    check(compCsvText.includes('포스처 점수') && compCsvText.includes('개선 우선순위(최약 축)'), 'export: 종합 현황에 포스처 점수·개선 우선순위(최약 축) 행 포함')
+    check(compCsvText.includes('컴플라이언스 점수') && compCsvText.includes('개선 우선순위(최약 축)'), 'export: 종합 현황에 컴플라이언스 점수·개선 우선순위(최약 축) 행 포함')
     const compUser = await get('/api/export?fmt=csv&type=compliance-summary', 'USER')
     check(compUser.status === 403, 'export: USER 컴플라이언스 종합 차단(403)')
     const compDept = await get('/api/export?fmt=csv&type=compliance-summary', 'DEPT_MGR')
