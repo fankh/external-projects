@@ -1,6 +1,9 @@
 /** OS EOL(지원 종료) 판정 — 지원이 끝난 OS 는 보안 패치가 없어 미패치 취약점에 상시 노출된다.
  *  (제품안내서 §05 취약점 우선순위: "EOL OS·미패치 SW") 순수 함수 — 서버·클라이언트 공용(스토어 비의존). */
 
+import { NON_OPERATIONAL_STATUSES } from './types'
+import type { AssetStatus } from './types'
+
 export const OS_EOL: { match: RegExp; label: string; eol: string }[] = [
   { match: /windows\s*7/i, label: 'Windows 7', eol: '2020-01-14' },
   { match: /windows\s*server\s*2012/i, label: 'Windows Server 2012', eol: '2023-10-10' },
@@ -17,12 +20,8 @@ export function eolOsOf(os: string | undefined, today: string): { label: string;
   return { label: hit.label, eol: hit.eol }
 }
 
-/** EOL 교체·업그레이드 대상 운영 상태 게이트 — 정기 점검 독촉(isMaintenanceOverdue)과 동일하게
- *  폐기 경로·분실·수리중·반납대기 자산을 제외한다(실물이 없거나 운영 중이 아닌 자산에 교체 통보가 나가지 않게). */
-export const EOL_NON_OPERATIONAL = ['폐기완료', '폐기예정', '분실', '수리중', '반납대기']
-
 /** EOL 교체·업그레이드 대상 판정 — 지원 종료 OS 이면서 운영 중(비운영 상태 제외)인 자산.
  *  대장 EOL 필터·대시보드 큐·EOL 업그레이드 통보(로61)가 같은 게이트를 공유한다(표시와 조치가 어긋나지 않게). */
 export function isEolTarget(status: string, os: string | undefined, today: string): boolean {
-  return !EOL_NON_OPERATIONAL.includes(status) && !!eolOsOf(os, today)
+  return !NON_OPERATIONAL_STATUSES.includes(status as AssetStatus) && !!eolOsOf(os, today)
 }
