@@ -145,6 +145,12 @@ export async function recordWipeMany(ids: string[], method: WipeMethod, disposit
   const session = await getSession()
   if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '권한이 없습니다.' }
   if (!DISPOSITIONS.includes(disposition)) return { ok: false, message: '처분 방식이 올바르지 않습니다.' }
+  // 매각 제외는 지금까지 화면 규칙일 뿐이었다(일괄 선택지에서 빼 두기만 함). 위조 POST·향후 UI 변경으로 매각이 들어오면
+  //  대금 0 인 매각이 폐기 대장에 확정되고, 소거 완료 뒤에는 대금을 기록할 경로가 없어(recordWipe 는 '소거 대기' 건만 받는다)
+  //  회수 대금이 월간 자산 현황·컴플라이언스 서술·폐기 증적 대장에서 영구히 빠진다. 서버가 같은 규칙을 강제한다.
+  if (disposition === '매각') {
+    return { ok: false, message: '매각은 대금이 건별로 달라 일괄 처리할 수 없습니다 — 건별 소거·처분에서 매각 대금과 함께 기록하세요.' }
+  }
   const s = getStore()
   const targets = s.disposals.filter((d) => ids.includes(d.id) && d.status === '소거 대기')
   if (targets.length === 0) return { ok: false, message: '소거할 폐기 건이 없습니다 (결재 승인·소거 대기 건만 대상).' }
