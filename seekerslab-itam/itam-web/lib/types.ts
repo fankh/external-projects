@@ -227,6 +227,11 @@ export const DEFAULT_OPS_POLICY: OpsPolicy = {
  *  서버·네트워크는 예비 재고를 두지 않고, SW·가상자원은 물리 재고 개념이 아니라 제외한다. */
 export const STOCKED_CATEGORIES = ['단말', '주변기기'] as const
 
+/** 보유자가 쥔·파이프라인 진행 중 상태 — 실물이 담당자 손에 없으므로 폐기 대상으로 선정할 수 없다
+ *  (먼저 회수·반환·검수를 마쳐야 한다). 서버 가드(selectForDisposal)와 화면 컨트롤이 이 한 정의를 공유해
+ *  화면이 내준 버튼을 서버가 거절하는 막다른 길이 생기지 않는다. */
+export const HELD_STATUSES = ['사용중', '대여중', '검수중'] as const
+
 /** 위험도 기준(취약점 우선순위 임계값) — 보안담당이 관리하는 조치 우선순위 판정 기준.
  *  자산 중요도 × 노출도 점수(0~100)를 P1/P2/P3 로 나누는 컷오프. (제품안내서 §01 역할: 보안담당 — 위험도 기준 관리, §05 취약점 우선순위) */
 export interface RiskPolicy {
