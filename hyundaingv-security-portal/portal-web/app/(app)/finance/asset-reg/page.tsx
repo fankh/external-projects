@@ -53,7 +53,7 @@ export default async function AssetRegPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <ScreenHeader kicker="IT 투자/비용" title="자산등록 (API 연계)"
-        desc="자산관리시스템 API로 자산정보를 조회하고, 신규 자산 자료를 전송해 자산등록번호를 취득한다." />
+        desc="자산관리시스템 연계 조회와 신규 자산등록번호 취득" />
 
       <div className="stat-row">
         <Stat value={on ? '가동중' : '중지'} label="자산관리시스템 채널" tone={on ? undefined : 'err'} />
