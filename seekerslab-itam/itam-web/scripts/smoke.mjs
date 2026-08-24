@@ -148,6 +148,10 @@ try {
   check('자산 대장: 예방 정비 미편성 자산 상세에 정기 점검 일정 등록 액션', schedSelHtml.includes('정기 점검 일정 등록'))
   // 이미 예정이 잡힌 자산에는 등록 대신 완료 액션만 — 두 액션은 상호배타(중복 예정 방지)
   check('자산 대장: 이미 정기 점검 예정인 자산엔 일정 등록 액션 미노출(완료만)', !maintSelHtml.includes('정기 점검 일정 등록'))
+  // 폐기 절차 자산의 대여 접점 차단 — loanAsset 가드(폐기 절차 중 대여 불가)와 화면을 맞춘다.
+  //  시드 AST-2021-000432 는 유휴지만 폐기 대상 선정(DSP-02) 상태다. 상태만 보고 대여 버튼을 내주면 눌러야 거부되는 막다른 길이 된다.
+  const dispSelHtml = await (await get('/assets/register?sel=AST-2021-000432', 'ASSET_MGR')).text()
+  check('자산 대장: 폐기 절차 중 유휴 자산엔 대여 컨트롤 미노출 + 사유 안내(가드와 정합)', !dispSelHtml.includes('대여 처리 (반출)') && dispSelHtml.includes('폐기 절차(대상 선정~소거 대기) 중인 자산이라'))
   // 정기 점검 독촉 — 예정일 경과(미시행) 자산이 있으면 자산담당에게 독촉 발송 버튼 노출(시드 AST-2022-000640/641 경과). 수령·반환 독촉과 같은 컴플라이언스 독촉.
   check('자산 대장: 정기 점검 독촉 발송 버튼(자산담당·예정 경과 있을 때)', mgrHtml.includes('정기 점검 독촉 발송'))
   // 배정 라이선스 역조회 — 라이선스 좌석 배정(로56)을 자산 관점에서 상세에 노출(오프보딩·감사). 시드 AST-2022-000871 은 LIC-004 AutoCAD 배정.
@@ -274,6 +278,10 @@ try {
   check('대시보드 최근 공지: 부서 지정 공지가 대상 밖 사용자에게 미노출(유출 방지)', !dashUserHtml.includes('ZZMKTGSCOPE'))
   const dashAdminHtml = await (await get('/dashboard', 'ADMIN')).text()
   check('대시보드 최근 공지: 부서 지정 공지가 Admin 에겐 노출(스코핑이지 소실 아님 · 양성 대조)', dashAdminHtml.includes('ZZMKTGSCOPE'))
+  // '내 결재 차례'·결재함 배지는 실제로 결재함에서 처리할 수 있는 건만 세야 한다 — 소유자 확인은 결재(decide)가 아니라
+  //  요청받은 부서의 응답(answerOwnerConfirm)이라 서버가 거부하고 결재함도 승인 버튼을 내주지 않는다.
+  //  Admin 은 역할 오버라이드로 전부 통과하므로 시드의 대기 소유자 확인 2건(APR-2607-114·109)이 그대로 큐에 섞여 13건으로 보였다(→ 11).
+  check('대시보드: 결재 큐가 소유자 확인(결재 아님)을 세지 않음 — 들어가도 처리 못 하는 건 제외', dashAdminHtml.includes('결재함 <!-- -->11<!-- --> →'))
   // 운영 대기 우선순위 — 큐가 화면마다 흩어져 20여 개로 늘어, 긴급(err)을 주의(warn)보다 위로 정렬하고 헤더에 긴급·주의 집계를 노출.
   check('대시보드: 운영 대기 긴급·주의 요약 헤더', dashHtml.includes('긴급 ') && dashHtml.includes('주의 '))
   // 긴급 우선 정렬 검증 — err 큐(라이선스 초과 사용)가 warn 큐(입고 검수 대기)보다 앞. 삽입 순서(입고가 먼저)와 반대여야 정렬이 동작.
@@ -667,8 +675,11 @@ try {
   check('불출·이동: 미집행 승인 이동이 대기열에 노출', mvHtml.includes('APR-2607-101') && mvHtml.includes('본사 9F'))
   // 재배치 우선 원칙 — 승인된 자산 신청(APR-2607-116, 희망 유형 단말)이 불출 대기에 노출되고 희망 유형이 표시된다
   check('불출: 승인 자산 신청 불출 대기 + 희망 유형 노출', mvHtml.includes('APR-2607-116') && mvHtml.includes('희망 유형') && mvHtml.includes('노트북 지급'))
-  // 유형 매칭 추천 — 단말 신청에 일치하는 유휴 단말(AST-2021-000432)이 ✓ 표기로 우선 추천된다
-  check('불출: 희망 유형 일치 유휴 재고 우선 추천(✓)', mvHtml.includes('✓ AST-2021-000432') && mvHtml.includes('· 단말'))
+  // 유형 매칭 추천 — 단말 신청에 일치하는 배정 가능 단말(AST-2025-000033 · 검수중 미배정분)이 ✓ 표기로 우선 추천된다
+  check('불출: 희망 유형 일치 배정 가능 재고 우선 추천(✓)', mvHtml.includes('✓ AST-2025-000033') && mvHtml.includes('· 단말'))
+  // 폐기 선정 자산 제외 — 배정 가능 재고는 불출 가드(dispatchAsset)와 같은 판정(lib/stock assignableAssets)이어야 한다.
+  //  시드 AST-2021-000432(유휴 단말)는 폐기 대상 선정(DSP-02) 상태라 불출이 거부된다 — 화면이 추천하면 담당자가 막다른 길에 빠진다.
+  check('불출: 폐기 선정된 유휴 자산은 배정 가능 재고에서 제외(불출 가드와 동일 판정)', !mvHtml.includes('AST-2021-000432'))
   // 배정 가능 재고에 유형 다양성(주변기기 유휴) — 유형 불일치 시연 근거
   check('불출: 배정 가능 재고에 주변기기 유휴(유형 다양성)', mvHtml.includes('AST-2023-000704') && mvHtml.includes('주변기기'))
   // 불출·이동 처리 시 신청자에게 자동 통보한다는 안내 (요청자 루프 폐쇄 · dispatch 자산 불출·자산 이동)
@@ -700,12 +711,17 @@ try {
   check('반납·유휴: 연체·임박 대여에 반환 독촉 발송 버튼 노출', rtHtml.includes('반환 독촉 발송'))
   check('반납·유휴: 대여 대장 엑셀 반출 버튼 노출 (감사 대응)', rtHtml.includes('/api/export/loans') && rtHtml.includes('대여 대장 엑셀'))
   const apUser = await (await get('/workflow/approvals', 'USER')).text()
+  const apSec0 = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('신청 상신: 사용자에게 신청 UI 노출', apUser.includes('신청 상신') && apUser.includes('신청하기'))
   check('상신 취소: 본인 대기 신청에 취소 버튼 노출', apUser.includes('상신 취소') && apUser.includes('APR-2607-121'))
   // 소유자 확인은 결재가 아니라 부서 응답 — 요청받은 부서(플랫폼개발팀=김민준)에게만 응답 버튼이 뜬다
   check('소유자 확인: 해당 부서 사용자에게 응답 버튼', apUser.includes('APR-2607-114') && apUser.includes('본인 자산'))
   // 결재함 데이터 스코핑 — USER 는 본인 상신분(+부서 소유자확인)만 조회('신청·결재' 조회='p' own-scope). 타 부서 결재(APR-2607-112 격리·보안운영팀)는 미노출.
   check('결재함 스코핑(USER): 타 부서 결재 미노출(본인·부서 소유자확인만 · 조회 own-scope)', !apUser.includes('APR-2607-112'))
+  // 목록만 스코핑하고 상단 KPI 가 전사 집계를 쓰면 같은 화면 머리에서 다시 새어 나간다 — 타일도 조회 스코프를 따라야 한다.
+  //  격리 요청 건수는 보안 운영 지표라 USER 자리에는 본인 부서 소유자 확인 요청을 대신 노출한다(역할에 맞는 할 일).
+  check('결재함 KPI 스코핑(USER): 전사 격리 요청 건수 미노출 · 소유자 확인 요청으로 대체', !apUser.includes('격리 요청 (보안담당)') && apUser.includes('소유자 확인 요청 (우리 부서)'))
+  check('결재함 KPI(담당자): 격리 요청 타일은 그대로', apSec0.includes('격리 요청 (보안담당)'))
   const apSec = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('소유자 확인: 타 부서에는 응답 버튼 미노출', apSec.includes('APR-2607-114') && apSec.includes('부서 응답 대기'))
   const insHtml = await (await get('/ai/insights', 'SEC_MGR')).text()
@@ -719,6 +735,10 @@ try {
   check('AI 제안: 자동분류 신뢰도·근거·편입 연결', insHtml.includes('평균 신뢰도') && insHtml.includes('수기 분류 제거') && insHtml.includes('/discovery/found?sel='))
   // 취약점 노출 우선순위(§05 기능04) — 자산 중요도 × 노출도 스코어링. 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출 합성.
   check('AI 제안: 취약점 노출 우선순위 스코어링 렌더', insHtml.includes('취약점 노출 우선순위') && insHtml.includes('자산 중요도 × 노출도') && insHtml.includes('P1 — 즉시 조치'))
+  // 라이선스 판정 — 만료 경과와 사용률 판정(초과·미사용)은 배타가 아니다. 시드 JetBrains 는 만료(2026-05-31)인데 120석 보유에 131석 사용이다.
+  //  만료가 사용률 판정을 덮어쓰면 '초과 사용 1건' 스탯은 세는데 그렇게 라벨된 행이 표에 하나도 없고(실제로 그랬다),
+  //  같은 행의 권고 조치만 '증설 — 11석 초과'라고 말해 두 컬럼이 서로 다른 판정을 보여준다. lib/reports licenseVerdict 단일 소스.
+  check('AI 제안: 라이선스 판정이 만료·초과를 함께 표기(스탯과 행 라벨 정합)', insHtml.includes('만료·초과 사용') && insHtml.includes('만료 경과 — 갱신·해지 먼저 판단'))
   // EOL OS(CentOS 7)·외부 CVE 가 스코어링 대상에 포함됨을 확인 (시드 AST-2020-000883 CentOS 7.9)
   check('AI 제안: 취약점 우선순위에 EOL OS·외부 CVE 반영', insHtml.includes('EOL OS') && insHtml.includes('CentOS 7') && insHtml.includes('외부 노출 CVE'))
   // 미조치 외부 CVE(legacy-vpn·무action, CVE-2018-13379)는 포함, 이미 차단요청된 CVE(db-backup·action, CVE-2024-10977)는 제외 — 조치분은 '즉시 조치'가 아니다
@@ -1191,6 +1211,9 @@ try {
   // 자산 가치 현황 — 유형별 취득가·잔존가치(정액법 감가상각) + 장부가 총액 KPI
   check('재고 현황: 유형별 자산 가치(취득가·잔존가치·감가상각률)', stockHtml.includes('유형별 자산 가치') && stockHtml.includes('총 취득가') && stockHtml.includes('총 잔존가치(장부가)') && stockHtml.includes('감가상각률'))
   check('재고 현황: 자산 잔존가치(장부가 총액) KPI', stockHtml.includes('자산 잔존가치 (장부가 총액)'))
+  // 가용 재고 KPI ↔ 안전재고 경보 정합 — 타일이 상태 '유휴' 를 그대로 세면 폐기 선정된 유휴 자산까지 '가용'으로 잡혀
+  //  같은 화면 아래 경보(가용 제외)·어시스턴트 '재배치 가능' 답변과 어긋난다. lib/stock availableAssets 단일 소스.
+  check('재고 현황: 가용 재고 KPI 가 폐기 선정 유휴를 제외(경보·어시스턴트와 동일 판정)', stockHtml.includes('가용 재고 (재배치 가능)') && stockHtml.includes('폐기 선정'))
   // 안전재고 경보 — 불출형 유형(단말·주변기기) 가용 재고가 안전재고(2대) 미만이면 경보. 시드: 단말 유휴 1대(AST-2021-000432)는 폐기 선정(대상 선정)이라 가용 제외 → 가용 0(재고 소진), 주변기기 가용 1.
   check('재고 현황: 안전재고 경보 카드(가용 부족 발주 검토)', stockHtml.includes('안전재고 경보') && stockHtml.includes('발주 검토'))
   check('재고 현황: 폐기 선정 유휴는 가용 제외 → 단말 재고 소진(가용 0)', stockHtml.includes('단말') && stockHtml.includes('재고 소진'))
@@ -1202,6 +1225,11 @@ try {
   check('재고 엑셀: 유형별 가치 시트(취득가·잔존가치) 반출', stockBuf.includes('총 취득가') && stockBuf.includes('총 잔존가치') && stockBuf.includes('감가상각률'))
   // 재고 엑셀 대수 집계 ↔ 화면 정합 — 화면 aggBy 는 전 자산(폐기완료 포함)을 세어 합계=총 보유 불변식을 지킨다. 반출본도 동일해야 한다(폐기완료 자산 위치 '폐기 처리 완료' 행 포함). 폐기완료를 빼면 반출본이 화면과 어긋난다.
   check('재고 엑셀: 대수 집계가 화면과 동일(위치별에 폐기완료 행 포함 · 합계=총 보유)', stockBuf.includes('폐기 처리 완료'))
+  // 재고 엑셀 열 구성 ↔ 화면 정합 — 화면(StockBreakdown)에 있는 '기타'(검수중·대여중·수리중·분실·폐기 등 나머지 상태) 열이 반출본에 없으면
+  //  보유 ≠ 사용중 + 유휴·반납대기 가 되어 결재 첨부·감사 대응 자료만으로는 차이가 어디로 갔는지 대사할 수 없다.
+  check('재고 엑셀: 화면과 동일한 열 구성(기타 열 포함 · 보유 대사 가능)', stockBuf.includes('유휴·반납대기') && stockBuf.includes('기타') && stockBuf.includes('유휴율(%)'))
+  // 합계 행 — 화면 tfoot 과 동형. 회계·감사가 엑셀 안에서 바로 검산한다(리포트 금액 표 합계 행과 동일 규약)
+  check('재고 엑셀: 집계 시트·유형별 가치에 합계 행(엑셀 내 검산)', stockBuf.includes('합계'))
   // 필터 딥링크가 자산 대장에서 실제로 유효 (cat 파라미터 수용)
   const drillHtml = await (await get('/assets/register?cat=%EC%84%9C%EB%B2%84', 'ASSET_MGR')).text()
   check('자산 대장: ?cat= 딥링크 진입 정상 렌더', drillHtml.includes('상태 — 전체') && drillHtml.includes('AST-2023-000561'))
@@ -1211,8 +1239,21 @@ try {
   check('공통코드: 명칭 수정 · 미사용 관리 컨트롤 렌더', codeHtml.includes('수정') && /class="[^"]*btn[^"]*sm/.test(codeHtml))
   // 참조 무결성 — 코드별 참조 수(사용 중 N건)를 표기해 미사용 전환 가드의 근거를 드러낸다. 기본 그룹 ASSET_CATEGORY 의 단말은 다수 자산이 참조.
   check('공통코드: 참조 수 표기(사용 중 N건 · 미사용 전환 가드 근거)', codeHtml.includes('건 사용 중') && codeHtml.includes('참조'))
+  // 참조 집계 커버리지 — 화면은 '사용 중 N건'을 이관 기준으로 제시하므로, 참조 필드를 하나라도 빠뜨리면
+  //  그 N건만 옮겨도 가드가 열리고 세지 않은 레코드가 사라진 코드를 붙든 채 남는다(드롭다운 재선택 불가 사각지대).
+  //  자산 유형은 대장 말고도 도입 로트(채번 전)·AI 자동분류 확정/제안 유형·자산 신청 희망 유형이 참조한다 —
+  //  시드 단말 28건(대장 21 + 로트·분류·희망 유형 7), 주변기기 6건(대장 3 + 3). 대장만 세면 21·3 이었다.
+  const usedCount = (n) => codeHtml.includes(`>${n}<!-- -->건 사용 중`) // React SSR 은 {used}건 사용 중 을 텍스트 노드 둘로 쪼갠다
+  check('공통코드: 유형 참조 수에 대장 밖 참조(도입 로트·AI 분류·신청 희망 유형) 포함', usedCount(28) && usedCount(6))
   const aiHtml = await (await get('/settings/ai-policy', 'ADMIN')).text()
   check('AI 정책: 실행 환경·거버넌스 렌더', aiHtml.includes('온프레미스 LLM') && aiHtml.includes('권한 범위 필터'))
+  // 권한 범위 필터는 정책값이 아니라 코드가 항상 적용하는 최소권한 안전장치다(buildContext 가 역할로 스코핑) —
+  //  토글로 내려도 동작은 그대로인데 AI 거버넌스·감사 대응 리포트만 '미적용'으로 나가면 감사에 허위 진술이 된다.
+  //  권한 매트릭스 잠금 칸과 같은 규약으로 잠가 ON 고정임을 화면에도 드러낸다.
+  check('AI 정책: 권한 범위 필터는 변경 불가 잠금(ON 고정 · 리포트 진술과 동작 일치)', aiHtml.includes('ON 🔒') && aiHtml.includes('코드가 항상 적용(변경 불가)'))
+  // 자동 승인도 같은 부류의 죽은 토글이었다 — 읽는 코드가 없어 ON 으로 올려도 AI 제안은 여전히 담당자 판정을 거치는데,
+  //  컴플라이언스 서술은 '제안 자동승인 허용'이라고 감사에 진술했다(실제보다 약한 통제를 주장 — 더 나쁜 방향).
+  check('AI 정책: 제안 자동 승인은 변경 불가 잠금(OFF 고정 · 자동 승인 경로 없음)', aiHtml.includes('OFF 🔒') && aiHtml.includes('자동 승인 경로 없음(변경 불가)'))
   // 외부 반출 통제(§05 실행 환경) — 온프레미스는 외부 반출 차단, 외부 API 연계는 비식별 처리 후 반출. 표시가 아니라 강제.
   //  시드 기본값(온프레미스 LLM)에서 '외부 반출 차단'이 적용 중이고, 비식별·강제 문구가 정책 표와 함께 렌더돼야 한다.
   check('AI 정책: 외부 반출 통제 — 온프레미스 차단·비식별·강제 명시', aiHtml.includes('외부 반출 통제') && aiHtml.includes('표시가 아니라') && aiHtml.includes('비식별') && aiHtml.includes('외부 반출 없음'))

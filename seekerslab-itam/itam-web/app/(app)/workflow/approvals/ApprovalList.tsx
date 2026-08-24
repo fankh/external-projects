@@ -8,9 +8,12 @@ import { answerOwnerConfirm, decide, decideMany, rejectMany, remindOverdueApprov
 
 const WITHDRAWABLE = ['자산 신청', '반납', '이동', '대여']
 
-export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds, canExport, initialSel, today, slaDays }: {
+export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds, canExport, canApprove, initialSel, today, slaDays }: {
   approvals: Approval[]; role: Role; dept: string; viewer: string
   linesByKind: Record<string, string[]>; requiredKinds: string[]; canExport: boolean
+  /** 권한 매트릭스의 '신청 · 결재 × 결재' 허용 여부 — 서버 decide 게이트와 같은 원천.
+   *  코드 역할 규칙만 보면 매트릭스에서 결재를 회수해도 승인·반려 버튼이 남아 눌러야 거부된다(대시보드 큐는 이미 0). */
+  canApprove: boolean
   /** 알림 로그·감사 로그에서 특정 결재(APR-…)로 진입할 때 강조 대상 (?sel=) */
   initialSel?: string
   /** 서버 기준일 — 결재 지연(SLA) 계산에 쓴다(하이드레이션 안전) */
@@ -73,6 +76,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
   }
 
   const canDecide = (a: Approval) => {
+    if (!canApprove) return false // 권한 매트릭스가 원천 — 회수되면 버튼도 사라진다(서버 decide 와 정합)
     if (a.status !== '대기' || a.kind === '소유자 확인') return false
     if (a.selfSubmitted && a.requester === viewer) return false // 직무 분리 — 본인 폼 상신은 결재 불가(서버 decide·큐와 정합). 취소만.
     if (role === 'ADMIN') return true
