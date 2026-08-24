@@ -735,6 +735,10 @@ try {
   check('AI 제안: 자동분류 신뢰도·근거·편입 연결', insHtml.includes('평균 신뢰도') && insHtml.includes('수기 분류 제거') && insHtml.includes('/discovery/found?sel='))
   // 취약점 노출 우선순위(§05 기능04) — 자산 중요도 × 노출도 스코어링. 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출 합성.
   check('AI 제안: 취약점 노출 우선순위 스코어링 렌더', insHtml.includes('취약점 노출 우선순위') && insHtml.includes('자산 중요도 × 노출도') && insHtml.includes('P1 — 즉시 조치'))
+  // 라이선스 판정 — 만료 경과와 사용률 판정(초과·미사용)은 배타가 아니다. 시드 JetBrains 는 만료(2026-05-31)인데 120석 보유에 131석 사용이다.
+  //  만료가 사용률 판정을 덮어쓰면 '초과 사용 1건' 스탯은 세는데 그렇게 라벨된 행이 표에 하나도 없고(실제로 그랬다),
+  //  같은 행의 권고 조치만 '증설 — 11석 초과'라고 말해 두 컬럼이 서로 다른 판정을 보여준다. lib/reports licenseVerdict 단일 소스.
+  check('AI 제안: 라이선스 판정이 만료·초과를 함께 표기(스탯과 행 라벨 정합)', insHtml.includes('만료·초과 사용') && insHtml.includes('만료 경과 — 갱신·해지 먼저 판단'))
   // EOL OS(CentOS 7)·외부 CVE 가 스코어링 대상에 포함됨을 확인 (시드 AST-2020-000883 CentOS 7.9)
   check('AI 제안: 취약점 우선순위에 EOL OS·외부 CVE 반영', insHtml.includes('EOL OS') && insHtml.includes('CentOS 7') && insHtml.includes('외부 노출 CVE'))
   // 미조치 외부 CVE(legacy-vpn·무action, CVE-2018-13379)는 포함, 이미 차단요청된 CVE(db-backup·action, CVE-2024-10977)는 제외 — 조치분은 '즉시 조치'가 아니다
