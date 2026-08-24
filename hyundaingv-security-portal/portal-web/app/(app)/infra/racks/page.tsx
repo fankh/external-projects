@@ -74,7 +74,7 @@ export default async function RacksPage() {
   return (
     <>
       <ScreenHeader kicker="인프라 운영" title="랙 · H/W 관리"
-        desc="랙(위치·사이즈·자산번호)과 H/W(물리서버·네트워크장비·스토리지)를 관리하고, 랙 → H/W → 서버 → 시스템 → 배치 · 인터페이스 사슬을 도식으로 본다." />
+        desc="랙과 물리장비 관리. 하단 구성도에서 랙부터 배치·인터페이스까지 연결을 확인한다." />
 
       <div className="stat-row">
         <Stat value={s.racks.length} label="랙" note={`총 ${s.racks.reduce((sum, r) => sum + r.sizeU, 0)}U`} />
