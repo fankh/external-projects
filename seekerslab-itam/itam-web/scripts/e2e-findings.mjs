@@ -687,6 +687,10 @@ try {
   const sbBody = (await pSB.textContent('body')) || ''
   ok('Shadow IT 브리핑: 차단 판정된 SaaS 는 미인가 갭에서 제외(Dropbox)', !sbBody.includes('Dropbox'))
   ok('Shadow IT 브리핑: 판정 대기 미인가 SaaS 는 그대로 집계(ChatGPT)', sbBody.includes('ChatGPT'))
+  // 외부 공격표면 절도 같은 기준이어야 한다 — 시드 EXT-2607-06(db-backup)은 이미 차단 요청이 걸린 노출인데
+  //  state 로만 걸러 손대지 않은 노출로 실렸다(표에 조치 상태 열이 없어 읽는 쪽은 구분 못 한다).
+  ok('Shadow IT 브리핑: 조치 걸린 외부 노출은 미등록 갭에서 제외(db-backup)', !sbBody.includes('db-backup.seekerslab.co.kr'))
+  ok('Shadow IT 브리핑: 미조치 외부 노출은 그대로 집계(legacy-vpn)', sbBody.includes('legacy-vpn.seekerslab.co.kr'))
   await ctxSB.close()
 
   // 컴플라이언스 증적의 '미등록 발견 자산 N건(편입 대상)' — 편입하지 않기로 판정된 건(관리 제외·격리 요청)까지 세면
