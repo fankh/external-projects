@@ -1487,6 +1487,31 @@ try {
     localWindowParsers.length === 0 && failsClosed,
     `액션 내 파싱=${localWindowParsers.map(fileLabel).join(',')} · fail-closed=${failsClosed}`)
 
+
+  // 재물조사 차이 카운터 정합 — round.mismatched 는 결재 처리(decide)가 '조정 완료가 아닌 차이 건수'로 다시 계산하고,
+  //  실사 스캔(scanAsset)은 차이가 새로 생길 때마다 +1 한다. 즉 진행 중 회차에서 이 숫자는 '미조치 차이 건수'다.
+  //  시드가 그 정의와 어긋나면 화면은 조정할 것이 6건이라고 하는데 조정 콘솔에는 11건이 뜨는 식으로 갈리고,
+  //  첫 조정 결재가 승인되는 순간 숫자가 갑자기 뛴다(재계산이 실제 값을 덮어쓰므로). 완료 회차는 당시 발견 건수를
+  //  남기는 이력이라 대상에서 뺀다 — 차이 행을 보관하지 않는다(시드 INV-2026-H1: 14건, 행 없음).
+  const roundDecl = {}
+  for (const m of storeSrc.matchAll(/id: '(INV-[^']+)'[^}]*?status: '([^']*)'[^}]*?mismatched: ([0-9_]+)|id: '(INV-[^']+)'[^}]*?mismatched: ([0-9_]+)[^}]*?status: '([^']*)'/g)) {
+    const id = m[1] ?? m[4]
+    const status = m[2] ?? m[6]
+    const n = Number((m[3] ?? m[5]).replace(/_/g, ''))
+    roundDecl[id] = { status, declared: n, open: 0 }
+  }
+  const DIFF_KINDS = ['위치 불일치', '상태 불일치', '미확인 (실사 없음)', '대장 미등록']
+  for (const line of storeSrc.split(/\r?\n/)) {
+    const r = /roundId: '(INV-[^']+)'/.exec(line)
+    if (!r || !DIFF_KINDS.some((k) => line.includes(`kind: '${k}'`))) continue
+    const st = /status: '([^']*)'/.exec(line)
+    if (roundDecl[r[1]] && st && st[1] !== '조정 완료') roundDecl[r[1]].open += 1
+  }
+  const roundDrift = Object.entries(roundDecl)
+    .filter(([, v]) => v.status !== '완료' && v.declared !== v.open)
+    .map(([id, v]) => `${id}(표시 ${v.declared} · 미조치 ${v.open})`)
+  check(`재물조사 차이 카운터: 진행 중 회차 ${Object.values(roundDecl).filter((v) => v.status !== '완료').length}건이 미조치 차이 수와 일치`,
+    roundDrift.length === 0, roundDrift.join(', '))
   // 비운영 상태 목록 단일 소스 — '운영 중이 아닌 자산'(폐기 경로·분실·수리중·반납대기)은 예방 정비 큐(lib/dates)와
   //  EOL 교체 대상 판정(lib/eol)이 함께 쓰는 하나의 개념인데, 두 모듈이 각자 같은 배열을 적어 두고 주석으로 서로를
   //  '동일하게'라고 가리켰다. 상태가 하나 늘면 한쪽만 고쳐도 통과해, 같은 자산이 점검 대상인데 교체 대상은 아니게 된다.
