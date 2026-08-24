@@ -1460,6 +1460,37 @@ try {
 
 
 
+  // 스냅샷 스키마 형태 가드 — 파일 영속화(ITAM_DATA_FILE)는 마이그레이션 없이 SCHEMA_VERSION 이 다르면 낡은 파일을
+  //  버리고 시드로 시작한다. 그래서 형태(Store 키·엔티티 필드)를 바꾸면서 버전을 그대로 두면, 재기동 뒤 새 필드가
+  //  없는 스냅샷이 그대로 로드돼 화면이 undefined 를 읽는다(볼륨을 쓰는 배포에서만 드러나 되돌리기 늦다).
+  //  형태에서 지문을 계산해 lib/store.ts 의 SCHEMA_SHAPE 와 대조한다 — 형태를 바꾸면 이 검사가 먼저 걸린다.
+  const fnv1a = (s) => { let h = 0x811c9dc5; for (let k = 0; k < s.length; k += 1) { h ^= s.charCodeAt(k); h = Math.imul(h, 0x01000193) >>> 0 } return h.toString(16).padStart(8, "0") }
+  const blockOf = (src, header) => {
+    const ls = src.split(/\r?\n/)
+    const at = ls.findIndex((x) => x.startsWith(header))
+    if (at < 0) return null
+    let e = at + 1
+    while (e < ls.length && ls[e].trim() !== "}") e += 1
+    return ls.slice(at + 1, e)
+  }
+  const typesSrc = readFileSync(path.join(ROOT, "lib", "types.ts"), "utf8")
+  const storeFieldLines = blockOf(storeSrc, "export interface Store {") ?? []
+  const shapeParts = []
+  for (const line of storeFieldLines) {
+    const fm = /^\s*([A-Za-z0-9_]+)\??:\s*([A-Za-z0-9_]+)/.exec(line)
+    if (!fm) continue
+    const entity = blockOf(typesSrc, "export interface " + fm[2] + " {")
+    const names = entity ? entity.map((l) => (/^\s*([A-Za-z0-9_]+)\??:/.exec(l) || [])[1]).filter(Boolean).sort() : ["<primitive>"]
+    shapeParts.push(fm[1] + ":" + fm[2] + "(" + names.join(",") + ")")
+  }
+  shapeParts.sort()
+  const shapeDigest = fnv1a(shapeParts.join("|"))
+  const declaredShape = (/SCHEMA_SHAPE = '([0-9a-f]+)'/.exec(storeSrc) || [])[1]
+  const schemaVersion = (/SCHEMA_VERSION = (\d+)/.exec(storeSrc) || [])[1]
+  check(`스냅샷 스키마: 형태 지문 ${shapeDigest} = 선언값(SCHEMA_VERSION ${schemaVersion} · 엔티티 ${shapeParts.length}종)`,
+    declaredShape === shapeDigest,
+    `선언=${declaredShape} 실제=${shapeDigest} — 형태를 바꿨다면 SCHEMA_VERSION 을 올리고 SCHEMA_SHAPE 를 ${shapeDigest} 로 갱신하세요`)
+
   // 헬스 로드 횟수 ↔ 문서 — 헬스는 대상 화면을 내비에서 읽으므로(scripts/client-health.mjs) 화면·권한이 바뀌면
   //  로드 횟수가 저절로 바뀐다. README 가 그 수를 적어 두고 있어 놔두면 조용히 어긋난다(다른 수치 주장과 같은 규약).
   //  대상 권한그룹은 헬스가 여는 4종 — 여기 목록이 스크립트와 어긋나면 이 검사 자체가 헛돈다(스크립트도 4종 고정).
