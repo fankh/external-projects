@@ -109,13 +109,28 @@ try {
         await collectLinks(page, route)
         // 상세 패널 링크 — 목록 화면은 행을 선택해야 문서 발급·딥링크가 나타난다(로드만으로는 보이지 않아,
         //  자산 문서 발급 링크 같은 상세 전용 컨트롤이 이 순회의 사각이었다). 첫 행을 선택해 한 번 더 훑는다.
-        const firstRow = page.locator('tbody tr.clickable').first()
-        if ((await firstRow.count()) > 0) {
+        const selectRowAndCollect = async (label) => {
+          const firstRow = page.locator('tbody tr.clickable').first()
+          if ((await firstRow.count()) === 0) return
           try {
             await firstRow.click()
             await page.waitForTimeout(400)
-            await collectLinks(page, `${route}(상세)`)
+            await collectLinks(page, label)
           } catch { /* 선택이 없는 표(읽기 전용)는 건너뛴다 */ }
+        }
+        await selectRowAndCollect(`${route}(상세)`)
+        // 자산 대장은 상태별로 상세 컨트롤이 달라진다(대여중은 대여 확인서, 수리중은 수리 의뢰, 분실은 신고서…).
+        //  첫 행만 보면 그 상태의 링크만 훑게 되므로, 화면의 상태 필터 값을 그대로 읽어 상태마다 한 행씩 더 본다.
+        //  필터 목록을 화면에서 읽으므로 상태가 늘어도 검사는 따라온다(여기 목록을 또 적어두지 않는다).
+        if (route === '/assets/register') {
+          const statuses = await page.$$eval('select option', (os) => os.map((o) => o.getAttribute('value') || ''))
+          for (const st of statuses.filter((x) => x && x !== '전체' && !x.includes('—'))) {
+            try {
+              await page.goto(`${BASE}${route}?status=${encodeURIComponent(st)}`, { waitUntil: 'networkidle', timeout: 20000 })
+              await page.waitForTimeout(200)
+              await selectRowAndCollect(`${route}?status=${st}(상세)`)
+            } catch { /* 해당 상태 자산이 없으면 건너뛴다 */ }
+          }
         }
       } catch (e) { errs.push('GOTO: ' + e.message) }
       const ok = errs.length === 0 && !crashed && httpStatus < 400
