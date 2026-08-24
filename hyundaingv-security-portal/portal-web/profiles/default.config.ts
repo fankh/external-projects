@@ -4,8 +4,8 @@ import type { ChannelBinding, PortalBrand } from '@/lib/integrations/types'
 
 export const PORTAL: PortalBrand = {
   customer: '데모 고객사',
-  productName: 'GOVERNANCE PORTAL',
-  productSub: 'Enterprise IT · Security',
+  productName: 'IT 거버넌스 포털',
+  productSub: '전사 IT·보안 업무',
   version: 'v1.0',
 }
 
