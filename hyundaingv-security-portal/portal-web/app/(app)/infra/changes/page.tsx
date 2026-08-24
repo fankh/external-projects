@@ -109,7 +109,7 @@ export default async function ChangesPage() {
   return (
     <>
       <ScreenHeader kicker="인프라 운영" title="변경관리"
-        desc="인프라·시스템개발 변경 — 계획 상신과 결과 상신을 각 1회 거치며, 시스템개발 변경 최종완료는 매칭 SR을 완료로 전파한다." />
+        desc="변경 건은 계획·결과를 각각 상신한다. 시스템개발 변경을 완료하면 연결된 SR도 완료 처리된다." />
 
       <div className="stat-row">
         <Stat value={inflight.length} label="진행중 변경" tone={inflight.length > 0 ? 'warn' : undefined} />
