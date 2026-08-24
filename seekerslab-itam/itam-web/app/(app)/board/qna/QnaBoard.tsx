@@ -111,6 +111,8 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
             <tbody>
               {rows.map((p) => (
                 <tr key={p.id} className={`clickable ${p.id === openId ? 'sel' : ''}`}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(p.id) } }}
                   onClick={() => select(p.id)}>
                   <td className="mute">{p.category ?? '기타'}</td>
                   <td className="strong">{p.title}</td>

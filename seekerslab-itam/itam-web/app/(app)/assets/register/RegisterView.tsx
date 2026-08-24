@@ -510,6 +510,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             <tbody>
               {rows.map((a) => (
                 <tr key={a.assetNo} className={`clickable ${selNo === a.assetNo ? 'sel' : ''}`}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelNo(selNo === a.assetNo ? null : a.assetNo) } }}
                   onClick={() => setSelNo(selNo === a.assetNo ? null : a.assetNo)}>
                   {props.canEdit && <td className="c" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={checked.has(a.assetNo)} onChange={() => toggleOne(a.assetNo)} aria-label={`${a.assetNo} 선택`} />
