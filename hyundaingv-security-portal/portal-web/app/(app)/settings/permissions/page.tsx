@@ -62,7 +62,7 @@ export default async function PermissionsPage() {
   return (
     <>
       <ScreenHeader kicker="환경설정" title="메뉴권한"
-        desc="권한그룹 × 메뉴(화면) 및 × 기능(버튼) 매트릭스 — 기본 권한(menus.ts·SCREEN_ACTIONS)은 코드가 단일 원천이고, 여기서는 런타임 제한·복원만 한다 (축소 전용 · 권한 상승 불가)." />
+        desc="권한그룹별 화면·기능 매트릭스. 기본 권한을 제한하거나 되돌리는 용도이며, 없던 권한을 새로 줄 수는 없다." />
 
       <div className="stat-row">
         <Stat value={items.length} label="메뉴" />
