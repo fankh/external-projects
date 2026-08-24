@@ -7,6 +7,7 @@ import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo, nextId } from '@/lib/store'
+import { eolNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
 const CRITICALITY_LEVELS: BizCriticality[] = ['핵심', '중요', '일반']
@@ -822,13 +823,9 @@ export async function confirmReceipt(assetNo: string) {
 export async function remindReceipts() {
   const session = await guard()
   if (!session) return { ok: false, message: '수령 확인 독촉 권한이 없습니다 (자산담당·Admin).' }
-  const s = getStore()
-  const t = today()
-  // ref=자산번호, 독촉 메일만(수령 확인 통보와 구분) — 당일 이미 독촉한 자산은 건너뛴다
-  const sentToday = new Set(s.dispatches.filter((m) => m.kind === '수령 확인' && m.subject.includes('독촉') && m.at.startsWith(t)).map((m) => m.ref))
+  // 대상 판정은 화면 버튼 건수와 한 소스를 쓴다(lib/reminders) — 당일 발송분 제외까지 포함한다.
   let n = 0
-  for (const a of s.assets) {
-    if (!a.receiptPending || a.status !== '사용중' || sentToday.has(a.assetNo)) continue // 사용중(현 보유자 보유) 자산만 독촉 — 수리중·폐기예정 등으로 이탈한 자산에 오독촉 방지
+  for (const a of receiptRemindTargets()) {
     dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `자산 수령 확인 요청(독촉) — ${a.assetNo} ${a.model} 인수 확인 부탁드립니다`, kind: '수령 확인', ref: a.assetNo })
     n += 1
   }
@@ -845,12 +842,10 @@ export async function remindReceipts() {
 export async function remindMaintenance() {
   const session = await guard()
   if (!session) return { ok: false, message: '정기 점검 독촉 권한이 없습니다 (자산담당·Admin).' }
-  const s = getStore()
   const t = today()
-  const sentToday = new Set(s.dispatches.filter((m) => m.kind === '정기 점검 독촉' && m.at.startsWith(t)).map((m) => m.ref))
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 경과분만·당일 발송분 제외.
   let n = 0
-  for (const a of s.assets) {
-    if (!isMaintenanceOverdue(a) || sentToday.has(a.assetNo)) continue
+  for (const a of maintenanceRemindTargets()) {
     // 보유자 없는 자산(유휴·검수중)은 관리 부서 앞으로 — '- (부서)' 아무에게도 아닌 발송 방지(다른 owner 발송 사이트와 동일 가드).
     const to = a.owner && a.owner !== '미지정' && a.owner !== '-' ? `${a.owner} (${a.dept})` : a.dept
     dispatch({ channel: '이메일', to, subject: `정기 점검(예방 정비) 독촉 — ${a.assetNo} ${a.model} 예정 ${a.maintenanceDue} 경과, 점검 시행 부탁드립니다`, kind: '정기 점검 독촉', ref: a.assetNo })
@@ -871,13 +866,11 @@ export async function remindMaintenance() {
 export async function notifyEolUpgrade() {
   const session = await guard()
   if (!session) return { ok: false, message: 'EOL 업그레이드 통보 권한이 없습니다 (자산담당·Admin).' }
-  const s = getStore()
   const t = today()
-  const sentToday = new Set(s.dispatches.filter((m) => m.kind === 'EOL 업그레이드 통보' && m.at.startsWith(t)).map((m) => m.ref))
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 운영 중 EOL 자산만·당일 발송분 제외.
+  //  (분실·수리중·반납대기·폐기 경로 자산 제외 — 실물이 없거나 운영 중이 아닌 자산에 교체 통보가 나가지 않게.)
   let n = 0
-  for (const a of s.assets) {
-    // 운영 중 EOL 자산만 — 분실·수리중·반납대기·폐기 경로 자산 제외(대장 필터·대시보드 큐와 동일 게이트). 실물이 없거나 운영 중이 아닌 자산에 교체 통보가 나가지 않게.
-    if (!isEolTarget(a.status, a.os, t) || sentToday.has(a.assetNo)) continue
+  for (const a of eolNoticeTargets()) {
     const eol = eolOsOf(a.os, t)!
     // 보유자 없는 자산(유휴·검수중)은 관리 부서 앞으로 — '- (부서)' 아무에게도 아닌 발송 방지(다른 owner 발송 사이트와 동일 가드).
     const to = a.owner && a.owner !== '미지정' && a.owner !== '-' ? `${a.owner} (${a.dept})` : a.dept

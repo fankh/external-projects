@@ -8,6 +8,7 @@ import { replacementCandidates } from '@/lib/reports'
 import { compositeRiskAssetNos } from '@/lib/risk'
 import { getSession } from '@/lib/session'
 import { pendingDisposalNos } from '@/lib/stock'
+import { eolNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
 import { getStore } from '@/lib/store'
 import { BulkImport } from './BulkImport'
 import { RegisterView } from './RegisterView'
@@ -27,8 +28,9 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   //  연계 계약 선택 목록(contracts)은 해지분을 빼고 넘기므로 화면이 스스로 판단할 수 없다 — 집합을 따로 준다.
   const terminatedContracts = [...new Set(scoped.map((a) => a.contractId).filter(Boolean) as string[])]
     .filter((id) => s.contracts.some((c) => c.id === id && c.status === '해지'))
-  // 수령 미확인(불출 후 인수 대기) 자산 수 — 자산담당 수령 확인 독촉 버튼 노출/집계용
-  const receiptPendingCount = scoped.filter((a) => a.receiptPending && a.status === '사용중').length
+  // 수령 확인 독촉 버튼 건수 — '오늘 아직 안 보낸' 대상 수(lib/reminders). 액션과 같은 소스라 누른 만큼 줄고 0 이면 버튼이 사라진다.
+  //  그전엔 화면이 미확인 자산 전부를 세고 액션만 당일 발송분을 제외해, 한 번 보낸 뒤에도 같은 건수로 남아 누르면 '대상 없음'이 됐다.
+  const receiptPendingCount = canManage ? receiptRemindTargets().length : 0
   // 수령(인수) 미확인 — 불출 배정 후 사용자 인수 확인이 안 된 사용 중 자산(체인 오브 커스터디 공백). 대시보드 큐(?receipt=1)·어시스턴트 링크와 같은 판정.
   const receiptNos = scoped.filter((a) => a.receiptPending && a.status === '사용중').map((a) => a.assetNo)
   // 대여 셀프서비스 요청 대기 — 대여자가 올린 반환 기한 연장 요청·반납 신청. 대시보드 큐(?loanext=1·?loanret=1)와 같은 판정으로, 큐 건수=목록.
@@ -47,6 +49,8 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
     .filter((a) => isEolTarget(a.status, a.os, today()))
     .map((a) => a.assetNo)
   // 핵심·중요 자산 — 운영자가 지정한 업무 중요도(§05 자산 중요도 축). DR·패치 우선순위·감사 대상 식별.
+  // EOL 업그레이드 통보 버튼 건수 — EOL 필터 칩(eolNos, 브라우즈용 전량)과 달리 '오늘 아직 안 보낸' 발송 대상 수다(lib/reminders).
+  const eolNoticeCount = canManage ? eolNoticeTargets().length : 0
   const critNos = scoped.filter((a) => a.criticality === '핵심' || a.criticality === '중요').map((a) => a.assetNo)
   // 정기 점검 대상 — 예방 정비 예정일 도래(30일 내·경과) 자산. 대시보드 나눔 드릴다운(?maint=1)과 대장 필터가 공유.
   const maintenanceNos = scoped.filter((a) => isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays)).map((a) => a.assetNo)
@@ -55,8 +59,8 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const spofNos = criticalDependencies().map((x) => x.asset.assetNo).filter((no) => scopedNoSet.has(no))
   // 교체 대상(수명예측 fn03) — 내용연수 초과·보증 경과·장애 이력. AI 분석 패널·연간 교체 계획 리포트와 같은 replacementCandidates() 근거로 대장에서 브라우즈·반출(조달 계획). 패널(?replace=1) 링크와 공유.
   const replaceNos = replacementCandidates().cands.map((x) => x.a.assetNo).filter((no) => scopedNoSet.has(no))
-  // 정기 점검 경과(미시행) 대수 — 예정일을 넘긴 자산. 자산담당 정기 점검 독촉 버튼 노출/집계용(임박은 제외).
-  const maintOverdueCount = scoped.filter(isMaintenanceOverdue).length
+  // 정기 점검 독촉 버튼 건수 — 경과(미시행) 자산 중 오늘 아직 안 보낸 대상 수(lib/reminders · 액션과 같은 소스).
+  const maintOverdueCount = canManage ? maintenanceRemindTargets().length : 0
   // 복합 위험(≥2 신호) — 정합성 미흡·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산. 대장 필터·도시어 요약·대시보드 큐가 lib/risk 단일 소스 공유(임계값 재계산 없음).
   const riskNos = compositeRiskAssetNos(scoped)
   // 폐기 절차(대상 선정~소거 대기) 진행 중 — 재불출·대여 가드(dispatchAsset·loanAsset)가 거부하는 자산.
@@ -86,7 +90,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       {/* CSV 일괄 등록은 bulkRegisterAssets(자산담당·Admin)를 부른다 — 보안담당에게 내주면 붙여넣고 눌러야 거부된다 */}
       {canManage && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canDoc={['ASSET_MGR', 'ADMIN'].includes(session.role)} canQuarantine={['SEC_MGR', 'ADMIN'].includes(session.role)} canManage={canManage} terminatedContracts={terminatedContracts} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} expiryWindowDays={s.opsPolicy.expiryWindowDays} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canDoc={['ASSET_MGR', 'ADMIN'].includes(session.role)} canQuarantine={['SEC_MGR', 'ADMIN'].includes(session.role)} canManage={canManage} terminatedContracts={terminatedContracts} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} expiryWindowDays={s.opsPolicy.expiryWindowDays} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} eolNoticeCount={eolNoticeCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
       </Card>
     </>
   )
