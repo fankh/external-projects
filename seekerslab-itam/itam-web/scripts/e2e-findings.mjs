@@ -3186,6 +3186,10 @@ try {
   await pRLN.goto(`${BASE}/assets/register?status=${encodeURIComponent('유휴')}`, { waitUntil: 'networkidle' })
   await pRLN.locator('tbody tr.clickable').first().click(); await pRLN.waitForTimeout(400)
   ok('필수 결재 지정: 직접 대여 컨트롤 미노출 · 상신 안내 노출', (await pRLN.locator('button', { hasText: /^대여 처리 \(반출\)$/ }).count()) === 0 && ((await pRLN.textContent('body')) || '').includes('필수 결재'))
+  // 일괄 바에서도 같이 사라져야 한다 — 상세만 내리고 일괄을 남기면 같은 규칙이 반쪽이 된다.
+  await pRLN.locator('tbody tr.clickable').first().locator('input[type="checkbox"]').first().check().catch(() => {})
+  await pRLN.waitForTimeout(300)
+  ok('필수 결재 지정: 일괄 대여 컨트롤도 미노출', (await pRLN.locator('input[placeholder="대여자"]').count()) === 0)
   await ctxRLN.close()
   await rqBtn.click(); await pRQ.waitForTimeout(800) // 선택으로 복원(뒤 검사들은 직접 대여를 쓴다)
   ok('결재선: 대여 필수 지정 해제(복원)', ((await rqBtn.innerText()) || '').includes('선택'))

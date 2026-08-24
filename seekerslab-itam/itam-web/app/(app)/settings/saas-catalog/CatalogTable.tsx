@@ -13,7 +13,7 @@ function reviewAge(reviewSince: string | undefined, today: string): number | nul
   return Math.floor((Date.parse(today) - Date.parse(reviewSince)) / 86_400_000)
 }
 
-export function CatalogTable({ entries, today, slaDays }: { entries: SaasCatalogEntry[]; today: string; slaDays: number }) {
+export function CatalogTable({ entries, today, slaDays, approveNeedsApproval }: { entries: SaasCatalogEntry[]; today: string; slaDays: number; approveNeedsApproval?: boolean }) {
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<string | null>(null)
   // 신규 SaaS 등록 — 발견 이전이라도 조달·온보딩으로 알게 된 서비스를 검토중으로 카탈로그에 올린다
@@ -92,8 +92,10 @@ export function CatalogTable({ entries, today, slaDays }: { entries: SaasCatalog
               <td className="c">
                 <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
                   {/* 판정 결과·거부 사유를 화면에 돌려준다 — 그전엔 액션이 아무것도 반환하지 않아 권한·중복 판정이 무반응으로 끝났다. */}
-                  <button className="btn sm pri" disabled={pending || e.status === '인가'}
-                    onClick={() => startTransition(async () => setMsg((await decideSaas(e.id, '인가')).message))}>인가</button>
+                  {approveNeedsApproval
+                    ? <span className="mut" style={{ fontSize: 11 }}>인가는 필수 결재</span>
+                    : <button className="btn sm pri" disabled={pending || e.status === '인가'}
+                        onClick={() => startTransition(async () => setMsg((await decideSaas(e.id, '인가')).message))}>인가</button>}
                   <button className="btn sm danger" disabled={pending || e.status === '차단'}
                     onClick={() => startTransition(async () => setMsg((await decideSaas(e.id, '차단')).message))}>차단</button>
                   {/* 재검토 — 판정을 되돌리는 짝. 오판정(특히 차단)을 화면에서 되돌릴 길이 없어 한 방향 문이었다.

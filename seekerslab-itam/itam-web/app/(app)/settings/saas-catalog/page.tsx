@@ -4,6 +4,7 @@ import { requireView } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { buildSaasReview } from '@/lib/saas-review'
 import { getStore } from '@/lib/store'
+import { requiresApproval } from '@/lib/approval'
 import { saasEscalateTargets } from '@/lib/reminders'
 import { CatalogTable } from './CatalogTable'
 import { SaasEscalateButton } from './SaasEscalateButton'
@@ -49,7 +50,7 @@ export default async function SaasCatalogPage() {
       )}
 
       <Card kicker="Catalog" title="서비스 목록 · 판정" pad={false}>
-        <CatalogTable entries={c} today={today()} slaDays={review.slaDays} />
+        <CatalogTable entries={c} today={today()} slaDays={review.slaDays} approveNeedsApproval={requiresApproval('SaaS 인가')} />
       </Card>
     </>
   )
