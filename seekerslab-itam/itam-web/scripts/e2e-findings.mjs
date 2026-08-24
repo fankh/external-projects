@@ -3905,6 +3905,24 @@ try {
   ok(`필터 칩: 복합 위험 ${chipN}건 클릭 → 목록 ${chipBefore} → ${chipAfter}행 · 건수 표기 ${chipCnt}(칩이 켜지기만 하지 않는다)`,
     chipN > 0 && chipAfter === chipN && chipCnt === chipN && chipAfter < chipBefore)
   await ctxChip.close()
+
+  // 문서 API 매트릭스 게이트(신규) — 화면 가드(requireView)는 권한 매트릭스의 조회 칸을 보는데,
+  //  인쇄 문서 API(자산 카드·인수인계서·대여 확인서·라벨·계약/라이선스 카드…)는 역할만 봤다.
+  //  조회를 회수해도 같은 데이터가 인쇄 문서로 그대로 나갔다(화면은 막혔는데 API 는 열린 상태).
+  const ctxDocA = await browser.newContext(); await ctxDocA.addCookies([cookie(ADMIN)]); const pDocA = await ctxDocA.newPage()
+  const ctxDocB = await browser.newContext(); await ctxDocB.addCookies([cookie(ASSET)]); const pDocB = await ctxDocB.newPage()
+  const docCardStatus = async () => (await pDocB.request.get(`${BASE}/api/asset-card/AST-2024-000015`)).status()
+  ok('문서 API 게이트(양성 대조): 조회 권한이 있으면 자산 카드 200', (await docCardStatus()) === 200)
+  await pDocA.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
+  const docRow = pDocA.locator('tr', { has: pDocA.locator('td.strong', { hasText: '자산 대장' }) }).first()
+  const docCell = docRow.locator('td').nth(8) // 자산담당 × 조회 (기존 매트릭스 검사와 같은 칸)
+  for (let k = 0; k < 4 && !((await docCell.textContent()) || '').includes('·'); k++) { await docCell.click(); await pDocA.waitForTimeout(700) }
+  ok('문서 API 게이트: 조회 회수 시 자산 카드도 403(화면 가드와 같은 집합)',
+    ((await docCell.textContent()) || '').includes('·') && (await docCardStatus()) === 403)
+  await docCell.click(); await pDocA.waitForTimeout(800) // 복원
+  ok('문서 API 게이트: 조회 복원 시 다시 200(과잉 차단 아님)',
+    ((await docCell.textContent()) || '').includes('✓') && (await docCardStatus()) === 200)
+  await ctxDocB.close(); await ctxDocA.close()
   // 폐기 절차 불변식 — 상태가 '폐기예정'인 자산은 반드시 폐기 건(disposals)이 있어야 한다. 지금은 폐기예정으로
   //  바꾸는 8개 경로가 저마다 `if (!s.disposals.some(...)) push` 를 적어 지키고 있을 뿐, 이를 확인하는 검사가 없었다.
   //  한 경로가 빠뜨리면 그 자산은 폐기예정인데 폐기 화면에 없어 결재·소거로 나아갈 수 없다(상태만 종착, 절차는 없음).

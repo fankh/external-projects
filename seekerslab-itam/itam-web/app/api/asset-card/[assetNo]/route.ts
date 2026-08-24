@@ -3,6 +3,7 @@ import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalO
 import { today, warrantyState } from '@/lib/dates'
 import { qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
+import { can } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
 
@@ -17,6 +18,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const a = getStore().assets.find((x) => x.assetNo === assetNo)
   if (!a) return new Response('Not Found', { status: 404 })
   if (session.role === 'USER' && a.owner !== session.name) return new Response('Forbidden', { status: 403 })
+  // 매트릭스 '조회'도 만족해야 한다 — 화면(requireView)은 매트릭스를 보는데 문서 API 가 역할만 보면,
+  //  조회 권한을 회수한 뒤에도 인쇄 문서로 같은 데이터가 그대로 나간다(화면은 막혔는데 API 는 열린 상태).
+  if (!can('자산 대장', '조회', session.role)) return new Response('Forbidden', { status: 403 })
 
   const qr = await qrSvg(a.assetNo, 120)
   // CMDB 의존 관계 — 상위 의존·영향 범위(blast radius)·저하 상위. 이 자산 장애 시 무엇이 영향받는지 dossier 에 남긴다.
