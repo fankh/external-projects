@@ -1589,6 +1589,13 @@ try {
   const reDamaged = damagedRegexLiterals(sourceFiles, (f) => path.relative(ROOT, f).split(path.sep).join('/'))
   check(`정규식 리터럴: 역슬래시 유실된 문자 클래스 없음(소스 ${sourceFiles.length}개 검사)`, reDamaged.length === 0, `손상=${reDamaged.join(', ')}`)
 
+  // 이상행위 네 축의 '폐기 경로 자산 제외' 규칙 — 모듈이 규칙을 선언해 두고 두 축(미인가 SW·USB)에만 걸어 둬,
+  //  같은 자산이 축에 따라 사라졌다 남았다 했다(조치할 대상이 없는 건이 심각도 집계를 차지해 실재 이탈을 밀어낸다).
+  //  네 축이 모두 같은 집합(disposedAsset)을 참조하는지 구조로 못박는다 — 축이 늘어도 규칙이 반쪽으로 남지 않게.
+  const anomalySrc = readFileSync(path.join(ROOT, 'lib', 'anomaly.ts'), 'utf8')
+  const anomalyAxes = (anomalySrc.match(/disposedAsset\.has\(/g) || []).length
+  check(`이상행위: 네 축 모두 폐기 경로 자산 제외(참조 ${anomalyAxes}곳)`, anomalyAxes === 4, `참조=${anomalyAxes}`)
+
 
   // AI 로그 보존 정책의 강제 — auditRetentionDays 는 화면·리포트에 숫자로만 찍히고 조회에는 쓰이지 않아,
   //  '90일 보존'이라 말하면서 그보다 오래된 로그를 그대로 보여줄 수 있었다(표시와 강제가 갈리는 계열).
