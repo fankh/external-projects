@@ -254,7 +254,10 @@ export async function issueAssetNo(lotId: string) {
     dept: '자산관리팀',
     location: '본사 3F 검수실',
     purchaseDate: lot.arrivedAt,
-    warrantyEnd: addYears(today(), 3),
+    // 보증은 대장이 도입일로 기록하는 날(= 입고일)부터 센다. 채번일 기준으로 잡으면 입고 후 검수·채번이 늦어진 만큼
+    //  공급사 보증 기간이 실제보다 길게 기록되고(시드 IN-2606-42: 입고 06-20 → 채번 08-22 면 두 달 부풀려짐),
+    //  그만큼 보증 만료 임박 알림·교체 판정에서도 늦게 잡힌다. 입고일이 비면(도입 예정) 채번일로 폴백.
+    warrantyEnd: addYears(lot.arrivedAt || today(), 3),
     contractId: lot.contractId,
     // 발주 단가가 입력됐으면 실제 취득 원가로 반영(없으면 유형 표준 단가 폴백 — lib/cost)
     acquisitionCost: lot.unitCost && lot.unitCost > 0 ? lot.unitCost : undefined,
