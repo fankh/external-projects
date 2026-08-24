@@ -107,6 +107,8 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
             <tbody>
               {rows.map((p) => (
                 <tr key={p.id} className={`clickable ${p.id === openId ? 'sel' : ''}`}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(p.id) } }}
                   onClick={() => select(p.id)}>
                   <td className="c">{p.publishAt && p.publishAt > today ? <Chip tone="info" bare>예약</Chip> : p.pinned ? <Chip tone="err" bare>필독</Chip> : <span className="mut">공지</span>}</td>
                   <td className="c"><span className="mut" style={{ fontSize: 11 }}>{p.category ?? '일반'}</span></td>

@@ -168,7 +168,9 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: 
             </thead>
             <tbody>
               {arrivedLots.map((l) => (
-                <tr key={l.id} className={`clickable ${l.id === sel?.id ? 'sel' : ''}`} onClick={() => setSelId(l.id)}>
+                <tr key={l.id} className={`clickable ${l.id === sel?.id ? 'sel' : ''}`} tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelId(l.id) } }}
+                  onClick={() => setSelId(l.id)}>
                   <td className="code">{l.id}</td>
                   <td className="code">{l.contractId}</td>
                   <td className="strong">{l.model}</td>

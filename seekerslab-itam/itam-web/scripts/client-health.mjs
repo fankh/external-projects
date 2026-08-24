@@ -69,6 +69,7 @@ try {
     const badApis = []
     const unnamed = []
     const unlabeled = []
+    const notFocusable = []
     const seenApi = new Set()
     // 한 화면에서 링크 두 종류를 함께 본다 — 화면 링크는 라우트 권한, API 링크는 실제 응답으로 판정한다.
     const collectLinks = async (page, label) => {
@@ -111,6 +112,12 @@ try {
         }).map((e) => e.outerHTML.slice(0, 70)))
         for (const n of noName) unlabeled.push(`${label} → ${n}`)
       } catch (e) { unlabeled.push(`${label} → 입력 이름 확인 실패: ${e.message}`) }
+      // 클릭으로만 되는 행 — 목록에서 행을 고르는 것이 상세 패널로 가는 유일한 길이라, 키보드로 고를 수 없으면
+      //  마우스 없이는 화면 절반이 닫힌다. 클릭 가능한 행은 초점을 받을 수 있어야 한다(tabindex).
+      try {
+        const rows = await page.$$eval('tr.clickable', (els) => els.filter((e) => !e.hasAttribute('tabindex')).length)
+        if (rows > 0) notFocusable.push(`${label} → 초점 불가 행 ${rows}개`)
+      } catch (e) { notFocusable.push(`${label} → 행 초점 확인 실패: ${e.message}`) }
     }
     const ctx = await browser.newContext()
     await ctx.addCookies([cookie(acct)])
@@ -203,6 +210,9 @@ try {
     const labelOk = unlabeled.length === 0
     labelOk ? pass++ : fail++
     console.log(`${labelOk ? '✓' : '✗'} [${tag}] 입력 이름 — 라벨 없는 입력·선택 없음${labelOk ? '' : ' (' + unlabeled.length + ') — ' + [...new Set(unlabeled)].slice(0, 12).join(' | ')}`)
+    const focusOk = notFocusable.length === 0
+    focusOk ? pass++ : fail++
+    console.log(`${focusOk ? '✓' : '✗'} [${tag}] 행 선택 키보드 접근 — 클릭 전용 행 없음${focusOk ? '' : ' — ' + [...new Set(notFocusable)].slice(0, 6).join(', ')}`)
     if (acct.role === 'ADMIN' || acct.role === 'ASSET_MGR') await checkQueueParity()
     await ctx.close()
   }

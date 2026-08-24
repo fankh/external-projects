@@ -161,6 +161,8 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
             <tbody>
               {rows.map((d) => (
                 <tr key={d.id} className={`clickable ${selId === d.id ? 'sel' : ''}`}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelId(selId === d.id ? null : d.id) } }}
                   onClick={() => setSelId(selId === d.id ? null : d.id)}>
                   <td className="c" onClick={(e) => e.stopPropagation()}>
                     {onboardable(d)
