@@ -676,6 +676,19 @@ try {
   const scanChanBody = (await page.textContent('body')) || ''
   ok('스캔 실행: 재탐지 주기 경과 채널에 재탐지 지연 칩', scanChanBody.includes('채널별 수집 현황') && scanChanBody.includes('재탐지 지연'))
 
+  // 주간 Shadow IT 브리핑의 '미인가 SaaS' 절 — 이미 차단 판정이 난 서비스는 '소유자 확인 후 편입 또는 차단 판정이 필요'한 대상이 아니다.
+  //  sanctioned 는 인가/미인가 두 값뿐이라 차단을 담지 못해, 시드 Dropbox(카탈로그 차단 · 프록시·DNS 차단 집행 요청까지 발송)가
+  //  미인가 갭으로 계속 집계됐다. 통합 후보 산정이 이미 쓰는 기준(카탈로그 차단 목록)과 같게 맞춘다.
+  const ctxSB = await browser.newContext(); await ctxSB.addCookies([cookie(ASSET)]); const pSB = await ctxSB.newPage()
+  await pSB.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  await pSB.locator('.card', { hasText: '리포트 유형' }).locator('tr', { hasText: '주간 Shadow IT 브리핑' }).locator('button', { hasText: /^생성$/ }).click()
+  await pSB.waitForTimeout(1200)
+  // '.card' 로 절을 잡으려 했더니 리포트 유형 표의 설명(…미인가 SaaS…)이 먼저 걸려 빈 대조가 됐다 — 생성된 리포트 미리보기가 열린 페이지 전체로 본다.
+  const sbBody = (await pSB.textContent('body')) || ''
+  ok('Shadow IT 브리핑: 차단 판정된 SaaS 는 미인가 갭에서 제외(Dropbox)', !sbBody.includes('Dropbox'))
+  ok('Shadow IT 브리핑: 판정 대기 미인가 SaaS 는 그대로 집계(ChatGPT)', sbBody.includes('ChatGPT'))
+  await ctxSB.close()
+
   // 컴플라이언스 증적의 '미등록 발견 자산 N건(편입 대상)' — 편입하지 않기로 판정된 건(관리 제외·격리 요청)까지 세면
   //  실재하지 않는 통제 갭을 ISMS/ISO 감사 증적에 올리게 된다. 시드 미등록 8건 중 격리 요청 1건(DSC-2607-0031)을 빼 7건.
   //  아래 발견 자산 처리 테스트들이 미등록 집합을 바꾸므로 그 앞에서 확인한다.
