@@ -1,19 +1,20 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Card } from '@/components/ui'
-import type { AiPolicy } from '@/lib/types'
+import { LOCKED_AI_POLICY_TOGGLES, type AiPolicy } from '@/lib/types'
 import { setAiDeployment, setAiModel, setAuditRetention, toggleAiPolicy } from '../actions'
 
 const DEPLOYMENTS: AiPolicy['deployment'][] = ['온프레미스 LLM', '외부 API 연계', '하이브리드']
 
 const TOGGLES: { field: 'scopeFilter' | 'autoApprove' | 'feedbackLearning'; label: string; desc: string; safeWhen: boolean }[] = [
-  { field: 'scopeFilter', label: '권한 범위 필터', desc: '질의 컨텍스트에서 사용자 권한 밖 데이터를 원천 배제', safeWhen: true },
-  { field: 'autoApprove', label: 'AI 제안 자동 승인', desc: '담당자 확인·결재 없이 AI 제안을 대장에 반영 (권장하지 않음)', safeWhen: false },
+  { field: 'scopeFilter', label: '권한 범위 필터', desc: '질의 컨텍스트에서 사용자 권한 밖 데이터를 원천 배제 — 코드가 항상 적용(변경 불가)', safeWhen: true },
+  { field: 'autoApprove', label: 'AI 제안 자동 승인', desc: '담당자 확인·결재 없이 AI 제안을 대장에 반영 — 자동 승인 경로 없음(변경 불가)', safeWhen: false },
   { field: 'feedbackLearning', label: '판정 결과 재학습', desc: '승인·반려 결과를 환류해 분류 정확도 개선', safeWhen: true },
 ]
 
 export function AiPolicyPanel({ policy }: { policy: AiPolicy }) {
   const [pending, startTransition] = useTransition()
+  const [toggleMsg, setToggleMsg] = useState<string | null>(null)
   const [verOpen, setVerOpen] = useState(false)
   const [em, setEm] = useState(policy.modelId)
   const [ep, setEp] = useState(policy.promptVersion)
@@ -90,19 +91,26 @@ export function AiPolicyPanel({ policy }: { policy: AiPolicy }) {
         <div>
           <div className="kicker mute" style={{ marginBottom: 7 }}>거버넌스 스위치</div>
           <div className="vstack" style={{ gap: 8 }}>
+            {toggleMsg && <div className="callout" style={{ marginBottom: 4 }}>{toggleMsg}</div>}
             {TOGGLES.map((t) => {
               const on = policy[t.field]
               const risky = on !== t.safeWhen
+              // 잠금 통제 — 코드가 항상 적용하므로 끌 수 없다. 값만 내려가면 거버넌스 리포트가 실제와 다른 통제 상태를 진술한다(권한 매트릭스 잠금 칸과 같은 규약).
+              const lock = LOCKED_AI_POLICY_TOGGLES[t.field]
               return (
                 <div key={t.field} className="hstack" style={{ justifyContent: 'space-between', gap: 14, padding: '9px 12px', border: '1px solid var(--line)', borderRadius: 8, background: risky ? 'var(--err-bg)' : '#fff' }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600 }}>{t.label}</div>
                     <div className="dim" style={{ fontSize: 11.5 }}>{t.desc}</div>
                   </div>
-                  <button className={`btn sm ${on ? 'pri' : ''}`} disabled={pending} style={{ flex: 'none' }}
-                    onClick={() => startTransition(() => toggleAiPolicy(t.field))}>
-                    {on ? 'ON' : 'OFF'}
-                  </button>
+                  {lock ? (
+                    <span className={`chip ${lock.pinned === t.safeWhen ? 'ok' : 'neutral'}`} style={{ flex: 'none' }} title={`변경 불가 — ${lock.why}`}>{`${lock.pinned ? 'ON' : 'OFF'} 🔒`}</span>
+                  ) : (
+                    <button className={`btn sm ${on ? 'pri' : ''}`} disabled={pending} style={{ flex: 'none' }}
+                      onClick={() => startTransition(async () => setToggleMsg((await toggleAiPolicy(t.field)).message))}>
+                      {on ? 'ON' : 'OFF'}
+                    </button>
+                  )}
                 </div>
               )
             })}

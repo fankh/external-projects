@@ -18,7 +18,7 @@ import { criticalDependencies, impactSources } from './cmdb'
 // 양쪽 모두 함수 본문에서만 서로를 호출(모듈 최상위 미참조)해 순환이 안전하다.
 import { compositeRiskAssetNos, riskSignals } from './risk'
 import type { CellValue, Sheet } from './xlsx'
-import type { ReportKind, ReportSchedule, ReportSection, SaasUsage } from './types'
+import type { ReportKind, ReportSchedule, ReportSection, SaasUsage, SwLicense } from './types'
 
 /** 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 대상
  *  (제품안내서 §05 라이선스 최적화: 중복 기능 SaaS 통합 후보). Shadow SaaS 화면과 라이선스 컴플라이언스
@@ -50,13 +50,31 @@ export function saasConsolidationCandidates(): { category: string; services: Saa
 
 /** 라이선스 최적화 산정(§05 AI 기능05) — 초과 사용·미사용 회수·만료 경과·중복 SaaS 통합을 한 번에 뽑는다.
  *  라이선스 컴플라이언스 리포트와 분석 화면 패널이 같은 근거를 쓰도록 단일 소스로 둔다(해지분 제외). */
+/** 만료 경과 — 유효(미해지)인데 만료일이 지난(미갱신) 라이선스. 만료 라이선스 사용은 컴플라이언스 위반이라 별도 집계한다. */
+export function isLicenseExpired(l: SwLicense): boolean {
+  return l.status !== '해지' && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
+}
+
+/** 라이선스 판정 — 사용률 판정(초과·미사용·적정)과 만료 경과는 **배타가 아니다**.
+ *  시드 JetBrains(보유 120 / 사용 131 · 만료 2026-05-31)처럼 만료됐는데 초과 사용 중인 건이 실재한다.
+ *  만료를 우선해 덮어쓰면 '초과 사용 N건' 집계는 세는데 그렇게 라벨된 행이 표에 하나도 없고(패널에서 실제로 그랬다),
+ *  같은 행의 권고 조치는 '증설 — N석 초과'라고 말해 한 줄 안에서 두 컬럼이 서로 다른 판정을 보여준다.
+ *  그래서 만료는 덮어쓰지 않고 접두로 붙인다(만료·초과 사용). rank 는 조치 시급 순 — 초과(감사 리스크) → 만료 → 미사용 → 적정.
+ *  컴플라이언스 리포트 표와 최적화 패널이 이 한 함수를 공유한다(해지 라이선스는 판정 대상이 아니라 호출부가 '해지'로 표기). */
+export function licenseVerdict(l: SwLicense): { base: '초과 사용' | '미사용 보유' | '적정'; expired: boolean; label: string; rank: number } {
+  const base = l.used > l.purchased ? '초과 사용' as const : l.used / l.purchased < 0.6 ? '미사용 보유' as const : '적정' as const
+  const expired = isLicenseExpired(l)
+  const label = expired ? (base === '적정' ? '만료 경과' : `만료·${base}`) : base
+  const rank = base === '초과 사용' ? 0 : expired ? 1 : base === '미사용 보유' ? 2 : 3
+  return { base, expired, label, rank }
+}
+
 export function licenseOptimization() {
   const s = getStore()
   const active = s.licenses.filter((l) => l.status !== '해지')
   const over = active.filter((l) => l.used > l.purchased)
   const under = active.filter((l) => l.used / l.purchased < 0.6)
-  // 만료 경과 — 유효인데 만료일이 지난(미갱신) 라이선스. 만료 라이선스 사용은 컴플라이언스 위반이므로 별도 집계한다.
-  const isExpired = (l: (typeof s.licenses)[number]) => l.status !== '해지' && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
+  const isExpired = isLicenseExpired
   const expired = active.filter(isExpired)
   const saving = under.reduce((n, l) => n + (l.purchased - l.used) * l.unitCost, 0)
   const overCost = over.reduce((n, l) => n + (l.used - l.purchased) * l.unitCost, 0)
@@ -303,7 +321,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         rows: s.licenses.map((l) => [
           l.name, l.vendor, String(l.purchased), String(l.used),
           `${Math.round((l.used / l.purchased) * 100)}%`, l.expiry,
-          `${isExpired(l) ? '만료·' : ''}${l.status === '해지' ? '해지' : l.used > l.purchased ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정'}`,
+          l.status === '해지' ? '해지' : licenseVerdict(l).label,
         ]),
       },
       {

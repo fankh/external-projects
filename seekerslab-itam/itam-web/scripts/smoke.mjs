@@ -278,6 +278,10 @@ try {
   check('대시보드 최근 공지: 부서 지정 공지가 대상 밖 사용자에게 미노출(유출 방지)', !dashUserHtml.includes('ZZMKTGSCOPE'))
   const dashAdminHtml = await (await get('/dashboard', 'ADMIN')).text()
   check('대시보드 최근 공지: 부서 지정 공지가 Admin 에겐 노출(스코핑이지 소실 아님 · 양성 대조)', dashAdminHtml.includes('ZZMKTGSCOPE'))
+  // '내 결재 차례'·결재함 배지는 실제로 결재함에서 처리할 수 있는 건만 세야 한다 — 소유자 확인은 결재(decide)가 아니라
+  //  요청받은 부서의 응답(answerOwnerConfirm)이라 서버가 거부하고 결재함도 승인 버튼을 내주지 않는다.
+  //  Admin 은 역할 오버라이드로 전부 통과하므로 시드의 대기 소유자 확인 2건(APR-2607-114·109)이 그대로 큐에 섞여 13건으로 보였다(→ 11).
+  check('대시보드: 결재 큐가 소유자 확인(결재 아님)을 세지 않음 — 들어가도 처리 못 하는 건 제외', dashAdminHtml.includes('결재함 <!-- -->11<!-- --> →'))
   // 운영 대기 우선순위 — 큐가 화면마다 흩어져 20여 개로 늘어, 긴급(err)을 주의(warn)보다 위로 정렬하고 헤더에 긴급·주의 집계를 노출.
   check('대시보드: 운영 대기 긴급·주의 요약 헤더', dashHtml.includes('긴급 ') && dashHtml.includes('주의 '))
   // 긴급 우선 정렬 검증 — err 큐(라이선스 초과 사용)가 warn 큐(입고 검수 대기)보다 앞. 삽입 순서(입고가 먼저)와 반대여야 정렬이 동작.
@@ -707,12 +711,17 @@ try {
   check('반납·유휴: 연체·임박 대여에 반환 독촉 발송 버튼 노출', rtHtml.includes('반환 독촉 발송'))
   check('반납·유휴: 대여 대장 엑셀 반출 버튼 노출 (감사 대응)', rtHtml.includes('/api/export/loans') && rtHtml.includes('대여 대장 엑셀'))
   const apUser = await (await get('/workflow/approvals', 'USER')).text()
+  const apSec0 = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('신청 상신: 사용자에게 신청 UI 노출', apUser.includes('신청 상신') && apUser.includes('신청하기'))
   check('상신 취소: 본인 대기 신청에 취소 버튼 노출', apUser.includes('상신 취소') && apUser.includes('APR-2607-121'))
   // 소유자 확인은 결재가 아니라 부서 응답 — 요청받은 부서(플랫폼개발팀=김민준)에게만 응답 버튼이 뜬다
   check('소유자 확인: 해당 부서 사용자에게 응답 버튼', apUser.includes('APR-2607-114') && apUser.includes('본인 자산'))
   // 결재함 데이터 스코핑 — USER 는 본인 상신분(+부서 소유자확인)만 조회('신청·결재' 조회='p' own-scope). 타 부서 결재(APR-2607-112 격리·보안운영팀)는 미노출.
   check('결재함 스코핑(USER): 타 부서 결재 미노출(본인·부서 소유자확인만 · 조회 own-scope)', !apUser.includes('APR-2607-112'))
+  // 목록만 스코핑하고 상단 KPI 가 전사 집계를 쓰면 같은 화면 머리에서 다시 새어 나간다 — 타일도 조회 스코프를 따라야 한다.
+  //  격리 요청 건수는 보안 운영 지표라 USER 자리에는 본인 부서 소유자 확인 요청을 대신 노출한다(역할에 맞는 할 일).
+  check('결재함 KPI 스코핑(USER): 전사 격리 요청 건수 미노출 · 소유자 확인 요청으로 대체', !apUser.includes('격리 요청 (보안담당)') && apUser.includes('소유자 확인 요청 (우리 부서)'))
+  check('결재함 KPI(담당자): 격리 요청 타일은 그대로', apSec0.includes('격리 요청 (보안담당)'))
   const apSec = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('소유자 확인: 타 부서에는 응답 버튼 미노출', apSec.includes('APR-2607-114') && apSec.includes('부서 응답 대기'))
   const insHtml = await (await get('/ai/insights', 'SEC_MGR')).text()
@@ -726,6 +735,10 @@ try {
   check('AI 제안: 자동분류 신뢰도·근거·편입 연결', insHtml.includes('평균 신뢰도') && insHtml.includes('수기 분류 제거') && insHtml.includes('/discovery/found?sel='))
   // 취약점 노출 우선순위(§05 기능04) — 자산 중요도 × 노출도 스코어링. 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출 합성.
   check('AI 제안: 취약점 노출 우선순위 스코어링 렌더', insHtml.includes('취약점 노출 우선순위') && insHtml.includes('자산 중요도 × 노출도') && insHtml.includes('P1 — 즉시 조치'))
+  // 라이선스 판정 — 만료 경과와 사용률 판정(초과·미사용)은 배타가 아니다. 시드 JetBrains 는 만료(2026-05-31)인데 120석 보유에 131석 사용이다.
+  //  만료가 사용률 판정을 덮어쓰면 '초과 사용 1건' 스탯은 세는데 그렇게 라벨된 행이 표에 하나도 없고(실제로 그랬다),
+  //  같은 행의 권고 조치만 '증설 — 11석 초과'라고 말해 두 컬럼이 서로 다른 판정을 보여준다. lib/reports licenseVerdict 단일 소스.
+  check('AI 제안: 라이선스 판정이 만료·초과를 함께 표기(스탯과 행 라벨 정합)', insHtml.includes('만료·초과 사용') && insHtml.includes('만료 경과 — 갱신·해지 먼저 판단'))
   // EOL OS(CentOS 7)·외부 CVE 가 스코어링 대상에 포함됨을 확인 (시드 AST-2020-000883 CentOS 7.9)
   check('AI 제안: 취약점 우선순위에 EOL OS·외부 CVE 반영', insHtml.includes('EOL OS') && insHtml.includes('CentOS 7') && insHtml.includes('외부 노출 CVE'))
   // 미조치 외부 CVE(legacy-vpn·무action, CVE-2018-13379)는 포함, 이미 차단요청된 CVE(db-backup·action, CVE-2024-10977)는 제외 — 조치분은 '즉시 조치'가 아니다
@@ -1234,6 +1247,13 @@ try {
   check('공통코드: 유형 참조 수에 대장 밖 참조(도입 로트·AI 분류·신청 희망 유형) 포함', usedCount(28) && usedCount(6))
   const aiHtml = await (await get('/settings/ai-policy', 'ADMIN')).text()
   check('AI 정책: 실행 환경·거버넌스 렌더', aiHtml.includes('온프레미스 LLM') && aiHtml.includes('권한 범위 필터'))
+  // 권한 범위 필터는 정책값이 아니라 코드가 항상 적용하는 최소권한 안전장치다(buildContext 가 역할로 스코핑) —
+  //  토글로 내려도 동작은 그대로인데 AI 거버넌스·감사 대응 리포트만 '미적용'으로 나가면 감사에 허위 진술이 된다.
+  //  권한 매트릭스 잠금 칸과 같은 규약으로 잠가 ON 고정임을 화면에도 드러낸다.
+  check('AI 정책: 권한 범위 필터는 변경 불가 잠금(ON 고정 · 리포트 진술과 동작 일치)', aiHtml.includes('ON 🔒') && aiHtml.includes('코드가 항상 적용(변경 불가)'))
+  // 자동 승인도 같은 부류의 죽은 토글이었다 — 읽는 코드가 없어 ON 으로 올려도 AI 제안은 여전히 담당자 판정을 거치는데,
+  //  컴플라이언스 서술은 '제안 자동승인 허용'이라고 감사에 진술했다(실제보다 약한 통제를 주장 — 더 나쁜 방향).
+  check('AI 정책: 제안 자동 승인은 변경 불가 잠금(OFF 고정 · 자동 승인 경로 없음)', aiHtml.includes('OFF 🔒') && aiHtml.includes('자동 승인 경로 없음(변경 불가)'))
   // 외부 반출 통제(§05 실행 환경) — 온프레미스는 외부 반출 차단, 외부 API 연계는 비식별 처리 후 반출. 표시가 아니라 강제.
   //  시드 기본값(온프레미스 LLM)에서 '외부 반출 차단'이 적용 중이고, 비식별·강제 문구가 정책 표와 함께 렌더돼야 한다.
   check('AI 정책: 외부 반출 통제 — 온프레미스 차단·비식별·강제 명시', aiHtml.includes('외부 반출 통제') && aiHtml.includes('표시가 아니라') && aiHtml.includes('비식별') && aiHtml.includes('외부 반출 없음'))
