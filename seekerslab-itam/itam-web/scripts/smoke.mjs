@@ -1660,6 +1660,28 @@ try {
     .filter((rel) => rel !== 'lib/types.ts')
   check(`비운영 상태 목록: lib/types 한 곳만 정의(소스 ${sourceFiles.length}개 검사)`, statusDupes.length === 0, `중복 정의=${statusDupes.join(', ')}`)
 
+  // 비율 표기 단일 규약 가드 — 백분율을 화면·리포트가 각자 Math.round 로 계산하면 이정표(0%·100%)를 넘겨 짚어
+  //  표기와 판정이 어긋난다(89.6%→90% 인데 상태는 정상, 0.05%→0% 인데 상태는 정상). 규약은 lib/dates ratioPct 한 곳.
+  //  신뢰도(0~1 점수)·내용연수 경과율·위험 점수처럼 부분/전체 비율이 아닌 계산은 예외로 이름과 이유를 적어 둔다.
+  const PCT_EXEMPT = {
+    'lib/auto-classify.ts': '분류 신뢰도 평균 — 0~1 점수의 평균이지 부분/전체 비율이 아니다',
+    'lib/cost.ts': '감가상각률 — 내용연수 경과 비율(시간축)이라 상한만 두고 floor 로 계산한다',
+    'lib/vuln-priority.ts': '취약점 점수 — 심각도×중요도 가중치의 정규화 점수(비율 아님)',
+    'lib/dates.ts': 'ratioPct 자신의 구현',
+  }
+  const pctOffenders = []
+  for (const f of [...actionFiles, ...sourceFiles]) {
+    const rel = path.relative(ROOT, f).split(path.sep).join("/")
+    if (rel in PCT_EXEMPT) continue
+    const src = readFileSync(f, "utf8")
+    // 줄 단위 휴리스틱 — 중첩 괄호(예: (1 - book / acq) * 100)를 정규식 하나로 잡기 어렵다. JSX 태그(</td>)의 슬래시는 걷어내고 나눗셈만 본다.
+    const bad = src.split(/\r?\n/).map((line) => line.replace(/<[^>]*>/g, "")).some((line) => /Math\.(round|floor|ceil)\(/.test(line) && line.includes("* 100") && line.includes("/") && !line.includes("ratioPct"))
+    if (bad) pctOffenders.push(rel)
+  }
+  check(`비율 표기: 백분율 계산이 lib/dates ratioPct 한 곳(소스 ${sourceFiles.length + actionFiles.length}개 검사 · 예외 ${Object.keys(PCT_EXEMPT).length}건)`,
+    pctOffenders.length === 0, `직접 계산=${pctOffenders.join(",")}`)
+
+
   // 보증 임박 판정 단일 소스 — 만료 알림 창(opsPolicy.expiryWindowDays)은 설정 화면이 '계약·보증·라이선스' 기준이라고
   //  안내하는데, 보증만 여러 곳에 90 이 박혀 있었다(대장 필터·대시보드 큐·어시스턴트·반출·복합 위험 신호).
   //  통지(lib/expiry)는 정책을 따랐으므로, 관리자가 창을 바꾸면 '보증 만료 임박 자산 N건' 통지와 화면 집합이 갈렸다.

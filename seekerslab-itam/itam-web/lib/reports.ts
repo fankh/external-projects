@@ -952,7 +952,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       const arr = dep.filter((a) => a.category === c)
       const acq = arr.reduce((n, a) => n + acquisitionCostOf(a), 0)
       const book = arr.reduce((n, a) => n + bookValueOf(a, t), 0)
-      const pct = acq > 0 ? Math.floor(((acq - book) / acq) * 100) : 0
+      const pct = ratioPct(acq - book, acq)
       return [c, String(arr.length), acq.toLocaleString(), Math.round(acq / USEFUL_LIFE_YEARS).toLocaleString(), book.toLocaleString(), `${pct}%`]
     })
     return [
