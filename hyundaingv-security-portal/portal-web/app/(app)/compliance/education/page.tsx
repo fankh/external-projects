@@ -84,7 +84,7 @@ export default async function EducationPage() {
   return (
     <>
       <ScreenHeader kicker="보안 컴플라이언스" title="보안교육"
-        desc="연간계획 → 과정별 결과·명단 등록 → 이수현황 집계 — 명단 등록이 대상자의 '보안교육' 할일을 닫는다." />
+        desc="연간 교육계획과 과정별 이수현황. 이수명단을 등록하면 대상자 할일이 닫힌다." />
 
       <div className="stat-row">
         <Stat value={s.educationCourses.length} label="연간 과정" note={`완료 ${done.length}건`} />
