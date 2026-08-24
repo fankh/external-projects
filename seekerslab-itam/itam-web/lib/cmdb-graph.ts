@@ -4,11 +4,13 @@
 import { NON_OPERATIONAL_STATUSES } from './types'
 import type { Asset } from './types'
 
-/** 자산 운영 저하/이탈 상태 — 상위가 이 상태면 하위가 영향받는다(장애·이탈·정비). */
+/** 자산 운영 저하/이탈 상태 — 상위가 이 상태면 하위가 영향받는다(장애·이탈·정비·NAC 격리). */
 export function isDegraded(a: Asset): boolean {
   // 판정은 lib/types 의 비운영 상태 한 곳만 쓴다 — 그전에는 여기만 반납대기를 빼, 회수돼 나가는 상위 자산(반납대기)에
   //  물린 하위가 '저하된 상위' 경고·영향 소스 큐·SPOF 정렬 어디에도 안 잡혔다(상위 이탈을 하위가 모르는 사각).
-  return NON_OPERATIONAL_STATUSES.includes(a.status)
+  // NAC 격리(quarantinedAt)도 같은 사각이었다 — 상태는 '사용중' 그대로인데 망이 끊겨 하위는 서비스를 못 받는다.
+  //  격리 집행은 보안 조치라 상태를 바꾸지 않으므로, 상태만 보면 하위 담당 부서는 상위가 끊긴 줄 모른다.
+  return NON_OPERATIONAL_STATUSES.includes(a.status) || !!a.quarantinedAt
 }
 
 export interface AssetDeps {

@@ -917,9 +917,12 @@ export async function notifyDependencyImpact() {
   let sent = 0
   let assets = 0
   for (const { asset } of impactNoticeTargets()) {
-    const depts = notifyDependents(asset.assetNo, `${asset.status} — 운영 이탈`)
+    // 사유는 실제 이탈 원인을 쓴다 — NAC 격리는 상태가 '사용중' 그대로라 상태 문자열만 넘기면
+    //  하위 담당 부서가 '사용중 — 운영 이탈'이라는 앞뒤 안 맞는 통지를 받는다(망 차단 사실이 사라진다).
+    const why = asset.quarantinedAt ? `NAC 격리(${asset.quarantinedAt}) — 망 차단` : `${asset.status} — 운영 이탈`
+    const depts = notifyDependents(asset.assetNo, why)
     if (depts.length === 0) continue
-    asset.history.push({ date: t, kind: '점검', detail: `하위 의존 영향 통지 — ${depts.join(', ')} (${asset.status})`, actor: session.name })
+    asset.history.push({ date: t, kind: '점검', detail: `하위 의존 영향 통지 — ${depts.join(', ')} (${why})`, actor: session.name })
     sent += depts.length
     assets += 1
   }

@@ -57,7 +57,7 @@ export function repairRemindTargets(): Asset[] {
   return getStore().assets.filter((a) => !!a.repair && (isRepairOverdue(a) || isRepairEtaMissing(a)) && !sent.has(a.assetNo))
 }
 
-/** 하위 의존 영향 통지 대상 — 저하·이탈(분실·폐기·수리중·반납대기) 상태이면서 하위 의존 자산이 있는 상위 자산 중,
+/** 하위 의존 영향 통지 대상 — 저하·이탈(분실·폐기·수리중·반납대기 · NAC 격리) 상태이면서 하위 의존 자산이 있는 상위 자산 중,
  *  아직 오늘 통지하지 않은 담당 부서가 남아 있는 것. 화면 버튼 건수와 액션 결과가 같은 집합을 보도록 여기 한 곳에서 센다
  *  (수령·정기 점검·EOL 통보와 같은 규약 — 보낸 뒤에도 버튼이 같은 건수로 남는 유령 컨트롤 방지). */
 export function impactNoticeTargets(): { asset: Asset; depts: string[]; dependents: string[] }[] {

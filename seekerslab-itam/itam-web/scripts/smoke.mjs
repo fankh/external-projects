@@ -1788,6 +1788,20 @@ try {
   })
   check("재고 판정: 가용·배정 풀이 NAC 격리 자산을 제외(불출·대여 가드와 같은 집합)",
     poolFns.length === 2, `격리 제외 누락=${["availableAssets", "assignableAssets"].filter((f) => !poolFns.includes(f)).join(", ")}`)
+
+  // 상위 이탈 판정과 NAC 격리 — 격리는 상태를 바꾸지 않고(사용중 그대로) 망만 끊는 보안 조치라, 상태만 보던
+  //  isDegraded 로는 하위 자산이 상위가 끊긴 줄 몰랐다("저하된 상위" 경고·영향 통지 큐·SPOF 즉시 리스크 모두 침묵).
+  //  통지 사유도 상태 문자열을 그대로 써서 격리 상위는 "사용중 — 운영 이탈"이라는 앞뒤 안 맞는 통지가 됐다.
+  //  격리된 상위 자산은 시드에 없고 격리 결재 대상 자산에 하위가 없어 런타임 재현이 안 되므로 구조 검사로 둔다.
+  const graphSrc = readFileSync(path.join(ROOT, "lib", "cmdb-graph.ts"), "utf8")
+  const regSrc = readFileSync(path.join(ROOT, "app", "(app)", "assets", "register", "actions.ts"), "utf8")
+  const degAt = graphSrc.indexOf("export function isDegraded")
+  const degBody = degAt === -1 ? "" : graphSrc.slice(degAt, graphSrc.indexOf("\n}", degAt))
+  const notifyAt = regSrc.indexOf("export async function notifyDependencyImpact")
+  const notifyBody = notifyAt === -1 ? "" : regSrc.slice(notifyAt, notifyAt + 1200)
+  check("상위 이탈 판정: NAC 격리 상위도 저하로 보고 통지 사유에 격리를 밝힌다",
+    degBody.includes("a.quarantinedAt") && notifyBody.includes("asset.quarantinedAt") && notifyBody.includes("NAC 격리"),
+    `isDegraded 격리 반영=${degBody.includes("a.quarantinedAt")} 통지 사유 격리 표기=${notifyBody.includes("NAC 격리")}`)
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')
