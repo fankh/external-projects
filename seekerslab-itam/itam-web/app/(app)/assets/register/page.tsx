@@ -7,6 +7,7 @@ import { criticalDependencies } from '@/lib/cmdb'
 import { replacementCandidates } from '@/lib/reports'
 import { compositeRiskAssetNos } from '@/lib/risk'
 import { getSession } from '@/lib/session'
+import { pendingDisposalNos } from '@/lib/stock'
 import { getStore } from '@/lib/store'
 import { BulkImport } from './BulkImport'
 import { RegisterView } from './RegisterView'
@@ -53,6 +54,9 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const maintOverdueCount = scoped.filter(isMaintenanceOverdue).length
   // 복합 위험(≥2 신호) — 정합성 미흡·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산. 대장 필터·도시어 요약·대시보드 큐가 lib/risk 단일 소스 공유(임계값 재계산 없음).
   const riskNos = compositeRiskAssetNos(scoped)
+  // 폐기 절차(대상 선정~소거 대기) 진행 중 — 재불출·대여 가드(dispatchAsset·loanAsset)가 거부하는 자산.
+  //  화면이 이 자산에 대여 컨트롤을 그대로 내주면 눌러야 거부되는 막다른 길이 된다(lib/stock 단일 기준).
+  const disposalNos = [...pendingDisposalNos(s.disposals)].filter((no) => scopedNoSet.has(no))
   // 자산별 배정 라이선스(좌석) — 라이선스 화면의 좌석 배정(로56)을 자산 관점에서 역조회. 상세에서 이 자산에
   //  어떤 SW 라이선스가 배정됐는지 보여준다(오프보딩·감사: 회수·재배정 대상 식별). 해지 라이선스는 제외.
   const licenseSeatsByAsset: Record<string, { id: string; name: string; vendor: string }[]> = {}
@@ -76,7 +80,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       )}
       {session.role !== 'USER' && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
       </Card>
     </>
   )

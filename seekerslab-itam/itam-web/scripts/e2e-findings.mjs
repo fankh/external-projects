@@ -2480,10 +2480,19 @@ try {
   const ctxEN = await browser.newContext(); await ctxEN.addCookies([cookie(ASSET)]); const pEN = await ctxEN.newPage()
   await pEN.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const enBtn = pEN.locator('button', { hasText: /^만료 임박 알림 발송 \(\d+\)$/ })
-  ok('만료 임박 알림(로13): 발송 버튼 노출(임박 대상 ≥1)', (await enBtn.count()) > 0 && !/\(0\)/.test(await enBtn.first().innerText()))
+  const enDue = Number((((await enBtn.first().innerText()) || '').match(/\((\d+)\)/) || [])[1] || '0')
+  ok('만료 임박 알림(로13): 발송 버튼 노출(임박 대상 ≥1)', (await enBtn.count()) > 0 && enDue > 0)
   await enBtn.first().click()
-  await pEN.waitForTimeout(700)
-  ok('만료 임박 알림(로13): 발송 성공(계약·라이선스·보증 통지 · 발송 이력 적재)', ((await pEN.textContent('body')) || '').includes('발송 이력에서 확인할 수 있습니다'))
+  const enMsg = pEN.locator('text=발송 이력에서 확인할 수 있습니다').first()
+  await enMsg.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+  const enBody = (await pEN.textContent('body')) || ''
+  ok('만료 임박 알림(로13): 발송 성공(계약·라이선스·보증 통지 · 발송 이력 적재)', enBody.includes('발송 이력에서 확인할 수 있습니다'))
+  // 화면-액션 정합 — 버튼이 보인 건수와 실제 발송 건수가 같아야 한다. 화면이 창 안 대상 전부를 세고 액션만 당일 발송분을 제외하면
+  //  (시드에도 당일 발송분이 있다) 건수가 어긋나고, 다 보낸 뒤에도 버튼이 전체 건수로 활성인 채 눌러야 '신규 대상 없음'이 된다.
+  ok('만료 임박 알림(화면-액션 정합): 버튼 건수 = 실제 발송 건수(당일 발송분 제외 · lib/expiry 단일 소스)', enBody.includes(`만료 임박 알림 ${enDue}건 발송`))
+  await pEN.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const enAfter = pEN.locator('button', { hasText: /^만료 임박 알림 발송 \(\d+\)$/ }).first()
+  ok('만료 임박 알림(중복 억제): 발송 직후 신규 대상 0 · 버튼 비활성(대상 없는데 활성인 유령 컨트롤 제거)', ((await enAfter.innerText()) || '').includes('(0)') && (await enAfter.isDisabled()))
   await ctxEN.close()
   // 커넥터 재연동(로22) — 지연·오류 커넥터를 정상으로 되돌리는 액션(보안담당). 시드 '프록시 · 방화벽 · DNS'(지연).
   const ctxCN = await browser.newContext(); await ctxCN.addCookies([cookie(SEC)]); const pCN = await ctxCN.newPage()

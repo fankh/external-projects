@@ -1,5 +1,6 @@
 import { ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { assignableAssets } from '@/lib/stock'
 import { getStore } from '@/lib/store'
 import { MovementView } from './MovementView'
 
@@ -25,9 +26,11 @@ export default async function MovementPage() {
       }
     })
 
-  // 재배치 우선 원칙 — 신규 구매 전에 유휴 재고부터 배정한다 (검수중은 도입 직후 미배정분)
-  const pool = s.assets
-    .filter((a) => ['유휴', '검수중'].includes(a.status))
+  // 재배치 우선 원칙 — 신규 구매 전에 유휴 재고부터 배정한다 (검수중은 도입 직후 미배정분).
+  //  폐기 절차(대상 선정~소거 대기) 중인 자산은 제외한다 — lib/stock 단일 소스로 불출 가드(dispatchAsset)와 같은 판정이다.
+  //  그전엔 화면이 폐기 선정된 유휴 자산을 '배정 가능 재고'로 세고 희망 유형 일치(✓)로 우선 추천까지 했는데,
+  //  담당자가 그대로 불출하면 서버가 '폐기 절차 중인 자산은 불출할 수 없습니다'로 거부하는 막다른 길이었다.
+  const pool = assignableAssets(s.assets, s.disposals)
     .map((a) => ({ assetNo: a.assetNo, model: a.model, category: a.category, location: a.location, status: a.status }))
 
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])

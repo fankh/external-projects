@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { missingContractDocs } from '@/lib/contract'
 import { addYears, daysUntil, fmtAmount, today } from '@/lib/dates'
+import { expiryNoticeTargets, warrantyNoticeRef } from '@/lib/expiry'
 import { dispatch } from '@/lib/notify'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
@@ -93,25 +94,16 @@ async function guard() {
 
 /** 만료 임박 알림 발송 — 계약·보증·라이선스를 한 번에 훑어 주관부서 앞으로 통지한다.
  *  (제품안내서 §03: 계약·보증·라이선스 만료 임박 자동 메일)
- *  같은 대상에 오늘 이미 보냈으면 다시 보내지 않는다 — 알림 피로가 알림을 무력화한다. */
+ *  같은 대상에 오늘 이미 보냈으면 다시 보내지 않는다 — 알림 피로가 알림을 무력화한다.
+ *  대상 판정은 lib/expiry expiryNoticeTargets 단일 소스(화면 버튼 건수와 동일). */
 export async function sendExpiryNotices() {
   const session = await guard()
   if (!session) return { ok: false, message: '알림 발송 권한이 없습니다.' }
 
-  const s = getStore()
-  const t = today()
-  const windowDays = s.opsPolicy.expiryWindowDays
-  const due = (end: string) => {
-    const d = daysUntil(end)
-    return d !== null && d <= windowDays
-  }
-  const sentToday = new Set(
-    s.dispatches.filter((m) => m.kind === '만료 임박' && m.at.startsWith(t)).map((m) => m.ref),
-  )
+  const { contracts, licenses, warrantyDepts, count, windowDays } = expiryNoticeTargets()
+  if (count === 0) return { ok: false, message: `${windowDays}일 내 신규 알림 대상이 없습니다 (오늘 발송분 제외).` }
 
-  let n = 0
-  for (const c of s.contracts) {
-    if (c.status === '해지' || !due(c.end) || sentToday.has(c.id)) continue
+  for (const c of contracts) {
     const d = daysUntil(c.end)!
     dispatch({
       channel: '이메일',
@@ -120,10 +112,8 @@ export async function sendExpiryNotices() {
       kind: '만료 임박',
       ref: c.id,
     })
-    n += 1
   }
-  for (const l of s.licenses) {
-    if (l.status === '해지' || l.expiry === '-' || !due(l.expiry) || sentToday.has(l.id)) continue
+  for (const l of licenses) {
     const d = daysUntil(l.expiry)!
     dispatch({
       channel: '이메일',
@@ -132,26 +122,15 @@ export async function sendExpiryNotices() {
       kind: '만료 임박',
       ref: l.id,
     })
-    n += 1
   }
   // 보증 만료는 자산 단위 — 부서별로 묶어 한 통씩 보낸다 (자산마다 메일을 보내면 아무도 읽지 않는다)
-  const byDept = new Map<string, number>()
-  for (const a of s.assets) {
-    if (a.warrantyEnd === '-' || ['폐기완료', '폐기예정'].includes(a.status)) continue
-    if (!due(a.warrantyEnd)) continue
-    byDept.set(a.dept, (byDept.get(a.dept) ?? 0) + 1)
-  }
-  for (const [dept, count] of byDept) {
-    const ref = `WRT-${dept}`
-    if (sentToday.has(ref)) continue
-    dispatch({ channel: '이메일', to: dept, subject: `보증 만료 임박 자산 ${count}건 — 연장·교체 검토 요청`, kind: '만료 임박', ref })
-    n += 1
+  for (const [dept, n] of warrantyDepts) {
+    dispatch({ channel: '이메일', to: dept, subject: `보증 만료 임박 자산 ${n}건 — 연장·교체 검토 요청`, kind: '만료 임박', ref: warrantyNoticeRef(dept) })
   }
 
-  if (n === 0) return { ok: false, message: `${windowDays}일 내 신규 알림 대상이 없습니다 (오늘 발송분 제외).` }
-  appendAudit({ actor: session.name, action: `만료 임박 알림 발송 (${n}건)`, target: '계약 · 라이선스' })
+  appendAudit({ actor: session.name, action: `만료 임박 알림 발송 (${count}건)`, target: '계약 · 라이선스' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `만료 임박 알림 ${n}건 발송 — 연동 · 인프라의 발송 이력에서 확인할 수 있습니다.` }
+  return { ok: true, message: `만료 임박 알림 ${count}건 발송 — 연동 · 인프라의 발송 이력에서 확인할 수 있습니다.` }
 }
 
 /** 유지보수 예산 통보 — 예산 초과·소진 임박 유지보수 계약의 주관부서·공급사에 재협상·집행 점검을 요청한다.
