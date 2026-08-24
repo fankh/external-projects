@@ -700,6 +700,12 @@ try {
   //  state 로만 걸러 손대지 않은 노출로 실렸다(표에 조치 상태 열이 없어 읽는 쪽은 구분 못 한다).
   ok('Shadow IT 브리핑: 조치 걸린 외부 노출은 미등록 갭에서 제외(db-backup)', !sbBody.includes('db-backup.seekerslab.co.kr'))
   ok('Shadow IT 브리핑: 미조치 외부 노출은 그대로 집계(legacy-vpn)', sbBody.includes('legacy-vpn.seekerslab.co.kr'))
+  // 첫 표('신규 발견 미등록 자산')도 같은 기준이어야 한다 — 편입하지 않기로 판정된 건(관리 제외·격리 요청)은 Shadow IT 갭이 아니다.
+  //  시드 DSC-2607-0031(개인 구독 Azure VM)은 이미 격리 요청까지 끝났는데 state 로만 걸러 갭 표에 실렸고,
+  //  같은 리포트 '조치 현황'의 격리 요청 1건으로 또 세어졌다(이중 계상). 컴플라이언스 증적이 쓰는 onboardTargets 와 맞춘다.
+  ok('Shadow IT 브리핑: 격리 요청된 미등록 자산은 갭 표에서 제외(ip-10-31-4-70)', !sbBody.includes('ip-10-31-4-70'))
+  ok('Shadow IT 브리핑: 미처리 미등록 자산은 그대로 집계(nas-dev-team)', sbBody.includes('nas-dev-team'))
+  ok('Shadow IT 브리핑: 갭 표 근거 표기(편입 대상 · 관리 제외·격리 요청 제외)', sbBody.includes('관리 제외·격리 요청 제외'))
   await ctxSB.close()
 
   // 컴플라이언스 증적의 '미등록 발견 자산 N건(편입 대상)' — 편입하지 않기로 판정된 건(관리 제외·격리 요청)까지 세면
