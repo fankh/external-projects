@@ -66,7 +66,7 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
         {asking && (
           <div className="vstack" style={{ gap: 8, padding: 14, borderBottom: '1px solid var(--line)', background: 'var(--canvas)' }}>
             <div className="hstack" style={{ gap: 8 }}>
-              <select className="select" value={category} onChange={(e) => setCategory(e.target.value as QnaCategory)}>
+              <select aria-label="QnA 분류" className="select" value={category} onChange={(e) => setCategory(e.target.value as QnaCategory)}>
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <input className="input" style={{ flex: 1 }} placeholder="문의 제목" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -89,7 +89,7 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
         {remindMsg && <div className="callout" style={{ margin: 14 }}>{remindMsg}</div>}
         <div className="qbar" style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
           <input className="input" style={{ width: 200 }} placeholder="제목·내용·작성자 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
-          <select className="select" value={fcat} onChange={(e) => setFcat(e.target.value as QnaCategory | '전체')}>
+          <select aria-label="QnA 분류 필터" className="select" value={fcat} onChange={(e) => setFcat(e.target.value as QnaCategory | '전체')}>
             <option value="전체">분류 — 전체</option>
             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -142,7 +142,7 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
           {editingQ ? (
             <div className="vstack" style={{ gap: 8 }}>
               <div className="hstack" style={{ gap: 8 }}>
-                <select className="select" value={eqCat} onChange={(e) => setEqCat(e.target.value as QnaCategory)}>
+                <select aria-label="QnA 분류(수정)" className="select" value={eqCat} onChange={(e) => setEqCat(e.target.value as QnaCategory)}>
                   {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <input className="input" style={{ flex: 1 }} placeholder="문의 제목" value={eqTitle} onChange={(e) => setEqTitle(e.target.value)} />

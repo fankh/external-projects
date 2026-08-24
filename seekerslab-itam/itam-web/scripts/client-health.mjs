@@ -68,6 +68,7 @@ try {
     const badLinks = []
     const badApis = []
     const unnamed = []
+    const unlabeled = []
     const seenApi = new Set()
     // 한 화면에서 링크 두 종류를 함께 본다 — 화면 링크는 라우트 권한, API 링크는 실제 응답으로 판정한다.
     const collectLinks = async (page, label) => {
@@ -99,6 +100,17 @@ try {
         }).map((e) => e.outerHTML.slice(0, 60)))
         for (const n of nameless) unnamed.push(`${label} → ${n}`)
       } catch (e) { unnamed.push(`${label} → 컨트롤 이름 확인 실패: ${e.message}`) }
+      // 이름 없는 입력 — 스크린리더가 '콤보 상자'로만 읽는 필터·입력은 무엇을 고르는 칸인지 알 수 없다.
+      //  라벨(label for·감싼 label)·aria-label·title·placeholder 중 하나면 충분하다.
+      try {
+        const noName = await page.$$eval('input:not([type=hidden]), select, textarea', (els) => els.filter((e) => {
+          const aria = e.getAttribute('aria-label') || e.getAttribute('title') || e.getAttribute('placeholder') || ''
+          const id = e.getAttribute('id')
+          const lab = id ? document.querySelector('label[for="' + id + '"]') : null
+          return !aria && !lab && !e.closest('label')
+        }).map((e) => e.outerHTML.slice(0, 70)))
+        for (const n of noName) unlabeled.push(`${label} → ${n}`)
+      } catch (e) { unlabeled.push(`${label} → 입력 이름 확인 실패: ${e.message}`) }
     }
     const ctx = await browser.newContext()
     await ctx.addCookies([cookie(acct)])
@@ -188,6 +200,9 @@ try {
     const nameOk = unnamed.length === 0
     nameOk ? pass++ : fail++
     console.log(`${nameOk ? '✓' : '✗'} [${tag}] 조작 컨트롤 이름 — 이름 없는 버튼·링크 없음${nameOk ? '' : ' — ' + [...new Set(unnamed)].slice(0, 4).join(', ')}`)
+    const labelOk = unlabeled.length === 0
+    labelOk ? pass++ : fail++
+    console.log(`${labelOk ? '✓' : '✗'} [${tag}] 입력 이름 — 라벨 없는 입력·선택 없음${labelOk ? '' : ' (' + unlabeled.length + ') — ' + [...new Set(unlabeled)].slice(0, 12).join(' | ')}`)
     if (acct.role === 'ADMIN' || acct.role === 'ASSET_MGR') await checkQueueParity()
     await ctx.close()
   }

@@ -47,12 +47,12 @@ export function LicenseTable({ rows, sel, canEdit, expiryWindowDays, lic }: { ro
   return (
     <>
       <div className="qbar" style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
-        <select className="select" value={fstatus} onChange={(e) => setFstatus(e.target.value as '전체' | '유효' | '해지')} style={{ maxWidth: 130 }}>
+        <select aria-label="라이선스 상태 필터" className="select" value={fstatus} onChange={(e) => setFstatus(e.target.value as '전체' | '유효' | '해지')} style={{ maxWidth: 130 }}>
           <option value="전체">상태 — 전체</option>
           <option value="유효">유효(구독 중)</option>
           <option value="해지">해지</option>
         </select>
-        <select className="select" value={fverdict} onChange={(e) => setFverdict(e.target.value as Verdict)} style={{ maxWidth: 150 }}>
+        <select aria-label="라이선스 판정 필터" className="select" value={fverdict} onChange={(e) => setFverdict(e.target.value as Verdict)} style={{ maxWidth: 150 }}>
           <option value="전체">판정 — 전체</option>
           <option value="초과">초과 사용 (감사 리스크)</option>
           <option value="미사용">미사용 보유 (회수 후보)</option>

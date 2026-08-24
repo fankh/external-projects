@@ -102,7 +102,7 @@ export function ReportsView(props: {
             return (
               <div className="hstack" style={{ gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center', paddingBottom: 14, borderBottom: '1px solid var(--line)' }}>
                 <span className="kicker mute">결재 첨부</span>
-                <select className="select" style={{ minWidth: 260 }} value={pickApr} disabled={pending || pendingAprs.length === 0}
+                <select aria-label="리포트 선택" className="select" style={{ minWidth: 260 }} value={pickApr} disabled={pending || pendingAprs.length === 0}
                   onChange={(e) => setPickApr(e.target.value)}>
                   <option value="">{pendingAprs.length ? '대기 결재 선택 —' : '대기 중 결재 없음'}</option>
                   {pendingAprs.map((a) => <option key={a.id} value={a.id}>{a.id} · {a.kind} · {a.title.slice(0, 24)}</option>)}

@@ -75,11 +75,11 @@ export function RequestForm(props: {
       {open && (
         <div className="vstack" style={{ gap: 8 }}>
           <div className="hstack" style={{ gap: 8 }}>
-            <select className="select" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+            <select aria-label="신청 종류" className="select" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
               {KINDS.map((x) => <option key={x.k} value={x.k}>{x.label}</option>)}
             </select>
             {needsMyAsset && (
-              <select className="select" style={{ flex: 1 }} value={assetNo}
+              <select aria-label="대상 자산" className="select" style={{ flex: 1 }} value={assetNo}
                 onChange={(e) => setAssetNo(e.target.value)} disabled={noMyAssets}>
                 {noMyAssets
                   ? <option>신청 가능한 본인 명의 자산이 없습니다</option>
@@ -91,7 +91,7 @@ export function RequestForm(props: {
               </select>
             )}
             {kind === '대여' && (
-              <select className="select" style={{ flex: 1 }} value={loanAssetNo}
+              <select aria-label="대여 신청 자산" className="select" style={{ flex: 1 }} value={loanAssetNo}
                 onChange={(e) => setLoanAssetNo(e.target.value)} disabled={noLoanable}>
                 {noLoanable
                   ? <option>대여 가능한 유휴 재고가 없습니다</option>
@@ -103,13 +103,13 @@ export function RequestForm(props: {
               </select>
             )}
             {kind === '자산 신청' && (
-              <select className="select" value={wantCat} onChange={(e) => setWantCat(e.target.value as AssetCategory)}
+              <select aria-label="희망 자산 유형" className="select" value={wantCat} onChange={(e) => setWantCat(e.target.value as AssetCategory)}
                 title="희망 자산 유형 — 불출 시 같은 유형의 유휴 재고를 우선 추천합니다 (재배치 우선 원칙)">
                 {ASSET_CATEGORIES.map((c) => <option key={c} value={c}>희망 유형 — {c}</option>)}
               </select>
             )}
             {kind === '이동' && (
-              <select className="select" value={target} onChange={(e) => setTarget(e.target.value)}>
+              <select aria-label="신청 대상 자산" className="select" value={target} onChange={(e) => setTarget(e.target.value)}>
                 {props.locations.map((l) => <option key={l} value={l}>이동 위치 — {l}</option>)}
               </select>
             )}

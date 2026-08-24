@@ -53,7 +53,7 @@ export function NotificationLog({ dispatches, canExport, canManage, role, openab
           <div className="hstack" style={{ gap: 8, padding: '12px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
             <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="수신·제목·연결 문서 검색"
               value={q} onChange={(e) => setQ(e.target.value)} />
-            <select className="input" value={kind} onChange={(e) => setKind(e.target.value)} style={{ maxWidth: 160 }}>
+            <select aria-label="발송 이력 필터" className="input" value={kind} onChange={(e) => setKind(e.target.value)} style={{ maxWidth: 160 }}>
               {kinds.map((k) => <option key={k} value={k}>{k === '전체' ? '종류 전체' : k}</option>)}
             </select>
             <div className="hstack" style={{ gap: 4 }}>

@@ -41,7 +41,7 @@ export function ShadowSaasTable({ rows, canDecide, depts = [], blockedServices =
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
       <div className="hstack" style={{ gap: 8, flexWrap: 'wrap', padding: '12px 14px 0' }}>
-        <select className="select" value={fdept} onChange={(e) => setFdept(e.target.value)} style={{ maxWidth: 160 }}>
+        <select aria-label="부서 필터" className="select" value={fdept} onChange={(e) => setFdept(e.target.value)} style={{ maxWidth: 160 }}>
           <option value="전체">부서 — 전체</option>
           {depts.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>

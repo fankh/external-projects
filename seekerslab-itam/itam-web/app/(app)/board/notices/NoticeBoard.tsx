@@ -87,7 +87,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
         )}
         <div className="qbar" style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
           <input className="input" style={{ width: 200 }} placeholder="제목·내용·작성자 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
-          <select className="select" style={{ maxWidth: 150 }} value={fcat} onChange={(e) => setFcat(e.target.value)}>
+          <select aria-label="공지 분류 필터" className="select" style={{ maxWidth: 150 }} value={fcat} onChange={(e) => setFcat(e.target.value)}>
             <option value="전체">분류 — 전체</option>
             {NOTICE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>

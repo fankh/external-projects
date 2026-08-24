@@ -113,7 +113,7 @@ export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: Repo
             <label className="hstack" style={{ gap: 6, fontSize: 12.5 }}>
               {editRow.period === '주간' ? '요일' : '일자'}
               {editRow.period === '주간' ? (
-                <select className="input" value={ed} onChange={(e) => setEd(Number(e.target.value))} style={{ width: 90 }}>
+                <select aria-label="정례 리포트 선택" className="input" value={ed} onChange={(e) => setEd(Number(e.target.value))} style={{ width: 90 }}>
                   {DAYS.map((d, i) => <option key={d} value={i + 1}>{d}요일</option>)}
                 </select>
               ) : (

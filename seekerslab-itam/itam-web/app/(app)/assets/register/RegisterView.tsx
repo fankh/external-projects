@@ -258,7 +258,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c}</button>
           ))}
         </div>
-        <select className="select" value={status} onChange={(e) => setStatus(e.target.value as AssetStatus | '전체')}
+        <select aria-label="상태 필터" className="select" value={status} onChange={(e) => setStatus(e.target.value as AssetStatus | '전체')}
           title="자산 상태로 필터">
           {STATUSES.map((st) => <option key={st} value={st}>{st === '전체' ? '상태 — 전체' : st}</option>)}
         </select>
@@ -441,7 +441,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {checkedUsable.length > 0 && !props.moveNeedsApproval && (props.users?.length ?? 0) > 0 && (
                 <span className="hstack" style={{ gap: 6 }} title="선택한 사용 중 자산을 한 사람에게 일괄 직접 인계(팀 인수인계·후임 승계) — 회수와 달리 유휴 왕복 없이 보유자만 바뀌고 좌석도 승계, 새 보유자 수령 확인 대기">
                   <span className="mut" style={{ fontSize: 12 }}>일괄 재배정 (사용중 {checkedUsable.length})</span>
-                  <select className="input" style={{ height: 28, width: 130 }} value={bulkReassignTo} disabled={pending} onChange={(e) => setBulkReassignTo(e.target.value)}>
+                  <select aria-label="일괄 재배정 인계 대상" className="input" style={{ height: 28, width: 130 }} value={bulkReassignTo} disabled={pending} onChange={(e) => setBulkReassignTo(e.target.value)}>
                     <option value="">인계 대상…</option>
                     {(props.users ?? []).map((u) => <option key={u.name} value={u.name}>{u.name} · {u.dept}</option>)}
                   </select>
@@ -467,7 +467,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {props.contracts && props.contracts.length > 0 && (
                 <span className="hstack" style={{ gap: 6 }}>
                   <span className="mut" style={{ fontSize: 12 }}>계약 일괄 연계</span>
-                  <select className="input" style={{ height: 28, maxWidth: 220 }} value={bulkContract} disabled={pending}
+                  <select aria-label="일괄 계약 연계 대상" className="input" style={{ height: 28, maxWidth: 220 }} value={bulkContract} disabled={pending}
                     onChange={(e) => setBulkContract(e.target.value)} title="선택 자산을 한 계약에 일괄 연계 (HW 유지보수 등 다수 자산 계약)">
                     <option value="">계약 선택…</option>
                     {props.contracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.name}</option>)}
@@ -477,7 +477,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               )}
               <span className="hstack" style={{ gap: 6 }}>
                 <span className="mut" style={{ fontSize: 12 }}>업무 중요도 일괄</span>
-                <select className="input" style={{ height: 28, maxWidth: 140 }} value={bulkCrit} disabled={pending}
+                <select aria-label="일괄 업무 중요도" className="input" style={{ height: 28, maxWidth: 140 }} value={bulkCrit} disabled={pending}
                   onChange={(e) => setBulkCrit(e.target.value as BizCriticality | '')} title="선택 자산의 업무 중요도를 일괄 지정 (자산 분류 재검토 — 취약점 우선순위 축)">
                   <option value="">중요도 선택…</option>
                   <option value="핵심">핵심</option>
@@ -811,7 +811,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   && <> <Chip tone="err" bare>계약 해지됨</Chip></>}
                 {props.canManage && (props.contracts?.length ?? 0) > 0 && (
                   <div className="hstack" style={{ gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                    <select className="input" style={{ minWidth: 180, height: 25, fontSize: 11 }} value={ctPick} disabled={pending}
+                    <select aria-label="연계 계약 선택" className="input" style={{ minWidth: 180, height: 25, fontSize: 11 }} value={ctPick} disabled={pending}
                       onChange={(e) => setCtPick(e.target.value)}>
                       <option value="">계약 선택 —</option>
                       {props.contracts!.filter((c) => c.id !== sel.contractId).map((c) => (
@@ -960,7 +960,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   분실·도난 신고된 자산입니다 — 실물을 되찾으면 회수로 유휴 풀 복귀, 되찾지 못하면 미회수 확정으로 폐기 절차(선정)에 바로 넘깁니다.
                 </div>
                 <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
-                  <select className="input" style={{ width: 108, height: 28, fontSize: 12 }} value={lostCond} disabled={pending}
+                  <select aria-label="회수 상태(점검 결과)" className="input" style={{ width: 108, height: 28, fontSize: 12 }} value={lostCond} disabled={pending}
                     onChange={(e) => setLostCond(e.target.value as '정상' | '수리 필요' | '폐기 권고')}
                     title="되찾은 실물의 상태 점검 — 파손분은 수리중·폐기 절차로(반납·대여 반환과 동일)">
                     {(['정상', '수리 필요', '폐기 권고'] as const).map((c) => <option key={c} value={c}>{c}</option>)}
@@ -992,7 +992,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 ) : (
                   <div className="vstack" style={{ gap: 8 }}>
                     <div className="kicker mute">분실 · 도난 신고</div>
-                    <select className="select" value={lostType} disabled={pending}
+                    <select aria-label="분실 · 도난 구분" className="select" value={lostType} disabled={pending}
                       onChange={(e) => setLostType(e.target.value as '분실' | '도난')}>
                       <option value="분실">분실 (소재 불명)</option>
                       <option value="도난">도난 (탈취 — 데이터 유출 위험)</option>
@@ -1152,7 +1152,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 ) : (
                   <div className="vstack" style={{ gap: 8 }}>
                     <div className="kicker mute">자산 재배정 (직접 인계) — 현재 보유자 {sel.owner}</div>
-                    <select className="select" value={reassignTo} disabled={pending} onChange={(e) => setReassignTo(e.target.value)}>
+                    <select aria-label="재배정 새 보유자" className="select" value={reassignTo} disabled={pending} onChange={(e) => setReassignTo(e.target.value)}>
                       <option value="">새 보유자 선택…</option>
                       {(props.users ?? []).filter((u) => u.name !== sel.owner).map((u) => <option key={u.name} value={u.name}>{u.name} · {u.dept}</option>)}
                     </select>
@@ -1274,12 +1274,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   ) : (
                     <div className="vstack" style={{ gap: 8 }}>
                       <div className="kicker mute">구성변경 기록</div>
-                      <select className="select" value={cfgField} disabled={pending}
+                      <select aria-label="구성변경 항목" className="select" value={cfgField} disabled={pending}
                         onChange={(e) => pickField(e.target.value as ConfigField)}>
                         {fields.map((f) => <option key={f.key} value={f.key}>{f.label}{f.cur !== undefined ? ` · 현재 ${f.cur}` : ''}</option>)}
                       </select>
                       {cfgField === '유형' ? (
-                        <select className="select" value={cfgValue} disabled={pending} onChange={(e) => setCfgValue(e.target.value)}
+                        <select aria-label="구성변경 값" className="select" value={cfgValue} disabled={pending} onChange={(e) => setCfgValue(e.target.value)}
                           title="AI 자동분류 정정·용도 변경 — 유효 유형만 선택">
                           {ASSET_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>

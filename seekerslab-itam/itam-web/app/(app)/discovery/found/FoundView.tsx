@@ -126,11 +126,11 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
         </span>
       </div>
       <div className="qbar" style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
-        <select className="select" value={fstate} onChange={(e) => setFstate(e.target.value as ReconcileState | '전체')} style={{ maxWidth: 150 }}>
+        <select aria-label="대사 결과 필터" className="select" value={fstate} onChange={(e) => setFstate(e.target.value as ReconcileState | '전체')} style={{ maxWidth: 150 }}>
           <option value="전체">대사 상태 — 전체</option>
           {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select className="select" value={frisk} onChange={(e) => setFrisk(e.target.value as RiskLevel | '전체')} style={{ maxWidth: 130 }}>
+        <select aria-label="위험도 필터" className="select" value={frisk} onChange={(e) => setFrisk(e.target.value as RiskLevel | '전체')} style={{ maxWidth: 130 }}>
           <option value="전체">위험도 — 전체</option>
           {RISKS.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>

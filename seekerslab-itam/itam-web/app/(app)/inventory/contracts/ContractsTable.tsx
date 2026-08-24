@@ -35,7 +35,7 @@ export function AddContract() {
       </div>
       {open && (
         <div className="hstack" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <select className="input" value={kind} onChange={(e) => setKind(e.target.value as '구매' | '유지보수')}>
+          <select aria-label="계약 종류 필터" className="input" value={kind} onChange={(e) => setKind(e.target.value as '구매' | '유지보수')}>
             <option value="구매">구매</option><option value="유지보수">유지보수</option>
           </select>
           <input className="input" style={{ width: 190 }} placeholder="계약명" value={name} onChange={(e) => setName(e.target.value)} />
@@ -145,7 +145,7 @@ export function ContractsTable({ rows, sel, canEdit, expiryWindowDays }: { rows:
             <button key={k} className={fkind === k ? 'on' : ''} onClick={() => setFkind(k)}>{k}</button>
           ))}
         </div>
-        <select className="select" value={fstatus} onChange={(e) => setFstatus(e.target.value as '전체' | '유효' | '해지')} style={{ maxWidth: 130 }}>
+        <select aria-label="계약 상태 필터" className="select" value={fstatus} onChange={(e) => setFstatus(e.target.value as '전체' | '유효' | '해지')} style={{ maxWidth: 130 }}>
           <option value="전체">상태 — 전체</option>
           <option value="유효">유효(진행 중)</option>
           <option value="해지">해지</option>
@@ -308,7 +308,7 @@ export function ContractsTable({ rows, sel, canEdit, expiryWindowDays }: { rows:
                     )}
                     {canEdit && (
                       <div className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
-                        <select className="select" value={docType} disabled={pending} onChange={(e) => setDocType(e.target.value as ContractDocType)}>
+                        <select aria-label="부속서류 종류" className="select" value={docType} disabled={pending} onChange={(e) => setDocType(e.target.value as ContractDocType)}>
                           {CONTRACT_DOC_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                         </select>
                         <input className="input" style={{ width: 240 }} placeholder="문서명 (예: 2023 노트북 구매계약서_v2.pdf)"

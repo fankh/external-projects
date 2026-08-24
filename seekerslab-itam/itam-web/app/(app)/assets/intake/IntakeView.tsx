@@ -85,11 +85,11 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: 14, borderBottom: '1px solid var(--line)', background: 'var(--canvas)' }}>
             <span className="dim" style={{ fontSize: 11.5, fontWeight: 600 }}>SR·발주 사전 등록</span>
             <input className="input" style={{ width: 150 }} placeholder="SR·발주번호 (예: SR-2607-018)" value={psr} disabled={pending} onChange={(e) => setPsr(e.target.value)} />
-            <select className="select" value={pc} disabled={pending} onChange={(e) => setPc(e.target.value)}>
+            <select aria-label="도입 예정 계약" className="select" value={pc} disabled={pending} onChange={(e) => setPc(e.target.value)}>
               {contracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.name} ({c.vendor})</option>)}
             </select>
             <input className="input" style={{ width: 180 }} placeholder="모델" value={pmodel} disabled={pending} onChange={(e) => setPmodel(e.target.value)} />
-            <select className="select" value={pcat} disabled={pending} onChange={(e) => setPcat(e.target.value as AssetCategory)}>
+            <select aria-label="도입 예정 자산 유형" className="select" value={pcat} disabled={pending} onChange={(e) => setPcat(e.target.value as AssetCategory)}>
               {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <input className="input" type="number" min={1} max={1000} style={{ width: 76 }} value={pqty} disabled={pending} onChange={(e) => setPqty(e.target.value)} />
@@ -148,11 +148,11 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: 
         {regOpen && (
           <div className="addrow" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: 14, borderBottom: '1px solid var(--line)' }}>
             <span className="dim" style={{ fontSize: 11.5, fontWeight: 600 }}>발주 연계 입고 등록</span>
-            <select className="select" value={rc} disabled={pending} onChange={(e) => setRc(e.target.value)}>
+            <select aria-label="입고 등록 계약" className="select" value={rc} disabled={pending} onChange={(e) => setRc(e.target.value)}>
               {contracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.name} ({c.vendor})</option>)}
             </select>
             <input className="input" style={{ width: 190 }} placeholder="모델 (예: ThinkPad T14 Gen4)" value={rmodel} disabled={pending} onChange={(e) => setRmodel(e.target.value)} />
-            <select className="select" value={rcat} disabled={pending} onChange={(e) => setRcat(e.target.value as AssetCategory)}>
+            <select aria-label="입고 등록 자산 유형" className="select" value={rcat} disabled={pending} onChange={(e) => setRcat(e.target.value as AssetCategory)}>
               {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <input className="input" type="number" min={1} max={1000} style={{ width: 80 }} value={rqty} disabled={pending} onChange={(e) => setRqty(e.target.value)} />

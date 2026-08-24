@@ -224,7 +224,7 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                         </div>
                       )}
                       <div className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
-                        <select className="select" value={photoLabel} disabled={pending} onChange={(e) => setPhotoLabel(e.target.value as DisposalPhotoLabel)}>
+                        <select aria-label="폐기 처리 선택" className="select" value={photoLabel} disabled={pending} onChange={(e) => setPhotoLabel(e.target.value as DisposalPhotoLabel)}>
                           {DISPOSAL_PHOTO_LABELS.map((l) => <option key={l} value={l}>{l}</option>)}
                         </select>
                         <input className="input" style={{ width: 260 }} placeholder="설명 (예: 저장매체 라벨·시리얼 근접 촬영)"
