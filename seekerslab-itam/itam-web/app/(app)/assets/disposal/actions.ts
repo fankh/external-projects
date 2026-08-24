@@ -55,11 +55,12 @@ export async function selectForDisposalMany(items: { assetNo: string; reason: st
   if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
   const s = getStore()
   let n = 0
+  let skippedD = 0 // 이미 폐기 건이 있거나 보유자가 쥔 자산이라 건너뛴 선택분
   for (const it of items) {
     const asset = s.assets.find((a) => a.assetNo === it.assetNo)
-    if (!asset || s.disposals.some((d) => d.assetNo === it.assetNo)) continue
+    if (!asset || s.disposals.some((x) => x.assetNo === it.assetNo)) { skippedD += 1; continue }
     // 보유자가 쥔·파이프라인 중 자산은 건너뛴다 — 회수·반환·검수 완료(유휴)해야 폐기 선정 대상(단건 가드와 동일).
-    if (['사용중', '대여중', '검수중'].includes(asset.status)) continue
+    if (['사용중', '대여중', '검수중'].includes(asset.status)) { skippedD += 1; continue }
     s.disposals.push({ id: nextId('DSP'), assetNo: it.assetNo, model: asset.model, reason: it.reason, status: '대상 선정', prevStatus: asset.status })
     asset.status = '폐기예정'
     n += 1
@@ -67,7 +68,7 @@ export async function selectForDisposalMany(items: { assetNo: string; reason: st
   if (n === 0) return { ok: false, message: '새로 선정된 자산이 없습니다 (이미 선정되었거나 대상 아님).' }
   appendAudit({ actor: session.name, action: `폐기 대상 일괄 선정 (${n}건)`, target: '폐기' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${n}건을 폐기 대상으로 선정했습니다.` }
+  return { ok: true, message: `${n}건을 폐기 대상으로 선정했습니다.${skippedD > 0 ? ` (이미 선정·보유 중 ${skippedD}건 제외)` : ''}` }
 }
 
 /** 폐기 결재 상신 — 필수 결재 (자산담당 → IT기획팀장) */

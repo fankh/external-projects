@@ -54,7 +54,10 @@ export async function setAssetCriticalityMany(assetNos: string[], level: BizCrit
   const names = targets.map((a) => a.assetNo).slice(0, 5).join(', ')
   appendAudit({ actor: session.name, action: `업무 중요도 일괄 변경 → ${level} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: '자산 대장' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${targets.length}건 업무 중요도 '${level}' 지정 — 취약점 우선순위 스코어링에 반영` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 선택 수와 처리 수가 다른데 말이 없으면 조작자는 전부 처리된 줄 안다
+  //  (보증 일괄 연장·정기 점검 일괄 예약이 쓰는 '제외 N건' 규약을 일괄 조치 전반에 맞춘다).
+  const skippedCr = assetNos.length - targets.length
+  return { ok: true, message: `${targets.length}건 업무 중요도 '${level}' 지정 — 취약점 우선순위 스코어링에 반영${skippedCr > 0 ? ` (이미 해당 등급 ${skippedCr}건 제외)` : ''}` }
 }
 
 /** 자산–계약 연계 (제품안내서 §03 구매 계약: 계약–자산 연결) — 자산을 구매·유지보수 계약에 연결하거나 해제한다.
@@ -112,7 +115,8 @@ export async function setAssetContractMany(assetNos: string[], rawContractId: st
   }
   appendAudit({ actor: session.name, action: `자산–계약 일괄 연계 (${targets.length}건) → ${contractId} (${c.name})`, target: contractId })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${targets.length}건 → ${contractId} (${c.name}) 계약 일괄 연계 완료` }
+  const skippedC = assetNos.length - targets.length // 이미 연계됐거나 분실·폐기완료라 건너뛴 선택분
+  return { ok: true, message: `${targets.length}건 → ${contractId} (${c.name}) 계약 일괄 연계 완료${skippedC > 0 ? ` (이미 연계·종료 상태 ${skippedC}건 제외)` : ''}` }
 }
 
 const IMPORT_CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
@@ -322,7 +326,8 @@ export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: 
   }
   appendAudit({ actor: session.name, action: `자산 일괄 대여 — ${to}(${dept}) · 기한 ${dueDate} (${targets.length}건) · 대여자 통보`, target: '대여' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${targets.length}건 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}` }
+  const skippedL = assetNos.length - targets.length // 유휴가 아니거나 폐기 절차 중이라 건너뛴 선택분
+  return { ok: true, message: `${targets.length}건 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}${skippedL > 0 ? ` (유휴 아님·폐기 절차 ${skippedL}건 제외)` : ''}` }
 }
 
 /** 대여 반환 기한 연장 — 반납·재대여 없이 대여 기간을 늘린다(대여자가 더 오래 써야 할 때·연체 유예).
@@ -658,9 +663,10 @@ export async function recoverManyFromUser(assetNos: string[], rawReason: string)
   const s = getStore()
   const reason = rawReason.trim()
   let n = 0
+  let skippedR = 0 // 사용 중이 아니라 회수할 수 없는 선택분 — 오프보딩에서 조용히 빠지면 떠난 사람 손에 남는다
   for (const no of assetNos) {
     const asset = s.assets.find((a) => a.assetNo === no)
-    if (!asset || asset.status !== '사용중') continue
+    if (!asset || asset.status !== '사용중') { skippedR += 1; continue }
     const holder = asset.owner
     asset.status = '반납대기'
     asset.history.push({ date: today(), kind: '반납', detail: `자산 회수(반납 처리) — ${holder} 보유분 일괄 회수${reason ? ` · ${reason}` : ''} (오프보딩·재배정)`, actor: session.name })
@@ -675,7 +681,7 @@ export async function recoverManyFromUser(assetNos: string[], rawReason: string)
   if (n === 0) return { ok: false, message: '회수 대상(사용 중)이 없습니다 — 선택 항목을 확인하세요.' }
   appendAudit({ actor: session.name, action: `자산 일괄 회수(반납 처리) ${n}건${reason ? ` · ${reason}` : ''}`, target: '오프보딩·재배정' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${n}건 회수 — 반납 접수 대기열로 편성 (점검 후 유휴 풀/수리/폐기)` }
+  return { ok: true, message: `${n}건 회수 — 반납 접수 대기열로 편성 (점검 후 유휴 풀/수리/폐기)${skippedR > 0 ? ` · 제외 ${skippedR}건(사용 중 아님)` : ''}` }
 }
 
 /** 자산 일괄 재배정(직접 인계) — 여러 사용 중 자산을 한 번에 같은 새 보유자에게 직접 인계한다(팀 인수인계·후임 승계·조직 개편).
@@ -693,10 +699,11 @@ export async function reassignAssetMany(assetNos: string[], rawNewOwner: string,
   const note = rawNote.trim()
   let n = 0
   let seats = 0
+  let skippedM = 0 // 사용 중이 아니거나 이미 그 보유자라 건너뛴 선택분
   for (const no of assetNos) {
     const asset = s.assets.find((a) => a.assetNo === no)
-    if (!asset || asset.status !== '사용중') continue
-    if (asset.owner === user.name) continue // 이미 대상 보유자 — 건너뜀(단건 reassignAsset 의 동일 보유자 차단과 동형)
+    if (!asset || asset.status !== '사용중') { skippedM += 1; continue }
+    if (asset.owner === user.name) { skippedM += 1; continue } // 이미 대상 보유자 — 건너뜀(단건 reassignAsset 의 동일 보유자 차단과 동형)
     const from = `${asset.owner} (${asset.dept})`
     asset.owner = user.name
     asset.dept = user.dept
@@ -713,7 +720,7 @@ export async function reassignAssetMany(assetNos: string[], rawNewOwner: string,
   if (n === 0) return { ok: false, message: '재배정 대상(사용 중·다른 보유자)이 없습니다 — 선택 항목을 확인하세요.' }
   appendAudit({ actor: session.name, action: `자산 일괄 재배정 ${n}건 → ${user.name} (${user.dept})${note ? ` · ${note}` : ''}`, target: '인수인계·후임 승계' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${n}건 재배정 — → ${user.name} (${user.dept}) · 새 보유자 수령 확인 대기${seats ? ` · 라이선스 좌석 ${seats}건 승계` : ''}` }
+  return { ok: true, message: `${n}건 재배정 — → ${user.name} (${user.dept}) · 새 보유자 수령 확인 대기${seats ? ` · 라이선스 좌석 ${seats}건 승계` : ''}${skippedM > 0 ? ` · 제외 ${skippedM}건(사용 중 아님·이미 해당 보유자)` : ''}` }
 }
 
 /** 정기 점검 완료 — 예방 정비를 시행하고 다음 점검을 재예약한다(§03 유지보수: 사전 정비).

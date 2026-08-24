@@ -122,7 +122,8 @@ export async function receiveReturnMany(assetNos: string[], condition: ReturnCon
   appendAudit({ actor: session.name, action: `반납 일괄 접수 (점검 ${condition}, ${targets.length}건)${notified ? ` · 반납자 ${notified}명 통보` : ''}`, target: '반납대기' })
   revalidatePath('/', 'layout')
   const next = condition === '폐기 권고' ? '폐기 절차 대상' : condition === '수리 필요' ? '수리중 편성' : `유휴 풀 편성 (${loc})`
-  return { ok: true, message: `${targets.length}건 반납 접수 완료 · 점검 ${condition} → ${next}${notified ? ` · 반납자 ${notified}명 통보` : ''}` }
+  const skippedRet = assetNos.length - targets.length // 반납대기가 아니라 접수할 수 없는 선택분
+  return { ok: true, message: `${targets.length}건 반납 접수 완료 · 점검 ${condition} → ${next}${notified ? ` · 반납자 ${notified}명 통보` : ''}${skippedRet > 0 ? ` · 제외 ${skippedRet}건(반납대기 아님)` : ''}` }
 }
 
 /** 대여 반환 독촉 발송 — 반환 기한이 지났거나(연체) 임박(D-7)한 대여 자산의 대여자에게 반환 요청 통지를 보낸다.

@@ -1007,6 +1007,10 @@ try {
   await p2.locator('button', { hasText: /^재배정$/ }).click()
   await p2.waitForTimeout(700)
   ok('일괄 재배정: 동일 보유자(오세훈) 선택분은 건너뛰고 1건만 재배정(스킵 로직 · 새 보유자 오세훈)', ((await p2.locator('body').textContent()) || '').includes('1건 재배정') && ((await p2.locator('body').textContent()) || '').includes('오세훈'))
+  // 건너뛴 선택분을 결과가 말해야 한다 — 선택 2건 중 1건만 처리됐는데 침묵하면 조작자는 둘 다 인계된 줄 안다
+  //  (보증 일괄 연장·정기 점검 일괄 예약이 이미 쓰는 '제외 N건' 규약).
+  ok('일괄 재배정: 건너뛴 선택분을 결과에 밝힌다(제외 1건 · 조용한 누락 방지)',
+    ((await p2.locator('body').textContent()) || '').includes('제외 1건'))
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000112`, { waitUntil: 'networkidle' })
   ok('일괄 재배정 → 대상 자산 소유자·부서 갱신(오세훈 · 인사팀)', ((await p2.locator('body').textContent()) || '').includes('오세훈'))
   // 원복 — 하위 테스트를 위해 김민준으로 되돌린다
@@ -1143,6 +1147,8 @@ try {
   await bulkRecoverBtn.click()
   await p2.waitForTimeout(700)
   ok('일괄 회수: 2건 회수 성공(반납 접수 대기열)', ((await p2.locator('body').textContent()) || '').includes('2건 회수'))
+  ok('일괄 회수: 건너뛴 선택분이 없으면 제외 문구를 붙이지 않는다(양성 대조)',
+    !((await p2.locator('body').textContent()) || '').includes('제외 '))
   await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const bulkRecoverBody = (await p2.locator('body').textContent()) || ''
   ok('일괄 회수 → 반납 접수 대기열 편성(2건)', bulkRecoverBody.includes('AST-2024-000091') && bulkRecoverBody.includes('AST-2023-000562'))
