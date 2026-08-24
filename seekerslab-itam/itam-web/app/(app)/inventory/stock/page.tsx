@@ -67,7 +67,7 @@ export default async function StockPage() {
       <div className="stat-row">
         <Stat value={s.assets.length} label="총 보유 자산" />
         <Stat value={availableTotal} label="가용 재고 (재배치 가능)" tone="ok"
-          delta={{ text: idleTotal > availableTotal ? `유휴 ${idleTotal}대 · 폐기 선정 ${idleTotal - availableTotal}대 제외` : '재배치 우선 원칙', dir: 'flat' }} />
+          delta={{ text: idleTotal > availableTotal ? `유휴 ${idleTotal}대 · 제외 ${idleTotal - availableTotal}대(폐기 선정·NAC 격리)` : '재배치 우선 원칙', dir: 'flat' }} />
         <Stat value={`${fmt(Math.round(totalBook / 10_000))}만`} label="자산 잔존가치 (장부가 총액)" tone="accent" delta={{ text: `취득가 ${fmt(Math.round(totalAcq / 10_000))}만원 기준`, dir: 'flat' }} />
         <Stat value={s.inventoryRounds.filter((r) => r.status !== '완료').length} label="진행·계획 중 재물조사" tone="accent" />
       </div>

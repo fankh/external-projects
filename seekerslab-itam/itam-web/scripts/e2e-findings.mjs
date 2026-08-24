@@ -3855,6 +3855,21 @@ try {
   ok(`반출 정합: 운영 자산만 필터의 화면 ${xpCnt}건 = 엑셀 ${xpRows}건(서버가 모르는 필터는 nos 로 넘긴다)`,
     xpCnt > 0 && xpRows === xpCnt && xpHref.includes('nos='))
   await ctxXP.close()
+
+  // 대여 신청 폼의 재고 ↔ 재고 화면 가용 재고 정합 — 두 화면이 같은 "재배치 가능 유휴"를 말하는데
+  //  신청 폼만 상태로 직접 목록을 만들면 폐기 선정분·NAC 격리 장비를 계속 내주고, 승인이 나도 집행 가드가 거절해
+  //  신청자는 오지 않을 장비를 기다린다(lib/stock.availableAssets 단일 소스로 묶는다).
+  const ctxLP = await browser.newContext(); await ctxLP.addCookies([cookie(ASSET)]); const pLP = await ctxLP.newPage()
+  await pLP.goto(`${BASE}/inventory/stock`, { waitUntil: 'networkidle' })
+  const lpAvail = Number(((await pLP.locator('.stat', { hasText: '가용 재고 (재배치 가능)' }).first().locator('.v').first().textContent()) || '').replace(/[^0-9]/g, '') || '0')
+  await pLP.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await pLP.locator('button', { hasText: /^신청하기$/ }).first().click()
+  await pLP.locator('select[aria-label="신청 종류"]').selectOption('대여')
+  await pLP.waitForTimeout(200)
+  const lpOpts = await pLP.locator('select[aria-label="대여 신청 자산"] option').count()
+  ok(`대여 신청 재고: 신청 폼 ${lpOpts}대 = 재고 화면 가용 재고 ${lpAvail}대(같은 재배치 가능 판정)`,
+    lpAvail > 0 && lpOpts === lpAvail)
+  await ctxLP.close()
   // 폐기 절차 불변식 — 상태가 '폐기예정'인 자산은 반드시 폐기 건(disposals)이 있어야 한다. 지금은 폐기예정으로
   //  바꾸는 8개 경로가 저마다 `if (!s.disposals.some(...)) push` 를 적어 지키고 있을 뿐, 이를 확인하는 검사가 없었다.
   //  한 경로가 빠뜨리면 그 자산은 폐기예정인데 폐기 화면에 없어 결재·소거로 나아갈 수 없다(상태만 종착, 절차는 없음).
