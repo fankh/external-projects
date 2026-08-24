@@ -3084,6 +3084,21 @@ try {
   await pNew.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
   ok('세션 권한: 권한그룹 복원 시 다시 진입 가능(양성 대조)', pNew.url().endsWith('/assets/lifecycle'))
   await ctxNew.close()
+  // 로그인 기록 — 사용자·그룹 화면의 '최근 로그인'이 시드 값에 멈춰 있었고(방금 들어온 사람도 예전 시각),
+  //  접근 기록(로그인) 자체가 감사 로그에 없었다. 실제 로그인 폼으로 들어가 두 가지가 남는지 본다.
+  const ctxLI = await browser.newContext(); const pLI = await ctxLI.newPage()
+  await pLI.goto(`${BASE}/login`, { waitUntil: 'networkidle' })
+  await pLI.locator('form', { has: pLI.locator('input[value="ba.yoon"]') }).locator('button[type="submit"]').click()
+  await pLI.waitForURL(/\/dashboard/, { timeout: 10000 })
+  ok('로그인: 폼 로그인 성공(대시보드 진입)', pLI.url().endsWith('/dashboard'))
+  const liDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const ctxLI2 = await browser.newContext(); await ctxLI2.addCookies([cookie(ADMIN)]); const pLI2 = await ctxLI2.newPage()
+  await pLI2.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
+  const liRow = (await pLI2.locator('tr', { has: pLI2.locator('td', { hasText: 'ba.yoon' }) }).first().textContent()) || ''
+  ok(`로그인 기록: 사용자·그룹의 최근 로그인이 오늘로 갱신(${liDay})`, liRow.includes(liDay))
+  await pLI2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('로그인 기록: 감사 로그에 접근 기록(로그인) 적재', ((await pLI2.textContent('body')) || '').includes('로그인 — 보안담당'))
+  await ctxLI2.close(); await ctxLI.close()
   await ctxUR.close()
   await ctxPM.close()
   // 발견 편입·격리 버튼도 권한 매트릭스를 따르는지(라운드트립) — 서버 requestOnboard/requestQuarantine 은 can('발견 자산 · CMDB 대사', 편입/격리요청)을
