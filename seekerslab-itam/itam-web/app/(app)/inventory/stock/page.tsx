@@ -34,7 +34,7 @@ export default async function StockPage() {
   const byDept = aggBy((a) => a.dept)
   const byLoc = aggBy((a) => a.location)
 
-  // 가용 재고 = 유휴 AND 폐기 절차 미진입 — 바로 아래 안전재고 경보·어시스턴트 '유휴(재배치 가능)' 답변과 같은 lib/stock 판정.
+  // 가용 재고 = 유휴 AND 폐기 절차 미진입 AND NAC 격리 아님 — 바로 아래 안전재고 경보·어시스턴트 '유휴(재배치 가능)' 답변과 같은 lib/stock 판정.
   //  그전엔 이 타일만 상태 '유휴' 를 그대로 세어, 폐기 선정된 유휴 자산까지 '가용'으로 잡아 같은 화면 안에서 경보와 어긋났다.
   const idleTotal = s.assets.filter((a) => a.status === '유휴').length
   const availableTotal = availableAssets(s.assets, s.disposals).length
@@ -75,7 +75,7 @@ export default async function StockPage() {
       {lowStock.length > 0 && (
         <Card kicker="Stock Alert" title={`안전재고 경보 — 가용 재고 부족 ${lowStock.length}종 (발주 검토)`}>
           <div className="vstack" style={{ gap: 8 }}>
-            <div className="mut" style={{ fontSize: 12 }}>불출 가능한 유형의 가용(유휴) 재고가 안전재고({s.opsPolicy.safetyStock}대) 미만입니다 — 신규 배정 수요에 대비해 발주를 검토하세요. 폐기 진행 중인 유휴 자산은 가용에서 제외됩니다.</div>
+            <div className="mut" style={{ fontSize: 12 }}>불출 가능한 유형의 가용(유휴) 재고가 안전재고({s.opsPolicy.safetyStock}대) 미만입니다 — 신규 배정 수요에 대비해 발주를 검토하세요. 폐기 진행 중이거나 NAC 격리 중인 유휴 자산은 가용에서 제외됩니다(불출·대여 가드와 같은 판정).</div>
             {lowStock.map((r) => (
               <Link key={r.category} href={`/assets/register?cat=${encodeURIComponent(r.category)}&status=유휴`}
                 className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
