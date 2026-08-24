@@ -1,6 +1,7 @@
 import { appendAudit } from '@/lib/audit'
 import { barcodeSvg, qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
+import { can } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 
 /** 자산 라벨 일괄 인쇄 — 대장에서 다중 선택한 자산들의 QR·바코드 라벨을 한 장의 인쇄용 시트로 반환한다.
@@ -9,6 +10,9 @@ import { getStore } from '@/lib/store'
 export async function GET(req: Request) {
   const session = await getSession()
   if (!session || session.role === 'USER') return new Response('Forbidden', { status: 403 })
+  // 매트릭스 '조회'도 만족해야 한다 — 화면(requireView)은 매트릭스를 보는데 문서 API 가 역할만 보면,
+  //  조회 권한을 회수한 뒤에도 인쇄 문서로 같은 데이터가 그대로 나간다(화면은 막혔는데 API 는 열린 상태).
+  if (!can('자산 대장', '조회', session.role)) return new Response('Forbidden', { status: 403 })
 
   const nos = (new URL(req.url).searchParams.get('nos') ?? '').split(',').map((v) => v.trim()).filter(Boolean)
   if (nos.length === 0) return new Response('자산번호(nos)를 지정하세요.', { status: 400 })

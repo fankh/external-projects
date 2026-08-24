@@ -1,6 +1,7 @@
 import { acquisitionCostOf, bookValueOf } from '@/lib/cost'
 import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
+import { can } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 
 /** 분실·도난 신고서 — 분실 상태 자산의 사건 개요·최종 보유·정황·자산 가액을 한 장의 인쇄용 문서로.
@@ -10,6 +11,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const session = await getSession()
   if (!session) return new Response('Unauthorized', { status: 401 })
   if (!['ASSET_MGR', 'ADMIN'].includes(session.role)) return new Response('Forbidden', { status: 403 })
+  // 매트릭스 '조회'도 만족해야 한다 — 화면(requireView)은 매트릭스를 보는데 문서 API 가 역할만 보면,
+  //  조회 권한을 회수한 뒤에도 인쇄 문서로 같은 데이터가 그대로 나간다(화면은 막혔는데 API 는 열린 상태).
+  if (!can('자산 대장', '조회', session.role)) return new Response('Forbidden', { status: 403 })
 
   const { assetNo } = await params
   const a = getStore().assets.find((x) => x.assetNo === assetNo)
