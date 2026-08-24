@@ -22,6 +22,9 @@ npm run dev        # http://localhost:3000
 ## 테스트
 
 ```powershell
+npm run verify     # 빌드 → 스모크 → e2e → 헬스 순차 실행(포트 충돌·끊긴 빌드 방지)
+
+# 개별 실행
 npm run build
 npm run smoke      # 프로덕션 서버 기동 → 753개 검증(SSR HTML) → 종료
 npm run health     # 실제 브라우저로 권한그룹 4종 × 접근 화면 74회 로드 + 역할별 링크·API 링크 권한 8건 → 응답 상태·클라이언트 크래시·하이드레이션 오류 검사

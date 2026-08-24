@@ -12,7 +12,8 @@
     "layout": "node scripts/layout-sweep.mjs",
     "e2e": "node scripts/e2e-findings.mjs",
     "samples": "node scripts/gen-samples.mjs",
-    "samples:check": "node scripts/gen-samples.mjs --check"
+    "samples:check": "node scripts/gen-samples.mjs --check",
+    "verify": "node scripts/verify.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
