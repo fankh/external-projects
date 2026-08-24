@@ -45,8 +45,7 @@ button { font-family: inherit; }
 
 /* ═══ 마이크로 라벨 ═══ */
 .kicker {
-  font-size: 10px; font-weight: 700; letter-spacing: .14em;
-  text-transform: uppercase; color: var(--dim);
+  font-size: 11px; font-weight: 600; letter-spacing: 0; color: var(--dim);
 }
 .kicker.mute { color: var(--mute); }
 .kicker.dm { color: var(--dm); }
@@ -59,8 +58,8 @@ button { font-family: inherit; }
   display: flex; align-items: center; gap: 16px; flex: none; height: 52px; padding: 0 18px;
   background: var(--panel); border-bottom: 1px solid var(--line);
 }
-.titlebar .wordmark { font-size: 12.5px; font-weight: 800; letter-spacing: .26em; color: var(--ink); }
-.titlebar .sub { font-size: 9px; letter-spacing: .18em; color: var(--mute); margin-top: 2px; text-transform: uppercase; }
+.titlebar .wordmark { font-size: 14px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.titlebar .sub { font-size: 10.5px; color: var(--mute); margin-top: 1px; }
 .titlebar .sp { flex: 1; }
 .titlebar .search {
   width: 260px; height: 31px; border: 1px solid var(--line-strong); border-radius: 6px;
@@ -264,16 +263,18 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 @media (max-width: 900px) { .login-wrap { grid-template-columns: 1fr; } .login-hero { display: none; } }
 .login-hero {
   background: #fff; border-right: 1px solid var(--line);
-  padding: 56px; display: flex; flex-direction: column; justify-content: space-between;
+  padding: 56px; display: flex; flex-direction: column;
 }
-.login-hero .wordmark { font-size: 13px; font-weight: 800; letter-spacing: .26em; }
-.login-hero .sub { font-size: 9.5px; letter-spacing: .18em; color: var(--mute); margin-top: 3px; text-transform: uppercase; }
-.login-hero h1 { font-size: 28px; font-weight: 800; letter-spacing: -.01em; line-height: 1.35; margin-top: 20px; }
-.login-hero p { color: var(--dim); font-size: 13.5px; line-height: 1.75; margin-top: 14px; max-width: 430px; }
-.login-hero .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 26px; }
-.login-hero .tags span { border: 1px solid var(--line-strong); border-radius: 4px; padding: 5px 11px; font-size: 11.5px; color: var(--ink-2); }
-.login-hero .foot { display: flex; gap: 32px; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
-.login-hero .foot b { display: block; color: var(--ink-2); font-size: 12.5px; letter-spacing: 0; margin-top: 3px; text-transform: none; }
+.login-hero > div:first-child { margin-top: 8vh; }
+.login-hero .foot { margin-top: auto; }
+.login-hero .wordmark { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.login-hero .sub { font-size: 11.5px; color: var(--mute); margin-top: 2px; }
+.login-hero h1 { font-size: 22px; font-weight: 700; letter-spacing: -.01em; line-height: 1.4; margin-top: 22px; }
+.login-hero p { color: var(--dim); font-size: 13px; line-height: 1.7; margin-top: 12px; max-width: 420px; }
+.login-hero .guide { margin-top: 24px; padding-left: 0; list-style: none; }
+.login-hero .guide li { position: relative; padding-left: 11px; font-size: 12.5px; color: var(--dim); line-height: 2; }
+.login-hero .guide li::before { content: ''; position: absolute; left: 0; top: 12px; width: 3px; height: 3px; background: var(--line-strong); }
+.login-hero .foot { font-size: 11.5px; color: var(--mute); border-top: 1px solid var(--line); padding-top: 14px; }
 .login-panel { display: flex; align-items: center; justify-content: center; background: var(--canvas); padding: 40px; }
 .login-card { width: 380px; }
 .login-card h2 { font-size: 19px; font-weight: 800; margin-top: 6px; }
@@ -312,7 +313,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   /* 타이틀바 — 좁은 화면에서 워드마크 랩·서브텍스트 잘림·사용자 텍스트 넘침을 막는다 */
   .titlebar { gap: 10px; padding: 0 12px; }
   .titlebar .sub, .titlebar .sp { display: none; }
-  .titlebar .wordmark { font-size: 11px; letter-spacing: .1em; white-space: nowrap; }
+  .titlebar .wordmark { font-size: 12.5px; white-space: nowrap; }
   .titlebar .search { width: auto; flex: 1; min-width: 0; }
   .userchip > span:not(.avatar) { display: none; }
 }
