@@ -4,6 +4,7 @@ import { canExport } from '@/lib/exports'
 import { can } from '@/lib/perm'
 import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
+import { availableAssets } from '@/lib/stock'
 import { ApprovalList } from './ApprovalList'
 import { RequestForm } from './RequestForm'
 
@@ -30,10 +31,10 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     .map((a) => ({ assetNo: a.assetNo, model: a.model, location: a.location }))
 
   // 대여 신청 대상 — 대여 가능한 유휴 재고 (전 권한그룹이 임시 반출을 신청할 수 있다).
-  // 폐기 절차에 들어간 자산(대상 선정 등)은 유휴여도 제외한다 — 반납·유휴 화면의 재배치 풀과 동일 기준(폐기 예정분을 다시 배정하지 않는다).
-  const inDisposal = new Set(s.disposals.map((d) => d.assetNo))
-  const loanable = s.assets
-    .filter((a) => a.status === '유휴' && !inDisposal.has(a.assetNo))
+  //  판정은 lib/stock.availableAssets 단일 소스: 유휴 AND 폐기 절차 미진입 AND NAC 격리 아님.
+  //  여기서 상태만 보고 목록을 만들면 재고 화면·불출 풀이 빼는 자산(폐기 선정분·격리 장비)을 신청 폼만 계속 내주고,
+  //  승인이 나도 집행 가드가 거절해 신청자는 오지 않을 장비를 기다린다(화면이 권한 자산을 서버가 거절하는 막다른 길).
+  const loanable = availableAssets(s.assets, s.disposals)
     .map((a) => ({ assetNo: a.assetNo, model: a.model, location: a.location }))
 
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
