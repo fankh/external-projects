@@ -686,6 +686,13 @@ try {
   ok('발견 자산 관리 제외: 비자산 판정 → 미등록 갭에서 제외', dismissedBody.includes('관리 제외됨') && dismissedBody.includes('제외 해제'))
   // 미등록 처리 필요 카운트에서 빠졌는지 — 제외 후 편입/격리 액션이 사라지고 제외 해제 액션만 남는다
   ok('발견 자산 관리 제외: 편입/격리 액션 대신 제외 해제 노출', (await page.locator('button', { hasText: /^편입 요청 \(결재\)$/ }).count()) === 0)
+  // 관리 제외는 '미등록 갭·Shadow IT 신호에서 뺀다'가 정의다 — AI 자동분류 패널도 그 신호 중 하나라, 비자산으로 판정한 건에
+  //  표준 자산 유형을 붙여 분류 대상 수·평균 신뢰도·유형 분포까지 부풀리면 제외 판정이 무의미해진다. 제외 중에는 빠지고 해제하면 돌아와야 한다.
+  const ctxCL = await browser.newContext(); await ctxCL.addCookies([cookie(SEC)]); const pCL = await ctxCL.newPage()
+  await pCL.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  const clCard = pCL.locator('.card', { hasText: '자동분류 제안' }).first()
+  ok('AI 자동분류: 관리 제외된 발견 건은 분류 대상에서 빠짐', !((await clCard.textContent()) || '').includes('DESKTOP-UNK09'))
+  await ctxCL.close()
   await page.locator('button', { hasText: /^제외 해제/ }).click()
   await page.waitForTimeout(700)
   ok('발견 자산 관리 제외 해제 → 미등록 처리 대상 복귀(편입 요청 액션 재노출)', (await page.locator('button', { hasText: /^편입 요청 \(결재\)$/ }).count()) > 0)
