@@ -3332,6 +3332,10 @@ try {
   ok(`대장 조작 게이트: 보안담당 상세에 자산 운영 컨트롤 미노출 (${mgAsset})`,
     !mgSecBody.includes('자산 재배정 (직접 인계)') && !mgSecBody.includes('폐기 대상 선정'))
   ok('대장 조작 게이트: 보안담당이 쓰는 컨트롤(라벨 인쇄)은 유지', mgSecBody.includes('라벨 인쇄'))
+  // CSV 일괄 등록 패널도 같은 집합이어야 한다 — bulkRegisterAssets 가 자산담당·Admin 전용이라, 보안담당에게 패널을
+  //  내주면 CSV 를 붙여넣고 미리보기까지 한 뒤 등록에서 거부된다(가장 늦게 거부되는 막다른 길).
+  ok('대장 조작 게이트: 보안담당에게는 CSV 일괄 등록 패널 미노출',
+    (await pMG.locator('button', { hasText: /일괄 등록$/ }).count()) === 0)
   await pMG.locator('tbody tr.clickable').first().locator('input[type="checkbox"]').first().check()
   await pMG.waitForTimeout(300)
   // body 텍스트에는 스크립트·RSC 페이로드가 섞이므로 DOM 요소로 센다(문자열 포함 검사는 위양성이 난다).
@@ -3344,6 +3348,8 @@ try {
 
   const ctxMG2 = await browser.newContext(); await ctxMG2.addCookies([cookie(ASSET)]); const pMG2 = await ctxMG2.newPage()
   await pMG2.goto(`${BASE}/assets/register?sel=${mgAsset}`, { waitUntil: 'networkidle' })
+  ok('대장 조작 게이트: 자산담당에게는 CSV 일괄 등록 패널 노출(양성 대조)',
+    (await pMG2.locator('button', { hasText: /일괄 등록$/ }).count()) >= 1)
   ok('대장 조작 게이트: 자산담당 상세에는 그대로 노출(양성 대조)',
     ((await pMG2.textContent('body')) || '').includes('자산 재배정 (직접 인계)'))
   await pMG2.goto(`${BASE}/assets/register?status=사용중`, { waitUntil: 'networkidle' })
