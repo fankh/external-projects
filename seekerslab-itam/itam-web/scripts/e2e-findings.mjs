@@ -2966,6 +2966,24 @@ try {
   const lmAgenda = (await pLM2.locator('.msg.assistant .bub').last().textContent()) || ''
   ok('다가오는 일정: 대여 반환 기한이 아젠다에 편입(유형별 집계 포함)', /대여 반환 [1-9]/.test(lmAgenda))
   await ctxLM2.close()
+  // 리포트 종류 전수 생성 — 17종 중 스위트가 실제로 만들어 보는 건 소수였다. 빌더가 특정 데이터 형태에서
+  //  던지거나 빈 섹션을 내도 아무도 모른다(생성은 서버 액션이라 스모크로는 못 만든다). 화면에서 전 종류를 눌러
+  //  각 리포트가 실제 섹션을 갖고 나오는지 본다 — '섹션 정의 없음'은 종류 추가 시 분기 누락을 알리는 폴백 문구다.
+  const ctxRK = await browser.newContext(); await ctxRK.addCookies([cookie(ADMIN)]); const pRK = await ctxRK.newPage()
+  await pRK.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  const rkCard = pRK.locator('.card', { hasText: '리포트 유형' }).first()
+  const rkKinds = (await rkCard.locator('tbody tr td.strong').allTextContents()).map((t) => t.trim()).filter(Boolean)
+  ok(`리포트 전수 생성: 종류 목록 확보 (${rkKinds.length}종)`, rkKinds.length >= 17)
+  let rkFail = ''
+  for (const kind of rkKinds) {
+    await rkCard.locator('tr', { hasText: kind }).first().locator('button', { hasText: /^생성$/ }).click()
+    await pRK.waitForTimeout(700)
+    const body = (await pRK.textContent('body')) || ''
+    if (body.includes('섹션 정의 없음')) { rkFail = `${kind}: 섹션 정의 없음`; break }
+    if (!body.includes(kind)) { rkFail = `${kind}: 생성 결과 미표시`; break }
+  }
+  ok('리포트 전수 생성: 전 종류가 섹션을 갖춘 리포트로 생성', rkFail === '', rkFail)
+  await ctxRK.close()
   await browser.close()
 } catch (err) {
   fail++
