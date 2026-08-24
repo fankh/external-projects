@@ -12,6 +12,22 @@ export function assetDependencies(assetNo: string) {
   return assetDependenciesFrom(getStore().assets, assetNo)
 }
 
+/** 폐기 완료 자산을 가리키는 의존 참조 정리 — 소거·처분으로 자산이 사라지면 그 자산을 상위로 두던
+ *  하위 자산의 dependsOn 이 실재하지 않는 대상을 가리킨 채 남는다. 그 유령 참조는 사라진 자산을
+ *  '단일 장애점(SPOF)'으로 계속 세우고(criticalDependencies 는 blast radius 만 본다), 폐기완료는 isDegraded 라
+ *  '저하 상태 SPOF'로 큐 맨 위까지 올라간다 — 없는 장비에 이중화를 하라는 조치 지시가 된다.
+ *  라이선스 좌석 자동 회수(reclaimLicenseSeats)와 같은 폐기 시 참조 정리 규약. 정리된 하위 자산번호를 돌려준다. 서버 전용. */
+export function clearDependencyRefs(assetNo: string): string[] {
+  const s = getStore()
+  const cleared: string[] = []
+  for (const a of s.assets) {
+    if (!(a.dependsOn ?? []).includes(assetNo)) continue
+    a.dependsOn = (a.dependsOn ?? []).filter((no) => no !== assetNo)
+    cleared.push(a.assetNo)
+  }
+  return cleared
+}
+
 /** 영향 소스 — 저하/이탈 상태이면서 하위 의존 자산이 있는 자산(장애 시 blast radius > 0). 운영 리스크 큐용. */
 export function impactSources(): { asset: Asset; blastRadius: string[] }[] {
   const s = getStore()
