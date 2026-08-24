@@ -131,7 +131,7 @@ export default async function RisksPage() {
   return (
     <>
       <ScreenHeader kicker="보안 컴플라이언스" title="정보보호 위험평가"
-        desc="자산·영역의 위협×취약점을 발생가능성·영향도로 평가하고, 처리 전략(완화·수용·전가·회피)과 조치계획으로 관리한다 (ISMS 위험관리대장)." />
+        desc="정보보호 위험평가 대장. 발생가능성·영향도 평가와 처리 전략, 조치계획을 기록한다." />
 
       <div className="stat-row">
         <Stat value={k.total} label="전체 위험" note={`미종결 ${k.open}건`} />
