@@ -11,6 +11,7 @@
  *  사용:  npm run build  후  npm run layout
  */
 import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertFreshBuild } from './build-guard.mjs'
@@ -30,15 +31,18 @@ assertFreshBuild(ROOT, { remote: REMOTE })
 
 const ADMIN = { login: 'admin', name: '시스템관리자', dept: 'IT기획팀', role: 'ADMIN' }
 
-// client-health.mjs ADMIN_ROUTES 와 동기 유지
-const ROUTES = [
-  '/dashboard', '/board/notices', '/board/qna', '/assets/register', '/assets/lifecycle',
-  '/assets/intake', '/assets/movement', '/assets/returns', '/assets/disposal', '/inventory/stock',
-  '/inventory/contracts', '/inventory/survey', '/inventory/survey-plan', '/discovery/scan', '/discovery/found',
-  '/discovery/reconcile', '/discovery/saas', '/discovery/external', '/platform/integrations', '/ai/assistant',
-  '/ai/insights', '/ai/reports', '/workflow/approvals', '/settings/menus', '/settings/permissions',
-  '/settings/users', '/settings/codes', '/settings/scan-policy', '/settings/saas-catalog', '/settings/ai-policy',
-]
+// 대상 화면은 내비 정의(components/chrome/menus.ts)에서 읽는다 — 목록을 여기 또 두면 화면이 늘 때 손질 지점이
+//  하나 더 생기고, 새 화면이 이 스윕에서만 조용히 빠진다(헬스가 같은 원천을 쓰는 이유와 같다).
+const navSrc = readFileSync(path.join(ROOT, 'components', 'chrome', 'menus.ts'), 'utf8')
+const NAV_CONST = {}
+for (const m of navSrc.matchAll(/const ([A-Z_]+): Role\[\] = \[([^\]]*)\]/g)) {
+  NAV_CONST[m[1]] = [...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1])
+}
+const ROUTES = []
+for (const m of navSrc.matchAll(/href: '([^']+)'[^}]*roles: ([A-Z_]+|\[[^\]]*\])/g)) {
+  const roles = NAV_CONST[m[2]] ?? [...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1])
+  if (roles.includes('ADMIN')) ROUTES.push(m[1])
+}
 
 // 폭마다 그리드 반폭이 달라진다 — 기준 폭 하나로는 특정 구간에서만 나는 이탈을 놓친다
 const WIDTHS = [768, 1024, 1280, 1366, 1440]

@@ -1500,12 +1500,16 @@ try {
   check(`문서: 헬스 화면 로드 ${healthLoads}회 일치(권한그룹 4종 × 접근 화면)`,
     allSame(healthClaims, healthLoads), `주장=${healthClaims.join(",")} 실제=${healthLoads}`)
 
-  // 레이아웃 스윕 규모 ↔ 문서 — 화면·폭 목록은 스크립트가 원천이고 README 가 그 수를 적는다.
+  // 레이아웃 스윕 규모 ↔ 문서 — 대상 화면은 스윕이 내비에서 읽으므로(ADMIN 접근 화면) 화면이 늘면 저절로 늘어난다.
+  //  스윕이 목록을 자체 보유하면 새 화면이 조용히 빠지므로, 내비에서 읽는지도 함께 못박는다.
   const layoutSrc = readFileSync(path.join(ROOT, 'scripts', 'layout-sweep.mjs'), 'utf8')
-  const layoutRoutes = (/const ROUTES = \[([\s\S]*?)\]/.exec(layoutSrc)?.[1] ?? '').match(/'\/[^']+'/g)?.length ?? 0
+  const layoutRoutes = Object.values(navRoles).filter((rs) => rs.includes('ADMIN')).length
   const layoutWidths = (/const WIDTHS = \[([^\]]*)\]/.exec(layoutSrc)?.[1] ?? '').split(',').filter((x) => x.trim()).length
   const layoutClaims = claims(readme, /화면 (\d+)종 × 폭 \d+종/g)
   const widthClaims = claims(readme, /화면 \d+종 × 폭 (\d+)종/g)
+  const layoutDerives = layoutSrc.includes("'components', 'chrome', 'menus.ts'") && !/const ROUTES = \[\s*'/.test(layoutSrc)
+  check('레이아웃 스윕: 대상 화면을 내비(menus.ts)에서 읽는다(자체 목록 없음)', layoutDerives,
+    `menus.ts 사용=${layoutSrc.includes("menus.ts")} · 하드코딩 목록=${/const ROUTES = \[\s*'/.test(layoutSrc)}`)
   check(`문서: 레이아웃 스윕 화면 ${layoutRoutes}종 × 폭 ${layoutWidths}종 일치`,
     allSame(layoutClaims, layoutRoutes) && allSame(widthClaims, layoutWidths),
     `화면 주장=${layoutClaims.join(",")} 실제=${layoutRoutes} · 폭 주장=${widthClaims.join(",")} 실제=${layoutWidths}`)
