@@ -117,18 +117,26 @@ export async function setScanScope(channel: Channel, rawTargets: string, rawWind
 }
 
 /** SaaS 카탈로그 판정 — 인가/차단 결과가 Shadow SaaS 현황으로 환류된다 */
-export async function decideSaas(id: string, status: SaasCatalogEntry['status']) {
+export async function decideSaas(id: string, status: SaasCatalogEntry['status']): Promise<{ ok: boolean; message: string }> {
   const session = await requireSaasPolicy()
-  if (!session) return
+  // 거부를 조용히 끝내면 버튼이 아무 반응 없이 죽는다 — 발견 자산 판정과 같이 사유를 돌려준다.
+  if (!session) return { ok: false, message: 'SaaS 판정 권한이 없습니다 (보안담당·Admin).' }
   const s = getStore()
   const entry = s.saasCatalog.find((x) => x.id === id)
-  if (!entry) return
+  if (!entry) return { ok: false, message: '카탈로그 항목을 찾을 수 없습니다.' }
+  if (entry.status === status) return { ok: false, message: `이미 ${status} 상태입니다.` }
 
   // 판정 로직 단일화 — Shadow SaaS 화면(classifyShadowSaas)과 동일한 상태 반영·사용현황 동기화·차단 집행 요청
-  const { newlyBlocked } = decideSaasStatus(entry, status, session.name)
+  const { newlyBlocked, newlyUnblocked } = decideSaasStatus(entry, status, session.name)
 
-  audit(session.name, `SaaS 카탈로그 판정 → ${status}${newlyBlocked ? ' · 보안운영팀 차단 집행 요청' : ''}`, entry.service)
+  audit(session.name, `SaaS 카탈로그 판정 → ${status}${newlyBlocked ? ' · 보안운영팀 차단 집행 요청' : ''}${newlyUnblocked ? ' · 보안운영팀 차단 해제 집행 요청' : ''}`, entry.service)
   revalidatePath('/', 'layout')
+  return {
+    ok: true,
+    message: status === '검토중'
+      ? `${entry.service} 재검토 — 판정을 되돌리고 검토 기한을 다시 시작합니다${newlyUnblocked ? ' (차단 해제 집행 요청 발송)' : ''}.`
+      : `${entry.service} ${status} 판정${newlyBlocked ? ' — 프록시·DNS 차단 집행 요청 발송' : ''}${newlyUnblocked ? ' — 차단 해제 집행 요청 발송' : ''}`,
+  }
 }
 
 /** SaaS 판정 기한 경과 에스컬레이션 — 검토중인데 판정 기한(SLA)을 넘긴 SaaS 를 보안담당에게 판정 요청으로 통보한다.

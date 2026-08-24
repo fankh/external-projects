@@ -8,7 +8,7 @@ import type { SaasCatalogEntry } from './types'
  *  차단하면 카탈로그 상태만 바뀌어, 문서가 광고한 '두 화면 동일 카탈로그' 대칭이 깨져 있었다.
  *  판정자·기한(검토중 SLA) 반영 + 부서별 사용 현황 인가 동기화 + 차단 신규 판정 시 보안운영팀 프록시·DNS
  *  차단 집행 요청(로37 검출→조치, 외부 노출 차단과 대칭). 감사 문구는 호출부가 newlyBlocked 로 보강한다. */
-export function decideSaasStatus(entry: SaasCatalogEntry, status: SaasCatalogEntry['status'], actor: string): { newlyBlocked: boolean } {
+export function decideSaasStatus(entry: SaasCatalogEntry, status: SaasCatalogEntry['status'], actor: string): { newlyBlocked: boolean; newlyUnblocked: boolean } {
   const s = getStore()
   const prev = entry.status
   entry.status = status
@@ -25,5 +25,11 @@ export function decideSaasStatus(entry: SaasCatalogEntry, status: SaasCatalogEnt
   if (newlyBlocked) {
     escalate({ to: '보안운영팀', subject: `${entry.service} 차단 판정 — 프록시·DNS 차단 집행 요청 (데이터 등급 ${entry.dataGrade})`, kind: '격리 통보', ref: entry.id, sms: `${entry.service} 차단 집행 — 프록시·DNS (등급 ${entry.dataGrade})` })
   }
-  return { newlyBlocked }
+  // 차단 해제(차단 → 인가·검토중)는 집행 해제까지 요청해야 한다 — 카탈로그만 되돌리면 프록시·DNS 차단은 그대로 남아
+  //  화면은 '검토중·인가'인데 실제로는 계속 막혀 있는 상태가 된다(NAC 격리 해제와 같은 짝 맞추기).
+  const newlyUnblocked = prev === '차단' && status !== '차단'
+  if (newlyUnblocked) {
+    escalate({ to: '보안운영팀', subject: `${entry.service} 차단 해제 (${status} 판정) — 프록시·DNS 차단 해제 집행 요청`, kind: '격리 통보', ref: entry.id, sms: `${entry.service} 차단 해제 — 프록시·DNS 해제 (${status})` })
+  }
+  return { newlyBlocked, newlyUnblocked }
 }

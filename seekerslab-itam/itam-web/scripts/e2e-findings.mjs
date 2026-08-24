@@ -1764,6 +1764,25 @@ try {
   await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' })
   const saasEscAfter = p3.locator('button', { hasText: /^판정 기한 경과 에스컬레이션 \(\d+\)$/ }).first()
   ok('SaaS 에스컬레이션(중복 억제): 발송 직후 (0)·비활성(경과 건수 문구는 유지)', ((await saasEscAfter.innerText()) || '').includes('(0)') && (await saasEscAfter.isDisabled()))
+  // SaaS 판정 되돌리기(재검토) — 차단은 프록시·DNS 차단 집행 요청까지 나가는 판정인데 화면에 되돌릴 컨트롤이 없어
+  //  오판정이 한 방향 문이었다(액션은 '검토중'을 받을 수 있는데 버튼이 없었다). 되돌리면 검토 기한이 다시 시작되고,
+  //  차단 상태였다면 차단 해제 집행까지 요청해야 한다 — 카탈로그만 되돌리면 실제 차단은 그대로 남는다.
+  const dropRow = p3.locator('tr', { has: p3.locator('td', { hasText: 'Dropbox' }) }).first()
+  ok('SaaS 카탈로그: 판정 완료 항목에 재검토(되돌리기) 컨트롤', (await dropRow.locator('button', { hasText: /^재검토$/ }).count()) > 0)
+  await dropRow.locator('button', { hasText: /^재검토$/ }).click()
+  await p3.waitForTimeout(800)
+  const revBody = (await p3.textContent('body')) || ''
+  ok('SaaS 재검토: 판정 되돌림 · 검토 기한 재시작 안내', revBody.includes('재검토') && revBody.includes('검토 기한을 다시 시작'))
+  const dropRow2 = p3.locator('tr', { has: p3.locator('td', { hasText: 'Dropbox' }) }).first()
+  ok('SaaS 재검토: 상태가 검토중으로 복귀', ((await dropRow2.textContent()) || '').includes('검토중'))
+  await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const unblockBody = (await p3.textContent('body')) || ''
+  ok('SaaS 재검토: 차단 해제 집행 요청 발송(카탈로그만 되돌리고 실제 차단이 남는 것 방지)', unblockBody.includes('Dropbox 차단 해제'))
+  // 원상 복구 — 뒤 검사들이 Dropbox 를 '차단 판정 완료'로 전제한다(미인가 갭 제외 검사).
+  await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' })
+  await p3.locator('tr', { has: p3.locator('td', { hasText: 'Dropbox' }) }).first().locator('button', { hasText: /^차단$/ }).click()
+  await p3.waitForTimeout(800)
+  ok('SaaS 재판정: 차단 복구 · 집행 요청 재발송', ((await p3.textContent('body')) || '').includes('차단 집행 요청 발송'))
   // SaaS 판정 독촉 SMS 등급 게이트 — 기밀·민감 등급만 문자(SMS) 병행, 일반 등급은 이메일만(데이터 반출 위험 기준). escalate 가 sms 미지정에도 제목으로 문자를 보내 일반 등급(Miro)에도 SMS 가 새던 버그. 문자 subject '[긴급] …'로 식별: 민감(ChatGPT)엔 '[긴급] ChatGPT 미판정' 문자, 일반(Miro)엔 '[긴급] SaaS 판정 기한 경과 — Miro' 문자가 없어야 한다.
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const saasSmsBody = (await p3.locator('.card', { has: p3.locator('text=알림 발송 이력') }).first().textContent()) || ''
