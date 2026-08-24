@@ -2596,6 +2596,26 @@ try {
   await pEN.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const enAfter = pEN.locator('button', { hasText: /^만료 임박 알림 발송 \(\d+\)$/ }).first()
   ok('만료 임박 알림(중복 억제): 발송 직후 신규 대상 0 · 버튼 비활성(대상 없는데 활성인 유령 컨트롤 제거)', ((await enAfter.innerText()) || '').includes('(0)') && (await enAfter.isDisabled()))
+  // 통지 참조의 목적지 — 계약·라이선스 통지는 ref 가 CT-·LIC- 라 대상 화면이 열리는데, 보증 통지는 부서 묶음이라
+  //  ref 가 WRT-{부서}이고 매핑이 없어 링크 없는 텍스트로 남았다(받은 쪽이 어느 자산인지 찾아 들어갈 경로가 없다).
+  await pEN.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const dispQ = pEN.locator('input[placeholder="수신·제목·연결 문서 검색"]').first()
+  await dispQ.fill('WRT-')
+  await pEN.waitForTimeout(300)
+  const wrtCell = pEN.locator('td.code').filter({ hasText: /^WRT-/ }).first()
+  ok('발송 이력: 보증 만료 임박 통지 참조(WRT-부서) 노출(양성 대조)', (await wrtCell.count()) > 0)
+  const wrtHref = await wrtCell.locator('a').first().getAttribute('href').catch(() => null)
+  ok(`발송 이력: 보증 통지 참조가 대장 보증 임박 필터로 연결(${wrtHref})`, !!wrtHref && wrtHref.startsWith('/assets/register?warranty=soon&q='))
+  // 안전재고 발주 요청 통지도 같은 공백이었다 — 유형 여러 종을 묶어 보내 대상 ID 가 없어 'STOCK' 텍스트로만 남았다.
+  await dispQ.fill('STOCK')
+  await pEN.waitForTimeout(300)
+  const stkCell = pEN.locator('td.code').filter({ hasText: /^STOCK$/ }).first()
+  ok('발송 이력: 발주 요청 통지 참조(STOCK) 노출(양성 대조)', (await stkCell.count()) > 0)
+  ok('발송 이력: 발주 요청 참조가 재고 화면으로 연결', (await stkCell.locator('a').first().getAttribute('href').catch(() => null)) === '/inventory/stock')
+  // 링크가 통지가 가리킨 집합을 실제로 연다 — 눌러서 대장 보증 임박 필터가 켜진 채 열리는지 본다(막다른 링크 방지).
+  await pEN.goto(`${BASE}${wrtHref}`, { waitUntil: 'networkidle' })
+  const wOn = pEN.locator('button').filter({ hasText: /보증 임박 [0-9]+/ }).first()
+  ok('발송 이력 → 대장: 보증 임박 필터가 켜진 채 열림(통지가 가리킨 집합)', ((await wOn.textContent().catch(() => '')) || '').includes('✓'))
   await ctxEN.close()
   // 커넥터 재연동(로22) — 지연·오류 커넥터를 정상으로 되돌리는 액션(보안담당). 시드 '프록시 · 방화벽 · DNS'(지연).
   const ctxCN = await browser.newContext(); await ctxCN.addCookies([cookie(SEC)]); const pCN = await ctxCN.newPage()
