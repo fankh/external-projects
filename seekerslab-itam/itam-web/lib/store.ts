@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname } from 'node:path'
 import { addDays, today } from './dates'
 import { checklistFor } from './intake'
-import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, fingerprintOf } from './types'
+import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, GONE_STATUSES, fingerprintOf } from './types'
 import type {
   AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CloudFinding, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding, OpsPolicy, RiskPolicy, SwAllowEntry,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
@@ -946,9 +946,12 @@ export function nextAssetNo(): string {
 
 /** 계약에 연계된 대장 자산 수 — 실측 파생값. Contract.assetCount 는 등록 시 0 으로 시작하고 이후
  *  갱신되지 않아 대장 실체와 어긋난다(시드도 계약 수량으로 박혀 있어 드릴다운 결과와 불일치). 표·카드·엑셀이
- *  모두 이 함수를 써서 '표시 수 = 드릴다운(?q=) 결과' 불변식을 지킨다. */
+ *  모두 이 함수를 써서 '표시 수 = 드릴다운(?q=&live=1) 결과' 불변식을 지킨다.
+ *  손을 떠난 자산(분실·폐기예정·폐기완료)은 빼고 센다 — 연계 가드가 이 상태의 자산을 새로 연계하지 못하게
+ *  막는 이유("유지보수 커버리지·연계 자산 수를 부풀린다")가 연계 뒤에 죽은 자산에도 똑같이 적용돼야 한다.
+ *  그전에는 연계 후 폐기된 자산이 계속 커버리지로 잡혀, 재계약 단가 산정이 실제보다 넉넉한 대수를 근거로 삼았다. */
 export function contractAssetCount(contractId: string): number {
-  return getStore().assets.filter((a) => a.contractId === contractId).length
+  return getStore().assets.filter((a) => a.contractId === contractId && !GONE_STATUSES.includes(a.status)).length
 }
 
 /** 결재 문서번호 — 접두사에 연·월(YYMM)이 들어가므로 기준일에서 파생시킨다.

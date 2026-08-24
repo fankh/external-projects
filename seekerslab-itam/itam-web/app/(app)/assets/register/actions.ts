@@ -11,7 +11,7 @@ import { getStore, nextAssetNo, nextId } from '@/lib/store'
 import { requiresApproval } from '@/lib/approval'
 import { can } from '@/lib/perm'
 import { eolNoticeTargets, impactNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
-import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
+import { GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
 const CRITICALITY_LEVELS: BizCriticality[] = ['핵심', '중요', '일반']
@@ -77,7 +77,7 @@ export async function setAssetContract(assetNo: string, rawContractId: string) {
     if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
     if (c.status === '해지') return { ok: false, message: '해지된 계약에는 연계할 수 없습니다.' }
     // 종료(터미널) 상태 자산은 계약에 새로 연계할 수 없다 — 이탈·폐기 자산이 유지보수 커버리지·연계 자산 수를 부풀린다(좌석 배정 종료-상태 가드와 동형). 해제(unlink)는 상태 무관.
-    if (['분실', '폐기완료'].includes(asset.status)) return { ok: false, message: `종료 상태(${asset.status}) 자산은 계약에 연계할 수 없습니다 — ${assetNo}.` }
+    if (GONE_STATUSES.includes(asset.status)) return { ok: false, message: `종료 상태(${asset.status}) 자산은 계약에 연계할 수 없습니다 — ${assetNo}.` }
     if (asset.contractId === contractId) return { ok: false, message: `이미 ${contractId} 에 연계돼 있습니다.` }
     asset.contractId = contractId
     asset.history.push({ date: today(), kind: '구성변경', detail: `계약 연계 ${before} → ${contractId} (${c.name})`, actor: session.name })

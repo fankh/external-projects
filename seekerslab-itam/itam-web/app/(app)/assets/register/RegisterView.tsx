@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { ASSET_CATEGORIES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
+import { ASSET_CATEGORIES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus, BizCriticality } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; dqIssues?: Record<string, string[]>; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; dqIssues?: Record<string, string[]>; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; initialLive?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -53,6 +53,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [receiptOnly, setReceiptOnly] = useState(Boolean(props.initialReceipt))
   const [loanExtOnly, setLoanExtOnly] = useState(Boolean(props.initialLoanExt))
   const [loanRetOnly, setLoanRetOnly] = useState(Boolean(props.initialLoanRet))
+  // 운영 자산만 — 손을 떠난 자산(분실·폐기예정·폐기완료)을 숨긴다. 계약 '연계 자산' 수가 이 기준으로 세므로,
+  //  그 숫자의 드릴다운(?q=계약ID&live=1)이 같은 집합을 열어야 표시 수 = 목록 수가 유지된다.
+  const [liveOnly, setLiveOnly] = useState(Boolean(props.initialLive))
   // 저장된 뷰 — 자주 쓰는 필터 조합을 이름 붙여 localStorage 에 보관(MDI 탭과 같은 방식). 개인화·반복 워크플로.
   const [views, setViews] = useState<SavedView[]>([])
   const [naming, setNaming] = useState(false)
@@ -76,7 +79,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     setNaming(false); setViewName('')
   }
   const removeView = (name: string) => persistViews(views.filter((x) => x.name !== name))
-  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly || maintOnly || spofOnly || impactOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly
+  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || liveOnly || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly || maintOnly || spofOnly || impactOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const warrantySet = useMemo(() => new Set(props.warrantyNos ?? []), [props.warrantyNos])
   const dqSet = useMemo(() => new Set(props.dqNos ?? []), [props.dqNos])
@@ -167,11 +170,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       if (receiptOnly && !receiptSet.has(a.assetNo)) return false
       if (loanExtOnly && !loanExtSet.has(a.assetNo)) return false
       if (loanRetOnly && !loanRetSet.has(a.assetNo)) return false
+      if (liveOnly && GONE_STATUSES.includes(a.status)) return false
       if (!needle) return true
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet, spofOnly, spofSet, impactOnly, impactSet, replaceOnly, replaceSet, receiptOnly, receiptSet, loanExtOnly, loanExtSet, loanRetOnly, loanRetSet])
+  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet, spofOnly, spofSet, impactOnly, impactSet, replaceOnly, replaceSet, receiptOnly, receiptSet, loanExtOnly, loanExtSet, loanRetOnly, loanRetSet, liveOnly])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
   // CMDB 의존 관계 — 클라이언트에서 대장 스냅샷(props.assets)으로 순수 산출(상위 의존·영향 범위·저하 상위)
@@ -302,6 +306,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             {maintOnly ? '✓ ' : ''}정기 점검 {maintSet.size}
           </button>
         )}
+        {/* 운영 자산만 — 계약 '연계 자산' 수와 같은 기준(손 떠난 자산 제외). 그 숫자의 드릴다운이 이 필터로 열린다. */}
+        <button className={`btn sm ${liveOnly ? 'pri' : ''}`} onClick={() => setLiveOnly((v) => !v)}
+          title="손을 떠난 자산(분실·폐기예정·폐기완료)을 숨긴다 — 계약 연계 자산 수·유지보수 커버리지와 같은 기준">
+          {liveOnly ? '✓ ' : ''}운영 자산만
+        </button>
         {impactSet.size > 0 && (
           <button className={`btn sm ${impactOnly ? 'err' : ''}`} onClick={() => setImpactOnly((v) => !v)}
             title="하위 의존 영향 통지 대상 — 회수·분실·수리·폐기 절차나 NAC 격리로 운영에서 빠졌는데 하위 의존 자산 담당 부서에 오늘 아직 통지하지 않은 상위 자산(대시보드 큐와 같은 집합)">

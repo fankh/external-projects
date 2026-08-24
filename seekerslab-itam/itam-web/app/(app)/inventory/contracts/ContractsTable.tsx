@@ -177,7 +177,7 @@ export function ContractsTable({ rows, sel, canEdit, expiryWindowDays }: { rows:
                 <td className="mute">{c.ownerDept}</td>
                 <td className="num tnum">{fmtAmount(c.amount)}원</td>
                 <td className="num tnum">{c.assetCount > 0
-                  ? <a href={`/assets/register?q=${encodeURIComponent(c.id)}`} title="이 계약에 연계된 대장 자산 보기 (실측)" style={{ color: 'var(--accent-deep)' }}>{c.assetCount}</a>
+                  ? <a href={`/assets/register?q=${encodeURIComponent(c.id)}&live=1`} title="이 계약에 연계된 대장 자산 보기 (실측)" style={{ color: 'var(--accent-deep)' }}>{c.assetCount}</a>
                   : c.assetCount}</td>
                 <td className="tnum">{c.end}</td>
                 <td className="c">{c.status === '해지' ? <Chip tone="neutral">해지</Chip> : <StatusChip d={c.d} win={expiryWindowDays} />}</td>
