@@ -53,8 +53,8 @@ export default async function SrNewPage() {
 
   return (
     <>
-      <ScreenHeader kicker="IT Request" title="SR 신청"
-        desc="시스템개발 · 데이터 · 계정/권한 요청을 작성하고 결재 상신한다 — 상신과 동시에 결재함·할일로 연결된다." />
+      <ScreenHeader kicker="서비스요청" title="SR 신청"
+        desc="시스템개발·데이터·계정/권한 요청. 상신하면 결재함과 할일에 함께 잡힌다." />
 
       <Card title="신청서 작성">
         <form action={createSr} className="vstack" style={{ maxWidth: 640 }}>
