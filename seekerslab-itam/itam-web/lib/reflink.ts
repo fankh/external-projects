@@ -22,5 +22,12 @@ export function entityHref(ref?: string): { href: string; external?: boolean } |
   if (ref.startsWith('DSP-')) return { href: '/assets/disposal' }
   if (ref.startsWith('LOT-') || ref.startsWith('IN-')) return { href: '/assets/intake' }
   if (ref.startsWith('DSC-')) return { href: '/discovery/found' }
+  // 발견 화면의 채널별 발견 표 — 계정(휴면·권한), USB 반출, 로컬 VM, 클라우드 리소스, 미인가 SW.
+  //  이 신호들도 escalate/dispatch 로 통지·감사에 ref 가 남는데 매핑이 없어 링크 없는 텍스트로만 보였다(조치 화면이 있는데 진입 경로가 없음).
+  if (['ACCT-', 'USB-', 'LVM-', 'CLD-', 'USW-'].some((k) => ref.startsWith(k))) return { href: '/discovery/found' }
+  // 외부 위협·노출 화면 — 외부 공격표면(EXT·EASM), IOC 상관, 크리덴셜 노출, 다크웹 유출.
+  if (['EXT-', 'EASM-', 'IOC-', 'CRED-', 'LEAK-'].some((k) => ref.startsWith(k))) return { href: '/discovery/external' }
+  // 재물조사 회차 — 회차 딥링크(?round=)가 이미 있는데 기한 경과 독촉 통지의 ref 만 텍스트로 남았다.
+  if (ref.startsWith('INV-')) return { href: `/inventory/survey?round=${encodeURIComponent(ref)}` }
   return null
 }

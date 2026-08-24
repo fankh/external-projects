@@ -1328,6 +1328,16 @@ try {
                         ...claims(summary, /명시 화면 (\d+)종/g), ...claims(summary, /도메인 (\d+)화면/g)]
   check(`문서: 화면 수 ${screens}종 일치`, allSame(screenClaims, screens), `주장=${screenClaims.join(',')} 실제=${screens}`)
 
+  // 리포트 종류 — REPORT_KINDS 항목마다 buildSections 분기가 있어야 한다. 분기를 빠뜨리면 제목만 그 종류이고
+  //  내용은 마지막 구간(감사 대응 자료)인 리포트가 만들어져 결재 근거 문서로 첨부되고 xlsx·md 로 반출된다.
+  const reportsSrc = readFileSync(path.join(ROOT, 'lib', 'reports.ts'), 'utf8')
+  const reportKinds = [...reportsSrc.matchAll(/\{ kind: '([^']+)', period:/g)].map((m) => m[1])
+  const sectionBranches = new Set([...reportsSrc.matchAll(/kind (?:===|!==) '([^']+)'/g)].map((m) => m[1])) // '감사 대응 자료' 는 마지막 구간이라 !== 로 분기한다
+  const kindsNoBranch = reportKinds.filter((k) => !sectionBranches.has(k))
+  check(`리포트: 종류 ${reportKinds.length}종 모두 섹션 분기 보유(제목·내용 불일치 방지)`, kindsNoBranch.length === 0, `분기 없음=${kindsNoBranch.join(',')}`)
+  const reportClaims = [...claims(readme, /리포트 (\d+)종/g), ...claims(summary, /리포트 (\d+)종/g)]
+  check(`문서: 리포트 ${reportKinds.length}종 일치`, allSame(reportClaims, reportKinds.length), `주장=${reportClaims.join(',')} 실제=${reportKinds.length}`)
+
   const routeClaims = [...claims(readme, /\((\d+) 라우트 × 4/g), ...claims(summary, /(\d+) 라우트 × 4/g)]
   check(`문서: 라우트 수 ${routes}개 일치`, allSame(routeClaims, routes), `주장=${routeClaims.join(',')} 실제=${routes}`)
 

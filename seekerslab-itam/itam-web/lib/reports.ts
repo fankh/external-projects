@@ -1004,7 +1004,19 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
-  // 감사 대응 자료
+  // 감사 대응 자료 — 여기는 폴백이 아니라 이 종류 전용 구간이다.
+  //  위 분기에 걸리지 않은 종류가 그대로 떨어지면 제목만 그 종류이고 내용은 감사 대응 자료인 리포트가 만들어져
+  //  결재 근거 문서로 첨부되고 xlsx·md 로 반출된다. 종류를 추가하면서 분기를 빠뜨린 것을 조용히 넘기지 않는다
+  //  (런타임 위조 입력은 generateReport 의 열거 검증이 먼저 막는다).
+  if (kind !== '감사 대응 자료') {
+    return [{
+      title: '섹션 정의 없음',
+      note: `'${kind}' 리포트는 섹션 정의가 없습니다 — REPORT_KINDS 에 종류를 추가할 때 buildSections 분기도 함께 등록하세요.`,
+      columns: ['항목'],
+      rows: [],
+    }]
+  }
+
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
   const accuracy = live.length ? Math.round(((live.length - flagged.length) / live.length) * 100) : 100
