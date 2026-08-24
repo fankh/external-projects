@@ -3098,6 +3098,12 @@ try {
   ok(`로그인 기록: 사용자·그룹의 최근 로그인이 오늘로 갱신(${liDay})`, liRow.includes(liDay))
   await pLI2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   ok('로그인 기록: 감사 로그에 접근 기록(로그인) 적재', ((await pLI2.textContent('body')) || '').includes('로그인 — 보안담당'))
+  // 접근 기록의 짝 — 로그아웃도 남아야 '언제까지 접속해 있었나'가 증적에 남는다.
+  await pLI.locator('button', { hasText: /^로그아웃$/ }).first().click()
+  await pLI.waitForURL(/\/login/, { timeout: 10000 })
+  ok('로그아웃: 세션 종료 후 로그인 화면 복귀', pLI.url().endsWith('/login'))
+  await pLI2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('로그아웃 기록: 감사 로그에 접근 종료 기록 적재', ((await pLI2.textContent('body')) || '').includes('로그아웃 — 보안담당'))
   await ctxLI2.close(); await ctxLI.close()
   await ctxUR.close()
   await ctxPM.close()
