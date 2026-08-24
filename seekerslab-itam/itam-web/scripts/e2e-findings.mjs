@@ -3431,6 +3431,21 @@ try {
     ((await mvRow().textContent()) || '').includes('처리 불가 (분실)')
     && (await mvRow().locator('button', { hasText: /^이동 처리$/ }).count()) === 0)
   await ctxMV2.close()
+  // 비식별 처리 검증 — 정책 표는 '비식별 적용'이라고 말할 뿐, 실제로 무엇이 지워지는지 확인할 방법이 없었다.
+  //  AI 정책 화면의 미리보기가 어시스턴트와 같은 함수(lib/ai-egress deidentify)를 부르므로, 여기서 보이는 결과가
+  //  곧 외부로 나가는 문장이다. 이름·IP·MAC·이메일이 실제로 가려지는지, 자산 분류·상태 같은 분석용 값은 남는지 본다.
+  const ctxDI = await browser.newContext(); await ctxDI.addCookies([cookie(ADMIN)]); const pDI = await ctxDI.newPage()
+  await pDI.goto(`${BASE}/settings/ai-policy`, { waitUntil: 'networkidle' })
+  const diCard = pDI.locator('.card', { hasText: '실행 환경 · 외부 반출 통제' }).first()
+  const diPres = (await diCard.locator('pre').allTextContents())
+  const diRaw = diPres[0] ?? ''
+  const diMasked = diPres[1] ?? ''
+  ok('비식별 미리보기: 원본·반출본 두 문단 렌더', diRaw.length > 0 && diMasked.length > 0 && diRaw !== diMasked)
+  ok('비식별: 이름이 결정적 토큰으로 치환', /\[사용자\d+\]/.test(diMasked) && !diMasked.includes('김민준'))
+  ok('비식별: IP 하위 2옥텟 마스킹', /\d{1,3}\.\d{1,3}\.\*\.\*/.test(diMasked) && !/\b10\.20\.\d{1,3}\.\d{1,3}\b/.test(diMasked))
+  ok('비식별: MAC·이메일 마스킹', diMasked.includes('**:**:**:**:**:**') && diMasked.includes('[이메일]') && !diMasked.includes('@corp.example.com'))
+  ok('비식별: 분석에 필요한 값은 보존(자산번호·상태)', /AST-\d{4}-\d{6}/.test(diMasked))
+  await ctxDI.close()
   await browser.close()
 } catch (err) {
   fail++
