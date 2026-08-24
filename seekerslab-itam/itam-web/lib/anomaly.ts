@@ -42,8 +42,13 @@ export function buildAnomalies(): AnomalyResult {
 
   // 3) 서버 비정상 외부 통신 — 평시(내부 통신) 프로파일 대비 외부 아웃바운드 이탈(C2 의심). §05 기능02가 명시한 세 번째 행위.
   //    AI 비지도 이상탐지가 직접 산출한 '이상탐지' 제안을 행위 뷰에 집약한다(반려=오탐은 제외). 제안→확인 루프는 /ai/insights.
+  //    이미 NAC 격리가 집행된 자산은 뺀다 — 나머지 세 축은 모두 미조치분만 센다(미인가 SW·USB 는 !action, 유휴 자산 사용은 조정 미완).
+  //    승인 직후는 격리 결재가 진행 중이라 여전히 열린 이탈이지만, 차단이 집행되면(quarantinedAt) 조치가 끝난 것이다.
+  //    안 빼면 격리된 자산이 '이상 행위' 목록·심각도 집계에 영구히 남아 조치 완료분과 미조치분이 섞인다.
+  const quarantined = new Set(s.assets.filter((a) => a.quarantinedAt).map((a) => a.assetNo))
   for (const n of s.insights.filter((x) => x.kind === '이상탐지' && x.status !== '반려')) {
     const tgt = n.refId ?? (n.title.includes('—') ? n.title.split('—').pop()!.trim() : n.title)
+    if (quarantined.has(tgt)) continue
     items.push({ id: `AN-${n.id}`, kind: '서버 비정상 외부 통신', target: tgt, detail: n.title.split('—')[0].trim(), severity: n.severity, basis: `AI 비지도 이상탐지 · 평시 프로파일 이탈 · ${n.evidence}`, href: '/ai/insights' })
   }
 

@@ -482,7 +482,7 @@ export default async function DashboardPage() {
                     </span>
                     <span className="hstack" style={{ gap: 6 }}><span className="mut tnum" style={{ fontSize: 11 }}>D-{u.dday}</span><span className="mut">→</span></span>
                   </Link>
-                )) : <div className="mut">향후 14일 예정된 정비·갱신·조사·리포트 일정이 없습니다.</div>}
+                )) : <div className="mut">향후 14일 예정된 정비·갱신·대여 반환·입고·조사·리포트 일정이 없습니다.</div>}
                 {upcoming.length > 8 && <div className="dim" style={{ fontSize: 11.5 }}>… 외 {upcoming.length - 8}건 (날짜순)</div>}
               </div>
             </Card>
