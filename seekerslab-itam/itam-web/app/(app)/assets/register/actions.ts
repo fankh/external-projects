@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
+import { notifyDependents } from '@/lib/cmdb'
 import { addYears, isMaintenanceOverdue, isValidDate, today } from '@/lib/dates'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
 import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
@@ -9,7 +10,7 @@ import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo, nextId } from '@/lib/store'
 import { requiresApproval } from '@/lib/approval'
 import { can } from '@/lib/perm'
-import { eolNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
+import { eolNoticeTargets, impactNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
 import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
@@ -878,6 +879,30 @@ export async function remindMaintenance() {
   appendAudit({ actor: session.name, action: `정기 점검 독촉 발송 (${n}건)`, target: '정기 점검 경과 자산' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `정기 점검 독촉 ${n}건 발송 — 예정일 경과 자산의 소유 부서에 점검 시행 요청 (발송 이력 적재)` }
+}
+
+/** 하위 의존 영향 통지(로75) — 저하·이탈(회수·분실·수리·폐기 절차) 상태로 빠진 상위 자산에 물린 하위 자산의
+ *  담당 부서에 영향 사실을 알린다. CMDB 의존 그래프는 그동안 화면·AI 답변에서 "변경·정비 시 사전 통지 대상"이라고
+ *  말만 하고 실제로 통지를 보내는 경로가 없었다 — 상위가 빠진 것을 하위 담당자가 자기 자산 상세를 열기 전에는 몰랐다.
+ *  대상은 lib/reminders 의 impactNoticeTargets(화면 버튼 건수와 같은 소스), 같은 상위·같은 부서 당일 중복은 차단한다.
+ *  자산담당·Admin. */
+export async function notifyDependencyImpact() {
+  const session = await guard()
+  if (!session) return { ok: false, message: '의존 영향 통지 권한이 없습니다 (자산담당·Admin).' }
+  const t = today()
+  let sent = 0
+  let assets = 0
+  for (const { asset } of impactNoticeTargets()) {
+    const depts = notifyDependents(asset.assetNo, `${asset.status} — 운영 이탈`)
+    if (depts.length === 0) continue
+    asset.history.push({ date: t, kind: '점검', detail: `하위 의존 영향 통지 — ${depts.join(', ')} (${asset.status})`, actor: session.name })
+    sent += depts.length
+    assets += 1
+  }
+  if (assets === 0) return { ok: false, message: '의존 영향 통지 대상이 없습니다 (저하 상위 없음·오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `하위 의존 영향 통지 발송 (상위 ${assets}건 · ${sent}개 부서)`, target: '저하 상위 자산' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `의존 영향 통지 ${sent}건 발송 — 저하·이탈 상위 ${assets}건의 하위 담당 부서에 점검 요청 (발송 이력 적재)` }
 }
 
 /** EOL OS 업그레이드·교체 통보 — OS 지원 종료가 경과한 자산의 소유 부서에 업그레이드·교체 검토를 통보한다.
