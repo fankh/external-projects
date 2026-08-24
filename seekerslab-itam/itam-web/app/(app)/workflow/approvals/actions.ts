@@ -488,8 +488,12 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
           model: d.type,
           serial: `SN-${newNo.slice(-6)}`, // 유일한 자산번호에서 파생(발견 id 4자리는 월이 다르면 충돌) — 시드 mk() 규약과 동일
           status: '사용중',
-          owner: d.ownerCandidate?.split(' ')[0] ?? '미지정',
-          dept: d.ownerCandidate?.split(' ')[0] ?? '미지정',
+          // 발견 자산의 ownerCandidate 는 '부서 추정' 문자열이다(예: '플랫폼개발팀 추정 (스위치 포트 기준)').
+          //  그것을 보유자(owner)에 넣으면 대장이 부서명을 사람으로 기록한다 — 회수·수령 확인 통보가 사람 아닌 이름으로 나가고,
+          //  값이 비어 있지 않아 정합성 검사('소유자 미지정')도 통과해 실사 대상에서 조용히 빠진다. 부서만 취하고
+          //  보유자는 미지정으로 둬 실사에서 확정하게 한다(위치를 실사 확인 필요로 두는 것과 같은 취지).
+          owner: '미지정',
+          dept: (d.ownerCandidate ?? '').split(' ')[0] || '자산관리팀',
           location: '실사 확인 필요',
           ip: d.ip !== '-' ? d.ip : undefined,
           mac: d.mac !== '-' ? d.mac : undefined,
