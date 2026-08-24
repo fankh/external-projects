@@ -256,13 +256,14 @@ export async function mergeDiscovered(primaryId: string, duplicateId: string) {
 /** 발견 자산 편입 요청 — 소유자 확인 → 자산 등록 결재를 통과해야 대장에 편입 (편입도 결재로) */
 export async function requestOnboard(discoveredId: string) {
   const session = await getSession()
-  // 매트릭스의 '발견 자산 · CMDB 대사 × 편입' 이 필요조건 — 화면에서 회수하면 실제로 막힌다
-  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return
+  // 매트릭스의 '발견 자산 · CMDB 대사 × 편입' 이 필요조건 — 화면에서 회수하면 실제로 막힌다.
+  //  거부를 undefined 로 끝내면 버튼이 아무 반응 없이 죽는다(무엇이 잘못됐는지 알 길이 없다) — 일괄 편입과 같이 사유를 돌려준다.
+  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return { ok: false, message: '편입 요청 권한이 없습니다 (권한 · 정책의 편입 권한).' }
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   // 미등록만 편입한다 — 등록·불일치(이미 대장에 매칭된 자산)를 편입하면 대장에 중복 자산이 생긴다.
   // 불일치(위치·상태 상이)는 재물조사 차이 조정(위치 불일치 → 대장 보정)으로 대사한다.
-  if (!d || d.action || d.state !== '미등록') return
+  if (!d || d.action || d.state !== '미등록') return { ok: false, message: '편입 요청 대상이 아닙니다 (이미 처리 중이거나 미등록이 아님).' }
   d.action = '편입요청'
   s.approvals.unshift({
     id: nextApprovalId(),
@@ -277,15 +278,16 @@ export async function requestOnboard(discoveredId: string) {
   })
   appendAudit({ actor: session.name, action: `대장 편입 요청 상신 — ${d.hostname} (${d.channel})`, target: d.id })
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${d.id} (${d.hostname}) 편입 요청 상신 — 자산담당 결재 대기` }
 }
 
 /** NAC 격리 요청 — 미확인·미인가 자산 차단 (발견과 조치의 양방향 폐쇄 루프) */
 export async function requestQuarantine(discoveredId: string) {
   const session = await getSession()
-  if (!session || !can('발견 자산 · CMDB 대사', '격리요청', session.role)) return
+  if (!session || !can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: '격리 요청 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
-  if (!d || d.action) return
+  if (!d || d.action) return { ok: false, message: '격리 요청 대상이 아닙니다 (이미 처리 중).' }
   d.action = '격리요청'
   s.approvals.unshift({
     id: nextApprovalId(),
@@ -300,6 +302,7 @@ export async function requestQuarantine(discoveredId: string) {
   })
   appendAudit({ actor: session.name, action: `NAC 격리 요청 상신 — ${d.hostname}`, target: d.id })
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${d.id} (${d.hostname}) NAC 격리 요청 상신 — 보안담당 승인 대기` }
 }
 
 /** CMDB 대사 확인 — 등록·불일치(대장에 매칭됐으나 위치·구성이 어긋난) 발견 자산을, 자산담당이 대장을 보정한 뒤
