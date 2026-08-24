@@ -83,20 +83,14 @@ export default async function IntegrationsPage() {
 
   return (
     <>
-      <ScreenHeader kicker="기타 (기반)" title="연동 · 인프라"
-        desc={`고객사 프로필(portal.config.ts)이 바인딩한 연동 채널 — 현재 프로필: ${PORTAL.customer}`} />
+      <ScreenHeader kicker="기반관리" title="연동 · 인프라"
+        desc={`${PORTAL.customer} 연동 채널 상태와 배포 점검 항목`} />
 
       <div className="stat-row">
         <Stat value={`${sum.on}/${sum.total}`} label="활성 채널" tone={sum.on < sum.total ? 'warn' : undefined} />
         <Stat value={s.sendLog.length} label="발송 이력" note="메일 · 문자" />
         <Stat value={s.sendLog.filter((l) => !l.ok).length} label="발송 실패" tone={s.sendLog.some((l) => !l.ok) ? 'err' : undefined} />
         <Stat value={s.people.length} label="디렉터리 인원" note="인사 연동 기준" />
-      </div>
-
-      <div className="callout">
-        <b>재사용 프레임워크</b> — 포털 본체는 어댑터 인터페이스(<span className="mono">lib/integrations/types.ts</span>)만
-        의존한다. 고객사 배포 시 목업 어댑터를 고객사 구현(그룹웨어·인사·자산·보안 시스템)으로 교체하고
-        <span className="mono"> portal.config.ts</span>의 채널 바인딩만 바꾼다.
       </div>
 
       {/* 배포 준비 상태 — 실배포 전 확인할 런타임 구성 신호를 한눈에 (운영자용) */}
