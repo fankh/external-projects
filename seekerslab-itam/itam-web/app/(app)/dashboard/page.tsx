@@ -11,6 +11,7 @@ import { isEolTarget } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { inNoticeAudience, noticeTargets } from '@/lib/notice'
 import { hasDataIssue } from '@/lib/quality'
+import { canViewMenu } from '@/lib/perm'
 import { approvalHref, entityHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
@@ -36,7 +37,8 @@ export default async function DashboardPage() {
   // 교체 대상(내용연수 초과·보증 경과·장애 이력)은 수명예측 패널·연간 교체 계획 리포트와 동일한 replacementCandidates() 단일 소스.
   const replCands = replacementCandidates().cands
   // 다가오는 일정(향후 14일 아젠다) — 계약·라이선스 링크가 자산담당·Admin 화면이라 그 역할에만 산출(SEC_MGR 은 dead-end 방지).
-  const upcoming = ['ASSET_MGR', 'ADMIN'].includes(session.role) ? upcomingSchedule(14) : []
+  // 일정 항목도 처리 화면으로 가는 링크다 — 큐와 같은 규약으로 매트릭스 조회를 회수한 화면 항목은 뺀다.
+  const upcoming = (['ASSET_MGR', 'ADMIN'].includes(session.role) ? upcomingSchedule(14) : []).filter((u) => canViewMenu(u.href, session.role))
   const pendingApr = s.approvals.filter((a) => a.status === '대기')
   // 결재 지연 — SLA(3일) 초과한 대기 결재(정체). 상신 후 오래 방치된 결재를 드러낸다.
   const overdueApr = pendingApr.filter((a) => isApprovalOverdue(a, today(), s.opsPolicy.approvalSlaDays)).length
@@ -194,7 +196,10 @@ export default async function DashboardPage() {
   // 운영 대기 우선순위 — 긴급(err)을 주의(warn)보다 위로, 같은 등급은 적체 규모(count) 큰 순. 화면마다 흩어진 큐를
   //  담당자 일과 시작점에서 '무엇부터'가 바로 보이게 정렬한다(삽입 순서 그대로면 긴급·주의가 뒤섞인다).
   const TONE_RANK = { err: 0, warn: 1 } as const
+  // 큐는 '가서 처리하라'는 링크다 — 매트릭스에서 그 화면 조회를 회수했으면 큐도 사라져야 한다.
+  //  역할 게이트만 보면 조회를 회수한 화면의 큐가 남아 눌러도 대시보드로 되돌아오는 막다른 행이 된다.
   const opsActive = opsQueues
+    .filter((q) => canViewMenu(q.href, session.role))
     .filter((q) => q.count > 0)
     .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone] || b.count - a.count)
   const opsErr = opsActive.filter((q) => q.tone === 'err').length

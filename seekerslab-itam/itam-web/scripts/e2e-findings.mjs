@@ -3118,6 +3118,22 @@ try {
   ok('전역 검색: 조회 회수 시 계약 결과가 검색에서도 사라진다(막다른 링크 방지)', !(await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
   await sqCell.click(); await pSQP.waitForTimeout(800) // 복원
   ok('전역 검색: 조회 복원 시 계약 결과 재노출(양성 대조)', (await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
+  // 대시보드 운영 대기 큐도 같은 규약 — 큐는 '가서 처리하라'는 링크라, 조회를 회수한 화면의 큐가 남으면
+  //  눌러도 대시보드로 되돌아오는 막다른 행이 된다(사이드바·검색은 이미 매트릭스를 따른다).
+  const ctxDQ = await browser.newContext(); await ctxDQ.addCookies([cookie(ASSET)]); const pDQ = await ctxDQ.newPage()
+  await pDQ.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  ok('대시보드 큐(양성 대조): 재물조사 관련 큐 링크 노출', (await pDQ.locator('a[href="/inventory/survey-plan"]').count()) > 0)
+  await pSQP.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
+  const invRow = pSQP.locator('tr', { has: pSQP.locator('td.strong', { hasText: '재고 · 재물조사' }) }).first()
+  const invCell = invRow.locator('td').nth(8) // 자산담당 × 조회
+  for (let k = 0; k < 4 && !((await invCell.textContent()) || '').includes('·'); k++) { await invCell.click(); await pSQP.waitForTimeout(700) }
+  ok('권한 매트릭스: 자산담당 × 재고 · 재물조사 조회 회수(불가) 반영', ((await invCell.textContent()) || '').includes('·'))
+  await pDQ.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  ok('대시보드 큐: 조회 회수 시 그 화면 큐가 사라진다(막다른 행 방지)', (await pDQ.locator('a[href="/inventory/survey-plan"]').count()) === 0)
+  await invCell.click(); await pSQP.waitForTimeout(800) // 복원
+  await pDQ.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  ok('대시보드 큐: 조회 복원 시 큐 재노출(양성 대조)', (await pDQ.locator('a[href="/inventory/survey-plan"]').count()) > 0)
+  await ctxDQ.close()
   await ctxSRCH.close(); await ctxSQP.close()
   await ctxLI2.close(); await ctxLI.close()
   await ctxUR.close()
