@@ -105,6 +105,10 @@ try {
   check('/dashboard (미로그인) → /login 리다이렉트', dash.status === 307 && (dash.headers.get('location') ?? '').includes('/login'), `status=${dash.status}`)
   const login = await get('/login')
   check('/login 200 + 브랜딩 렌더', login.status === 200 && (await login.text()).includes('SEEKERSLAB'))
+  // 없는 주소 — Next 기본 화면은 영어 한 줄에 돌아갈 길도 없다. 오타·낡은 즐겨찾기·삭제된 레코드 딥링크로 흔히 닿는 자리다.
+  const nf = await get('/이런화면은없습니다')
+  const nfBody = await nf.text()
+  check('없는 주소: 404 + 한국어 안내 + 돌아갈 링크', nf.status === 404 && nfBody.includes('요청하신 화면을 찾을 수 없습니다') && nfBody.includes('/dashboard'), `status=${nf.status}`)
 
   console.log('\n[권한 매트릭스 — 라우트 × 권한그룹]')
   for (const [route, allowed] of Object.entries(ROUTES)) {
@@ -610,7 +614,9 @@ try {
   check('외부 공격표면: 자산담당엔 IOC 조치 버튼 미노출 (조회만)', extAsset.includes('IOC 상관·행위자 귀속') && !extAsset.includes('조사 착수</button>'))
   const ntcHtml = await (await get('/board/notices', 'USER')).text()
   check('공지사항: 목록·본문 렌더', ntcHtml.includes('2026 하반기 재물조사') && ntcHtml.includes('필독'))
-  check('공지사항: 사용자에게 등록·관리 버튼 미노출', !ntcHtml.includes('공지 등록') && !ntcHtml.includes('삭제'))
+  // 버튼의 존재 여부는 렌더된 컨트롤로 본다 — 낱말만 찾으면 안내 문구(없는 주소 화면의 '삭제된 항목의 링크' 등)가
+  //  RSC 페이로드로 모든 페이지에 실릴 때 오탐이 난다(실제로 404 화면을 넣자 이 검사가 깨졌다).
+  check('공지사항: 사용자에게 등록·관리 버튼 미노출', !ntcHtml.includes('>공지 등록<') && !ntcHtml.includes('>삭제</button>'))
   // 필독 공지 읽음 확인 — 상단 고정 공지가 기본 선택돼 사용자에게 읽음 확인 UI·커버리지 집계가 보인다
   check('공지사항: 필독 공지 읽음 확인 UI·커버리지 렌더 (사용자)', ntcHtml.includes('읽음 확인') && ntcHtml.includes('필독 확인') && ntcHtml.includes('명'))
   // 공지 목록 필터 — 검색·필독만(전 권한그룹), 예약만(Admin 전용)
