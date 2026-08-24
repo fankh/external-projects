@@ -725,6 +725,10 @@ export async function recordMaintenance(assetNo: string, rawNote: string) {
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (!asset.maintenanceDue) return { ok: false, message: '정기 점검 예정이 없는 자산입니다.' }
+  // 예약(scheduleMaintenance)·도래 큐(isMaintenanceDue)·독촉과 같은 운영 상태 게이트 — 실물이 업체에 가 있거나(수리중)
+  //  없는(분실) 자산, 보유자 이탈 중인 자산(반납대기)에 예방 정비 시행을 기록하면 하지 않은 점검이 이력에 남고
+  //  다음 회차까지 12개월 뒤로 재예약돼, 운영 복귀 뒤 첫 점검이 한 해 미뤄진다.
+  if (NON_OPERATIONAL_STATUSES.includes(asset.status)) return { ok: false, message: `${asset.status} 자산은 예방 정비 대상이 아닙니다 — 점검 도래 큐에서 제외된 상태입니다(예약을 정리하려면 예약 취소).` }
   const note = rawNote.trim()
   const t = today()
   const prevDue = asset.maintenanceDue

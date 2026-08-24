@@ -3956,6 +3956,18 @@ try {
   await pMT.waitForTimeout(900)
   const mtLost = await agendaCount()
   ok(`정기 점검 아젠다: 비운영(분실) 전환 자산은 주간 계획에서 제외(${mtAfter} → ${mtLost} · 점검 도래 큐와 같은 판정)`, mtLost === mtBefore)
+  // 예정이 남은 비운영 자산의 완료 접점도 같은 게이트 — 하지 않은 점검을 기록하면 이력이 거짓이 되고 다음 회차가 12개월 밀린다.
+  //  대신 잘못 잡은 예약을 지우는 정리 경로(예약 취소)는 남겨 둔다(막다른 상태로 가두지 않게).
+  await pMT.goto(`${BASE}/assets/register?sel=${mtAsset}`, { waitUntil: 'networkidle' })
+  const mtLostBody = (await pMT.locator('body').textContent()) || ''
+  ok('정기 점검 완료 게이트: 비운영 자산에는 완료 버튼 대신 사유(가짜 점검 이력·12개월 재예약 방지)',
+    mtLostBody.includes('예방 정비 대상이 아닙니다') && (await pMT.locator('button', { hasText: /^정기 점검 완료$/ }).count()) === 0
+    && (await pMT.locator('button', { hasText: /^예약 취소$/ }).count()) > 0)
+  await pMT.locator('button', { hasText: /^예약 취소$/ }).first().click()
+  await pMT.waitForTimeout(700)
+  await pMT.goto(`${BASE}/assets/register?sel=${mtAsset}`, { waitUntil: 'networkidle' })
+  ok('정기 점검 완료 게이트: 예약 취소로 잔여 예정 정리(정리 경로 유지)',
+    !((await pMT.locator('body').textContent()) || '').includes('정기 점검 예정'))
   // 예약 접점도 같은 게이트 — 비운영·미편성 자산 상세에는 등록 버튼 대신 사유가 뜬다(막다른 컨트롤 제거).
   await pMT.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   const mtNonOp = [...new Set(((await pMT.locator('tbody').textContent()) || '').match(/AST-\d{4}-\d{6}/g) ?? [])]
@@ -3963,7 +3975,8 @@ try {
   for (const no of mtNonOp.slice(0, 40)) {
     await pMT.goto(`${BASE}/assets/register?sel=${no}`, { waitUntil: 'networkidle' })
     const body = (await pMT.locator('body').textContent()) || ''
-    if (/예방 정비 대상이 아닙니다/.test(body)) { mtOff = no; break }
+    // 예정이 잡힌 비운영 자산도 같은 문구를 쓰므로 '예약 취소' 컨트롤이 없는 자산(= 미편성)만 고른다.
+    if (/예방 정비 대상이 아닙니다/.test(body) && (await pMT.locator('button', { hasText: /^예약 취소$/ }).count()) === 0) { mtOff = no; break }
   }
   ok(`정기 점검 예약 게이트: 비운영·미편성 자산에 등록 버튼 대신 사유 표기(${mtOff})`,
     /^AST-/.test(mtOff) && (await pMT.locator('button', { hasText: /^정기 점검 일정 등록$/ }).count()) === 0)
