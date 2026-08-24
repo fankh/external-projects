@@ -144,7 +144,7 @@ export default async function InvestPage() {
   return (
     <>
       <ScreenHeader kicker="IT 투자/비용" title="투자 관리"
-        desc="경영계획(투자과제) → 시행·계약 → 정산품의(결재) → 계획대비실적 — 집행 전 주기를 다룬다." />
+        desc="투자과제 수립부터 계약·정산까지의 집행 관리." />
 
       {canViewFinance && (
         <div className="stat-row">
