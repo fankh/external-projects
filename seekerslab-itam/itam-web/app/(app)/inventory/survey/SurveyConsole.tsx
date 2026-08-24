@@ -81,7 +81,7 @@ export function SurveyConsole(props: {
           </div>
           <div style={{ flex: '0 1 220px' }}>
             <div className="kicker mute" style={{ marginBottom: 6 }}>실사 위치</div>
-            <select className="select" style={{ width: '100%', height: 44 }} value={location} disabled={pending}
+            <select aria-label="실사 위치" className="select" style={{ width: '100%', height: 44 }} value={location} disabled={pending}
               onChange={(e) => setLocation(e.target.value)}>
               {props.locations.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>

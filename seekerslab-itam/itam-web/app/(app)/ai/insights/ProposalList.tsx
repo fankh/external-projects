@@ -38,10 +38,10 @@ export function ProposalList({ insights }: { insights: AiInsight[] }) {
             <button key={st} className={fstatus === st ? 'on' : ''} onClick={() => setFstatus(st)}>{st}</button>
           ))}
         </div>
-        <select className="select" value={fkind} onChange={(e) => setFkind(e.target.value)} style={{ maxWidth: 150 }}>
+        <select aria-label="AI 제안 종류 필터" className="select" value={fkind} onChange={(e) => setFkind(e.target.value)} style={{ maxWidth: 150 }}>
           {kinds.map((k) => <option key={k} value={k}>{k === '전체' ? '기능 — 전체' : k}</option>)}
         </select>
-        <select className="select" value={fsev} onChange={(e) => setFsev(e.target.value)} style={{ maxWidth: 120 }}>
+        <select aria-label="AI 제안 심각도 필터" className="select" value={fsev} onChange={(e) => setFsev(e.target.value)} style={{ maxWidth: 120 }}>
           {['전체', '높음', '중간', '낮음'].map((sv) => <option key={sv} value={sv}>{sv === '전체' ? '심각도 — 전체' : sv}</option>)}
         </select>
         <span className="cnt">{rows.length}건 / 전체 {insights.length}건</span>

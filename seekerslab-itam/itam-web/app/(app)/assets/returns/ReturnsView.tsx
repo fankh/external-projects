@@ -103,13 +103,13 @@ export function ReturnsView(props: {
                       <td>{p.owner}<div className="dim" style={{ fontSize: 11 }}>{p.dept}</div></td>
                       <td className="dim">{p.location}</td>
                       <td className="c">
-                        <select className="select" value={c}
+                        <select aria-label="반납 점검 결과" className="select" value={c}
                           onChange={(e) => setCond((m) => ({ ...m, [p.assetNo]: e.target.value as ReturnCondition }))}>
                           {CONDITIONS.map((x) => <option key={x} value={x}>{x}</option>)}
                         </select>
                       </td>
                       <td>
-                        <select className="select" disabled={scrap}
+                        <select aria-label="반납 보관 위치" className="select" disabled={scrap}
                           value={scrap ? '' : (loc[p.assetNo] ?? warehouse)}
                           onChange={(e) => setLoc((m) => ({ ...m, [p.assetNo]: e.target.value }))}>
                           {scrap
@@ -250,7 +250,7 @@ export function ReturnsView(props: {
                       <td className="c"><Chip tone={tone}>{label}</Chip></td>
                       <td>
                         <span className="hstack" style={{ gap: 4 }}>
-                          <input className="input" type="date" min={props.today} style={{ width: 150 }}
+                          <input className="input" type="date" aria-label="수리 예상 반환일" min={props.today} style={{ width: 150 }}
                             value={ext[l.assetNo] ?? ''} onChange={(e) => setExt((m) => ({ ...m, [l.assetNo]: e.target.value }))} />
                           <button className="btn sm" disabled={pending || !ext[l.assetNo]}
                             onClick={() => startTransition(async () => setMsg((await extendLoan(l.assetNo, ext[l.assetNo] ?? '')).message))}>연장</button>
@@ -258,7 +258,7 @@ export function ReturnsView(props: {
                       </td>
                       <td className="c">
                         <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
-                          <select className="input" style={{ width: 92, height: 26, fontSize: 11 }} value={lcond[l.assetNo] ?? '정상'}
+                          <select aria-label="수리 결과 구분" className="input" style={{ width: 92, height: 26, fontSize: 11 }} value={lcond[l.assetNo] ?? '정상'}
                             disabled={pending} onChange={(e) => setLcond((m) => ({ ...m, [l.assetNo]: e.target.value as ReturnCondition }))}
                             title="반환 실물 상태 점검 — 손상분은 수리중·폐기 절차로(손상 자산 재대여 방지)">
                             {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}

@@ -74,7 +74,7 @@ export function AiPolicyPanel({ policy }: { policy: AiPolicy }) {
             </div>
           ) : (
             <div className="hstack" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <select className="input" style={{ height: 27, fontSize: 12 }} value={RETENTION_PRESETS.includes(Number(rd)) ? rd : 'custom'} disabled={pending}
+              <select aria-label="AI 정책 선택" className="input" style={{ height: 27, fontSize: 12 }} value={RETENTION_PRESETS.includes(Number(rd)) ? rd : 'custom'} disabled={pending}
                 onChange={(e) => { if (e.target.value !== 'custom') setRd(e.target.value) }}>
                 {RETENTION_PRESETS.map((d) => <option key={d} value={d}>{d}일{d % 365 === 0 ? ` (${d / 365}년)` : ''}</option>)}
                 <option value="custom">직접 입력</option>

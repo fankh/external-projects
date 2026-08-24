@@ -59,7 +59,7 @@ export function MovementView(props: {
                     <td>{a.requester}<div className="dim" style={{ fontSize: 11 }}>{a.dept}</div></td>
                     <td className="c tnum">{a.requestedAt}</td>
                     <td>
-                      <select className="select" style={{ minWidth: 240 }} disabled={poolEmpty}
+                      <select aria-label="이동 처리 선택" className="select" style={{ minWidth: 240 }} disabled={poolEmpty}
                         value={curSel}
                         onChange={(e) => setSel((m) => ({ ...m, [a.id]: e.target.value }))}>
                         {poolEmpty
@@ -74,7 +74,7 @@ export function MovementView(props: {
                       {noMatch && <div style={{ marginTop: 3 }}><Chip tone="warn" bare>일치 유형({want}) 유휴 재고 없음 — 신규 구매 검토</Chip></div>}
                     </td>
                     <td>
-                      <select className="select" value={loc[a.id] ?? props.locations[0] ?? ''}
+                      <select aria-label="이동 목적지" className="select" value={loc[a.id] ?? props.locations[0] ?? ''}
                         onChange={(e) => setLoc((m) => ({ ...m, [a.id]: e.target.value }))}>
                         {props.locations.map((l) => <option key={l} value={l}>{l}</option>)}
                       </select>

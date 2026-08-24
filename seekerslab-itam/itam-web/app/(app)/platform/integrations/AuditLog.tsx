@@ -43,7 +43,7 @@ export function AuditLog({ logs, canExport, role, openable }: { logs: AuditLogEn
       <div className="hstack" style={{ gap: 8, padding: '12px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
         <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="수행자·동작·대상 검색"
           value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="input" value={actor} onChange={(e) => setActor(e.target.value)} style={{ maxWidth: 170 }}>
+        <select aria-label="감사 로그 필터" className="input" value={actor} onChange={(e) => setActor(e.target.value)} style={{ maxWidth: 170 }}>
           {actors.map((a) => <option key={a} value={a}>{a === '전체' ? '수행자 전체' : a}</option>)}
         </select>
         <div className="hstack" style={{ gap: 4 }}>

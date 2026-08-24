@@ -60,7 +60,7 @@ export function PlanView(props: {
         {open && (
           <div className="vstack" style={{ gap: 8, padding: 14, borderBottom: '1px solid var(--line)', background: 'var(--canvas)' }}>
             <div className="hstack" style={{ gap: 8 }}>
-              <select className="select" value={kind} onChange={(e) => setKind(e.target.value as RoundKind)}>
+              <select aria-label="조사 종류" className="select" value={kind} onChange={(e) => setKind(e.target.value as RoundKind)}>
                 <option value="연간">연간 정기</option>
                 <option value="수시">수시</option>
               </select>
@@ -68,11 +68,11 @@ export function PlanView(props: {
                 value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="hstack" style={{ gap: 8 }}>
-              <select className="select" style={{ flex: 1 }} value={scope} onChange={(e) => setScope(e.target.value)}>
+              <select aria-label="조사 범위" className="select" style={{ flex: 1 }} value={scope} onChange={(e) => setScope(e.target.value)}>
                 <option value="전사">대상 범위 — 전사</option>
                 {props.scopes.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
               </select>
-              <select className="select" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
+              <select aria-label="조사 담당자" className="select" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
                 {props.assignees.map((a) => <option key={a} value={a}>담당 — {a}</option>)}
               </select>
               <input className="input" type="date" value={dueDate} min={props.today}

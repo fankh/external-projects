@@ -118,7 +118,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
             <button key={st} className={fstatus === st ? 'on' : ''} onClick={() => setFstatus(st)}>{st}</button>
           ))}
         </div>
-        <select className="select" value={fkind} onChange={(e) => setFkind(e.target.value)} style={{ maxWidth: 150 }}>
+        <select aria-label="결재 종류 필터" className="select" value={fkind} onChange={(e) => setFkind(e.target.value)} style={{ maxWidth: 150 }}>
           {kinds.map((k) => <option key={k} value={k}>{k === '전체' ? '구분 — 전체' : k}</option>)}
         </select>
         <input className="input" style={{ width: 190 }} placeholder="문서번호·제목·기안자 검색" value={fq} onChange={(e) => setFq(e.target.value)} />

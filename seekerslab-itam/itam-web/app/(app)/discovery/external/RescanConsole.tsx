@@ -28,7 +28,7 @@ export function RescanConsole({ targets }: { targets: Target[] }) {
             {targets.map((t) => (
               <tr key={t.domain}>
                 <td className="c">
-                  <input type="checkbox" checked={picked.includes(t.domain)} onChange={() => toggle(t.domain)} disabled={pending} />
+                  <input type="checkbox" aria-label={`${t.domain} 재스캔 대상 선택`} checked={picked.includes(t.domain)} onChange={() => toggle(t.domain)} disabled={pending} />
                 </td>
                 <td className="strong">{t.domain}</td>
                 <td className="c mute">{t.intervalDays}일</td>
@@ -50,7 +50,7 @@ export function RescanConsole({ targets }: { targets: Target[] }) {
 
       <div className="vstack" style={{ gap: 8, padding: 14, borderTop: '1px solid var(--line)' }}>
         <div className="hstack" style={{ gap: 8 }}>
-          <select className="select" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+          <select aria-label="탐지 모드" className="select" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
             <option value="Passive">수동 수집만 (대상 무접촉)</option>
             <option value="Passive+Active">수동 + 능동 확인 (대상 접속)</option>
           </select>

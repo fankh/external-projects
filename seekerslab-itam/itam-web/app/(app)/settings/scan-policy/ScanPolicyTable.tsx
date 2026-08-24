@@ -56,7 +56,7 @@ export function ScanPolicyTable({ policies }: { policies: ScanPolicy[] }) {
                   <td className="tnum mute">
                     {intCh === p.channel ? (
                       <span className="hstack" style={{ gap: 4 }}>
-                        <select className="input" style={{ height: 25, fontSize: 11 }} value={iv} disabled={pending}
+                        <select aria-label="탐지 정책 선택" className="input" style={{ height: 25, fontSize: 11 }} value={iv} disabled={pending}
                           onChange={(e) => setIv(e.target.value)}>
                           {(SCAN_INTERVALS.includes(p.interval as typeof SCAN_INTERVALS[number]) ? SCAN_INTERVALS : [p.interval, ...SCAN_INTERVALS]).map((x) => <option key={x} value={x}>{x}</option>)}
                         </select>

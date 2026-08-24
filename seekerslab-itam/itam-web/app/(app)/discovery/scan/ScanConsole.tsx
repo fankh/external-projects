@@ -58,7 +58,7 @@ export function ScanConsole(props: { policies: Pol[]; clock: string; defaultScop
         <div className="hstack" style={{ gap: 8 }}>
           <input className="input" style={{ flex: 1 }} value={scope} onChange={(e) => setScope(e.target.value)}
             placeholder="대상 대역 — 예: 10.20.0.0/16" />
-          <select className="select" value={intensity} onChange={(e) => setIntensity(e.target.value as ScanPolicy['intensity'])}>
+          <select aria-label="스캔 강도" className="select" value={intensity} onChange={(e) => setIntensity(e.target.value as ScanPolicy['intensity'])}>
             {(['낮음', '보통', '높음'] as const).map((x) => <option key={x} value={x}>강도 — {x}</option>)}
           </select>
           <button className="btn pri" disabled={pending || picked.length === 0 || blockedByIntensity} onClick={submit}>
