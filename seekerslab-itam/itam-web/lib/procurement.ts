@@ -1,7 +1,7 @@
 /** 구매 계약 발주·검수 이행 현황(§03 구매 계약: 검수 연계) — 구매 계약을 그 입고 로트(intakeLots)와 대사해
  *  발주 소진률(발주 입고액 ÷ 계약액)·검수 진행·잔여 발주 여력을 산출한다. 그동안 계약↔입고 연계가 화면에 없어,
  *  만료가 임박한데 발주가 소화되지 않은 미이행 계약(집행 리스크)을 감지할 수 없었다. 읽기 전용 합성 뷰. */
-import { daysUntil } from './dates'
+import { ratioPct, daysUntil } from './dates'
 import { getStore } from './store'
 
 /** 발주율이 이 비율 미만이면서 만료가 임박하면 발주 미이행 위험 */
@@ -54,7 +54,7 @@ export function buildProcurement(): {
       const active = lots.filter((l) => l.status !== '검수 반려' && l.status !== '반품 완료')
       const orderedValue = active.reduce((n, l) => n + l.qty * (l.unitCost ?? 0), 0)
       const inspectedValue = lots.filter((l) => l.status === '검수 완료').reduce((n, l) => n + l.qty * (l.unitCost ?? 0), 0)
-      const rate = c.amount > 0 ? Math.round((orderedValue / c.amount) * 100) : 0
+      const rate = ratioPct(orderedValue, c.amount) // 표기용 — 판정은 실발주액 비교(이정표 정직 규약)
       const dday = daysUntil(c.end)
       return {
         id: c.id,

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, Chip, Stat } from '@/components/ui'
-import { fmtAmount } from '@/lib/dates'
+import { ratioPct, fmtAmount } from '@/lib/dates'
 import { licenseOptimization, licenseVerdict } from '@/lib/reports'
 
 
@@ -59,7 +59,7 @@ export function LicenseOptimization({ canManage }: { canManage?: boolean }) {
                   <td className="strong">{l.name}</td>
                   <td className="mute">{l.vendor}</td>
                   <td className="num tnum">{l.purchased} / {l.used}</td>
-                  <td className="num tnum">{Math.round((l.used / l.purchased) * 100)}%</td>
+                  <td className="num tnum">{ratioPct(l.used, l.purchased)}%</td>
                   <td className="c"><Chip tone={toneOf(l)}>{v.label}</Chip></td>
                   <td style={{ whiteSpace: 'normal', maxWidth: 320 }}>{recOf(l)}</td>
                   <td className="c">

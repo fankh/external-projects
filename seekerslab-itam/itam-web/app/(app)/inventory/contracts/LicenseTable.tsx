@@ -1,4 +1,5 @@
 'use client'
+import { ratioPct } from '@/lib/dates'
 import { useMemo, useState } from 'react'
 import { Chip } from '@/components/ui'
 import { contractHref } from '@/lib/reflink'
@@ -93,7 +94,7 @@ export function LicenseTable({ rows, sel, canEdit, expiryWindowDays, lic }: { ro
                   <td>
                     <div className="meter">
                       <div className="bar"><i className={over ? 'over' : low ? 'low' : ''} style={{ width: `${ratio}%` }} /></div>
-                      <div className="lbl"><span>{Math.round((l.used / l.purchased) * 100)}%</span><span>{over ? `${l.used - l.purchased}석 초과` : `${l.purchased - l.used}석 여유`}</span></div>
+                      <div className="lbl"><span>{ratioPct(l.used, l.purchased)}%</span><span>{over ? `${l.used - l.purchased}석 초과` : `${l.purchased - l.used}석 여유`}</span></div>
                     </div>
                     {!retired && <LicenseSeats id={l.id} name={l.name} purchased={l.purchased} used={l.used} seats={l.seats ?? []} canEdit={canEdit} />}
                   </td>

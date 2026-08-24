@@ -1,7 +1,7 @@
 /** 유지보수 계약 관리 현황(§03 유지보수 계약: 대상 자산·SLA·비용 이력) — 계약별 예산 집행률과 SLA 요약을
  *  한 곳에 모은다. 그동안 비용 이력은 '누계'만 보였고 계약액 대비 집행률·잔여 예산·판정이 없었다.
  *  읽기 전용 합성 뷰 — 화면과 대장이 같은 산출을 쓴다(계약 amount·costs·연계 자산에서 결정적으로 파생). */
-import { daysUntil } from './dates'
+import { ratioPct, daysUntil } from './dates'
 import { getStore } from './store'
 
 export interface MaintenanceRow {
@@ -48,7 +48,7 @@ export function buildMaintenance(): {
     .filter((c) => c.kind === '유지보수' && c.status !== '해지')
     .map((c) => {
       const spent = (c.costs ?? []).reduce((n, x) => n + x.amount, 0)
-      const rate = c.amount > 0 ? Math.round((spent / c.amount) * 100) : 0
+      const rate = ratioPct(spent, c.amount) // 표기용 — 판정은 아래 실집행액 비교가 한다(이정표 정직 규약)
       // SLA 위반 — 이 계약이 덮는 자산 중 열린 수리(수리중·repair)가 SLA 대응 목표 일수를 넘긴 건. slaResponseDays 미설정이면 판정 안 함.
       const breachAssetNos = c.slaResponseDays
         ? s.assets

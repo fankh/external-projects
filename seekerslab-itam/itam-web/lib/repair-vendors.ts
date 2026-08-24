@@ -1,7 +1,7 @@
 /** 수리 업체 성과 스코어카드 — 자산 단위 수리 이력(repairCosts)·진행 중 수리(repair)를 업체별로 집계한다.
  *  누가 우리 수리를 얼마나·얼마에 처리하는지, 지금 예상 반환을 넘긴 건이 어느 업체에 몰렸는지 한눈에 본다
  *  (유지보수 계약 관리의 자산 단위 짝 — 업체 책임성·재계약 협상 근거). 읽기 전용 합성 뷰. */
-import { isRepairOverdue } from './dates'
+import { ratioPct, isRepairOverdue } from './dates'
 import { getStore } from './store'
 
 export interface RepairVendorRow {
@@ -55,7 +55,7 @@ export function buildRepairVendors(): RepairVendorRow[] {
     // 자사 부담 완료 건수(무상 청구 제외)로 평균을 낸다 — 무상 청구는 자사 지출이 아니므로 평균 왜곡 방지
     const paidCount = r.completed - r.warrantyClaims
     r.avgSelfBorne = paidCount > 0 ? Math.round(r.selfBorne / paidCount) : 0
-    r.onTimePct = r.slaCount > 0 ? Math.round((r.onTimeCount / r.slaCount) * 100) : null
+    r.onTimePct = r.slaCount > 0 ? ratioPct(r.onTimeCount, r.slaCount) : null
   }
   // 활동량(완료 + 진행) 내림차순 → 자사 부담 누계 내림차순
   return [...m.values()].sort((a, b) => (b.completed + b.inFlight) - (a.completed + a.inFlight) || b.selfBorne - a.selfBorne)

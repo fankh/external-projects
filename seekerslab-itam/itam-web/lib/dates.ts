@@ -178,11 +178,24 @@ export function isQnaOverdue(p: { kind: string; answer?: unknown; createdAt: str
   return qnaAgeDays(p.createdAt) > slaDays
 }
 
-/** 재물조사 진행률(%) — 계획 대비 스캔. 계획이 0이면 0을 반환(방어). 리포트·대시보드·계획·수행·어시스턴트 공용.
- *  회차 생성 3경로 모두 planned≥1 을 보장하지만, 나눗셈 지점마다 가드를 반복하지 않도록 단일 헬퍼로 통일(방어적). */
+/** 비율(부분/전체) 백분율 — 이정표(0%·100%)는 실제로 그 상태일 때만 쓴다.
+ *  반올림은 99.6% 를 100% 로, 0.4% 를 0% 로 만들어 "다 됐다"·"하나도 안 했다"로 읽히게 한다 — 집행률·소진률·
+ *  사용률·진행률처럼 완료 여부를 읽는 수치에서는 그 한 칸이 판단을 바꾼다(감가상각률이 같은 이유로 floor 를 쓴다).
+ *  · 부분 0 → 0%, 부분 = 전체 → 100%, 그 사이 → floor(최소 1%)
+ *  · 부분 > 전체(좌석 초과 사용·예산 초과)는 실수치를 그대로 보여주되 100% 로는 내려가지 않는다 — 초과를 감추지 않는다.
+ *  전체가 0 이면 0(0으로 나누지 않는다). 판정(초과·미집행·소진 임박)은 이 표기값이 아니라 원값으로 한다. */
+export function ratioPct(part: number, total: number): number {
+  if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) return 0
+  if (part <= 0) return 0
+  if (part === total) return 100
+  if (part > total) { const over = Math.round((part / total) * 100); return over <= 100 ? 101 : over }
+  return Math.max(1, Math.floor((part / total) * 100))
+}
+
+/** 재물조사 진행률 — 계획 대비 실측 스캔 비율(이정표 정직 규약 공유).
+ *  대장 미등록(잉여)·범위 밖 스캔이 scanned 를 부풀려도 100% 를 넘지 않는다. */
 export function roundProgressPct(r: { scanned: number; planned: number }): number {
-  // 100% 상한 — 대장 미등록(잉여)·범위 밖 스캔이 scanned 를 부풀려도 진행률이 계획을 넘지 않게 한다(>100% 방지).
-  return r.planned ? Math.min(100, Math.round((r.scanned / r.planned) * 100)) : 0
+  return Math.min(100, ratioPct(r.scanned, r.planned))
 }
 
 export function fmtAmount(n: number): string {

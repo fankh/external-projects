@@ -2,7 +2,7 @@ import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { missingContractDocs } from '@/lib/contract'
-import { daysUntil, fmtAmount } from '@/lib/dates'
+import { ratioPct, daysUntil, fmtAmount } from '@/lib/dates'
 import { expiryNoticeTargets } from '@/lib/expiry'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { buildMaintenance } from '@/lib/maintenance'
@@ -67,7 +67,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         </span>}
       >
         <div className="stat-row" style={{ margin: 14 }}>
-          <Stat value={`${maint.totalAmount ? Math.round((maint.totalSpent / maint.totalAmount) * 100) : 0}%`} label="전체 집행률" delta={{ text: `잔여 ${fmtAmount(maint.totalAmount - maint.totalSpent)}원`, dir: 'flat' }} />
+          <Stat value={`${ratioPct(maint.totalSpent, maint.totalAmount)}%`} label="전체 집행률" delta={{ text: `잔여 ${fmtAmount(maint.totalAmount - maint.totalSpent)}원`, dir: 'flat' }} />
           <Stat value={maint.rows.length} label="유지보수 계약" />
           <Stat value={maint.overBudget} label="예산 초과" tone={maint.overBudget ? 'err' : 'ok'} />
           <Stat value={maint.execAlert} label="미집행 (이행 확인)" tone={maint.execAlert ? 'warn' : 'ok'} />
@@ -122,7 +122,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         </span>}
       >
         <div className="stat-row" style={{ margin: 14 }}>
-          <Stat value={`${proc.totalAmount ? Math.round((proc.totalOrdered / proc.totalAmount) * 100) : 0}%`} label="전체 발주 소진률" delta={{ text: `발주 여력 ${fmtAmount(proc.totalAmount - proc.totalOrdered)}원`, dir: 'flat' }} />
+          <Stat value={`${ratioPct(proc.totalOrdered, proc.totalAmount)}%`} label="전체 발주 소진률" delta={{ text: `발주 여력 ${fmtAmount(proc.totalAmount - proc.totalOrdered)}원`, dir: 'flat' }} />
           <Stat value={proc.rows.length} label="구매 계약 (발주 대상)" />
           <Stat value={proc.atRisk.length} label="발주 미이행 · 만료 임박" tone={proc.atRisk.length ? 'err' : 'ok'} />
           <Stat value={fmtAmount(proc.totalInspected)} label="검수 완료액 (정산 근거)" />

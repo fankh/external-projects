@@ -1481,8 +1481,9 @@ try {
     const acq = Number((vt.match(/총 취득가 ([\d,]+)원/) || [])[1]?.replace(/,/g, '') ?? '-1')
     const book = Number((vt.match(/총 잔존가치\(장부가\) ([\d,]+)원/) || [])[1]?.replace(/,/g, '') ?? '-1')
     const dep = Number((vt.match(/감가상각률 (\d+)%/) || [])[1] ?? '-1')
-    // 표시된 감가상각률이 표시된 금액과 정합해야 한다 — 율=round((취득-장부)/취득×100). 율·금액이 따로 놀면(공식 회귀) 잡는다.
-    const depExpected = acq > 0 ? Math.round((1 - book / acq) * 100) : -1
+    // 표시된 감가상각률이 표시된 금액과 정합해야 한다 — 율은 lib/dates ratioPct 규약(이정표 정직: 0·100 은 실제일 때만, 사이는 floor).
+    const pctOf = (part, total) => (total <= 0 || part <= 0 ? 0 : part >= total ? 100 : Math.max(1, Math.floor((part / total) * 100)))
+    const depExpected = acq > 0 ? pctOf(acq - book, acq) : -1
     ok('불변식: 장부가 ≤ 취득가 · 감가상각률 0~100% · 율↔금액 정합', acq > 0 && book >= 0 && book <= acq && dep >= 0 && dep <= 100 && dep === depExpected)
   }
   // 취약점 우선순위(lib/vuln-priority): 점수 내림차순 · 티어 임계 정합 — 임계는 하드코딩이 아니라 보안담당이 관리하는 위험도 기준(riskPolicy)에서 온다
@@ -3676,6 +3677,21 @@ try {
   ok('금액 표기: 1억 직전 금액이 억 단위로 올라간다(10,000만 표기 없음)',
     amtRow.includes('1.0억원') && !amtRow.includes('10,000만'))
   await ctxAMT.close()
+  // 비율 표기 ↔ 판정 정합(신규) — 집행률·소진률·사용률을 반올림으로 찍으면 표기가 판정과 어긋난다.
+  //  89.6% 를 '90%'로 올려 놓고 상태는 '정상'(소진 임박 기준 90% 미만)이라 하고, 0.05% 를 '0%'로 내려 놓고
+  //  상태는 '정상'(미집행 = 집행 전무)이라 한다 — 같은 행 안에서 숫자와 판정이 서로 다른 말을 한다.
+  const ctxPCT = await browser.newContext(); await ctxPCT.addCookies([cookie(ASSET)]); const pPCT = await ctxPCT.newPage()
+  await pPCT.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  // 유지보수 카드 안의 행만 본다 — 같은 화면의 계약 목록 표에도 같은 계약명이 있고 그 표에는 집행률 열이 없다.
+  const mCard = pPCT.locator('.card', { hasText: '유지보수 계약 관리 — 예산 집행 · SLA' }).first()
+  const mrow = async (name) => ((await mCard.locator('tr', { hasText: name }).first().textContent()) || '').replace(/\s+/g, ' ')
+  const pctVmRow = await mrow('가상화 플랫폼 유지보수')
+  ok(`비율 표기: 89.6% 집행은 89%로 내려 찍고 판정도 정상(임계 90% 미만 · ${pctVmRow.includes('89%')})`,
+    pctVmRow.includes('89%') && pctVmRow.includes('정상') && !pctVmRow.includes('90%'))
+  const pctMssRow = await mrow('보안관제(MSS) 유지보수')
+  ok('비율 표기: 0.05% 집행은 0%가 아니라 1%(집행 전무 판정과 구분)',
+    pctMssRow.includes('1%') && pctMssRow.includes('정상'))
+  await ctxPCT.close()
   // 수리 예상 반환일 미기재 — eta 는 선택 입력이라 업체가 일정을 안 준 채 수리 의뢰만 접수될 수 있는데,
   //  지연 판정(isRepairOverdue)은 eta 경과로만 계산해 그런 건은 영영 독촉 대상이 아니었다. 정작 그 통보의
   //  문구가 '진행 상황·반환 일정 회신 요청'이라, 일정을 못 받은 건이야말로 보내야 할 대상이다.
