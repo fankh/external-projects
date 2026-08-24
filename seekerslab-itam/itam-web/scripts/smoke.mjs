@@ -1579,6 +1579,30 @@ try {
     auditMissing.length === 0 && mutatingActions >= 190,
     `감사 없음=${auditMissing.join(',')} · 대상=${mutatingActions}`)
 
+  // 화면 갱신 누락 가드 — 스토어를 바꿔 놓고 revalidatePath 를 부르지 않으면 화면이 예전 데이터를 계속 보여 준다.
+  //  조작자는 아무 일도 안 일어난 줄 알고 같은 버튼을 다시 누르고, 그 사이 중복 발송·중복 상신이 생긴다.
+  //  판정은 감사 가드와 같은 훑기를 쓰되, 이쪽은 "상태를 바꾸는 코드"를 형태로 찾는다(배열 변경·주요 필드 대입).
+  const MUTATION_SHAPES = [
+    /\bs\.[a-zA-Z]+\.(push|unshift|splice)\(/,
+    /\.status = /, /\.action = /, /\.owner = /, /\.dept = /, /\.enabled = /,
+  ]
+  const staleScreens = []
+  for (const f of actionFiles) {
+    const lines = readFileSync(f, 'utf8').split(/\r?\n/)
+    for (let li = 0; li < lines.length; li += 1) {
+      const m = /^export async function ([A-Za-z0-9_]+)/.exec(lines[li])
+      if (!m) continue
+      let e = li + 1
+      while (e < lines.length && lines[e] !== '}') e += 1
+      const body = lines.slice(li, e + 1).join('\n')
+      if (!MUTATION_SHAPES.some((re) => re.test(body))) continue
+      if (body.includes('revalidatePath')) continue
+      staleScreens.push(`${fileLabel(f)}:${m[1]}`)
+    }
+  }
+  check(`화면 갱신 가드: 스토어를 바꾸는 액션이 모두 revalidatePath 호출(액션 파일 ${actionFiles.length}개 검사)`,
+    staleScreens.length === 0, `갱신 없음=${staleScreens.join(',')}`)
+
 
 
 
