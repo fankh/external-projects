@@ -123,7 +123,7 @@ export default async function PrintsPage() {
   return (
     <>
       <ScreenHeader kicker="임직원 의식제고" title="출력물 개인정보관리"
-        desc="보안·출력물 시스템에서 전일자 자료를 일배치 이관 → 본인 폐기 등록 → 출력물폐기 결재상신." />
+        desc="전일자 출력 내역은 일배치로 넘어온다. 본인 확인 후 폐기 등록·상신." />
 
       <div className="stat-row">
         <Stat value={channelOn ? '가동중' : '중지'} label="보안·출력물 채널" tone={channelOn ? undefined : 'err'} />
