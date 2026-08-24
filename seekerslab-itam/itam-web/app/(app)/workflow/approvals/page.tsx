@@ -1,6 +1,7 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
+import { can } from '@/lib/perm'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ApprovalList } from './ApprovalList'
@@ -18,7 +19,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const visibleApprovals = session.role === 'USER'
     ? s.approvals.filter((a) => a.requester === session.name || (a.kind === '소유자 확인' && a.dept === session.dept))
     : s.approvals
-  const pending = s.approvals.filter((a) => a.status === '대기')
+  // KPI 도 목록과 같은 조회 스코프를 쓴다 — 목록만 스코핑하고 타일이 전사 집계를 쓰면 USER 결재함 머리에
+  //  전사 대기 건수와 격리 요청 건수(보안 운영 지표)가 그대로 드러난다(목록에서 막은 것과 같은 누출).
+  const pending = visibleApprovals.filter((a) => a.status === '대기')
 
   // 반납·이동 신청 대상 — 사용자는 본인 명의 자산만, 관리자는 운영 중인 자산 전체
   const myAssets = s.assets
@@ -53,7 +56,10 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 
       <div className="stat-row">
         <Stat value={pending.length} label="결재 대기" tone="accent" />
-        <Stat value={pending.filter((a) => a.kind === '격리 요청').length} label="격리 요청 (보안담당)" tone="err" />
+        {/* 격리 요청은 보안 운영 지표 — USER 에게는 본인이 응답해야 할 소유자 확인 요청을 대신 보여준다(같은 자리, 역할에 맞는 할 일) */}
+        {session.role === 'USER'
+          ? <Stat value={pending.filter((a) => a.kind === '소유자 확인').length} label="소유자 확인 요청 (우리 부서)" tone="accent" />
+          : <Stat value={pending.filter((a) => a.kind === '격리 요청').length} label="격리 요청 (보안담당)" tone="err" />}
         <Stat value={pending.filter((a) => a.requester === session.name).length} label="내가 상신한 건" />
         <Stat value={visibleApprovals.filter((a) => a.status !== '대기').length} label="처리 완료 (누적)" tone="ok" />
       </div>
@@ -61,7 +67,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       <RequestForm myAssets={myAssets} locations={locations} loanable={loanable} />
 
       <Card pad={false}>
-        <ApprovalList approvals={visibleApprovals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} initialSel={sel} today={today()} slaDays={s.opsPolicy.approvalSlaDays} />
+        <ApprovalList approvals={visibleApprovals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} canApprove={can('신청 · 결재', '결재', session.role)} initialSel={sel} today={today()} slaDays={s.opsPolicy.approvalSlaDays} />
       </Card>
 
       <div className="callout">

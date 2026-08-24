@@ -1,27 +1,33 @@
 import Link from 'next/link'
 import { Card, Chip, Stat } from '@/components/ui'
 import { fmtAmount } from '@/lib/dates'
-import { licenseOptimization } from '@/lib/reports'
+import { licenseOptimization, licenseVerdict } from '@/lib/reports'
 
-const VERDICT_TONE = { '초과 사용': 'err', '미사용 보유': 'warn', '만료 경과': 'err', 적정: 'ok' } as const
-type Verdict = keyof typeof VERDICT_TONE
+
 
 /** 라이선스 최적화 — 초과 사용·미사용 회수·만료 경과·중복 SaaS 통합(§05 AI 기능05). 읽기 전용 합성 뷰.
  *  라이선스 컴플라이언스 리포트와 같은 licenseOptimization() 근거를 재사용해 화면·리포트가 어긋나지 않게 한다. */
 export function LicenseOptimization({ canManage }: { canManage?: boolean }) {
-  const { active, over, under, expired, isExpired, saving, overCost, saasCons } = licenseOptimization()
+  const { active, over, under, expired, saving, overCost, saasCons } = licenseOptimization()
 
-  const verdictOf = (l: (typeof active)[number]): Verdict =>
-    isExpired(l) ? '만료 경과' : l.used > l.purchased ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정'
+  // 판정은 lib/reports licenseVerdict 단일 소스 — 컴플라이언스 리포트 표와 같은 라벨을 쓴다.
+  //  만료가 사용률 판정을 덮어쓰지 않는다: 만료됐는데 초과 사용 중인 건(시드 JetBrains)은 '만료·초과 사용'.
+  //  그전엔 만료가 우선해 '초과 사용 N건' 스탯은 세는데 그렇게 라벨된 행이 표에 하나도 없었고(스탯 1 vs 행 0),
+  //  같은 행의 권고 조치만 '증설 — N석 초과'라고 말해 두 컬럼이 서로 다른 판정을 보여줬다.
+  const toneOf = (l: (typeof active)[number]): 'err' | 'warn' | 'ok' => {
+    const v = licenseVerdict(l)
+    return v.base === '초과 사용' || v.expired ? 'err' : v.base === '미사용 보유' ? 'warn' : 'ok'
+  }
   const recOf = (l: (typeof active)[number]): string => {
-    if (l.used > l.purchased) return `증설 — ${l.used - l.purchased}석 초과 (연 ${fmtAmount((l.used - l.purchased) * l.unitCost)}원)`
-    if (l.used / l.purchased < 0.6) return `회수 — ${l.purchased - l.used}석 미사용 (연 ${fmtAmount((l.purchased - l.used) * l.unitCost)}원 절감)`
-    if (isExpired(l)) return '갱신 또는 해지 판단 필요'
+    const v = licenseVerdict(l)
+    const renew = v.expired ? ' · 만료 경과 — 갱신·해지 먼저 판단' : ''
+    if (v.base === '초과 사용') return `증설 — ${l.used - l.purchased}석 초과 (연 ${fmtAmount((l.used - l.purchased) * l.unitCost)}원)${renew}`
+    if (v.base === '미사용 보유') return `회수 — ${l.purchased - l.used}석 미사용 (연 ${fmtAmount((l.purchased - l.used) * l.unitCost)}원 절감)${renew}`
+    if (v.expired) return '갱신 또는 해지 판단 필요'
     return '현행 유지'
   }
-  // 조치 필요 순으로 — 초과·만료 먼저, 미사용, 적정 마지막. 그 안에서는 절감/비용 큰 순.
-  const ORDER: Record<Verdict, number> = { '초과 사용': 0, '만료 경과': 1, '미사용 보유': 2, 적정: 3 }
-  const rows = [...active].sort((a, b) => ORDER[verdictOf(a)] - ORDER[verdictOf(b)] || (b.purchased - b.used) * b.unitCost - (a.purchased - a.used) * a.unitCost)
+  // 조치 시급 순 — 초과(감사 리스크) → 만료 → 미사용 → 적정. 그 안에서는 절감/비용 큰 순.
+  const rows = [...active].sort((a, b) => licenseVerdict(a).rank - licenseVerdict(b).rank || (b.purchased - b.used) * b.unitCost - (a.purchased - a.used) * a.unitCost)
 
   return (
     <Card
@@ -47,17 +53,17 @@ export function LicenseOptimization({ canManage }: { canManage?: boolean }) {
           </thead>
           <tbody>
             {rows.map((l) => {
-              const v = verdictOf(l)
+              const v = licenseVerdict(l)
               return (
                 <tr key={l.id}>
                   <td className="strong">{l.name}</td>
                   <td className="mute">{l.vendor}</td>
                   <td className="num tnum">{l.purchased} / {l.used}</td>
                   <td className="num tnum">{Math.round((l.used / l.purchased) * 100)}%</td>
-                  <td className="c"><Chip tone={VERDICT_TONE[v]}>{v}</Chip></td>
+                  <td className="c"><Chip tone={toneOf(l)}>{v.label}</Chip></td>
                   <td style={{ whiteSpace: 'normal', maxWidth: 320 }}>{recOf(l)}</td>
                   <td className="c">
-                    {v === '적정' || !canManage
+                    {(v.base === '적정' && !v.expired) || !canManage
                       ? <span className="mute">-</span>
                       : <Link className="btn sm ghost" href={`/inventory/contracts?sel=${l.id}`} title="계약·라이선스 화면에서 회수·증설·갱신 조치">조치 →</Link>}
                   </td>

@@ -9,7 +9,7 @@ import { decideSaasStatus } from '@/lib/saas'
 import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
 import { getStore, nextId } from '@/lib/store'
 import { PERM_ACTIONS } from '@/lib/perm'
-import { SCAN_INTERVALS, type Channel, type PermAction, type SaasCatalogEntry } from '@/lib/types'
+import { LOCKED_AI_POLICY_TOGGLES, SCAN_INTERVALS, type Channel, type PermAction, type SaasCatalogEntry } from '@/lib/types'
 
 /** 정책 변경은 전량 추적 (§07 감사) — 적재는 lib/audit 로 일원화 */
 const audit = appendAdminAudit
@@ -202,15 +202,22 @@ export async function addSaasCatalogEntry(input: { service: string; category: st
   return { ok: true, message: `${service} 카탈로그 등재 — 검토중 (판정 대기)` }
 }
 
-/** AI 거버넌스 토글 — 권한 필터·자동 승인·재학습 */
+/** AI 거버넌스 토글 — 권한 필터·자동 승인·재학습.
+ *  권한 범위 필터는 잠금 대상이다(LOCKED_AI_POLICY_TOGGLES) — 스코핑은 코드가 항상 적용하므로 끌 수 없고,
+ *  끈 것처럼 값만 내리면 거버넌스 리포트가 실제와 다른 통제 상태를 감사에 진술하게 된다. */
 export async function toggleAiPolicy(field: 'scopeFilter' | 'autoApprove' | 'feedbackLearning') {
   const session = await requireAdmin()
-  if (!session) return
+  if (!session) return { ok: false, message: 'AI 정책 변경 권한이 없습니다 (Admin).' }
+  const label = { scopeFilter: '권한 범위 필터', autoApprove: 'AI 제안 자동 승인', feedbackLearning: '판정 결과 재학습' }[field]
+  const lock = LOCKED_AI_POLICY_TOGGLES[field]
+  if (lock) {
+    return { ok: false, message: `${label}는 변경할 수 없습니다(${lock.pinned ? 'ON' : 'OFF'} 고정) — ${lock.why}` }
+  }
   const s = getStore()
   s.aiPolicy[field] = !s.aiPolicy[field]
-  const label = { scopeFilter: '권한 범위 필터', autoApprove: 'AI 제안 자동 승인', feedbackLearning: '판정 결과 재학습' }[field]
   audit(session.name, `AI 정책 변경 — ${label} ${s.aiPolicy[field] ? 'ON' : 'OFF'}`, 'AI 정책')
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${label} ${s.aiPolicy[field] ? 'ON' : 'OFF'}` }
 }
 
 /** AI 실행 환경 변경 — 온프레미스/외부 API/하이브리드 */

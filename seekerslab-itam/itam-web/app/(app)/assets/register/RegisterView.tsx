@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -85,6 +85,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const spofSet = useMemo(() => new Set(props.spofNos ?? []), [props.spofNos])
   const replaceSet = useMemo(() => new Set(props.replaceNos ?? []), [props.replaceNos])
   const riskSet = useMemo(() => new Set(props.riskNos ?? []), [props.riskNos])
+  // 폐기 절차(대상 선정~소거 대기) 진행 중 자산 — 서버 가드가 재불출·대여를 거부하므로 화면도 대여 접점을 내주지 않는다.
+  const disposalSet = useMemo(() => new Set(props.disposalNos ?? []), [props.disposalNos])
   const receiptSet = useMemo(() => new Set(props.receiptNos ?? []), [props.receiptNos])
   const loanExtSet = useMemo(() => new Set(props.loanExtNos ?? []), [props.loanExtNos])
   const loanRetSet = useMemo(() => new Set(props.loanRetNos ?? []), [props.loanRetNos])
@@ -195,7 +197,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     setBulkMsg(r.message)
     if (r.ok) { setChecked(new Set()); setBulkReassignTo(''); setBulkReassignNote('') }
   })
-  // 선택 항목 중 유휴(대여 가능)만 — 교육·행사용 로너 풀 일괄 대여 대상 수
+  // 선택 항목 중 유휴(대여 가능)만 — 교육·행사용 로너 풀 일괄 대여 대상 수.
+  //  폐기 절차 자산은 loanAssetMany 가 건너뛰고 '폐기 절차 자산 제외'로 알린다(다른 일괄 액션과 같은 건너뜀+보고 규약)
+  //  — 단건 대여처럼 컨트롤을 감추면 왜 빠졌는지 알릴 자리가 없어져 여기서는 선택 수 그대로 둔다.
   const checkedIdle = useMemo(() => [...checked].filter((no) => props.assets.find((a) => a.assetNo === no)?.status === '유휴'), [checked, props.assets])
   const [bulkLoanTo, setBulkLoanTo] = useState('')
   const [bulkLoanDept, setBulkLoanDept] = useState('')
@@ -1118,7 +1122,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </div>
             )}
 
-            {props.canEdit && sel.status === '유휴' && (
+            {props.canEdit && sel.status === '유휴' && disposalSet.has(sel.assetNo) && (
+              <div className="mut" style={{ marginTop: 12, fontSize: 11 }}>폐기 절차(대상 선정~소거 대기) 중인 자산이라 대여·재불출 대상이 아닙니다 — 먼저 폐기 대상 선정을 취소하세요.</div>
+            )}
+
+            {props.canEdit && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && (
               <div style={{ marginTop: 12 }}>
                 {loanMsg && <div className="callout" style={{ marginBottom: 10 }}>{loanMsg}</div>}
                 {!loanOpen ? (
