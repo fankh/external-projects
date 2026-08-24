@@ -3890,6 +3890,21 @@ try {
     ((await pMF.locator('body').textContent()) || '').includes('오늘 요구함')
     && (await pMF.locator('button', { hasText: /^요구$/ }).count()) === 0)
   await ctxMF.close()
+
+  // 필터 칩 ↔ 목록 재계산(신규) — 복합 위험 칩은 켜지기만 하고 목록·건수는 그대로였다(목록 메모 의존성 누락).
+  //  칩을 누르면 표가 그 집합으로 좁혀지고 건수 표기도 따라와야 한다 — 대시보드 큐(?risk=1) 로 들어온 결과와도 같아야 한다.
+  const ctxChip = await browser.newContext(); await ctxChip.addCookies([cookie(ASSET)]); const pChip = await ctxChip.newPage()
+  await pChip.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const chipBtn = pChip.locator('button', { hasText: /복합 위험 \d+/ }).first()
+  const chipN = Number((/복합 위험 (\d+)/.exec((await chipBtn.textContent()) || '') || [])[1] ?? 0)
+  const chipBefore = await pChip.locator('tbody tr.clickable').count()
+  await chipBtn.click()
+  await pChip.waitForTimeout(300)
+  const chipAfter = await pChip.locator('tbody tr.clickable').count()
+  const chipCnt = Number((/(\d+)건 \/ 전체/.exec((await pChip.locator('.cnt').first().textContent()) || '') || [])[1] ?? 0)
+  ok(`필터 칩: 복합 위험 ${chipN}건 클릭 → 목록 ${chipBefore} → ${chipAfter}행 · 건수 표기 ${chipCnt}(칩이 켜지기만 하지 않는다)`,
+    chipN > 0 && chipAfter === chipN && chipCnt === chipN && chipAfter < chipBefore)
+  await ctxChip.close()
   // 폐기 절차 불변식 — 상태가 '폐기예정'인 자산은 반드시 폐기 건(disposals)이 있어야 한다. 지금은 폐기예정으로
   //  바꾸는 8개 경로가 저마다 `if (!s.disposals.some(...)) push` 를 적어 지키고 있을 뿐, 이를 확인하는 검사가 없었다.
   //  한 경로가 빠뜨리면 그 자산은 폐기예정인데 폐기 화면에 없어 결재·소거로 나아갈 수 없다(상태만 종착, 절차는 없음).

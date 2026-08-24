@@ -1802,6 +1802,15 @@ try {
   check(`반출 정합: 화면 필터 ${onlyStates.length}개가 모두 반출 경로에 반영(서버 지원 또는 nos 전달)`,
     onlyStates.length >= 10 && exportMissing.length === 0, `누락=${exportMissing.join(", ")}`)
 
+  // 필터 ↔ 목록 재계산 — 대장의 행 목록은 useMemo 로 만든다. 필터 상태를 의존성 배열에 넣지 않으면
+  //  칩은 ✓ 로 켜지는데 목록·건수는 그대로다(복합 위험 필터가 실제로 그랬다 — 눌러도 아무 일이 없었다).
+  //  린트 경고로만 남던 것을 검사로 고정한다: …Only 필터 전부가 목록 메모의 의존성에 있어야 한다.
+  const memoAt = regViewSrc.indexOf("const rows = useMemo(")
+  const memoDeps = memoAt === -1 ? "" : regViewSrc.slice(regViewSrc.lastIndexOf("}, [", regViewSrc.indexOf("const sel =", memoAt)), regViewSrc.indexOf("const sel =", memoAt))
+  const depMissing = onlyStates.filter((f) => !memoDeps.includes(f))
+  check(`필터 재계산: 화면 필터 ${onlyStates.length}개가 모두 목록 메모 의존성에 포함`,
+    memoDeps.length > 0 && depMissing.length === 0, `누락=${depMissing.join(", ")}`)
+
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.

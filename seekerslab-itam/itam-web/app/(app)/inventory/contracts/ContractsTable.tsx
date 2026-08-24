@@ -95,7 +95,7 @@ export function ContractsTable({ rows, sel, canEdit, expiryWindowDays }: { rows:
       if (!needle) return true
       return [c.id, c.name, c.vendor, c.ownerDept].some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [rows, fkind, fstatus, fexpiring, fq])
+  }, [rows, fkind, fstatus, fexpiring, fq, expiryWindowDays])
   const filterActive = fkind !== '전체' || fstatus !== '전체' || fexpiring || fq.trim() !== ''
   const expiringCount = rows.filter((c) => c.status !== '해지' && c.d !== null && c.d <= expiryWindowDays).length
 
