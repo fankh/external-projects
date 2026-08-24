@@ -190,7 +190,7 @@ export default async function ExpensePage() {
   return (
     <>
       <ScreenHeader kicker="IT 투자/비용" title="비용 관리"
-        desc="경영계획 → 시행·계약 → 속보(월별 지불 예상) → 정산품의(결재) — 기준금액은 정산 > 계약 > 계획 우선순위로 표시한다." />
+        desc="경영계획 대비 비용 집행. 기준금액은 정산·계약·계획 순으로 표시된다." />
 
       {canViewFinance && (
         <div className="stat-row">
