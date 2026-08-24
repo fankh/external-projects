@@ -109,8 +109,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <ScreenHeader kicker="My Work" title="결재함"
-        desc="수신함의 대기 건을 승인·반려하고, 상신함에서 내 기안 문서의 결재 상태를 추적한다." />
+      <ScreenHeader kicker="내 업무" title="결재함" />
 
       <div className="stat-row">
         <Stat value={inboxWaiting.length} label="수신 대기" tone={inboxWaiting.length > 0 ? 'err' : undefined} note="내가 결재자" />

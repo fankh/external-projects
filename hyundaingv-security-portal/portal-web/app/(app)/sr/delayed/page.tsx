@@ -31,8 +31,8 @@ export default async function SrDelayedPage() {
 
   return (
     <>
-      <ScreenHeader kicker="IT Request" title="지연내역"
-        desc={`완료 예정일(오늘 ${t} 기준)을 넘긴 진행중 SR — 사유 확인 후 완료일을 재계획한다.`} />
+      <ScreenHeader kicker="서비스요청" title="지연내역"
+        desc={`완료 예정일(${t} 기준)이 지난 진행중 SR. 사유 확인 후 완료일을 다시 잡는다.`} />
 
       <div className="stat-row">
         <Stat value={delayed.length} label="지연 건" tone={delayed.length > 0 ? 'err' : undefined} />
