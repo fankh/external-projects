@@ -1625,6 +1625,12 @@ try {
   const loopClaims = [...claims(readme, /폐쇄 루프 (\d+)종/g), ...claims(summary, /폐쇄 루프 (\d+)종/g)]
   check(`문서: 폐쇄 루프 ${loops}종 일치`, allSame(loopClaims, loops), `주장=${loopClaims.join(',')} 실제=${loops}`)
 
+  // 샘플 산출물 수 — 문서가 '샘플 N종'이라고 적는데 실제 파일 수와 갈리면(실제로 8종이라 적힌 채 10종이 있었다)
+  //  받아 보는 쪽은 두 개가 빠진 줄 안다. 파일(샘플_*.csv — 설명 문서와 구분된다)과 주장을 맞춘다.
+  const sampleFiles = readdirSync(path.join(ROOT, '..', 'docs')).filter((f) => f.startsWith('샘플_') && f.endsWith('.csv')).length
+  const sampleClaims = [...claims(readme, /AI 리포트 샘플 (\d+)종/g), ...claims(summary, /AI 리포트 샘플 (\d+)종/g)]
+  check(`문서: 리포트 샘플 ${sampleFiles}종 일치`, allSame(sampleClaims, sampleFiles), `주장=${sampleClaims.join(",")} 실제=${sampleFiles}`)
+
   // 스모크 건수는 자기참조 — 이 블록까지 포함한 최종 합계와 비교한다
   const smokeClaims = [...claims(readme, /→ (\d+)개 검증/g), ...claims(summary, /스모크 (\d+)건/g)]
   const finalTotal = passed + failed + 1   // +1 = 지금 실행할 이 검사
