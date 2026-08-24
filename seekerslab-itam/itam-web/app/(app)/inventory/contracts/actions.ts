@@ -31,7 +31,7 @@ export async function addContract(input: {
 
   const s = getStore()
   const id = nextId('CT')
-  s.contracts.push({ id, kind: input.kind, name, vendor, start: input.start, end: input.end, amount: Math.round(input.amount), assetCount: 0, ownerDept })
+  s.contracts.push({ id, kind: input.kind, name, vendor, start: input.start, end: input.end, amount: Math.round(input.amount), ownerDept })
 
   appendAudit({ actor: session.name, action: `계약 등록 (${input.kind}) — ${name}`, target: id })
   revalidatePath('/', 'layout')

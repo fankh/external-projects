@@ -660,14 +660,14 @@ function seed(): Store {
       { id: 'DIF-06', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2024-000706', model: 'ThinkPad E14 Gen5', expected: '본사 7F', actual: '실사 미확인', status: '조정 상신' },
     ],
     contracts: [
-      { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀',
+      { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, ownerDept: '자산관리팀',
         documents: [
           { id: 'DOC-0001', name: '2023 노트북 구매계약서_체결본.pdf', docType: '계약서', addedAt: '2023-03-02', addedBy: '박자산' },
           { id: 'DOC-0002', name: '한빛INT 견적서_60대.pdf', docType: '견적서', addedAt: '2023-02-20', addedBy: '박자산' },
           { id: 'DOC-0003', name: '세금계산서_2023-03.pdf', docType: '세금계산서', addedAt: '2023-03-31', addedBy: '이경리' },
         ] },
-      { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: '2026-08-31', amount: 384_000_000, assetCount: 8, ownerDept: '인프라운영팀' },
-      { id: 'CT-2022-007', kind: '유지보수', name: '네트워크 장비 통합 유지보수', vendor: '세종네트웍스', start: '2026-01-01', end: '2026-08-31', amount: 48_000_000, assetCount: 34, ownerDept: '네트워크팀',
+      { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: '2026-08-31', amount: 384_000_000, ownerDept: '인프라운영팀' },
+      { id: 'CT-2022-007', kind: '유지보수', name: '네트워크 장비 통합 유지보수', vendor: '세종네트웍스', start: '2026-01-01', end: '2026-08-31', amount: 48_000_000, ownerDept: '네트워크팀',
         sla: '장애 접수 후 4시간 내 온사이트 대응, 월 가동률 99.9% 보장, 24×7 헬프데스크',
         costs: [
           { id: 'CST-0001', date: '2026-01-15', item: '정기 유지보수료 1Q', amount: 12_000_000, addedBy: '박자산' },
@@ -676,21 +676,21 @@ function seed(): Store {
           // 3Q 지출로 누계가 계약액(4,800만)을 초과 — 예산 초과 판정·대시보드 재협상 큐 노출(집행률 관리)
           { id: 'CST-0004', date: '2026-07-18', item: '정기 유지보수료 3Q + 코어 라우터 라인카드 교체', amount: 24_000_000, addedBy: '박자산' },
         ] },
-      { id: 'CT-2023-002', kind: '구매', name: 'Microsoft 365 E3 800석', vendor: '한국MS 파트너', start: '2026-01-01', end: '2026-12-31', amount: 268_000_000, assetCount: 800, ownerDept: 'IT기획팀' },
-      { id: 'CT-2026-009', kind: '구매', name: '2026 상반기 노트북 교체분', vendor: '(주)한빛INT', start: '2026-07-01', end: '2029-07-20', amount: 96_000_000, assetCount: 40, ownerDept: '자산관리팀' },
-      { id: 'CT-2024-011', kind: '유지보수', name: '스토리지·백업 유지보수', vendor: '효성인포', start: '2025-09-01', end: '2026-08-20', amount: 36_000_000, assetCount: 6, ownerDept: '인프라운영팀' },
+      { id: 'CT-2023-002', kind: '구매', name: 'Microsoft 365 E3 800석', vendor: '한국MS 파트너', start: '2026-01-01', end: '2026-12-31', amount: 268_000_000, ownerDept: 'IT기획팀' },
+      { id: 'CT-2026-009', kind: '구매', name: '2026 상반기 노트북 교체분', vendor: '(주)한빛INT', start: '2026-07-01', end: '2029-07-20', amount: 96_000_000, ownerDept: '자산관리팀' },
+      { id: 'CT-2024-011', kind: '유지보수', name: '스토리지·백업 유지보수', vendor: '효성인포', start: '2025-09-01', end: '2026-08-20', amount: 36_000_000, ownerDept: '인프라운영팀' },
       // 발주 미이행 임계 회귀 — 발주율 79.6%(반올림 80%) · 만료 임박(dday<90). 반올림 기준이면 위험 큐에서 빠지지만 실집행 기준이면 미이행 위험이어야 한다(IN-2608-55 로트가 79.6M 발주).
-      { id: 'CT-2026-055', kind: '구매', name: '보안장비 도입(회귀)', vendor: '(주)넷시큐어', start: '2026-06-01', end: '2026-10-15', amount: 100_000_000, assetCount: 4, ownerDept: '보안운영팀' },
+      { id: 'CT-2026-055', kind: '구매', name: '보안장비 도입(회귀)', vendor: '(주)넷시큐어', start: '2026-06-01', end: '2026-10-15', amount: 100_000_000, ownerDept: '보안운영팀' },
       // 소액 착수비만 집행(0.05% · 반올림 0%) — 미집행(집행 전무)이 아니라 정상. 반올림 오분류 회귀 가드.
-      { id: 'CT-2025-013', kind: '유지보수', name: '보안관제(MSS) 유지보수', vendor: '이글루시큐리티', start: '2025-11-01', end: '2026-10-31', amount: 60_000_000, assetCount: 0, ownerDept: '보안운영팀',
+      { id: 'CT-2025-013', kind: '유지보수', name: '보안관제(MSS) 유지보수', vendor: '이글루시큐리티', start: '2025-11-01', end: '2026-10-31', amount: 60_000_000, ownerDept: '보안운영팀',
         costs: [{ id: 'CST-0101', date: '2026-02-03', item: '착수 협의·환경 구성비', amount: 30_000, addedBy: '박자산' }] },
       // 발주 전량 입고·검수 완료 구매 계약 — IN-2606-42(8×3M=24M) 전량 검수 완료 → 정산 종결 가능(로72). 대금 정산 근거(검수 완료액) 확정 대상.
-      { id: 'CT-2026-018', kind: '구매', name: '2026 개발팀 워크스테이션 도입', vendor: '(주)한빛INT', start: '2026-06-01', end: '2026-12-31', amount: 24_000_000, assetCount: 8, ownerDept: 'IT기획팀' },
+      { id: 'CT-2026-018', kind: '구매', name: '2026 개발팀 워크스테이션 도입', vendor: '(주)한빛INT', start: '2026-06-01', end: '2026-12-31', amount: 24_000_000, ownerDept: 'IT기획팀' },
       // 소진 임박 경계 회귀 — 집행률 89.6%(반올림 90%). 반올림 rate 로 판정하면 '소진 임박'으로 오분류되지만 실집행 기준(89.6%<90%)이면 '정상'이라 예산 통보 큐에서 빠져야 한다(미집행·발주 미이행과 동일 반올림 오분류 계열).
-      { id: 'CT-2025-015', kind: '유지보수', name: '가상화 플랫폼 유지보수', vendor: '클라우드메이트', start: '2025-10-01', end: '2027-09-30', amount: 10_000_000, assetCount: 0, ownerDept: '인프라운영팀',
+      { id: 'CT-2025-015', kind: '유지보수', name: '가상화 플랫폼 유지보수', vendor: '클라우드메이트', start: '2025-10-01', end: '2027-09-30', amount: 10_000_000, ownerDept: '인프라운영팀',
         sla: '장애 접수 후 익영업일 대응', costs: [{ id: 'CST-0401', date: '2026-03-10', item: '연간 유지보수료(부분 집행)', amount: 8_960_000, addedBy: '박자산' }] },
       // 단말 유지보수 — SLA 대응 5영업일(slaResponseDays). 덮는 자산 AST-2024-000512 의 열린 수리가 SLA 시한을 넘겨 SLA 위반(로71). 집행 이력이 있어 미집행/예산초과 큐엔 안 걸린다(SLA 위반만 별도 판정).
-      { id: 'CT-2025-014', kind: '유지보수', name: '임직원 단말 하드웨어 유지보수', vendor: '중부IT서비스', start: '2025-06-01', end: '2027-05-31', amount: 12_000_000, assetCount: 120, ownerDept: '자산관리팀',
+      { id: 'CT-2025-014', kind: '유지보수', name: '임직원 단말 하드웨어 유지보수', vendor: '중부IT서비스', start: '2025-06-01', end: '2027-05-31', amount: 12_000_000, ownerDept: '자산관리팀',
         sla: '장애 접수 후 5영업일 내 온사이트 대응·수리 완료, 월 가동률 99% 보장', slaResponseDays: 5,
         costs: [{ id: 'CST-0201', date: '2026-06-15', item: '상반기 정기 점검·소모품', amount: 3_000_000, addedBy: '박자산' }] },
     ],
