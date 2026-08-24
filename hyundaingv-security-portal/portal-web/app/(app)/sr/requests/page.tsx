@@ -47,8 +47,8 @@ export default async function SrRequestsPage({ searchParams }: { searchParams: P
 
   return (
     <>
-      <ScreenHeader kicker="IT Request" title="신청내역"
-        desc={`${scopeLabel}의 SR 진행 상태를 추적한다.`}
+      <ScreenHeader kicker="서비스요청" title="신청내역"
+        desc={`${scopeLabel} SR 진행 상태`}
         right={<Link className="btn pri" href="/sr/new">SR 신청</Link>} />
 
       <div className="stat-row">
