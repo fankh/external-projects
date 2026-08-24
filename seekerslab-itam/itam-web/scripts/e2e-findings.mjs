@@ -3067,6 +3067,34 @@ try {
   await pAL2.waitForTimeout(900)
   ok('결재선 재고정: 기본 결재선 원복(부서장 → 자산담당)', ((await pAL2.textContent('body')) || '').includes('부서장 → 자산담당'))
   await ctxAL2.close()
+  // 자산 문서 발급 링크 ↔ API 가드 정합 — 대여 확인서·인수인계서·분실 신고서 라우트는 자산 운영 문서라 자산담당·Admin
+  //  전용인데(각 route.ts 403), 화면은 대여 확인서를 역할 게이트 없이 내주고 인수인계서·분실 신고서는 canEdit(사용자만 제외)로
+  //  걸어 보안담당에게도 보였다 — 눌러야 403 이 나는 막다른 길이다(권한이 없으면 컨트롤을 아예 내주지 않는다는 규약 위반).
+  //  화면 게이트를 API 가드와 같은 집합(canDoc)으로 맞춘다.
+  const docLinks = 'a[href^="/api/handover-sheet/"], a[href^="/api/loan-agreement/"], a[href^="/api/loss-report/"]'
+  const firstAssetNo = async (page, query) => {
+    await page.goto(`${BASE}/assets/register${query}`, { waitUntil: 'networkidle' })
+    const cell = page.locator('tbody tr.clickable').first().locator('td').filter({ hasText: /^AST-\d{4}-\d{6}$/ }).first()
+    return ((await cell.textContent()) || '').trim()
+  }
+  const ctxDOC = await browser.newContext(); await ctxDOC.addCookies([cookie(ASSET)]); const pDOC = await ctxDOC.newPage()
+  const docAsset = await firstAssetNo(pDOC, '?status=사용중')
+  await pDOC.goto(`${BASE}/assets/register?sel=${docAsset}`, { waitUntil: 'networkidle' })
+  ok(`자산 문서 게이트: 자산담당 상세에는 문서 발급 링크 노출 (${docAsset})`, (await pDOC.locator(docLinks).count()) >= 1)
+  await ctxDOC.close()
+
+  const ctxDOC2 = await browser.newContext(); await ctxDOC2.addCookies([cookie(SEC)]); const pDOC2 = await ctxDOC2.newPage()
+  await pDOC2.goto(`${BASE}/assets/register?sel=${docAsset}`, { waitUntil: 'networkidle' })
+  ok('자산 문서 게이트: 보안담당 상세에는 문서 발급 링크 미노출(막다른 길 제거)', (await pDOC2.locator(docLinks).count()) === 0)
+  ok('자산 문서 게이트: 보안담당의 인수인계서 API 는 403 — 화면 게이트가 API 가드와 같은 집합',
+    (await pDOC2.request.get(`${BASE}/api/handover-sheet/${docAsset}`)).status() === 403)
+  await ctxDOC2.close()
+
+  const ctxDOC3 = await browser.newContext(); await ctxDOC3.addCookies([cookie(USER)]); const pDOC3 = await ctxDOC3.newPage()
+  const docUserAsset = await firstAssetNo(pDOC3, '')
+  await pDOC3.goto(`${BASE}/assets/register?sel=${docUserAsset}`, { waitUntil: 'networkidle' })
+  ok('자산 문서 게이트: 사용자 본인 자산 상세에도 문서 발급 링크 미노출', (await pDOC3.locator(docLinks).count()) === 0)
+  await ctxDOC3.close()
   await browser.close()
 } catch (err) {
   fail++
