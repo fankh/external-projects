@@ -4025,6 +4025,31 @@ try {
   ok('의존 영향 통지: 당일 중복 발송 차단 — 발송 뒤 버튼 소멸(화면 건수 = 액션 결과)',
     (await pDG2.locator('button', { hasText: /^의존 영향 통지 \(\d+\)$/ }).count()) === 0)
   await ctxDG2.close()
+
+  // ── 스테일 선택 일괄 처리(신규) — 목록을 띄워 놓고 여러 건을 고르는 사이 다른 담당자가 그중 하나를 처리하면,
+  //  서버는 그 건을 건너뛴다. 그동안 결과는 처리 수만 말해서 조작자는 고른 것이 전부 처리된 줄 알았다
+  //  (스테일 이동·스테일 차이 조정과 같은 동시 조작 방어의 결과 표기판).
+  const ctxSK = await browser.newContext(); await ctxSK.addCookies([cookie(ASSET)]); const pSK = await ctxSK.newPage()
+  const ctxSK2 = await browser.newContext(); await ctxSK2.addCookies([cookie(ASSET)]); const pSK2 = await ctxSK2.newPage()
+  await pSK.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  const skBoxes = pSK.locator('input[aria-label$=" 편입 선택"]')
+  const skLabels = await skBoxes.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') || ''))
+  const skIds = skLabels.map((s) => (/^(DSC-\S+) 편입 선택$/.exec(s) || [])[1]).filter(Boolean)
+  ok(`스테일 선택: 미처리 발견 자산 2건 확보(${skIds.slice(0, 2).join(', ')})`, skIds.length >= 2)
+  await pSK.locator(`input[aria-label="${skIds[0]} 편입 선택"]`).check()
+  await pSK.locator(`input[aria-label="${skIds[1]} 편입 선택"]`).check()
+  // 다른 담당자(두 번째 세션)가 그중 하나를 먼저 관리 제외로 처리한다 — 첫 세션의 선택은 스테일이 된다.
+  await pSK2.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  await pSK2.locator(`input[aria-label="${skIds[0]} 편입 선택"]`).check()
+  await pSK2.locator('input[placeholder="관리 제외 사유"]').fill('회귀 — 스테일 선택 대비')
+  await pSK2.locator('button', { hasText: /^일괄 관리 제외 \(\d+\)$/ }).click()
+  await pSK2.waitForTimeout(800)
+  await pSK.locator('button', { hasText: /선택 일괄 편입 요청/ }).click()
+  await pSK.waitForTimeout(800)
+  const skMsg = (await pSK.locator('body').textContent()) || ''
+  ok('스테일 선택: 먼저 처리된 건은 건너뛰고 결과에 제외 건수를 밝힌다(조용한 누락 방지)',
+    skMsg.includes('1건 편입 요청') && skMsg.includes('제외'))
+  await ctxSK.close(); await ctxSK2.close()
   await browser.close()
 } catch (err) {
   fail++

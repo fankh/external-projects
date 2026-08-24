@@ -74,7 +74,9 @@ export async function respondToLeakMany(ids: string[], note: string) {
   }
   appendAudit({ actor: session.name, action: `유출 일괄 대응 (${targets.length}건) — ${action}`, target: '다크웹 유출' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `유출 ${targets.length}건 대응 완료 — 보안운영팀 통지·감사 기록 적재` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - targets.length
+  return { ok: true, message: `유출 ${targets.length}건 대응 완료 — 보안운영팀 통지·감사 기록 적재${skippedB > 0 ? ` (이미 조치 완료 ${skippedB}건 제외)` : ''}` }
 }
 
 /** 크리덴셜 노출 대응 조치 — 인증 취약점 점검(기본·취약 크리덴셜)에서 끝내지 않고 보안 대응까지 이어간다.
@@ -145,7 +147,9 @@ export async function respondToCredentialMany(ids: string[], note: string) {
   }
   appendAudit({ actor: session.name, action: `크리덴셜 노출 일괄 대응 (${targets.length}건) — ${action}`, target: '크리덴셜 노출' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `크리덴셜 ${targets.length}건 대응 완료 — 보안운영팀 통지·감사 기록 적재` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - targets.length
+  return { ok: true, message: `크리덴셜 ${targets.length}건 대응 완료 — 보안운영팀 통지·감사 기록 적재${skippedB > 0 ? ` (이미 조치 완료 ${skippedB}건 제외)` : ''}` }
 }
 
 /** 위협 인텔 IOC 조치 — IOC 상관(악성 통신·감염 징후)에서 끝내지 않고 차단(프록시·방화벽·EDR) 또는 조사 착수(침해 대응)까지 이어간다.
@@ -201,7 +205,9 @@ export async function respondToIocMany(ids: string[], kind: '차단' | '조사')
   const names = targets.map((ioc) => ioc.iocValue).slice(0, 5).join(', ')
   appendAudit({ actor: session.name, action: `IOC 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: 'IOC 상관' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `IOC ${targets.length}건 ${verb} — 보안운영팀 통지·감사 기록 적재` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - targets.length
+  return { ok: true, message: `IOC ${targets.length}건 ${verb} — 보안운영팀 통지·감사 기록 적재${skippedB > 0 ? ` (이미 처리 ${skippedB}건 제외)` : ''}` }
 }
 
 /** IOC 조치 취소(재개) — 오조치였던 차단 요청·조사 착수를 되돌려 다시 미조치(차단/조사 대상)로 되돌린다. 잘못 종결한 상관 건이 미조치 큐·감사에서 사라지지 않게 한다. 보안담당·Admin. */
