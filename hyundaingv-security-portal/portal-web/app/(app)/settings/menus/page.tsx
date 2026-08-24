@@ -34,7 +34,7 @@ export default async function MenusPage() {
   return (
     <>
       <ScreenHeader kicker="환경설정" title="메뉴 · 기능 관리"
-        desc="10대 업무 도메인 × 메뉴 체계 — 화면번호(경로)·권한그룹·구현 상태를 관리한다." />
+        desc="업무 도메인별 메뉴 체계와 화면번호·권한그룹 현황" />
 
       <div className="stat-row">
         <Stat value={NAV.length} label="LV1 도메인" />
