@@ -1789,6 +1789,19 @@ try {
   check("재고 판정: 가용·배정 풀이 NAC 격리 자산을 제외(불출·대여 가드와 같은 집합)",
     poolFns.length === 2, `격리 제외 누락=${["availableAssets", "assignableAssets"].filter((f) => !poolFns.includes(f)).join(", ")}`)
 
+  // 반출 집합 ↔ 화면 필터 — 엑셀 링크는 서버 빌더가 아는 필터(검색·유형·상태·미실측·보증)만 질의로 넘기고,
+  //  나머지 필터가 켜져 있으면 보이는 행 번호(nos)를 넘겨 "버튼이 약속한 건수 = 파일 행수"를 지킨다.
+  //  대장에 필터를 새로 붙이면서 이 조건에 넣는 걸 빠뜨리면 파일만 조용히 더 넓어진다(실제로 live 필터에서 그랬다).
+  //  화면의 …Only 필터 상태를 전부 뽑아 서버 지원분이거나 nos 조건에 들어 있는지 본다.
+  const regViewSrc = readFileSync(path.join(ROOT, "app", "(app)", "assets", "register", "RegisterView.tsx"), "utf8")
+  const onlyStates = [...regViewSrc.matchAll(/const \[(\w+Only), set\w+\] = useState/g)].map((m) => m[1])
+  const nosAt = regViewSrc.indexOf("? { nos: rows.map((a) => a.assetNo).join(',') }")
+  const nosCond = nosAt === -1 ? "" : regViewSrc.slice(Math.max(0, nosAt - 700), nosAt)
+  const serverSideFilters = ["staleOnly", "warrantyOnly"] // 질의(stale·warranty)로 서버 빌더가 직접 거른다
+  const exportMissing = onlyStates.filter((f) => !serverSideFilters.includes(f) && !nosCond.includes(f))
+  check(`반출 정합: 화면 필터 ${onlyStates.length}개가 모두 반출 경로에 반영(서버 지원 또는 nos 전달)`,
+    onlyStates.length >= 10 && exportMissing.length === 0, `누락=${exportMissing.join(", ")}`)
+
   // 상위 이탈 판정과 NAC 격리 — 격리는 상태를 바꾸지 않고(사용중 그대로) 망만 끊는 보안 조치라, 상태만 보던
   //  isDegraded 로는 하위 자산이 상위가 끊긴 줄 몰랐다("저하된 상위" 경고·영향 통지 큐·SPOF 즉시 리스크 모두 침묵).
   //  통지 사유도 상태 문자열을 그대로 써서 격리 상위는 "사용중 — 운영 이탈"이라는 앞뒤 안 맞는 통지가 됐다.
