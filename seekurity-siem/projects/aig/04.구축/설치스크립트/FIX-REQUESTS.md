@@ -124,7 +124,8 @@ systemctl restart ss-syslog-receiver
 
 ## FIX-004 · 파싱은 되지만 콘솔 상세 화면에 값이 표시되지 않음
 
-**상태: 요청** (적용하지 않았습니다)
+**상태: 적용됨** (2026-08-24 10:21). common 세션이 담당 범위가 아니라고 회신하여
+사용자 확인을 받고 siem 세션에서 직접 적용했습니다.
 
 ### 증상
 
@@ -206,7 +207,7 @@ curl -s "http://localhost:19200/siem-logs-$(date +%Y-%m-%d)/_search?size=1" \
 
 ## FIX-005 · 파서 추출 범위 부족 — 원문에 있으나 뽑지 않는 필드
 
-**상태: 요청** (적용하지 않았습니다)
+**상태: 적용됨** (2026-08-24 10:21). FIX-004 와 함께 반영했습니다.
 
 FIX-004 가 "이름이 달라 화면에 안 보이는" 문제라면, 이 건은 "아예 뽑지 않는" 문제입니다.
 2026-08-24 색인 47,537건 기준으로 측정했습니다.
@@ -258,3 +259,39 @@ srcip=(\S+)(?:\s+srcport=(\d+))?    …    dstip=(\S+)(?:\s+dstport=(\d+))?
 FIX-004(필드명)와 FIX-005(추출 범위)는 같은 파서를 고치는 작업이므로
 **한 번에 반영하는 편이 효율적**입니다. 반영 후 `ss-log-stream` 을 재기동하고,
 신규 문서에서 위 표의 항목이 채워지는지 확인하시기 바랍니다.
+
+
+---
+
+## FIX-004 / FIX-005 적용 결과 (2026-08-24 10:21)
+
+`fix-004-005-parser.sql` 적용 후 `ss-log-stream` 재기동. 재기동 이후 60초 구간 실측입니다.
+
+| 항목 | 결과 |
+|---|---|
+| 파서 로딩 | `Found 7 collectors` / `syslog: 7` |
+| fortigate_traffic | 446건 — `sourceIp`,`sourcePort`,`destinationIp`,`destinationPort`,`protocol`,`eventName`,`action` **전건 채움** |
+| 구 필드명 | `srcIp`,`dstPort` **0건** (신규 문서에서 사라짐) |
+| ICMP 누락 | **0건** (적용 전 529건/일) |
+| 색인 실패 | 0건 |
+
+콘솔 로그 검색 목록도 값이 표시됩니다.
+
+```
+Generated Time      | Device        | Event Name | Source IP     | Destination IP | Source Port | Destination Port
+2026-08-24 10:21:07 | AIG_SSLVPN_FW | traffic    | 10.1.10.4     | 10.48.226.57   | 45540       | 22
+2026-08-24 10:21:07 | AIG_SSLVPN_FW | traffic    | 211.47.6.118  | 10.1.10.4      | 59142       | 10010
+```
+
+Source IP 가 방화벽 자신(10.1.1.1)이 아니라 **실제 트래픽 출발지**로 바뀐 것도 확인했습니다.
+
+### 후속 검토 사항
+
+1. **`eventName` 값이 `traffic` 으로 단조롭습니다.** FortiGate `type=` 을 매핑했는데
+   대부분 `traffic` 이라 구분력이 없습니다. `subtype=`(forward/local 등) 또는
+   `logdesc=` 를 쓰는 편이 화면에서 유용할 수 있어 검토가 필요합니다.
+2. `fortigate_event`(generic fallback)로 남는 건이 60초당 13건 있습니다.
+   실제 비트래픽 이벤트인지 확인이 필요합니다.
+3. `service=`, `user=` 는 여전히 미추출입니다. 특히 `user=` 는 계정 기반 탐지에 필요합니다.
+4. Linux/Syslog 파서 3종은 표준 필드명 미적용 상태입니다
+   (`PARSER-FIELD-CONVENTION.md` 현황표 참조).
