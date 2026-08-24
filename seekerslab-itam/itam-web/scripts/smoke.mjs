@@ -1185,6 +1185,11 @@ try {
   check('Shadow SaaS: 보안담당에 판정(인가·차단) 버튼 노출', saasSec.includes('판정') && saasSec.includes('차단'))
   const saasAsset = await (await get('/discovery/saas', 'ASSET_MGR')).text()
   check('Shadow SaaS: 자산담당은 판정 버튼 미노출 (조회만)', !saasAsset.includes('>차단<'))
+  // 차단 판정 완료분은 '판정 대기' 갭이 아니다 — sanctioned 는 인가/미인가 두 값뿐이라 차단을 담지 못해,
+  //  시드 Dropbox(카탈로그 차단 · 프록시·DNS 차단 집행 요청 발송)가 화면에서도 그냥 '미인가'로 보이고 KPI·부서별 요약에 갭으로 잡혔다.
+  //  주간 브리핑·통합 후보 산정이 쓰는 기준(카탈로그 차단 목록)과 같게 맞춘다. 표에는 남기되 '차단 판정'으로 구분한다.
+  check('Shadow SaaS: 차단 판정 서비스는 인가 여부 칸에 구분 표기', saasSec.includes('차단 판정'))
+
   // 부서별 미인가 SaaS 노출 요약 — 어느 부서가 Shadow SaaS 위험이 큰지 우선순위화(제품안내서 부서별). '최고 위험도'는 요약 표에만 있는 헤더.
   check('Shadow SaaS: 부서별 미인가 노출 요약 렌더', saasSec.includes('부서별 미인가 SaaS 노출') && saasSec.includes('최고 위험도') && saasSec.includes('전사'))
   // 목록 필터 — 부서·인가 여부·검색 (다른 목록 화면과 동일 패턴, 그동안 SaaS 표만 무필터였다)

@@ -14,7 +14,12 @@ export default async function SaasPage() {
   const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const rows = [...s.saas].sort((a, b) => b.monthlyVisits - a.monthlyVisits)
-  const shadow = rows.filter((x) => !x.sanctioned)
+  // 차단 판정이 끝난 서비스는 판정 대기 갭이 아니다 — sanctioned 는 인가/미인가 두 값뿐이라 차단을 담지 못한다.
+  //  KPI·부서별 노출 요약은 '아직 판정이 필요한' 미인가만 센다(주간 브리핑·통합 후보 산정과 같은 기준).
+  //  표에는 차단 건도 남기되 인가 여부 칸에 '차단 판정'으로 구분해 보여준다.
+  const blockedServices = s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service)
+  const blockedSet = new Set(blockedServices)
+  const shadow = rows.filter((x) => !x.sanctioned && !blockedSet.has(x.service))
   const canDecide = ['SEC_MGR', 'ADMIN'].includes(session.role)
 
   // 부서별 미인가 SaaS 노출 요약 — 어느 부서가 Shadow SaaS 위험이 큰지 우선순위화(제품안내서: 미인가 SaaS 사용 현황 부서별).
@@ -77,7 +82,7 @@ export default async function SaasPage() {
       {consolidation.length > 0 && <ConsolidationCard rows={consolidation} canDecide={canDecide} />}
 
       <Card kicker="Services" title="SaaS 서비스별 사용·판정" pad={false}>
-        <ShadowSaasTable rows={rows} canDecide={canDecide} depts={[...new Set(rows.map((x) => x.dept))].sort()} />
+        <ShadowSaasTable rows={rows} canDecide={canDecide} depts={[...new Set(rows.map((x) => x.dept))].sort()} blockedServices={blockedServices} />
       </Card>
 
       <div className="callout warn">
