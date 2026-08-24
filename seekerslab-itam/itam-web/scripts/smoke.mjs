@@ -1466,6 +1466,17 @@ try {
     formatOnly.length === 0 && calendarChecked.length >= 7,
     `형식만=${formatOnly.map(fileLabel).join(',')} · 달력검증=${calendarChecked.map(fileLabel).join(',')}`)
 
+  // 수집 시간대 단일 소스 — 창 문자열('HH:MM ~ HH:MM')을 읽는 규칙이 액션마다 따로 있으면 쓰는 쪽(설정 저장)과
+  //  판정하는 쪽(능동 스캔 실행)이 갈린다. 실제로 저장은 앵커·범위를 보는데 판정은 부분 일치로 읽고 파싱 실패 시
+  //  참을 돌려줘(fail open), 깨진 시간대가 §07 안전장치를 조용히 껐다. 규칙은 lib/scan-policy 한 곳에 둔다.
+  const WINDOW_RE_FRAGMENT = BS + 's*~' + BS + 's*'
+  const localWindowParsers = actionFiles.filter((f) => readFileSync(f, 'utf8').includes(WINDOW_RE_FRAGMENT))
+  const scanPolicySrc = readFileSync(path.join(ROOT, 'lib', 'scan-policy.ts'), 'utf8')
+  const failsClosed = scanPolicySrc.includes('const w = parseScanWindow(window)') && scanPolicySrc.includes('if (!w) return false')
+  check('수집 시간대: 창 파싱이 lib/scan-policy 한 곳 · 읽을 수 없는 창은 창 밖으로 판정(fail closed)',
+    localWindowParsers.length === 0 && failsClosed,
+    `액션 내 파싱=${localWindowParsers.map(fileLabel).join(',')} · fail-closed=${failsClosed}`)
+
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')

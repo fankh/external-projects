@@ -4,6 +4,7 @@ import { appendAdminAudit } from '@/lib/audit'
 import { codeUsage } from '@/lib/codes'
 import { today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
+import { normalizeScanWindow, scanWindowError } from '@/lib/scan-policy'
 import { getSession } from '@/lib/session'
 import { decideSaasStatus } from '@/lib/saas'
 import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
@@ -100,27 +101,14 @@ export async function setScanScope(channel: Channel, rawTargets: string, rawWind
   const targets = rawTargets.trim()
   const window = rawWindow.trim()
   if (!targets) return { ok: false, message: '대상 대역을 입력하세요.' }
-  // 시간대 형식 — 'HH:MM ~ HH:MM' 또는 '상시'
-  const wm = window === '상시' ? null : /^(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})$/.exec(window)
-  if (window !== '상시' && !wm) {
-    return { ok: false, message: "수집 시간대는 'HH:MM ~ HH:MM' 또는 '상시'로 입력하세요." }
-  }
-  // 시·분 범위까지 본다 — 형식만 맞고 범위를 벗어난 값('99:99 ~ 88:77')이 저장되면 inWindow 가 분 단위로 환산할 때
-  //  현재 시각(최대 1439분)보다 큰 경계가 나와 자정 넘김 창으로 해석되고 결과가 항상 참이 된다 —
-  //  §07 시간대 안전장치가 조용히 꺼진다(한 자리 시 파싱·정규화로 막아 둔 것과 같은 계열의 구멍).
-  //  반대로 '25:00 ~ 26:00' 은 항상 거짓이 돼 능동 스캔이 사유 없이 계속 막힌다.
-  if (wm) {
-    const [wh1, wmin1, wh2, wmin2] = [Number(wm[1]), Number(wm[2]), Number(wm[3]), Number(wm[4])]
-    if (wh1 > 23 || wh2 > 23 || wmin1 > 59 || wmin2 > 59) {
-      return { ok: false, message: '수집 시간대의 시는 00~23, 분은 00~59 범위로 입력하세요.' }
-    }
-  }
+  // 시간대 검증·정규화는 lib/scan-policy 단일 소스 — 판정(inScanWindow)과 같은 규칙으로 형식·범위를 본다.
+  //  형식만 맞고 범위를 벗어난 값('99:99 ~ 88:77')이 저장되면 분 환산 경계가 현재 시각보다 커져 자정 넘김 창으로
+  //  해석되고 판정이 항상 참이 된다 — §07 시간대 안전장치가 조용히 꺼진다.
+  const windowError = scanWindowError(window)
+  if (windowError) return { ok: false, message: windowError }
   const beforeT = p.targets, beforeW = p.window
   p.targets = targets
-  // 시를 두 자리로 정규화해 저장한다('9:00' → '09:00') — 스캔 시간대 판정(inWindow)이 표준 HH:MM 를 기대하므로,
-  // 한 자리 시가 그대로 저장되면 창을 못 읽어 시간대 안전장치가 무력화된다.
-  p.window = window === '상시' ? '상시'
-    : window.replace(/^(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})$/, (_m, h1, m1, h2, m2) => `${h1.padStart(2, '0')}:${m1} ~ ${h2.padStart(2, '0')}:${m2}`)
+  p.window = normalizeScanWindow(window)
   if (beforeT === p.targets && beforeW === p.window) return { ok: false, message: '변경 내용이 이전과 같습니다.' }
   audit(session.name, `스캔 정책 변경 — 대역 ${beforeT} → ${p.targets} · 시간대 ${beforeW} → ${p.window}`, channel)
   revalidatePath('/', 'layout')

@@ -2,26 +2,11 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { nowMinute, today } from '@/lib/dates'
+import { inScanWindow } from '@/lib/scan-policy'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { Channel, ScanPolicy, ScanRun } from '@/lib/types'
 import { fingerprintOf } from '@/lib/types'
-
-/** 능동 스캔은 운영망에 부하를 주므로 정책 창 안에서만 자유롭게 돈다.
- *  창 밖 실행은 사유를 남겨야 하고, 강도 '높음'은 창 밖에서 아예 막는다.
- *  (제품안내서 §04 비고 '스캔 정책·시간대 협의' · §07 스캔 안전장치) */
-function inWindow(window: string, hhmm: string): boolean {
-  if (window === '상시') return true
-  // 시(hour)는 1~2자리 모두 허용한다 — 정책 편집기가 '9:00' 같은 한 자리 시를 저장할 수 있어, 2자리만 파싱하면
-  // 창을 못 읽고 아래 return true 로 빠져 §07 시간대 밖 안전장치가 조용히 꺼진다(창 밖 능동 스캔이 사유 없이 통과).
-  const m = window.match(/(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})/)
-  if (!m) return true
-  const cur = Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5))
-  const from = Number(m[1]) * 60 + Number(m[2])
-  const to = Number(m[3]) * 60 + Number(m[4])
-  // 23:00~05:00 처럼 자정을 넘는 창
-  return from <= to ? cur >= from && cur <= to : cur >= from || cur <= to
-}
 
 export interface ScanInput {
   channels: Channel[]
@@ -63,7 +48,7 @@ export async function runScan(input: ScanInput) {
   const clock = nowMinute().slice(11, 16)
   const outOfWindow = input.channels.filter((c) => {
     const p = policies.get(c)
-    return p && p.kind === '능동' && !inWindow(p.window, clock)
+    return p && p.kind === '능동' && !inScanWindow(p.window, clock)
   })
   if (outOfWindow.length > 0) {
     if (input.intensity === '높음') {
