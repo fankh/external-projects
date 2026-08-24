@@ -9,6 +9,7 @@ import { getSession } from '@/lib/session'
 import { decideSaasStatus } from '@/lib/saas'
 import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
 import { getStore, nextId } from '@/lib/store'
+import { requiresApproval } from '@/lib/approval'
 import { saasEscalateTargets } from '@/lib/reminders'
 import { can, PERM_ACTIONS } from '@/lib/perm'
 import { LOCKED_AI_POLICY_TOGGLES, SCAN_INTERVALS, type Channel, type PermAction, type SaasCatalogEntry } from '@/lib/types'
@@ -125,6 +126,10 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
   const entry = s.saasCatalog.find((x) => x.id === id)
   if (!entry) return { ok: false, message: '카탈로그 항목을 찾을 수 없습니다.' }
   if (entry.status === status) return { ok: false, message: `이미 ${status} 상태입니다.` }
+  // SaaS 인가가 필수 결재로 지정돼 있으면 직접 인가 판정을 막는다(차단·재검토는 보안 조치라 그대로 둔다).
+  if (status === '인가' && requiresApproval('SaaS 인가')) {
+    return { ok: false, message: 'SaaS 인가는 필수 결재로 지정돼 있습니다 — 인가 요청을 상신해 승인 후 판정하세요.' }
+  }
 
   // 판정 로직 단일화 — Shadow SaaS 화면(classifyShadowSaas)과 동일한 상태 반영·사용현황 동기화·차단 집행 요청
   const { newlyBlocked, newlyUnblocked } = decideSaasStatus(entry, status, session.name)

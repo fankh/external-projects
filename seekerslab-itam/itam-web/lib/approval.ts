@@ -21,3 +21,19 @@ export function canDecideApproval(role: Role, a: Approval): boolean {
   const legacy = a.kind === '격리 요청' ? role === 'SEC_MGR' : role === 'ASSET_MGR'
   return role === 'ADMIN' || (stepRole ? role === stepRole : legacy)
 }
+
+/** 이 결재 종류가 '필수 결재'로 지정돼 있는가 — 사용자·결재선 화면(STEP 4)의 토글 값.
+ *
+ *  그동안 required 는 화면 배지·지표·컴플라이언스 리포트에 표시만 되고 아무것도 막지 않았다.
+ *  관리자가 '대여'를 필수 결재로 지정해도 자산 대장에서 직접 대여가 그대로 됐다 — 선언된 정책이
+ *  강제되지 않는 계열(권한 매트릭스의 조회·저장 칸과 같은 문제)이다.
+ *
+ *  강제 지점은 각 종류의 **직접 실행** 진입점이다:
+ *   · 대여 → loanAsset / loanAssetMany (직접 대여)
+ *   · 이동 → reassignAsset / reassignAssetMany (재배정 = 직접 인계)
+ *   · SaaS 인가 → decideSaas(…, '인가') (직접 인가 판정)
+ *  반납·자산 신청은 직접 실행 경로가 없다 — 신청 자체가 결재이고 그 뒤는 승인분 집행뿐이라 막을 대상이 없다.
+ *  폐기·격리 요청·소유자 확인·차이 조정은 애초에 결재로만 진행되며 필수 해제도 불가(MANDATORY_APPROVAL_KINDS). */
+export function requiresApproval(kind: Approval['kind']): boolean {
+  return getStore().approvalLines.some((l) => l.kind === kind && l.required)
+}
