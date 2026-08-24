@@ -6,7 +6,7 @@ import { issueAsset, moveAsset } from './actions'
 type Issue = { id: string; title: string; requester: string; dept: string; requestedAt: string; note?: string; desiredCategory?: string }
 type Move = {
   id: string; title: string; requester: string; requestedAt: string
-  assetNo?: string; model: string; from: string; to?: string
+  assetNo?: string; model: string; from: string; to?: string; blocked?: string
 }
 type Pool = { assetNo: string; model: string; category: string; location: string; status: string }
 
@@ -116,11 +116,17 @@ export function MovementView(props: {
                     <td className="dim">{m.from}</td>
                     <td><Chip tone="info">{m.to ?? '-'}</Chip></td>
                     <td className="c">
-                      <button className="btn sm pri" disabled={pending}
-                        onClick={() => startTransition(async () => {
-                          const r = await moveAsset(m.id)
-                          setMsg(r.message)
-                        })}>이동 처리</button>
+                      {/* 분실·폐기 경로 자산은 서버가 이동을 거부한다 — 버튼을 잠그고 이유를 적는다(누르고 나서 알게 되지 않게).
+                          신청은 목록에 남긴다: 반려·취소로 정리해야 할 건이라 조용히 감추면 미결로 방치된다. */}
+                      {m.blocked
+                        ? <span className="mut" style={{ fontSize: 11 }} title="자산이 분실·폐기 경로로 떠나 이동을 집행할 수 없습니다 — 신청을 반려·취소로 정리하세요">
+                            처리 불가 ({m.blocked})
+                          </span>
+                        : <button className="btn sm pri" disabled={pending}
+                            onClick={() => startTransition(async () => {
+                              const r = await moveAsset(m.id)
+                              setMsg(r.message)
+                            })}>이동 처리</button>}
                     </td>
                   </tr>
                 ))}

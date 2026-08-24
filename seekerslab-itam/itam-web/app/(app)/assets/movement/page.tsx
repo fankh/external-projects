@@ -2,6 +2,7 @@ import { ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { assignableAssets } from '@/lib/stock'
 import { getStore } from '@/lib/store'
+import { GONE_STATUSES } from '@/lib/types'
 import { MovementView } from './MovementView'
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,8 @@ export default async function MovementPage() {
       return {
         id: a.id, title: a.title, requester: a.requester, requestedAt: a.decidedAt ?? a.requestedAt,
         assetNo: a.refId, model: asset?.model ?? '-', from: asset?.location ?? '-', to: a.targetLocation,
+        // 서버가 거부할 건은 버튼을 잠그고 이유를 적는다(같은 목록 STALE_MOVE_STATUSES 공유) — 신청은 남겨 둔다.
+        blocked: asset && GONE_STATUSES.includes(asset.status) ? asset.status : undefined,
       }
     })
 

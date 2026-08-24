@@ -5,6 +5,7 @@ import { today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { GONE_STATUSES } from '@/lib/types'
 
 async function guard() {
   const session = await getSession()
@@ -76,6 +77,15 @@ export async function moveAsset(approvalId: string) {
   if (!asset) return { ok: false, message: '대상 자산을 찾을 수 없습니다.' }
   const to = ap.targetLocation
   if (!to) return { ok: false, message: '이동 목적지가 지정되지 않은 신청입니다.' }
+
+  // 스테일 이동 방어 — 상신·승인 뒤 자산이 분실·폐기 경로로 떠났으면 집행하지 않는다. 형제 집행 경로가 모두 같은
+  //  방어를 둔다(불출은 유휴·검수중만·폐기 절차 제외, 반납은 재배정 자산 미적용, 라이선스는 좌석 전량 회수 시 미적용).
+  //  없으면 폐기·분실 확정 자산의 위치만 바뀌고 신청자에게는 '이동 완료' 통보가 나간다 — 대장이 실물과 어긋나고
+  //  통보가 사실과 다르다. 신청 자체는 남겨 둔다(반려·취소로 정리할 대상이라 조용히 지우지 않는다).
+  if (GONE_STATUSES.includes(asset.status)) {
+    appendAudit({ actor: session.name, action: `자산 이동 미적용 — ${asset.assetNo} (${asset.status}) · ${ap.id}`, target: asset.assetNo })
+    return { ok: false, message: `${asset.status} 자산은 이동 처리할 수 없습니다 — ${asset.assetNo} (신청 ${ap.id} 은 반려·취소로 정리하세요).` }
+  }
 
   const from = asset.location
   asset.location = to
