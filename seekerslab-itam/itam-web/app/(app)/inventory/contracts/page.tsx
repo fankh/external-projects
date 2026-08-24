@@ -171,6 +171,9 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
             // 근거 계약이 해지된 라이선스 — 구독 근거가 사라진 상태(계약 해지 연계 영향 v1.272 의 역방향). 이관·재계약 검토 필요.
             baseTerminated: !!l.contractId && s.contracts.some((c) => c.id === l.contractId && c.status === '해지'),
             pendingApproval: s.approvals.find((a) => a.status === '대기' && a.refId === l.id)?.id,
+            // 잔여 설치 대수 — 해지해도 좌석·설치는 남는데 해지 라이선스는 사용 수집 대사에서 빠져 시야에서 사라진다.
+            //  해지 행에 남은 규모를 그대로 보여 제거(언인스톨) 대상을 놓치지 않게 한다(해지 응답·통보와 같은 수치).
+            installCount: (s.swInstalls ?? []).filter((i) => i.licenseId === l.id).length,
           }))}
           sel={sel}
           canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)}

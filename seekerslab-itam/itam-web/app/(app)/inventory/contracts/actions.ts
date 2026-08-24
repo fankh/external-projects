@@ -375,10 +375,17 @@ export async function retireLicense(id: string, rawReason: string) {
   l.status = '해지'
   l.terminatedAt = today()
 
-  dispatch({ channel: '이메일', to: 'IT기획팀', subject: `${l.name} 라이선스 해지 — ${reason} (공급사 ${l.vendor})`, kind: '계약 해지', ref: l.id })
-  appendAudit({ actor: session.name, action: `라이선스 해지 — ${l.name} · ${reason}`, target: l.id })
+  // 해지 연계 영향 — 해지하면 이 라이선스는 사용 수집 대사(lib/license-usage)에서 빠지므로, 남아 있던 배정 좌석과
+  //  설치 단말이 조용히 시야에서 사라진다(구독은 끊겼는데 SW 는 깔린 채 남는 컴플라이언스 사각). 계약 해지와 같은 규약으로
+  //  자동 회수는 하지 않되(제거·이관은 담당자 판단) 규모를 통보·감사·응답에 드러내 제거 대상을 명시한다.
+  const seatN = (l.seats ?? []).length
+  const installN = (s.swInstalls ?? []).filter((i) => i.licenseId === l.id).length
+  const impact = [seatN > 0 ? `배정 좌석 ${seatN}석` : '', installN > 0 ? `설치 ${installN}대` : ''].filter(Boolean).join(' · ')
+
+  dispatch({ channel: '이메일', to: 'IT기획팀', subject: `${l.name} 라이선스 해지 — ${reason} (공급사 ${l.vendor})${impact ? ` · 연계 ${impact}(제거 대상)` : ''}`, kind: '계약 해지', ref: l.id })
+  appendAudit({ actor: session.name, action: `라이선스 해지 — ${l.name} · ${reason}${impact ? ` · 연계 영향 ${impact}` : ''}`, target: l.id })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${l.name} 해지 완료 — 만료 임박 집계·알림·판정에서 제외` }
+  return { ok: true, message: `${l.name} 해지 완료 — 만료 임박 집계·알림·판정에서 제외${impact ? `. 연계 ${impact} 제거(언인스톨) 검토 필요` : ''}` }
 }
 
 /** 계약 해지 — 공급사 교체·서비스 중단 등으로 만료 전에 계약을 조기 종료한다.
