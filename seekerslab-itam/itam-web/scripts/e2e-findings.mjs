@@ -2984,6 +2984,28 @@ try {
   }
   ok('리포트 전수 생성: 전 종류가 섹션을 갖춘 리포트로 생성', rkFail === '', rkFail)
   await ctxRK.close()
+  // 스캔 수집 시간대 범위 검증 — 형식만 맞고 범위를 벗어난 값이 저장되면 §07 시간대 안전장치가 조용히 뒤집힌다.
+  //  '99:99 ~ 88:77' 은 분 환산 경계가 현재 시각(최대 1439분)보다 커져 자정 넘김 창으로 해석되고 항상 참이 된다(창 밖 능동 스캔 무제한 통과).
+  //  형식 오류와 범위 오류를 각각 거부하고, 정상 값은 그대로 저장되는지까지 본다.
+  const ctxWIN = await browser.newContext(); await ctxWIN.addCookies([cookie(ADMIN)]); const pWIN = await ctxWIN.newPage()
+  await pWIN.goto(`${BASE}/settings/scan-policy`, { waitUntil: 'networkidle' })
+  const winRow = pWIN.locator('tr', { has: pWIN.locator('td', { hasText: '네트워크 능동 스캔' }) }).first()
+  await winRow.locator('button', { hasText: /^정책 편집$/ }).click()
+  await pWIN.waitForTimeout(300)
+  const winInput = winRow.locator('input[placeholder="23:00 ~ 05:00"]')
+  await winInput.fill('99:99 ~ 88:77')
+  await winRow.locator('button', { hasText: /^저장$/ }).first().click()
+  await pWIN.waitForTimeout(700)
+  ok('스캔 시간대: 범위 밖 시·분 거부(형식만 맞는 값으로 시간대 가드가 뒤집히지 않게)', ((await pWIN.textContent('body')) || '').includes('00~23'))
+  await winInput.fill('밤에만')
+  await winRow.locator('button', { hasText: /^저장$/ }).first().click()
+  await pWIN.waitForTimeout(700)
+  ok('스캔 시간대: 형식 오류 거부', ((await pWIN.textContent('body')) || '').includes("'HH:MM ~ HH:MM'"))
+  await winInput.fill('22:00 ~ 06:00')
+  await winRow.locator('button', { hasText: /^저장$/ }).first().click()
+  await pWIN.waitForTimeout(800)
+  ok('스캔 시간대: 정상 값은 저장(정규화된 HH:MM 창)', ((await pWIN.textContent('body')) || '').includes('22:00 ~ 06:00'))
+  await ctxWIN.close()
   await browser.close()
 } catch (err) {
   fail++
