@@ -67,6 +67,7 @@ try {
   const checkRoutes = async (acct, routes, tag) => {
     const badLinks = []
     const badApis = []
+    const unnamed = []
     const seenApi = new Set()
     // 한 화면에서 링크 두 종류를 함께 본다 — 화면 링크는 라우트 권한, API 링크는 실제 응답으로 판정한다.
     const collectLinks = async (page, label) => {
@@ -88,6 +89,16 @@ try {
           if (res.status() >= 400) badApis.push(`${label} → ${raw} (HTTP ${res.status()})`)
         }
       } catch (e) { badApis.push(`${label} → API 링크 확인 실패: ${e.message}`) }
+      // 이름 없는 조작 컨트롤 — 보이는 글자도 aria-label·title 도 없는 버튼·링크는 스크린리더에서 '버튼'으로만 읽히고,
+      //  아이콘만 남은 컨트롤은 눈으로도 뜻을 알 수 없다. 화면을 이미 열어 두었으므로 같은 순회에서 함께 센다.
+      try {
+        const nameless = await page.$$eval('button, a[href]', (els) => els.filter((e) => {
+          const txt = (e.textContent || '').trim()
+          const label = e.getAttribute('aria-label') || e.getAttribute('title') || ''
+          return !txt && !label
+        }).map((e) => e.outerHTML.slice(0, 60)))
+        for (const n of nameless) unnamed.push(`${label} → ${n}`)
+      } catch (e) { unnamed.push(`${label} → 컨트롤 이름 확인 실패: ${e.message}`) }
     }
     const ctx = await browser.newContext()
     await ctx.addCookies([cookie(acct)])
@@ -173,6 +184,10 @@ try {
     const apiOk = badApis.length === 0
     apiOk ? pass++ : fail++
     console.log(`${apiOk ? '✓' : '✗'} [${tag}] API 링크 권한 정합 — 화면이 내준 API 링크가 모두 응답${apiOk ? '' : ' — ' + [...new Set(badApis)].slice(0, 6).join(', ')}`)
+    // 역할당 한 건으로 집계 — 컨트롤마다 세면 화면 구성이 바뀔 때 검사 수가 흔들린다(링크 검사와 같은 규약).
+    const nameOk = unnamed.length === 0
+    nameOk ? pass++ : fail++
+    console.log(`${nameOk ? '✓' : '✗'} [${tag}] 조작 컨트롤 이름 — 이름 없는 버튼·링크 없음${nameOk ? '' : ' — ' + [...new Set(unnamed)].slice(0, 4).join(', ')}`)
     if (acct.role === 'ADMIN' || acct.role === 'ASSET_MGR') await checkQueueParity()
     await ctx.close()
   }
