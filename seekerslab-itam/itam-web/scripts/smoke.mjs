@@ -1200,6 +1200,10 @@ try {
   check('Shadow SaaS: 엑셀 반출 버튼 노출(감사 증적)', saasSec.includes('/api/export/saas') && saasSec.includes('Shadow SaaS 엑셀'))
   const saasXlsx = Buffer.from(await (await get('/api/export/saas', 'SEC_MGR')).arrayBuffer()).toString('utf8')
   check('Shadow SaaS 엑셀: 사용 현황·부서별 미인가 시트 + 데이터', saasXlsx.includes('SaaS 사용 현황') && saasXlsx.includes('부서별 미인가 노출') && saasXlsx.includes('Notion') && saasXlsx.includes('미인가'))
+  // 반출본도 화면과 같은 기준 — 차단 판정 완료분은 부서별 미인가 노출(판정 대기 갭)에서 빠지고,
+  //  사용 현황 시트에는 남되 인가 여부 칸이 '차단 판정'으로 구분된다(판정 이력이 반출본에서 사라지면 안 된다).
+  check('Shadow SaaS 엑셀: 차단 판정 구분 표기(판정 이력 보존)', saasXlsx.includes('차단 판정'))
+
   check('Shadow SaaS 엑셀: 사용자 403 (권한 매트릭스 엑셀 통제)', (await get('/api/export/saas', 'USER')).status === 403)
   // SaaS 정책 대장 엑셀 — 인가/차단/검토중 판정·데이터 등급·결정자를 거버넌스 감사 증적으로(사용 현황 반출과 구분). 정책 화면(saas-catalog)에 export 부재였던 공백 해소.
   const catCatalog = await (await get('/settings/saas-catalog', 'SEC_MGR')).text()

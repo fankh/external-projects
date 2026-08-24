@@ -253,7 +253,11 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
 
   if (kind === 'saas') {
     // Shadow SaaS 현황 반출 — 미인가 SaaS 사용(부서별)은 감사·컴플라이언스 증적. 화면(discovery/saas)과 같은 데이터.
-    const shadow = s.saas.filter((x) => !x.sanctioned)
+    //  차단 판정이 끝난 서비스는 '판정 대기' 갭이 아니다 — sanctioned 는 인가/미인가 두 값뿐이라 차단을 담지 못한다.
+    //  화면 KPI·부서별 요약과 주간 브리핑이 쓰는 기준(카탈로그 차단 목록)을 반출본도 그대로 쓴다. 사용 현황 시트는
+    //  전 서비스를 담되 인가 여부 칸에 '차단 판정'을 구분해 적어, 판정 이력이 반출본에서 사라지지 않게 한다.
+    const blockedSaas = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
+    const shadow = s.saas.filter((x) => !x.sanctioned && !blockedSaas.has(x.service))
     const deptAgg = Object.values(
       shadow.reduce<Record<string, { dept: string; count: number; users: number }>>((acc, x) => {
         const r = (acc[x.dept] ??= { dept: x.dept, count: 0, users: 0 })
@@ -265,10 +269,10 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       {
         name: 'SaaS 사용 현황',
         header: ['서비스', '기능 분류', '주 사용 부서', '추정 사용자', '인가 여부', '위험도', '월 접속'],
-        rows: s.saas.map((x) => [x.service, x.category, x.dept, x.users, x.sanctioned ? '인가' : '미인가', x.risk, x.monthlyVisits]),
+        rows: s.saas.map((x) => [x.service, x.category, x.dept, x.users, x.sanctioned ? '인가' : blockedSaas.has(x.service) ? '차단 판정' : '미인가', x.risk, x.monthlyVisits]),
       },
       {
-        name: '부서별 미인가 노출',
+        name: '부서별 미인가 노출',  // 판정 대기 미인가만 — 차단 판정 완료분 제외(화면 요약과 동일)
         header: ['부서', '미인가 서비스 수', '추정 사용자 합'],
         rows: deptAgg.map((r) => [r.dept, r.count, r.users]),
       },
