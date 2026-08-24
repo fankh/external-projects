@@ -3870,6 +3870,26 @@ try {
   ok(`대여 신청 재고: 신청 폼 ${lpOpts}대 = 재고 화면 가용 재고 ${lpAvail}대(같은 재배치 가능 판정)`,
     lpAvail > 0 && lpOpts === lpAvail)
   await ctxLP.close()
+
+  // MFA 등록 요구 중복 억제(신규) — 다른 통지·독촉은 모두 당일 발송분을 빼고 버튼 건수도 그 대상 수로 말하는데,
+  //  MFA 요구만 미적용 인원을 그대로 세고 눌러도 계속 발송돼, 보낸 뒤에도 같은 건수의 버튼이 남았다(알림 피로·유령 컨트롤).
+  const ctxMF = await browser.newContext(); await ctxMF.addCookies([cookie(ADMIN)]); const pMF = await ctxMF.newPage()
+  await pMF.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
+  const mfBtn = () => pMF.locator('button', { hasText: /MFA 미등록자 등록 요구/ }).first()
+  const mfCount = Number((/\((\d+)명\)/.exec((await mfBtn().textContent()) || '') || [])[1] ?? 0)
+  ok(`MFA 등록 요구: 미발송 대상이 있으면 건수와 함께 노출 (${mfCount}명)`, mfCount > 0)
+  await mfBtn().click()
+  await pMF.waitForTimeout(900)
+  ok('MFA 등록 요구: 발송 성공 메시지(발송 이력·감사 기록)',
+    /MFA 등록 요구를 \d+명에게 발송/.test((await pMF.locator('body').textContent()) || ''))
+  await pMF.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
+  const mfAfter = ((await mfBtn().textContent()) || '')
+  ok('MFA 등록 요구(중복 억제): 발송 직후 (0)명·비활성 — 미적용 지표는 유지',
+    mfAfter.includes('(0명)') && (await mfBtn().isDisabled()) && ((await pMF.locator('body').textContent()) || '').includes('미적용'))
+  ok('MFA 등록 요구: 개별 행도 오늘 요구함으로 바뀐다(막다른 컨트롤 방지)',
+    ((await pMF.locator('body').textContent()) || '').includes('오늘 요구함')
+    && (await pMF.locator('button', { hasText: /^요구$/ }).count()) === 0)
+  await ctxMF.close()
   // 폐기 절차 불변식 — 상태가 '폐기예정'인 자산은 반드시 폐기 건(disposals)이 있어야 한다. 지금은 폐기예정으로
   //  바꾸는 8개 경로가 저마다 `if (!s.disposals.some(...)) push` 를 적어 지키고 있을 뿐, 이를 확인하는 검사가 없었다.
   //  한 경로가 빠뜨리면 그 자산은 폐기예정인데 폐기 화면에 없어 결재·소거로 나아갈 수 없다(상태만 종착, 절차는 없음).
