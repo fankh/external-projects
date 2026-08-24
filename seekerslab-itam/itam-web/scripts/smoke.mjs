@@ -1631,6 +1631,24 @@ try {
   const sampleClaims = [...claims(readme, /AI 리포트 샘플 (\d+)종/g), ...claims(summary, /AI 리포트 샘플 (\d+)종/g)]
   check(`문서: 리포트 샘플 ${sampleFiles}종 일치`, allSame(sampleClaims, sampleFiles), `주장=${sampleClaims.join(",")} 실제=${sampleFiles}`)
 
+  // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
+  //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
+  const seedCount = (fn, re) => {
+    const start = storeSrc.indexOf('function ' + fn)
+    if (start < 0) return -1
+    const end = storeSrc.indexOf(String.fromCharCode(10) + 'function ', start + 1)
+    return (storeSrc.slice(start, end === -1 ? undefined : end).match(re) || []).length
+  }
+  const BS_ = String.fromCharCode(92)
+  const connectors = seedCount('seedIntegrations', /id: 'INT-/g)
+  const connectorClaims = [...claims(readme, new RegExp('커넥터 (' + BS_ + 'd+)종', 'g')), ...claims(summary, new RegExp('커넥터 (' + BS_ + 'd+)종', 'g'))]
+  check(`문서: 연동 커넥터 ${connectors}종 일치`, allSame(connectorClaims, connectors), `주장=${connectorClaims.join()} 실제=${connectors}`)
+  const channels = seedCount('seedScanPolicies', /channel: /g)
+  // '3채널 자산'(한 자산이 세 채널에서 관측)처럼 같은 글자를 쓰는 다른 뜻이 있어, 채널 수를 말하는 표현만 읽는다.
+  const chRes = ['(' + BS_ + 'd+)채널 병렬', '(' + BS_ + 'd+)채널 발견', '발견 자산' + BS_ + '((' + BS_ + 'd+)채널' + BS_ + ')']
+  const channelClaims = chRes.flatMap((r) => [...claims(readme, new RegExp(r, 'g')), ...claims(summary, new RegExp(r, 'g'))])
+  check(`문서: 탐지 채널 ${channels}채널 일치`, allSame(channelClaims, channels), `주장=${channelClaims.join()} 실제=${channels}`)
+
   // 스모크 건수는 자기참조 — 이 블록까지 포함한 최종 합계와 비교한다
   const smokeClaims = [...claims(readme, /→ (\d+)개 검증/g), ...claims(summary, /스모크 (\d+)건/g)]
   const finalTotal = passed + failed + 1   // +1 = 지금 실행할 이 검사
