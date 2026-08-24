@@ -302,7 +302,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     const asset = s.assets.find((x) => x.assetNo === a.refId)
     // 요청~승인 사이 자산이 유휴에서 빠졌거나(불출·대여) 폐기 절차에 들어갔으면 집행하지 않는다(폐기 예정분 대여 방지).
     const assetInDisposal = asset ? s.disposals.some((d) => d.assetNo === asset.assetNo) : false
-    if (asset && asset.status === '유휴' && !assetInDisposal) {
+    if (asset && asset.status === '유휴' && !assetInDisposal && !asset.quarantinedAt) {
       asset.status = '대여중'
       asset.owner = a.requester
       asset.dept = a.dept
@@ -313,7 +313,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       // 승인은 했는데 집행할 수 없다 — 요청~승인 사이 자산이 대여·불출로 빠졌거나 폐기 절차에 들어갔다.
       //  그냥 넘기면 신청자는 '승인' 통보만 받고 자산은 오지 않으며, 대여는 자산 신청·이동과 달리 미집행 대기열이 없어
       //  어디에도 드러나지 않는다(승인 상태로 조용히 사라진다). 사유를 감사에 남기고 신청자에게 알린다.
-      const why = !asset ? '대상 자산 없음' : assetInDisposal ? '폐기 절차 진입' : `상태 ${asset.status}`
+      const why = !asset ? '대상 자산 없음' : assetInDisposal ? '폐기 절차 진입' : asset.quarantinedAt ? `NAC 격리(${asset.quarantinedAt})` : `상태 ${asset.status}`
       appendAudit({ actor: session.name, action: `대여 승인 미집행 — ${a.refId} (${why}) · 재신청 안내`, target: a.id })
       dispatch({
         channel: '이메일',
