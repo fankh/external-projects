@@ -13,6 +13,7 @@ import { inNoticeAudience, noticeTargets } from '@/lib/notice'
 import { hasDataIssue } from '@/lib/quality'
 import { canViewMenu } from '@/lib/perm'
 import { approvalHref, entityHref, noticeHref, qnaHref } from '@/lib/reflink'
+import { impactNoticeTargets } from '@/lib/reminders'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { buildSaasReview, SAAS_REVIEW_SLA_DAYS } from '@/lib/saas-review'
@@ -106,6 +107,8 @@ export default async function DashboardPage() {
       { label: '정기 점검 대상 (예방 정비 도래)', count: s.assets.filter((a) => isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays)).length, href: '/assets/register?maint=1', tone: 'warn' },
       // 영향 집중 자산(단일 장애점·CMDB blast radius) — 이 자산 장애 시 전이적으로 2대 이상 영향. 이중화·우선 정비 대상. 현재 저하(수리중·분실 등) 상태면 즉시 리스크(err).
       { label: `영향 집중 자산 (blast radius ≥2 · 단일 장애점${spof.some((x) => x.degraded) ? ' · 저하 포함' : ''})`, count: spof.length, href: spof.length ? `/assets/register?spof=1` : '/assets/register', tone: spof.some((x) => x.degraded) ? 'err' : 'warn' },
+      // 하위 의존 영향 통지 대상 — 상위가 운영에서 빠졌는데 하위 담당 부서에 아직 알리지 않은 건(로75). 대장의 통지 버튼과 같은 집합(lib/reminders).
+      { label: '하위 의존 영향 통지 대상 (상위 이탈 · 미통지)', count: impactNoticeTargets().length, href: '/assets/register?impact=1', tone: 'warn' },
       // 복합 위험 자산 — 정합성·EOL·보증·점검·SPOF·교체·미실측 중 2개 이상이 겹치는 다중 이슈 자산. 개별 신호 큐가 놓치는 '한 자산에 문제가 몰린' 우선 조치 대상을 사전에 드러낸다(?risk=1 드릴다운 → 상세 '위험 신호' 요약).
       { label: '복합 위험 자산 (≥2 신호 · 다중 이슈 우선 조치)', count: compositeRiskNos.length, href: compositeRiskNos.length ? '/assets/register?risk=1' : '/assets/register', tone: 'warn' },
       { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal', tone: 'err' },

@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -47,6 +47,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [critOnly, setCritOnly] = useState(Boolean(props.initialCrit))
   const [maintOnly, setMaintOnly] = useState(Boolean(props.initialMaint))
   const [spofOnly, setSpofOnly] = useState(Boolean(props.initialSpof))
+  const [impactOnly, setImpactOnly] = useState(Boolean(props.initialImpact))
   const [replaceOnly, setReplaceOnly] = useState(Boolean(props.initialReplace))
   const [riskOnly, setRiskOnly] = useState(Boolean(props.initialRisk))
   const [receiptOnly, setReceiptOnly] = useState(Boolean(props.initialReceipt))
@@ -75,7 +76,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     setNaming(false); setViewName('')
   }
   const removeView = (name: string) => persistViews(views.filter((x) => x.name !== name))
-  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly || maintOnly || spofOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly
+  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly || maintOnly || spofOnly || impactOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const warrantySet = useMemo(() => new Set(props.warrantyNos ?? []), [props.warrantyNos])
   const dqSet = useMemo(() => new Set(props.dqNos ?? []), [props.dqNos])
@@ -83,6 +84,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const critSet = useMemo(() => new Set(props.critNos ?? []), [props.critNos])
   const maintSet = useMemo(() => new Set(props.maintenanceNos ?? []), [props.maintenanceNos])
   const spofSet = useMemo(() => new Set(props.spofNos ?? []), [props.spofNos])
+  const impactSet = useMemo(() => new Set(props.impactNos ?? []), [props.impactNos])
   const replaceSet = useMemo(() => new Set(props.replaceNos ?? []), [props.replaceNos])
   const riskSet = useMemo(() => new Set(props.riskNos ?? []), [props.riskNos])
   // 폐기 절차(대상 선정~소거 대기) 진행 중 자산 — 서버 가드가 재불출·대여를 거부하므로 화면도 대여 접점을 내주지 않는다.
@@ -159,6 +161,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       if (critOnly && !critSet.has(a.assetNo)) return false
       if (maintOnly && !maintSet.has(a.assetNo)) return false
       if (spofOnly && !spofSet.has(a.assetNo)) return false
+      if (impactOnly && !impactSet.has(a.assetNo)) return false
       if (replaceOnly && !replaceSet.has(a.assetNo)) return false
       if (riskOnly && !riskSet.has(a.assetNo)) return false
       if (receiptOnly && !receiptSet.has(a.assetNo)) return false
@@ -168,7 +171,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet, spofOnly, spofSet, replaceOnly, replaceSet, receiptOnly, receiptSet, loanExtOnly, loanExtSet, loanRetOnly, loanRetSet])
+  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet, spofOnly, spofSet, impactOnly, impactSet, replaceOnly, replaceSet, receiptOnly, receiptSet, loanExtOnly, loanExtSet, loanRetOnly, loanRetSet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
   // CMDB 의존 관계 — 클라이언트에서 대장 스냅샷(props.assets)으로 순수 산출(상위 의존·영향 범위·저하 상위)
@@ -299,6 +302,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             {maintOnly ? '✓ ' : ''}정기 점검 {maintSet.size}
           </button>
         )}
+        {impactSet.size > 0 && (
+          <button className={`btn sm ${impactOnly ? 'err' : ''}`} onClick={() => setImpactOnly((v) => !v)}
+            title="하위 의존 영향 통지 대상 — 회수·분실·수리·폐기 절차로 운영에서 빠졌는데 하위 의존 자산 담당 부서에 오늘 아직 통지하지 않은 상위 자산(대시보드 큐와 같은 집합)">
+            {impactOnly ? '✓ ' : ''}의존 영향 통지 대상 {impactSet.size}
+          </button>
+        )}
         {spofSet.size > 0 && (
           <button className={`btn sm ${spofOnly ? 'err' : ''}`} onClick={() => setSpofOnly((v) => !v)}
             title="단일 장애점(SPOF) — CMDB 의존 그래프상 장애 시 하위 2대 이상이 전이 영향받는 자산. 이중화·DR 우선 대상">
@@ -369,7 +378,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             href={`/api/export/assets?${new URLSearchParams(
               // 화면 필터를 그대로 반영 — 서버 빌더가 지원하지 않는 필터(정합성·EOL·핵심중요·정기점검·단일장애점)가 켜져 있으면
               // 현재 보이는 행 번호를 nos 로 넘겨 파일이 화면 행수와 정확히 일치하게 한다(버튼이 약속한 건수와 파일이 어긋나지 않게).
-              (dqOnly || eolOnly || critOnly || maintOnly || spofOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly)
+              (dqOnly || eolOnly || critOnly || maintOnly || spofOnly || impactOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly)
                 ? { nos: rows.map((a) => a.assetNo).join(',') }
                 : { q: q.trim(), cat, status, ...(staleOnly ? { stale: '1' } : {}), ...(warrantyOnly ? { warranty: '1' } : {}) },
             ).toString()}`}>

@@ -16,9 +16,9 @@ import { RegisterView } from './RegisterView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string; maint?: string; spof?: string; replace?: string; stale?: string; receipt?: string; loanext?: string; loanret?: string; risk?: string }> }) {
+export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string; maint?: string; spof?: string; replace?: string; stale?: string; receipt?: string; loanext?: string; loanret?: string; risk?: string; impact?: string }> }) {
   const session = await requireView('/assets/register', 'USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
-  const { q, sel, cat, status, warranty, dq, os, crit, maint, spof, replace, stale, receipt, loanext, loanret, risk } = await searchParams
+  const { q, sel, cat, status, warranty, dq, os, crit, maint, spof, replace, stale, receipt, loanext, loanret, risk, impact } = await searchParams
   const s = getStore()
   // 자산 운영 권한 — 대장의 조작 컨트롤과 CSV 일괄 등록 패널이 같은 판정을 쓴다(서버 액션의 역할 집합과 일치).
   const canManage = ['ASSET_MGR', 'ADMIN'].includes(session.role)
@@ -67,6 +67,8 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const maintOverdueCount = canManage ? maintenanceRemindTargets().length : 0
   // 의존 영향 통지 버튼 건수 — 저하·이탈 상위 자산 중 아직 오늘 통지하지 않은 하위 담당 부서가 남은 건수(lib/reminders · 액션과 같은 소스).
   const impactNoticeCount = canManage ? impactNoticeTargets().length : 0
+  // 통지 대상 상위 자산번호 — 대시보드 큐(?impact=1) 드릴다운이 큐 건수와 같은 집합을 열도록 같은 소스를 쓴다.
+  const impactNos = canManage ? impactNoticeTargets().map((x) => x.asset.assetNo).filter((no) => scopedNoSet.has(no)) : []
   // 복합 위험(≥2 신호) — 정합성 미흡·EOL·보증·점검·SPOF·교체·미실측 주의 신호가 2개 이상 겹치는 자산. 대장 필터·도시어 요약·대시보드 큐가 lib/risk 단일 소스 공유(임계값 재계산 없음).
   const riskNos = compositeRiskAssetNos(scoped)
   // 폐기 절차(대상 선정~소거 대기) 진행 중 — 재불출·대여 가드(dispatchAsset·loanAsset)가 거부하는 자산.
@@ -96,7 +98,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       {/* CSV 일괄 등록은 bulkRegisterAssets(자산담당·Admin)를 부른다 — 보안담당에게 내주면 붙여넣고 눌러야 거부된다 */}
       {canManage && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canDoc={['ASSET_MGR', 'ADMIN'].includes(session.role)} canQuarantine={['SEC_MGR', 'ADMIN'].includes(session.role)} canManage={canManage} loanNeedsApproval={loanNeedsApproval} moveNeedsApproval={moveNeedsApproval} terminatedContracts={terminatedContracts} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} expiryWindowDays={s.opsPolicy.expiryWindowDays} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} eolNoticeCount={eolNoticeCount} impactNoticeCount={impactNoticeCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canDoc={['ASSET_MGR', 'ADMIN'].includes(session.role)} canQuarantine={['SEC_MGR', 'ADMIN'].includes(session.role)} canManage={canManage} loanNeedsApproval={loanNeedsApproval} moveNeedsApproval={moveNeedsApproval} terminatedContracts={terminatedContracts} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} expiryWindowDays={s.opsPolicy.expiryWindowDays} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} eolNoticeCount={eolNoticeCount} impactNoticeCount={impactNoticeCount} impactNos={impactNos} initialImpact={impact === '1'} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
       </Card>
     </>
   )
