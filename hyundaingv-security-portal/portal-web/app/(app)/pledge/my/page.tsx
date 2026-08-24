@@ -103,7 +103,7 @@ export default async function MyPledgePage() {
   return (
     <>
       <ScreenHeader kicker="임직원 의식제고" title="보안서약서 제출"
-        desc={`${currentYear()}년 일반 보안서약서 (개정일자 ${REVISION.slice(0, 10)}) — 온라인 동의로 제출한다.`}
+        desc={`${currentYear()}년 일반 보안서약서 (개정 ${REVISION.slice(0, 10)})`}
         right={signed
           ? <Chip tone="ok">제출 완료 · {signed.signedAt.slice(0, 10)}</Chip>
           : <Chip tone="err">미제출</Chip>} />
