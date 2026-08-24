@@ -2999,6 +2999,22 @@ try {
   await pQB.waitForTimeout(900)
   await pQB.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
   ok('대장 자산 격리(로70): 2단계 승인 → NAC 격리 집행(대장 격리 표시)', ((await pQB.locator('tr', { has: pQB.locator('td', { hasText: 'AST-2024-000377' }) }).first().textContent()) || '').includes('격리'))
+  // 격리 자산 운영 게이트(신규) — NAC 로 망이 막힌 장비를 새 보유자에게 넘기면, 받은 사람은 쓸 수 없고 보안 조사는
+  //  열린 채 보유자만 바뀐다. 화면은 재배정·대여 컨트롤 대신 사유를 보여 주고, 서버도 같은 이유로 거절해야 한다.
+  const ctxQG = await browser.newContext(); await ctxQG.addCookies([cookie(ASSET)]); const pQG = await ctxQG.newPage()
+  await pQG.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
+  const qgBody = ((await pQG.locator('body').textContent()) || '').replace(/\s+/g, ' ')
+  ok('격리 자산 게이트: 상세에 재배정 컨트롤 대신 사유 표기(막다른 컨트롤 방지)',
+    qgBody.includes('NAC 격리 중') && (await pQG.locator('button', { hasText: /^재배정$/ }).count()) === 0)
+  // 서버도 같은 판정 — 일괄 재배정으로 격리 자산만 골라 보내면 대상 없음으로 거절된다(화면 게이트를 우회해도 막힌다).
+  await pQG.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await pQG.locator('input[aria-label="AST-2024-000377 선택"]').check()
+  await pQG.locator('select', { has: pQG.locator('option', { hasText: '인계 대상…' }) }).selectOption('오세훈')
+  await pQG.locator('button', { hasText: /^재배정$/ }).click()
+  await pQG.waitForTimeout(800)
+  ok('격리 자산 게이트: 서버가 격리 자산 재배정을 거절(화면 우회 방어)',
+    ((await pQG.locator('body').textContent()) || '').includes('재배정 대상(사용 중·다른 보유자)이 없습니다'))
+  await ctxQG.close()
   await ctxQB.close()
   // 격리 집행 후 이상 행위 목록 정합 — 나머지 세 축(미인가 SW·USB·유휴 자산 사용)은 모두 미조치분만 세는데,
   //  이상탐지 제안만 '반려 아님' 기준이라 NAC 차단이 집행된 뒤에도 이탈 목록·심각도 집계에 영구히 남았다.

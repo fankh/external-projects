@@ -283,6 +283,9 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (asset.status !== '유휴') return { ok: false, message: `대여 가능한 상태가 아닙니다 — ${assetNo} (${asset.status}). 유휴 재고만 대여할 수 있습니다.` }
+  // NAC 격리 중인 자산은 새 보유자에게 넘기지 않는다 — 망이 막힌 장비를 받은 사람은 쓸 수 없고,
+  //  보안 조사가 열린 채 보유자만 바뀌어 조치 대상이 흐려진다(격리 해제가 선행 조건 · 폐기 절차 가드와 같은 자리).
+  if (asset.quarantinedAt) return { ok: false, message: `NAC 격리 중인 자산입니다 — ${asset.assetNo} (격리 ${asset.quarantinedAt}) · 격리 해제 후 처리하세요.` }
   // 폐기 절차(대상 선정~소거 대기) 중인 유휴 자산은 재불출 대상이 아니다 — 파기 예정 자산이 다시 순환되면 안 된다(가용 재고 산정과 동일 판정).
   if (s.disposals.some((d) => d.assetNo === assetNo && d.status !== '완료')) return { ok: false, message: `폐기 절차 중인 자산은 대여할 수 없습니다 — ${assetNo} (먼저 폐기 대상 선정을 취소하세요).` }
   const to = rawTo.trim()
@@ -322,7 +325,8 @@ export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: 
   const s = getStore()
   // 유휴 재고만, 폐기 절차(완료 제외) 중인 자산은 제외 — 파기 예정 자산 재순환 방지(단건 가드·가용 재고 산정과 동일 판정).
   const pendingDisposal = new Set(s.disposals.filter((d) => d.status !== '완료').map((d) => d.assetNo))
-  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.status === '유휴' && !pendingDisposal.has(a.assetNo))
+  // 격리 자산은 일괄에서도 뺀다(단건 가드와 같은 규약 · 아래 제외 건수로 밝힌다)
+  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.status === '유휴' && !pendingDisposal.has(a.assetNo) && !a.quarantinedAt)
   if (targets.length === 0) return { ok: false, message: '대여할 자산이 없습니다 (유휴 재고만·폐기 절차 자산 제외).' }
   for (const asset of targets) {
     asset.status = '대여중'
@@ -337,7 +341,7 @@ export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: 
   appendAudit({ actor: session.name, action: `자산 일괄 대여 — ${to}(${dept}) · 기한 ${dueDate} (${targets.length}건) · 대여자 통보`, target: '대여' })
   revalidatePath('/', 'layout')
   const skippedL = assetNos.length - targets.length // 유휴가 아니거나 폐기 절차 중이라 건너뛴 선택분
-  return { ok: true, message: `${targets.length}건 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}${skippedL > 0 ? ` (유휴 아님·폐기 절차 ${skippedL}건 제외)` : ''}` }
+  return { ok: true, message: `${targets.length}건 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}${skippedL > 0 ? ` (유휴 아님·폐기 절차·격리 ${skippedL}건 제외)` : ''}` }
 }
 
 /** 대여 반환 기한 연장 — 반납·재대여 없이 대여 기간을 늘린다(대여자가 더 오래 써야 할 때·연체 유예).
@@ -647,6 +651,9 @@ export async function reassignAsset(assetNo: string, rawNewOwner: string, rawNot
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (asset.status !== '사용중') return { ok: false, message: `사용 중 자산만 재배정할 수 있습니다 — ${assetNo} (${asset.status})` }
+  // NAC 격리 중인 자산은 새 보유자에게 넘기지 않는다 — 망이 막힌 장비를 받은 사람은 쓸 수 없고,
+  //  보안 조사가 열린 채 보유자만 바뀌어 조치 대상이 흐려진다(격리 해제가 선행 조건 · 폐기 절차 가드와 같은 자리).
+  if (asset.quarantinedAt) return { ok: false, message: `NAC 격리 중인 자산입니다 — ${asset.assetNo} (격리 ${asset.quarantinedAt}) · 격리 해제 후 처리하세요.` }
   const user = s.users.find((u) => u.name === rawNewOwner.trim())
   if (!user) return { ok: false, message: '재배정 대상 사용자를 선택해 주세요.' }
   if (user.name === asset.owner) return { ok: false, message: '현재 보유자와 동일한 사용자입니다.' }
@@ -712,7 +719,7 @@ export async function reassignAssetMany(assetNos: string[], rawNewOwner: string,
   let skippedM = 0 // 사용 중이 아니거나 이미 그 보유자라 건너뛴 선택분
   for (const no of assetNos) {
     const asset = s.assets.find((a) => a.assetNo === no)
-    if (!asset || asset.status !== '사용중') { skippedM += 1; continue }
+    if (!asset || asset.status !== '사용중' || asset.quarantinedAt) { skippedM += 1; continue }
     if (asset.owner === user.name) { skippedM += 1; continue } // 이미 대상 보유자 — 건너뜀(단건 reassignAsset 의 동일 보유자 차단과 동형)
     const from = `${asset.owner} (${asset.dept})`
     asset.owner = user.name
@@ -730,7 +737,7 @@ export async function reassignAssetMany(assetNos: string[], rawNewOwner: string,
   if (n === 0) return { ok: false, message: '재배정 대상(사용 중·다른 보유자)이 없습니다 — 선택 항목을 확인하세요.' }
   appendAudit({ actor: session.name, action: `자산 일괄 재배정 ${n}건 → ${user.name} (${user.dept})${note ? ` · ${note}` : ''}`, target: '인수인계·후임 승계' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${n}건 재배정 — → ${user.name} (${user.dept}) · 새 보유자 수령 확인 대기${seats ? ` · 라이선스 좌석 ${seats}건 승계` : ''}${skippedM > 0 ? ` · 제외 ${skippedM}건(사용 중 아님·이미 해당 보유자)` : ''}` }
+  return { ok: true, message: `${n}건 재배정 — → ${user.name} (${user.dept}) · 새 보유자 수령 확인 대기${seats ? ` · 라이선스 좌석 ${seats}건 승계` : ''}${skippedM > 0 ? ` · 제외 ${skippedM}건(사용 중 아님·이미 해당 보유자·격리)` : ''}` }
 }
 
 /** 정기 점검 완료 — 예방 정비를 시행하고 다음 점검을 재예약한다(§03 유지보수: 사전 정비).

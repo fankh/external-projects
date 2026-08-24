@@ -1172,10 +1172,14 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
 
             {/* 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 후임/동료에게 직접 인계. 새 보유자 수령 확인 대기. 자산담당만(canEdit). */}
             {/* 이동(재배정)이 필수 결재로 지정돼 있으면 직접 인계 컨트롤을 내주지 않는다 — 서버가 거부한다(신청 · 결재로). */}
-            {props.canManage && props.moveNeedsApproval && sel.status === '사용중' && (
+            {props.canManage && (sel.status === '사용중' || sel.status === '유휴') && sel.quarantinedAt && (
+              // 망이 막힌 장비를 새 보유자에게 넘기지 않는다 — 서버도 같은 이유로 거절한다(막다른 컨트롤 방지).
+              <div className="mut" style={{ marginTop: 12, fontSize: 11 }}>NAC 격리 중({sel.quarantinedAt})이라 재배정·대여 대상이 아닙니다 — 보안 조사 종결 후 격리 해제하고 처리하세요.</div>
+            )}
+            {props.canManage && props.moveNeedsApproval && sel.status === '사용중' && !sel.quarantinedAt && (
               <div className="callout" style={{ marginTop: 12 }}>재배정(이동)은 <b>필수 결재</b>로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.</div>
             )}
-            {props.canManage && !props.moveNeedsApproval && sel.status === '사용중' && (props.users?.length ?? 0) > 0 && (
+            {props.canManage && !props.moveNeedsApproval && sel.status === '사용중' && !sel.quarantinedAt && (props.users?.length ?? 0) > 0 && (
               <div style={{ marginTop: 12 }}>
                 {reassignMsg && <div className="callout" style={{ marginBottom: 10 }}>{reassignMsg}</div>}
                 {!reassignOpen ? (
@@ -1208,10 +1212,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             )}
 
             {/* 대여가 필수 결재로 지정돼 있으면 직접 대여 컨트롤을 내주지 않는다(좌석 배정 종료 상태 가드와 같은 규약). */}
-            {props.canManage && props.loanNeedsApproval && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && (
+            {props.canManage && props.loanNeedsApproval && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && !sel.quarantinedAt && (
               <div className="callout" style={{ marginTop: 12 }}>대여는 <b>필수 결재</b>로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.</div>
             )}
-            {props.canManage && !props.loanNeedsApproval && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && (
+            {props.canManage && !props.loanNeedsApproval && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && !sel.quarantinedAt && (
               <div style={{ marginTop: 12 }}>
                 {loanMsg && <div className="callout" style={{ marginBottom: 10 }}>{loanMsg}</div>}
                 {!loanOpen ? (
