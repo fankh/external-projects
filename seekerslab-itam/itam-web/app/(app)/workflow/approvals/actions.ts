@@ -308,6 +308,19 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       asset.loanDueDate = a.loanDueDate
       asset.history.push({ date: today(), kind: '대여', detail: `대여 신청 승인 — ${a.requester}(${a.dept}) 대여 · 반환 기한 ${a.loanDueDate ?? '-'} (${a.id})`, actor: session.name })
       a.fulfilled = true
+    } else {
+      // 승인은 했는데 집행할 수 없다 — 요청~승인 사이 자산이 대여·불출로 빠졌거나 폐기 절차에 들어갔다.
+      //  그냥 넘기면 신청자는 '승인' 통보만 받고 자산은 오지 않으며, 대여는 자산 신청·이동과 달리 미집행 대기열이 없어
+      //  어디에도 드러나지 않는다(승인 상태로 조용히 사라진다). 사유를 감사에 남기고 신청자에게 알린다.
+      const why = !asset ? '대상 자산 없음' : assetInDisposal ? '폐기 절차 진입' : `상태 ${asset.status}`
+      appendAudit({ actor: session.name, action: `대여 승인 미집행 — ${a.refId} (${why}) · 재신청 안내`, target: a.id })
+      dispatch({
+        channel: '이메일',
+        to: a.requester,
+        subject: `[결재 결과] 대여 승인 — 다만 ${a.refId} 는 더 이상 대여할 수 없어 집행되지 않았습니다 (${why}). 다른 유휴 재고로 재신청해 주세요.`,
+        kind: '결재 결과',
+        ref: a.id,
+      })
     }
   }
 
