@@ -1365,6 +1365,24 @@ try {
   }
   check(`시드 참조 무결성: 자산 ${seededAssets.size}건 · 참조가 모두 실재 자산을 가리킴`, danglingRefs.length === 0, danglingRefs.slice(0, 5).join(', '))
 
+  // 자산 외 참조도 같은 방식으로 — 계약·라이선스·조사 회차는 화면이 실제로 조회에 쓴다(자산 상세의 연계 계약 링크,
+  //  좌석 대사, 회차별 실사 집계). 끊기면 조회가 빈손이 되거나 집계에서 조용히 빠진다.
+  //  폐기 레코드의 approvalId 는 제외한다 — 시드는 최근 결재만 담고 과거 폐기 건은 당시 결재번호를 증적으로 적어 둔다
+  //  (APR-2606-088·090). 링크가 아니라 참조 번호 표기라 끊긴 것이 아니다.
+  const idSet = (re) => new Set([...storeSrc.matchAll(re)].map((m) => m[1]))
+  const seededContracts = idSet(/id: '(CT-[^']+)'/g)
+  const seededLicenses = idSet(/id: '(LIC-[^']+)'/g)
+  const seededRounds = idSet(/id: '(INV-[^']+)'/g)
+  const refCheck = (label, re, set) => [...storeSrc.matchAll(re)].map((m) => m[1]).filter((v) => !set.has(v)).map((v) => `${label} ${v}`)
+  const danglingIds = [
+    ...refCheck('contractId', /contractId: '([^']+)'/g, seededContracts),
+    ...refCheck('licenseId', /licenseId: '([^']+)'/g, seededLicenses),
+    ...refCheck('roundId', /roundId: '([^']+)'/g, seededRounds),
+  ]
+  check(`시드 참조 무결성: 계약 ${seededContracts.size}·라이선스 ${seededLicenses.size}·조사 회차 ${seededRounds.size} 참조가 모두 실재`,
+    danglingIds.length === 0, [...new Set(danglingIds)].slice(0, 5).join(', '))
+
+
   const reportsSrc = readFileSync(path.join(ROOT, 'lib', 'reports.ts'), 'utf8')
   const reportKinds = [...reportsSrc.matchAll(/\{ kind: '([^']+)', period:/g)].map((m) => m[1])
   const sectionBranches = new Set([...reportsSrc.matchAll(/kind (?:===|!==) '([^']+)'/g)].map((m) => m[1])) // '감사 대응 자료' 는 마지막 구간이라 !== 로 분기한다
