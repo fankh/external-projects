@@ -2087,6 +2087,18 @@ try {
     encAsset.includes('대장 정합성 미흡') && encAsset.includes('소유자 미지정'))
   ok('편입 자산 위치: 자리표시자(실사 확인 필요)도 위치 누락으로 잡힌다(실사 확정 계기 유지)',
     encAsset.includes('위치 누락') && encAsset.includes('실사 확인 필요'))
+  // 자리표시자 보정 경로(신규) — 판정은 "미흡"이라 하면서 보정은 "이미 값이 있다"고 거절하면 화면이 내준 입력이
+  //  막다른 컨트롤이 된다. 편입 자산의 보유자(미지정)를 실제 사람으로 보정하고, 부서도 그 사람 부서로 맞는지 본다.
+  const encFix = p3.locator('.callout.warn', { hasText: '대장 정합성 미흡' }).first()
+  await encFix.locator('input[placeholder*="보정할 소유자"]').fill('오세훈')
+  await encFix.locator('button', { hasText: /^보정$/ }).first().click()
+  await p3.waitForTimeout(800)
+  await p3.goto(`${BASE}/assets/register?sel=${encNo}`, { waitUntil: 'networkidle' })
+  const encFixed = ((await p3.locator('body').textContent()) || '').replace(/\s+/g, ' ')
+  ok('정합성 보정: 자리표시자(미지정) 보유자를 보정할 수 있다(막다른 컨트롤 아님)',
+    encFixed.includes('오세훈') && !encFixed.includes('이미 값이 있습니다'))
+  ok('정합성 보정: 보유자를 채우면 부서도 그 사람 부서로 동기화(비용 배분·통지 어긋남 방지)',
+    encFixed.includes('인사팀') && !encFixed.includes('소유자 미지정'))
   // 등록·불일치(이미 대장에 매칭된 자산)는 편입 불가 — 편입하면 대장에 중복 자산이 생긴다. 불일치는 재물조사 차이 조정으로 대사.
   await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
   const mis029 = p3.locator('tr', { has: p3.locator('td', { hasText: 'DSC-2607-0029' }) }).first()

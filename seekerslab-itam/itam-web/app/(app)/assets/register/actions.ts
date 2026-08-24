@@ -195,11 +195,21 @@ export async function correctField(assetNo: string, field: StewardField, rawValu
   if (!value || value === '-') return { ok: false, message: `${field} 의 값을 입력하세요.` }
 
   const before = (asset[key] ?? '').trim()
-  // 이미 값이 있으면 정정이 아니라 변경 — 거버넌스 대상이라 이동·불출 절차로 유도한다.
-  if (before && before !== '-') return { ok: false, message: `${field} 은 이미 값이 있습니다 — 실물 변경은 이동·불출 결재로 처리하세요.` }
+  // 자리표시자는 값이 아니다 — 정합성 판정(lib/quality)이 보유자 미지정·위치 실사 확인 필요를 "없는 값"으로 보므로
+  //  보정 경로도 같은 규약을 써야 한다. 판정은 미흡이라 하면서 보정은 "이미 값이 있다"고 거절하면, 화면이 내준
+  //  보정 입력이 눌러야 막히는 막다른 컨트롤이 된다(값이 실재하는 변경만 이동·불출 결재로 보낸다).
+  const PLACEHOLDER_VALUES = ['-', '미지정', '실사 확인 필요']
+  if (before && !PLACEHOLDER_VALUES.includes(before)) return { ok: false, message: `${field} 은 이미 값이 있습니다 — 실물 변경은 이동·불출 결재로 처리하세요.` }
 
   asset[key] = value
-  const detail = `정합성 보정 — ${field} 항목 입력 → ${value}${note ? ` (${note})` : ''}`
+  // 소유자를 채우면 부서도 그 사람의 부서로 맞춘다 — 보유자와 부서가 갈리면 비용 배분·통지가 엉뚱한 부서로 간다
+  //  (불출·재배정이 둘을 함께 쓰는 것과 같은 규약). 대장에 없는 이름이면 부서는 손대지 않는다.
+  let deptSynced = ''
+  if (field === '소유자') {
+    const u = s.users.find((x) => x.name === value)
+    if (u && asset.dept !== u.dept) { asset.dept = u.dept; deptSynced = u.dept }
+  }
+  const detail = `정합성 보정 — ${field} 항목 입력 → ${value}${deptSynced ? ` · 부서 ${deptSynced} 동기화` : ''}${note ? ` (${note})` : ''}`
   asset.history.push({ date: today(), kind: '점검', detail, actor: session.name })
   appendAudit({ actor: session.name, action: detail, target: asset.assetNo })
   revalidatePath('/', 'layout')
