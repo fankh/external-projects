@@ -1776,6 +1776,18 @@ try {
   const missingPol = opsKeys.filter((k) => !polBlock.includes("s.opsPolicy." + k))
   check(`정책 증빙: 운영 정책 ${opsKeys.length}개 항목이 모두 감사 대응 자료 기준표에 등장`,
     opsKeys.length >= 6 && missingPol.length === 0, `누락=${missingPol.join(", ")}`)
+
+  // 가용·배정 재고와 운영 가드가 같은 집합을 봐야 한다 — NAC 격리 자산은 서버가 대여·불출·재배정을 거절하는데
+  //  재고 집계(lib/stock)는 그대로 세고 있었다. 그러면 재고 화면은 "가용"이라 말하고 불출 화면은 목록에 올리는데
+  //  서버는 거절하는 막다른 길이 생기고, 안전재고 경보도 실제보다 넉넉하게 판정해 발주가 늦는다.
+  //  격리된 유휴 자산은 시드에 없고 결재 흐름으로 만들 수도 없어(격리는 사용중 자산 대상) 구조 검사로 둔다.
+  const stockSrc = readFileSync(path.join(ROOT, "lib", "stock.ts"), "utf8")
+  const poolFns = ["availableAssets", "assignableAssets"].filter((fn) => {
+    const at = stockSrc.indexOf("export function " + fn)
+    return at !== -1 && stockSrc.slice(at, stockSrc.indexOf("\n}", at)).includes("!a.quarantinedAt")
+  })
+  check("재고 판정: 가용·배정 풀이 NAC 격리 자산을 제외(불출·대여 가드와 같은 집합)",
+    poolFns.length === 2, `격리 제외 누락=${["availableAssets", "assignableAssets"].filter((f) => !poolFns.includes(f)).join(", ")}`)
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')
