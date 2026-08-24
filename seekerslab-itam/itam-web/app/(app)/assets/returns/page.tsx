@@ -1,5 +1,5 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { warrantySavingsOf } from '@/lib/cost'
@@ -12,7 +12,7 @@ import { ReturnsView } from './ReturnsView'
 export const dynamic = 'force-dynamic'
 
 export default async function ReturnsPage() {
-  const session = await requireRole('ASSET_MGR', 'ADMIN')
+  const session = await requireView('/assets/returns', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
 
   const pending = s.assets

@@ -1,5 +1,5 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { isStaleVerify, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { PlanView } from './PlanView'
@@ -7,7 +7,7 @@ import { PlanView } from './PlanView'
 export const dynamic = 'force-dynamic'
 
 export default async function SurveyPlanPage() {
-  await requireRole('ASSET_MGR', 'ADMIN')
+  await requireView('/inventory/survey-plan', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
   const t = today()
 

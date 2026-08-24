@@ -1,5 +1,5 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { InsightKind } from '@/lib/types'
 import { AutoClassify } from './AutoClassify'
@@ -22,7 +22,7 @@ const FUNCTIONS: { kind: InsightKind; tech: string; desc: string }[] = [
 ]
 
 export default async function InsightsPage() {
-  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireView('/ai/insights', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   // 위험도 기준 관리는 보안담당 책무(제품안내서 §01) — 자산담당은 조회만
   const canEditRisk = ['SEC_MGR', 'ADMIN'].includes(session.role)

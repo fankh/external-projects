@@ -1,5 +1,5 @@
 import { Card, ScreenHeader } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { isLocked, PERM_ACTIONS } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 import type { Role } from '@/lib/types'
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 
 
 export default async function PermissionsPage() {
-  await requireRole('ADMIN')
+  await requireView('/settings/permissions', 'ADMIN')
   const store = getStore()
   const rows = store.menuPermissions
   // STEP 2(메뉴 정의)에서 파생 — 화면에 하드코딩하면 정의와 매트릭스가 갈라진다

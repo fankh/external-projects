@@ -1,7 +1,9 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/chrome/AppShell'
+import { NAV } from '@/components/chrome/menus'
 import { canDecideApproval } from '@/lib/approval'
+import { canViewMenu } from '@/lib/perm'
 import { getSession, SESSION_COOKIE } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ROLE_LABEL } from '@/lib/types'
@@ -28,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <AppShell
       role={session.role}
+      visibleHrefs={NAV.flatMap((g) => g.items).filter((it) => it.roles.includes(session.role) && canViewMenu(it.href, session.role)).map((it) => it.href)}
       badges={badges}
       channels={{ on: s.scanPolicies.filter((p) => p.enabled).length, total: s.scanPolicies.length }}
       lastScan={s.scanRuns[0] ? { at: s.scanRuns[0].startedAt, by: s.scanRuns[0].by } : undefined}

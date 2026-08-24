@@ -1,5 +1,5 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { canExport } from '@/lib/exports'
 import { ACTION_DEF, PERM_ACTIONS } from '@/lib/perm'
 import { getStore } from '@/lib/store'
@@ -8,7 +8,7 @@ import { MenusView } from './MenusView'
 export const dynamic = 'force-dynamic'
 
 export default async function MenusPage() {
-  const session = await requireRole('ADMIN')
+  const session = await requireView('/settings/menus', 'ADMIN')
   const defs = getStore().menuDefs
 
   const totalCells = defs.reduce((n, d) => n + d.actions.length, 0)

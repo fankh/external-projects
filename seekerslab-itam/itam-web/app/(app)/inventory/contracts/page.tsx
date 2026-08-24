@@ -1,6 +1,6 @@
 import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { missingContractDocs } from '@/lib/contract'
 import { daysUntil, fmtAmount } from '@/lib/dates'
 import { expiryNoticeTargets } from '@/lib/expiry'
@@ -20,7 +20,7 @@ import { UsageCollect } from './UsageCollect'
 export const dynamic = 'force-dynamic'
 
 export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string; lic?: string }> }) {
-  const session = await requireRole('ASSET_MGR', 'ADMIN')
+  const session = await requireView('/inventory/contracts', 'ASSET_MGR', 'ADMIN')
   const { sel, lic } = await searchParams
   const s = getStore()
   const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))

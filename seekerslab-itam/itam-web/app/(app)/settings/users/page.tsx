@@ -1,12 +1,12 @@
 import { ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { UsersView } from './UsersView'
 
 export const dynamic = 'force-dynamic'
 
 export default async function UsersPage() {
-  const session = await requireRole('ADMIN')
+  const session = await requireView('/settings/users', 'ADMIN')
   const s = getStore()
   // 사용자별 보유 자산 수 — 운영 중 자산만(폐기 제외) 집계. 계정 관리 시 자산 부담·재배치 판단에 쓴다.
   const owned: Record<string, number> = {}

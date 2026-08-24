@@ -22,6 +22,8 @@ function saveTabs(tabs: Tab[]) {
 
 export function AppShell(props: {
   role: Role
+  /** 이 권한그룹이 열 수 있는 화면 목록 — 라우트 역할 ∩ 매트릭스 조회 (레이아웃에서 주입) */
+  visibleHrefs?: string[]
   badges: { approvals: number; unregistered: number }
   channels: { on: number; total: number }
   /** 상태바의 마지막 스캔 — 실제 스캔 이력에서 온다 (하드코딩 금지) */
@@ -35,8 +37,12 @@ export function AppShell(props: {
   const pathname = usePathname()
   const router = useRouter()
 
+  // 사이드바 = 라우트 역할 게이트 ∩ 권한 매트릭스 조회 칸(visibleHrefs, 레이아웃이 서버에서 계산해 넘긴다).
+  //  둘이 갈리면 메뉴에는 보이는데 눌러 들어가면 대시보드로 튕기는 링크가 된다.
+  //  '감출 목록'이 아니라 '보일 목록'을 넘긴다 — 감출 목록을 넘기면 권한 밖 화면 경로가 클라이언트 페이로드에 실린다.
+  const visible = props.visibleHrefs ? new Set(props.visibleHrefs) : null
   const groups = NAV
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(props.role)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(props.role) && (!visible || visible.has(i.href))) }))
     .filter((g) => g.items.length > 0)
   const activeGroup = groups.find((g) => g.items.some((i) => pathname.startsWith(i.href))) ?? groups[0]
   const badgeOf = (badge?: 'approvals' | 'unregistered') => (badge ? props.badges[badge] : 0)

@@ -1,5 +1,5 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
 import { nextEasmRescan } from '@/lib/easm'
 import { CredTable } from './CredTable'
@@ -28,7 +28,7 @@ const ACTIVE = [
 ]
 
 export default async function ExternalPage() {
-  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireView('/discovery/external', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   // 유출 대응은 보안 업무 — 보안담당·Admin 만 조치 가능
   const canRespond = ['SEC_MGR', 'ADMIN'].includes(session.role)

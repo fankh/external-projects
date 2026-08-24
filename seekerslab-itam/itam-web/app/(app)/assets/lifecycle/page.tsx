@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { Asset, AssetStatus } from '@/lib/types'
 
@@ -31,7 +31,7 @@ const PHASES: { key: string; title: string; sub: string; statuses: AssetStatus[]
 ]
 
 export default async function LifecyclePage() {
-  await requireRole('ASSET_MGR', 'ADMIN')
+  await requireView('/assets/lifecycle', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
   // 처리 대기열 — 운영 중(사용중)·종결(폐기완료)은 대기열이 아니다. 그 외 상태만 '처리할 일'로 남긴다.
   const queue = s.assets.filter((a) => a.status !== '사용중' && a.status !== '폐기완료')

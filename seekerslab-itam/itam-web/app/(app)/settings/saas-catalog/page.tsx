@@ -1,6 +1,6 @@
 import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { buildSaasReview } from '@/lib/saas-review'
 import { getStore } from '@/lib/store'
@@ -11,7 +11,7 @@ import { SaasEscalateButton } from './SaasEscalateButton'
 export const dynamic = 'force-dynamic'
 
 export default async function SaasCatalogPage() {
-  const session = await requireRole('SEC_MGR', 'ADMIN')
+  const session = await requireView('/settings/saas-catalog', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const c = s.saasCatalog
   const review = buildSaasReview()

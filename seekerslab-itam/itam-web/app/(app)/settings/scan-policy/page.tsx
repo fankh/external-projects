@@ -1,12 +1,12 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { ScanPolicyTable } from './ScanPolicyTable'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ScanPolicyPage() {
-  await requireRole('ADMIN')
+  await requireView('/settings/scan-policy', 'ADMIN')
   const s = getStore()
   const on = s.scanPolicies.filter((p) => p.enabled)
   const active = s.scanPolicies.filter((p) => p.kind === '능동')

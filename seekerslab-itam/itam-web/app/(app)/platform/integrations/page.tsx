@@ -1,5 +1,5 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { AuditLog } from './AuditLog'
 import { ConnectorTable } from './ConnectorTable'
@@ -8,7 +8,7 @@ import { NotificationLog } from './NotificationLog'
 export const dynamic = 'force-dynamic'
 
 export default async function IntegrationsPage() {
-  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireView('/platform/integrations', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const canManage = ['SEC_MGR', 'ADMIN'].includes(session.role)
   const live = s.integrations.filter((i) => i.status !== '미연동')

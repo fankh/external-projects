@@ -1,5 +1,5 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { isIntakeOverdue, today } from '@/lib/dates'
 import { barcodeSvg, qrSvg } from '@/lib/label'
 import { getStore } from '@/lib/store'
@@ -9,7 +9,7 @@ import { IntakeView } from './IntakeView'
 export const dynamic = 'force-dynamic'
 
 export default async function IntakePage() {
-  await requireRole('ASSET_MGR', 'ADMIN')
+  await requireView('/assets/intake', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
   const lots = s.intakeLots
   // 입고 등록 시 연계할 구매 계약 — 발주 계약에 입고를 묶는다

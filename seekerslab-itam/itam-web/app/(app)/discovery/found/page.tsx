@@ -1,5 +1,5 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireView } from '@/lib/authz'
 import { can } from '@/lib/perm'
 import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
@@ -17,7 +17,7 @@ import { UsbTable } from './UsbTable'
 export const dynamic = 'force-dynamic'
 
 export default async function FoundPage({ searchParams }: { searchParams: Promise<{ state?: string; sel?: string }> }) {
-  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireView('/discovery/found', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const { state, sel } = await searchParams
   // CMDB 대사 화면에서 상태별 드릴다운(?state=)으로 진입 — 유효한 대사 상태만 초기 필터로 반영
   const initialState = RECONCILE_STATES.includes(state as ReconcileState) ? (state as ReconcileState) : undefined
