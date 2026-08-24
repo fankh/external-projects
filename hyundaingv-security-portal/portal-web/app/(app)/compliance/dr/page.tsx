@@ -89,7 +89,7 @@ export default async function DrPage() {
   return (
     <>
       <ScreenHeader kicker="보안 컴플라이언스" title="재해복구·업무연속성"
-        desc="핵심 업무·시스템의 복구목표(RTO/RPO)와 주기적 복구훈련을 관리한다 — 훈련 예정일 경과를 추적해 정기 복구훈련(ISMS 2.12 재해복구)을 강제한다." />
+        desc="핵심 시스템 복구목표(RTO/RPO)와 복구훈련 이력. 훈련 예정일이 지난 건은 상단에 표시된다." />
 
       <div className="stat-row">
         <Stat value={k.total} label="복구계획" note="대상 업무·시스템" />
