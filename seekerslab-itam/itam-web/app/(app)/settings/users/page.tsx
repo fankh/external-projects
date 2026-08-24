@@ -1,4 +1,5 @@
 import { ScreenHeader, Stat } from '@/components/ui'
+import { mfaRemindTargets } from '@/lib/reminders'
 import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { UsersView } from './UsersView'
@@ -41,7 +42,7 @@ export default async function UsersPage() {
         <Stat value={s.approvalLines.filter((l) => l.required).length} label="필수 결재 화면" tone="warn" />
       </div>
 
-      <UsersView users={s.users} lines={s.approvalLines} me={session.login} owned={owned} offboard={offboard} />
+      <UsersView mfaRemindCount={mfaRemindTargets().length} mfaPending={mfaRemindTargets().map((u) => u.login)} users={s.users} lines={s.approvalLines} me={session.login} owned={owned} offboard={offboard} />
     </>
   )
 }

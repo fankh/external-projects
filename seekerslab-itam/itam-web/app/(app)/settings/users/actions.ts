@@ -4,6 +4,7 @@ import { appendAdminAudit } from '@/lib/audit'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { mfaRemindTargets } from '@/lib/reminders'
 import { MANDATORY_APPROVAL_KINDS, ROLE_LABEL } from '@/lib/types'
 import type { Role } from '@/lib/types'
 
@@ -17,8 +18,18 @@ export async function requireMfa(login?: string): Promise<Res> {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') return { ok: false, message: 'MFA 등록 요구 권한이 없습니다 (Admin).' }
   const s = getStore()
-  const targets = s.users.filter((u) => !u.mfa && (!login || u.login === login))
-  if (targets.length === 0) return { ok: false, message: login ? '해당 사용자는 이미 MFA 적용 상태입니다.' : 'MFA 미적용 사용자가 없습니다.' }
+  // 오늘 이미 보낸 계정은 뺀다 — 화면 버튼 건수(mfaRemindTargets)와 같은 집합이어야 '눌러도 아무 일 없는' 버튼이 안 남는다.
+  const pool = mfaRemindTargets()
+  const targets = login ? pool.filter((u) => u.login === login) : pool
+  if (targets.length === 0) {
+    const known = s.users.find((u) => u.login === login)
+    return {
+      ok: false,
+      message: login
+        ? (known && !known.mfa ? `오늘 이미 MFA 등록 요구를 보냈습니다 — ${known.name}` : '해당 사용자는 이미 MFA 적용 상태입니다.')
+        : 'MFA 등록 요구 대상이 없습니다 (전원 적용·오늘 발송분 제외).',
+    }
+  }
   for (const u of targets) {
     dispatch({ channel: '이메일', to: `${u.name} (${u.dept})`, subject: 'MFA(다단계 인증) 등록 요구 — 보안 정책 미이행', kind: 'MFA 등록 요구', ref: u.login })
   }

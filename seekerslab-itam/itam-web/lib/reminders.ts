@@ -7,7 +7,7 @@ import { buildProcurement } from './procurement'
 import { replacementCandidates } from './reports'
 import { buildSaasReview } from './saas-review'
 import { getStore } from './store'
-import type { Asset, BoardPost, IntakeLot } from './types'
+import type { Asset, BoardPost, IntakeLot, UserAccount } from './types'
 
 /** 독촉·통보 **신규** 발송 대상 — 대상 조건에 들면서 오늘 아직 보내지 않은 자산만 추린다.
  *  (같은 대상에 하루 두 번 보내지 않는다 — 알림 피로가 알림을 무력화한다. 만료 임박 통지의 lib/expiry 와 같은 규약.)
@@ -73,6 +73,14 @@ export function impactNoticeTargets(): { asset: Asset; depts: string[]; dependen
       return { asset, depts, dependents: dependents.map((d) => d.assetNo) }
     })
     .filter((x) => x.depts.length > 0)
+}
+
+/** MFA 등록 요구 대상 — MFA 미적용 계정 중 오늘 아직 요구 통지를 보내지 않은 계정.
+ *  화면 버튼 건수와 액션이 이 한 집합을 공유해야 보낸 뒤에도 같은 건수로 남는 유령 컨트롤이 생기지 않는다
+ *  (수령 확인·정기 점검·EOL·QnA 독촉과 같은 규약 — 알림 피로가 알림을 무력화한다). */
+export function mfaRemindTargets(): UserAccount[] {
+  const sent = sentTodayRefs('MFA 등록 요구')
+  return getStore().users.filter((u) => !u.mfa && !sent.has(u.login))
 }
 
 /** QnA 답변 독촉 대상 — SLA 경과 미답변 문의(오늘 발송분 제외). */

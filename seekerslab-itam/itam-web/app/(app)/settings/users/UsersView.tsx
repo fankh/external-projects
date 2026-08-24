@@ -11,13 +11,19 @@ const ROLE_TONE: Record<Role, 'neutral' | 'info' | 'warn' | 'err'> = {
   USER: 'neutral', ASSET_MGR: 'info', SEC_MGR: 'warn', ADMIN: 'err',
 }
 
-export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; me: string; owned: Record<string, number>; offboard?: Record<string, { inUse: number; loaned: number; seats: { lic: string; assetNo: string }[]; pendingReqs: number }> }) {
+export function UsersView(props: {
+  /** 오늘 아직 MFA 등록 요구를 보내지 않은 미적용 계정 수 — 버튼 건수 = 발송 건수(lib/reminders) */
+  mfaRemindCount?: number; /** 오늘 아직 안 보낸 미적용 계정 로그인 — 행 컨트롤도 같은 판정 */ mfaPending?: string[]; users: UserAccount[]; lines: ApprovalLine[]; me: string; owned: Record<string, number>; offboard?: Record<string, { inUse: number; loaned: number; seats: { lic: string; assetNo: string }[]; pendingReqs: number }> }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [obOpen, setObOpen] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const adminCount = props.users.filter((u) => u.role === 'ADMIN').length
   const mfaMissing = props.users.filter((u) => !u.mfa).length
+  // 발송 대상은 '미적용'이 아니라 '미적용이면서 오늘 미발송'이다(lib/reminders 단일 소스) — 지표(미적용 N명)는 그대로 두고
+  //  버튼 건수만 대상 수로 말한다. 그전에는 보낸 뒤에도 같은 건수로 남아 눌러도 아무 일이 없었다.
+  const mfaTargets = props.mfaRemindCount ?? mfaMissing
+  const mfaPending = new Set(props.mfaPending ?? props.users.filter((u) => !u.mfa).map((u) => u.login))
   const reqMfa = (login?: string) => startTransition(async () => setMsg((await requireMfa(login)).message || null))
 
   const changeRole = (login: string, role: Role) => {
@@ -49,9 +55,11 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
 
       <Card kicker="Users · Groups" title="사용자 · 권한그룹 배정" pad={false}
         actions={mfaMissing > 0
-          ? <button className="btn sm" disabled={pending} onClick={() => reqMfa()}
-              title="MFA 미적용 사용자 전원에게 등록 요구 통지를 발송합니다 (보안 정책 집행 · 발송 이력·감사 기록)">
-              🔐 MFA 미등록자 등록 요구 ({mfaMissing}명)
+          ? <button className="btn sm" disabled={pending || mfaTargets === 0} onClick={() => reqMfa()}
+              title={mfaTargets === 0
+                ? 'MFA 미적용 계정 전원에게 오늘 이미 등록 요구를 보냈습니다 (당일 중복 발송 차단)'
+                : 'MFA 미적용 사용자에게 등록 요구 통지를 발송합니다 (보안 정책 집행 · 발송 이력·감사 기록 · 오늘 발송분 제외)'}>
+              🔐 MFA 미등록자 등록 요구 ({mfaTargets}명)
             </button>
           : <Chip tone="ok">MFA 전원 적용</Chip>}>
         <div className="tbl-wrap">
@@ -92,8 +100,11 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
                       {u.mfa ? <Chip tone="ok">적용</Chip> : (
                         <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
                           <Chip tone="warn">미적용</Chip>
-                          <button className="btn sm ghost" disabled={pending} onClick={() => reqMfa(u.login)}
-                            title={`${u.name}에게 MFA 등록 요구 통지 발송`}>요구</button>
+                          {/* 오늘 이미 보낸 계정에는 버튼 대신 상태를 보여 준다 — 서버가 당일 중복을 거절하므로 그대로 두면 눌러야 막히는 컨트롤이다. */}
+                          {mfaPending.has(u.login)
+                            ? <button className="btn sm ghost" disabled={pending} onClick={() => reqMfa(u.login)}
+                                title={`${u.name}에게 MFA 등록 요구 통지 발송`}>요구</button>
+                            : <span className="mut" style={{ fontSize: 11 }} title="오늘 등록 요구 발송 완료 (당일 중복 발송 차단)">오늘 요구함</span>}
                         </span>
                       )}
                     </td>
