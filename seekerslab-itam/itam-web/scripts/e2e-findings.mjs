@@ -2910,6 +2910,10 @@ try {
   const ctxRA2 = await browser.newContext(); await ctxRA2.addCookies([cookie(SEC)]); const pRA2 = await ctxRA2.newPage()
   await pRA2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   ok('리포트 반출 감사: 감사 로그에 반출 기록(누가 무엇을 몇 건)', ((await pRA2.textContent('body')) || '').includes('리포트 반출'))
+  // AI 제안 판정(승인·반려)은 감사 로그에 target: INS-… 로 남는데 딥링크 매핑이 없어 텍스트로만 찍혔다 —
+  //  판정 화면(/ai/insights)이 있는데 감사에서 그 제안으로 들어갈 경로가 없었다. 위 판정 테스트들이 실제 항목을 쌓아 둔다.
+  const insAudit = (await pRA2.textContent('body')) || ''
+  ok('감사 로그 딥링크: AI 제안 판정 대상(INS-)이 판정 화면으로 연결', /INS-/.test(insAudit) && (await pRA2.locator('a[href="/ai/insights"]').count()) > 0)
   await ctxRA2.close(); await ctxRA.close()
   // 대여 승인 미집행 통보 — 요청~승인 사이에 자산이 빠지면 집행 가드가 막는다(폐기 예정분 대여 방지). 그런데 그때 아무 신호가 없었다:
   //  승인 통보만 나가고 자산은 오지 않으며, 대여는 자산 신청·이동과 달리 '승인 후 미집행' 대기열이 없어 어디에도 드러나지 않는다.

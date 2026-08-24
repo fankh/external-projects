@@ -22,6 +22,8 @@ export function entityHref(ref?: string): { href: string; external?: boolean } |
   if (ref.startsWith('DSP-')) return { href: '/assets/disposal' }
   if (ref.startsWith('LOT-') || ref.startsWith('IN-')) return { href: '/assets/intake' }
   if (ref.startsWith('DSC-')) return { href: '/discovery/found' }
+  // AI 제안 — 승인·반려 판정이 감사 로그에 target: INS-… 로 남는데 매핑이 없어 텍스트로만 찍혔다(판정 화면이 있는데 진입 경로가 없음).
+  if (ref.startsWith('INS-')) return { href: '/ai/insights' }
   // 발견 화면의 채널별 발견 표 — 계정(휴면·권한), USB 반출, 로컬 VM, 클라우드 리소스, 미인가 SW.
   //  이 신호들도 escalate/dispatch 로 통지·감사에 ref 가 남는데 매핑이 없어 링크 없는 텍스트로만 보였다(조치 화면이 있는데 진입 경로가 없음).
   if (['ACCT-', 'USB-', 'LVM-', 'CLD-', 'USW-'].some((k) => ref.startsWith(k))) return { href: '/discovery/found' }
