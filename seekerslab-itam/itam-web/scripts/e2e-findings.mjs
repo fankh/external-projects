@@ -1635,9 +1635,15 @@ try {
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const docBtn = p3.locator('button', { hasText: /^부속서류 제출 요청 \(\d+\)$/ })
   ok('계약 부속서류: 제출 요청 버튼 노출(미비 배지 ≥1)', (await docBtn.count()) > 0 && !/\(0\)/.test(await docBtn.first().innerText()))
+  const docN = Number((((await docBtn.first().innerText()) || '').match(/\((\d+)\)/) || [])[1] || '0')
   await docBtn.first().click()
   await p3.waitForTimeout(800)
   ok('계약 부속서류: 제출 요청 발송 성공(주관부서·공급사 · 발송 이력)', ((await p3.textContent('body')) || '').includes('미비 서류 제출 요청'))
+  // 화면-액션 정합 — 버튼 건수는 미비 계약 수(배지 신호)가 아니라 오늘 아직 안 보낸 대상 수여야 한다(lib/reminders).
+  ok(`계약 부속서류(화면-액션 정합): 버튼 건수 = 발송 건수(${docN}건)`, docN > 0 && ((await p3.textContent('body')) || '').includes(`부속서류 제출 요청 ${docN}건 발송`))
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const docAfter = p3.locator('button', { hasText: /^부속서류 제출 요청 \(\d+\)$/ }).first()
+  ok('계약 부속서류(중복 억제): 발송 직후 (0)·비활성(미비 배지는 유지)', ((await docAfter.innerText()) || '').includes('(0)') && (await docAfter.isDisabled()))
   // 라이선스 좌석 배정 대장 — 누가 어느 석을 쓰는지 명명형 관리 + 탐지 사용량과 대사(배정 밖 사용 식별). 시드 LIC-004 AutoCAD 배정 2/사용 6.
   const camRow = licTable2.locator('tbody tr').filter({ hasText: 'AutoCAD' }).first()
   ok('라이선스 좌석: 배정 대장·미배정 사용 대사 표기(LIC-004 배정 2/사용 6)', ((await camRow.textContent()) || '').includes('배정 2/15석') && ((await camRow.textContent()) || '').includes('미배정 사용 4'))
@@ -1749,9 +1755,15 @@ try {
   // SaaS 판정 기한 경과 에스컬레이션 — 표시뿐이던 기한 경과 신호에 조치 채널(보안담당 판정 요청 통보). 시드 검토중 방치분(Notion·ChatGPT 등)으로 활성.
   const saasEscBtn = p3.locator('button', { hasText: /^판정 기한 경과 에스컬레이션 \(\d+\)$/ })
   ok('SaaS 카탈로그: 판정 기한 경과 에스컬레이션 버튼 노출(신호→조치)', (await saasEscBtn.count()) > 0 && !/\(0\)/.test(await saasEscBtn.first().innerText()))
+  const saasEscN = Number((((await saasEscBtn.first().innerText()) || '').match(/\((\d+)\)/) || [])[1] || '0')
   await saasEscBtn.first().click()
   await p3.waitForTimeout(800)
   ok('SaaS 판정 기한 경과 에스컬레이션: 보안담당 판정 요청 통보 발송', ((await p3.textContent('body')) || '').includes('SaaS 판정 독촉') && ((await p3.textContent('body')) || '').includes('발송'))
+  // 화면-액션 정합 — 버튼 건수는 기한 경과 신호 수가 아니라 오늘 아직 안 보낸 대상 수여야 한다(lib/reminders).
+  ok(`SaaS 에스컬레이션(화면-액션 정합): 버튼 건수 = 발송 건수(${saasEscN}건)`, saasEscN > 0 && ((await p3.textContent('body')) || '').includes(`SaaS 판정 독촉 ${saasEscN}건`))
+  await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' })
+  const saasEscAfter = p3.locator('button', { hasText: /^판정 기한 경과 에스컬레이션 \(\d+\)$/ }).first()
+  ok('SaaS 에스컬레이션(중복 억제): 발송 직후 (0)·비활성(경과 건수 문구는 유지)', ((await saasEscAfter.innerText()) || '').includes('(0)') && (await saasEscAfter.isDisabled()))
   // SaaS 판정 독촉 SMS 등급 게이트 — 기밀·민감 등급만 문자(SMS) 병행, 일반 등급은 이메일만(데이터 반출 위험 기준). escalate 가 sms 미지정에도 제목으로 문자를 보내 일반 등급(Miro)에도 SMS 가 새던 버그. 문자 subject '[긴급] …'로 식별: 민감(ChatGPT)엔 '[긴급] ChatGPT 미판정' 문자, 일반(Miro)엔 '[긴급] SaaS 판정 기한 경과 — Miro' 문자가 없어야 한다.
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const saasSmsBody = (await p3.locator('.card', { has: p3.locator('text=알림 발송 이력') }).first().textContent()) || ''
@@ -2539,9 +2551,14 @@ try {
   // 입고 지연 독촉(§06 ITSM 납기 관리 · 검출→조치) — 납기 경과 발주 로트(시드 IN-2607-03)의 공급사에 납기 확인 독촉 발송
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   ok('도입·검수: 입고 지연 독촉 버튼 노출(발주처)', (await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).count()) > 0)
+  const intakeN = Number((/([0-9]+)건/.exec((await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).first().innerText()) || '') || [])[1] || '0')
   await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).click()
   await p4.waitForTimeout(800)
   ok('입고 지연 독촉: 발주처 납기 확인 발송 성공(발송 이력)', (await p4.textContent('body')).includes('입고 지연 독촉') && (await p4.textContent('body')).includes('발송'))
+  // 화면-액션 정합 — 버튼 건수는 납기 경과 로트 수(신호)가 아니라 오늘 아직 안 보낸 대상 수여야 한다(lib/reminders).
+  ok(`입고 지연 독촉(화면-액션 정합): 버튼 건수 = 발송 건수(${intakeN}건)`, intakeN > 0 && ((await p4.textContent('body')) || '').includes(`입고 지연 독촉 ${intakeN}건 발송`))
+  await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  ok('입고 지연 독촉(중복 억제): 발송 직후 버튼 소멸(납기 경과 표기는 유지)', (await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).count()) === 0)
 
   // 발주 단가 비유한(Infinity) 방어 — '1e309' 가 Number() 로 Infinity 파싱돼 lot.unitCost→asset.acquisitionCost 로 흘러
   //  TCO·감가상각·부서비용·가치 집계를 오염하던 공백(수리비·매각대금은 isFinite 가드 있는데 입고 단가만 누락). 상세에 ∞ 로 표기되면 오염.

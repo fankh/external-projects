@@ -10,7 +10,7 @@ import { buildProcurement } from '@/lib/procurement'
 import { raiseLicenseApproval } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
-import { maintenanceBudgetTargets, maintenanceExecTargets, maintenanceSlaTargets, procurementRemindTargets } from '@/lib/reminders'
+import { contractDocsTargets, maintenanceBudgetTargets, maintenanceExecTargets, maintenanceSlaTargets, procurementRemindTargets } from '@/lib/reminders'
 import { CONTRACT_DOC_TYPES, type ContractDocType } from '@/lib/types'
 
 /** 계약 등록 — 신규 구매·유지보수 계약을 대장에 편입한다 (갱신·알림만 있고 등록 경로 부재).
@@ -225,16 +225,11 @@ export async function requestContractDocs() {
   const session = await guard()
   if (!session) return { ok: false, message: '부속서류 제출 요청 권한이 없습니다 (자산담당·Admin).' }
 
-  const s = getStore()
-  const t = today()
-  const sentToday = new Set(
-    s.dispatches.filter((m) => m.kind === '부속서류 제출 요청' && m.at.startsWith(t)).map((m) => m.ref),
-  )
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 부속서류 미비 + 당일 발송분 제외.
 
   let n = 0
-  for (const c of s.contracts) {
+  for (const c of contractDocsTargets()) {
     const missing = missingContractDocs(c)
-    if (missing.length === 0 || sentToday.has(c.id)) continue
     dispatch({
       channel: '이메일',
       to: `${c.ownerDept} · ${c.vendor}`,
