@@ -526,3 +526,68 @@ sudo systemctl restart ss-api
 - 적용되지 않으면 → 제품 결함이므로 벤더 확인이 필요합니다
 
 이 결과에 따라 대응이 크게 달라지므로, FIX-006 보다 먼저 확정해야 합니다.
+
+---
+
+## FIX-008 · 룰 삭제 시 탐지 이력이 고아로 남아 화면이 어긋남
+
+**상태: 조치 완료** (원인 규명 및 잔여 데이터 정리 완료)
+
+### 증상
+
+`/threat/detection` 화면에서 **차트와 건수는 값이 있는데 목록은 "데이터가 없습니다"** 로 표시됩니다.
+
+```
+Total 194
+탐지 일시 | 탐지 번호 | 탐지 유형 | ...
+              데이터가 없습니다
+```
+
+### 원인 — 두 가지가 겹칩니다
+
+**1) 룰을 삭제해도 엔진이 약 10분간 계속 평가합니다.**
+
+임시 룰을 12:02:57 에 삭제했으나 스케줄러는 12:11:50 까지 해당 룰을 계속 평가하며
+탐지 이력 194건을 새로 만들었습니다. `rules` 테이블에는 이미 없는 룰입니다.
+
+```
+DB 상태 : rules 에 rule-aig-engine-test 0건
+로그    : 03:11:40 rule: ZZ_임시_탐지엔진검증, search result count: ...
+```
+
+룰 반영에 약 10분이 걸리는 것과 같은 캐시 주기이며, **삭제도 즉시 반영되지 않습니다.**
+
+**2) 목록과 건수가 서로 다른 기준으로 조회됩니다.**
+
+생성된 이력은 이미 삭제된 룰을 참조하므로, 목록 조회(룰과 조인하는 것으로 보임)에서는
+빠지지만 건수 집계에는 그대로 잡힙니다. 그 결과 `Total 194` 인데 목록은 비어 보입니다.
+
+### 조치
+
+고아 이력을 제거했습니다. 조치 후 화면은 `Total 0` / 목록 비어 있음으로 정합해졌습니다.
+
+```sql
+BEGIN;
+DELETE FROM detection_history_logs
+ WHERE history_number IN (SELECT row_number FROM detection_histories WHERE target_id='<rule uuid>');
+DELETE FROM detection_histories WHERE target_id='<rule uuid>';
+COMMIT;
+```
+
+### 룰 삭제 시 권장 절차
+
+DB 로 룰을 다룰 때는 순서를 지켜야 고아 이력이 생기지 않습니다.
+
+1. `UPDATE rules SET is_detection_active = false WHERE uuid = '<uuid>';`
+2. **약 10분 대기** 후 로그에서 해당 룰 평가가 멈췄는지 확인
+   `grep '<룰 이름>' /opt/seekurity-siem/logs/ss-api/ss-api.log | tail -1`
+3. 탐지 이력 삭제 (`detection_history_logs` → `detection_histories` 순서, FK 때문)
+4. 조건·룰 삭제
+
+콘솔 UI 로 삭제하면 제품이 이 순서를 처리할 가능성이 높으므로, 가능하면 UI 를 쓰는 편이 안전합니다.
+
+### 제품 측 전달 사항
+
+건수와 목록이 서로 다른 결과를 내는 것은 사용자에게 혼란을 줍니다.
+참조 룰이 삭제된 이력을 목록에서 제외한다면 건수에서도 제외하거나,
+반대로 룰 스냅샷(`rule_snapshot` 컬럼에 이미 보존됨)을 이용해 목록에도 표시하는 편이 일관됩니다.
