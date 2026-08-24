@@ -3380,6 +3380,20 @@ try {
   ok('입고 반려 게이트: 재검수로 입고 대기 복귀(되돌릴 길 확보)',
     ((await pIR.locator('tr.clickable', { has: pIR.locator('td', { hasText: 'IN-2607-02' }) }).first().textContent()) || '').includes('입고 대기'))
   await ctxIR.close()
+  // 근거 계약 해지 신호(자산 측) — 라이선스는 계약이 해지되면 '근거 해지'를 달아 이관·재계약 검토로 잇는데,
+  //  자산 상세에는 같은 신호가 없어 해지된 계약이 살아 있는 링크로만 보였다(유지보수 근거가 사라진 줄 모른다).
+  //  앞선 '계약 해지 연계 영향' 검사가 CT-2023-002 를 해지해 두었으므로, 그 계약에 연계된 자산으로 확인한다.
+  const ctxTC = await browser.newContext(); await ctxTC.addCookies([cookie(ASSET)]); const pTC = await ctxTC.newPage()
+  await pTC.goto(`${BASE}/assets/register?sel=AST-2023-000720`, { waitUntil: 'networkidle' })
+  const tcBody = (await pTC.textContent('body')) || ''
+  ok('근거 계약 해지: 해지 계약에 연계된 자산 상세에 계약 해지됨 표기(AST-2023-000720 · CT-2023-002)',
+    tcBody.includes('CT-2023-002') && (await pTC.locator('.chip', { hasText: /^계약 해지됨$/ }).count()) === 1)
+  // 양성 대조 — 유효 계약에 연계된 자산에는 붙지 않는다(모든 자산에 찍히는 표기가 아님).
+  await pTC.goto(`${BASE}/assets/register?sel=AST-2023-000113`, { waitUntil: 'networkidle' })
+  ok('근거 계약 해지: 유효 계약 연계 자산에는 미표기(AST-2023-000113 · CT-2023-014)',
+    ((await pTC.textContent('body')) || '').includes('CT-2023-014')
+    && (await pTC.locator('.chip', { hasText: /^계약 해지됨$/ }).count()) === 0)
+  await ctxTC.close()
   await browser.close()
 } catch (err) {
   fail++
