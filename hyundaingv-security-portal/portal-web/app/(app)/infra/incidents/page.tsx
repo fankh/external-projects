@@ -112,7 +112,7 @@ export default async function IncidentsPage() {
   return (
     <>
       <ScreenHeader kicker="인프라 운영" title="장애관리 · 통계 · 대책"
-        desc="장애 등록·조치 → 주기별 통계 취합 결재상신 → 향후대책 결과 등록까지 장애 전 주기를 추적한다." />
+        desc="장애 조치 내역과 주기별 통계, 향후대책 이행까지 관리." />
 
       <div className="stat-row">
         <Stat value={s.incidents.length} label="전체 장애" />
