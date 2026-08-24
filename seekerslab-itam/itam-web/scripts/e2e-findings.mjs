@@ -4009,6 +4009,17 @@ try {
     dgAfter.includes('저하된 상위') && dgAfter.includes('AST-2023-000561'))
   // 하위 의존 담당 부서 통지(로75) — 그동안 의존 그래프는 "변경·정비 시 사전 통지 대상"이라고 말만 하고 통지 경로가 없었다.
   await pDG2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  // 대시보드 큐 ↔ 드릴다운 정합 — 큐 건수가 가리키는 집합을 대장 필터(?impact=1)가 그대로 열어야 한다
+  //  (담당자는 대시보드에서 하루를 시작한다 — 대장 상단 버튼만으로는 상위 이탈을 우연히 발견해야 한다).
+  await pDG2.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  const impactQueue = pDG2.locator('a', { hasText: '하위 의존 영향 통지 대상' }).first()
+  ok('의존 영향 통지 큐: 대시보드 운영 대기에 통지 대상 큐 노출', (await impactQueue.count()) > 0)
+  const impactQueueN = Number((/(\d+)/.exec((await impactQueue.textContent()) || '') || [])[1] ?? 0)
+  await pDG2.goto(`${BASE}/assets/register?impact=1`, { waitUntil: 'networkidle' })
+  const impactRows = await pDG2.locator('tbody tr.clickable').count()
+  ok(`의존 영향 통지 큐: 큐 건수(${impactQueueN}) = 드릴다운 목록(${impactRows}) · 상위 자산 노출`,
+    impactQueueN >= 1 && impactRows === impactQueueN && (await pDG2.locator('td', { hasText: 'AST-2023-000561' }).count()) > 0)
+  await pDG2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   const impactBtn = pDG2.locator('button', { hasText: /^의존 영향 통지 \(\d+\)$/ })
   ok('의존 영향 통지: 저하·이탈 상위가 생기면 통지 버튼 노출(대상 건수 표기)', (await impactBtn.count()) > 0)
   await impactBtn.first().click()
@@ -4024,6 +4035,9 @@ try {
   await pDG2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   ok('의존 영향 통지: 당일 중복 발송 차단 — 발송 뒤 버튼 소멸(화면 건수 = 액션 결과)',
     (await pDG2.locator('button', { hasText: /^의존 영향 통지 \(\d+\)$/ }).count()) === 0)
+  await pDG2.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  ok('의존 영향 통지 큐: 발송 뒤 큐도 함께 사라진다(큐 = 남은 할 일)',
+    (await pDG2.locator('a', { hasText: '하위 의존 영향 통지 대상' }).count()) === 0)
   await ctxDG2.close()
 
   // ── 스테일 선택 일괄 처리(신규) — 목록을 띄워 놓고 여러 건을 고르는 사이 다른 담당자가 그중 하나를 처리하면,
