@@ -123,8 +123,8 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <ScreenHeader kicker="Main" title="개인별현황"
-        desc={`${me.name} 님의 관리대상 현황 — 보안신청 · 의식제고 · 계획 · 컴플라이언스 · My Work`} />
+      <ScreenHeader kicker="메인" title="개인별현황"
+        desc={`${me.name} 님 담당 업무 현황`} />
 
       <div className="stat-row">
         <Stat href="/work/todo" value={myTodos.length} label="나의 할일" tone={myTodos.length > 0 ? 'warn' : undefined} note="기한 도래 순" />
