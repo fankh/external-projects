@@ -1057,11 +1057,15 @@ export interface AiPolicy {
   feedbackLearning: boolean
 }
 
-/** 회수할 수 없는 AI 거버넌스 통제 — 질의 컨텍스트의 권한 범위 스코핑(buildContext)은 정책값이 아니라
- *  코드가 항상 적용하는 최소권한 안전장치다. 토글을 내려도 동작은 그대로인데 AI 거버넌스·감사 대응
- *  리포트만 '권한 범위 필터 미적용'으로 나가면 감사에 허위 진술이 되고, 운영자는 끈 적 없는 안전장치를
- *  껐다고 믿는다. 권한 매트릭스의 isLocked(Admin 자기 잠금 방지)와 같은 규약으로 잠근다. */
-export const LOCKED_AI_POLICY_TOGGLES = ['scopeFilter'] as const
+/** 값이 코드로 고정된 AI 거버넌스 통제 — 정책값이 아니라 구현이 정하는 상태다.
+ *  이 토글들은 눌러도 동작이 바뀌지 않는데, 값만 뒤집히면 AI 거버넌스·감사 대응 리포트와 컴플라이언스
+ *  서술이 실제와 다른 통제 상태를 감사에 진술하게 된다(양방향 모두 위험 — 켜둔 안전장치를 껐다고 말하거나,
+ *  없는 자동 승인을 허용 중이라고 말한다). 권한 매트릭스의 isLocked(Admin 자기 잠금 방지)와 같은 규약.
+ *  서버 액션과 정책 화면이 이 한 곳을 공유한다 — 각자 규칙을 두면 화면만 잠기고 값은 바뀌는 드리프트가 난다. */
+export const LOCKED_AI_POLICY_TOGGLES: Partial<Record<'scopeFilter' | 'autoApprove' | 'feedbackLearning', { pinned: boolean; why: string }>> = {
+  scopeFilter: { pinned: true, why: '질의 컨텍스트 권한 스코핑은 정책값과 무관하게 코드가 항상 적용합니다 (buildContext 가 역할로 스코핑).' },
+  autoApprove: { pinned: false, why: 'AI 제안은 담당자 판정(승인·반려)을 거쳐야 대장에 반영됩니다 — 자동 승인 경로 자체가 없습니다.' },
+}
 
 export interface UserAccount {
   login: string
