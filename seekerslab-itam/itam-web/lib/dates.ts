@@ -123,6 +123,19 @@ export function addYears(dateStr: string, years: number): string {
   return `${String(y).padStart(4, '0')}-${m[2]}-${String(d).padStart(2, '0')}`
 }
 
+/** 날짜 문자열(`YYYY-MM-DD`) 일 단위 가감 — 월·연 경계를 넘겨 정확히 계산한다(음수면 소급).
+ *  파싱·포맷 양쪽을 UTC 로 못박아 로컬 TZ 가 끼어들지 않는다. `new Date(str)` 은 시각이 붙은 문자열을 로컬로 해석해서
+ *  toISOString() 으로 되돌릴 때 KST(+9) 기준 09시 이전이 하루 뒤로 밀린다 — 컨테이너 TZ 가 UTC 라 배포본에서만
+ *  날짜가 하루 어긋나던 사고와 같은 계열이다. 형식이 날짜만이 아니면 원본을 돌려줘(방어) 시각이 섞인 값이
+ *  조용히 하루를 옮기지 못하게 한다. 재탐지 주기·리포트 주간 스케줄·재물조사 기한이 이 한 함수를 공유한다. */
+export function addDays(dateStr: string, days: number): string {
+  const m = /^(d{4})-(d{2})-(d{2})$/.exec(dateStr)
+  if (!m) return dateStr
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) + days * 86_400_000)
+  if (Number.isNaN(d.getTime())) return dateStr
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
 /** 미답변 QnA SLA(일) — 등록 후 이 기간을 넘겨도 답변이 없으면 응답 지연으로 본다(헬프데스크 SLA). */
 export const QNA_SLA_DAYS = 3
 

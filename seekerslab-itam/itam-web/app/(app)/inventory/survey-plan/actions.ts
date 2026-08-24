@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { isStaleVerify, roundProgressPct, today } from '@/lib/dates'
+import { addDays, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -75,7 +75,7 @@ export async function composeUnconfirmedRound() {
   if (fresh.length === 0) return { ok: false, message: '미확인 자산이 모두 기존 회차에 편성되어 있습니다.' }
 
   // 기한은 기준일 +14일 — 분실 판정을 미루지 않도록 수시 조사는 2주 내 마감한다
-  const due = new Date(new Date(today()).getTime() + 14 * 86_400_000).toISOString().slice(0, 10)
+  const due = addDays(today(), 14) // 기한 계산은 lib/dates addDays 단일 소스(TZ 무관)
   const id = nextId(`INV-${today().slice(0, 4)}-UNC`)
   s.inventoryRounds.unshift({
     id,
@@ -116,7 +116,7 @@ export async function composeStaleVerifyRound() {
   const fresh = stale.filter((a) => !pending.has(a.assetNo))
   if (fresh.length === 0) return { ok: false, message: '장기 미실측 자산이 모두 진행 중 회차에 편성되어 있습니다.' }
 
-  const due = new Date(new Date(today()).getTime() + 14 * 86_400_000).toISOString().slice(0, 10)
+  const due = addDays(today(), 14) // 기한 계산은 lib/dates addDays 단일 소스(TZ 무관)
   const id = nextId(`INV-${today().slice(0, 4)}-STV`)
   s.inventoryRounds.unshift({
     id,
