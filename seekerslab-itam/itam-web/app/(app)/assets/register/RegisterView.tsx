@@ -387,7 +387,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             href={`/api/export/assets?${new URLSearchParams(
               // 화면 필터를 그대로 반영 — 서버 빌더가 지원하지 않는 필터(정합성·EOL·핵심중요·정기점검·단일장애점)가 켜져 있으면
               // 현재 보이는 행 번호를 nos 로 넘겨 파일이 화면 행수와 정확히 일치하게 한다(버튼이 약속한 건수와 파일이 어긋나지 않게).
-              (dqOnly || eolOnly || critOnly || maintOnly || spofOnly || impactOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly)
+              (dqOnly || eolOnly || critOnly || maintOnly || spofOnly || impactOnly || replaceOnly || receiptOnly || loanExtOnly || loanRetOnly || riskOnly || liveOnly)
                 ? { nos: rows.map((a) => a.assetNo).join(',') }
                 : { q: q.trim(), cat, status, ...(staleOnly ? { stale: '1' } : {}), ...(warrantyOnly ? { warranty: '1' } : {}) },
             ).toString()}`}>
