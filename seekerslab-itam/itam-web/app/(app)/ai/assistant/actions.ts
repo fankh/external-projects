@@ -12,7 +12,7 @@ import { assetDependencies, criticalDependencies, impactSources } from '@/lib/cm
 import { availableAssets, lowStockCategories } from '@/lib/stock'
 import { upcomingSchedule } from '@/lib/upcoming'
 import { compositeRiskAssetNos, riskSignalCount } from '@/lib/risk'
-import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
+import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates, shadowSaasPending } from '@/lib/reports'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { buildAnomalies } from '@/lib/anomaly'
 import { getSession } from '@/lib/session'
@@ -64,11 +64,13 @@ function buildContext(userName: string, isUser: boolean, canAsset: boolean): str
   ]
   // 보안담당·자산담당 공용 컨텍스트 — 발견 자산·Shadow SaaS·결재 대기·외부 위협·계정 위생(보안담당 정당 도메인)
   if (!isUser) {
+    // 카탈로그 차단 판정 — sanctioned 는 인가/미인가 두 값뿐이라, LLM 컨텍스트에서도 이미 차단한 서비스가 미판정처럼 보인다.
+    const blockedSaas = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
     lines.push(
       `[발견 자산] ${s.discovered.length}건`,
       ...s.discovered.map((d) => `- ${d.id} | ${d.hostname} | ${d.type} | ${d.channel} | ${d.state} | 위험도:${d.risk} | 최근:${d.lastSeen}${d.note ? ` | ${d.note}` : ''}`),
       `[Shadow SaaS]`,
-      ...s.saas.map((x) => `- ${x.service} | ${x.dept} | 사용자:${x.users} | ${x.sanctioned ? '인가' : '미인가'} | 위험도:${x.risk}`),
+      ...s.saas.map((x) => `- ${x.service} | ${x.dept} | 사용자:${x.users} | ${x.sanctioned ? '인가' : blockedSaas.has(x.service) ? '차단 판정' : '미인가'} | 위험도:${x.risk}`),
       `[결재 대기] ${s.approvals.filter((a) => a.status === '대기').length}건`,
       ...s.approvals.filter((a) => a.status === '대기').map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.currentStep}`),
       `[외부 위협] 외부 노출 미조치 ${s.external.filter((e) => !e.action && e.state !== '등록·일치').length} · 크리덴셜 노출 미조치 ${s.credentials.filter((c) => c.status !== '조치 완료').length} · IOC 상관 미조치 ${s.iocMatches.filter((i) => !i.action).length} · 다크웹 유출·침해 미조치 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
@@ -213,7 +215,9 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
   if (!isUser && (q.includes('미인가') || q.includes('saas') || q.includes('새스') || q.includes('섀도'))) {
-    const shadow = s.saas.filter((x) => !x.sanctioned)
+    // 차단 판정이 끝난 서비스는 '판정 대기' 미인가가 아니다 — 답변 말미가 '인가·차단 판정은 …에서 처리합니다'로 맺으므로,
+    //  이미 차단한 서비스를 세면 처리 끝난 건을 다시 판정하라고 안내하게 된다. 화면 KPI·주간 브리핑·반출본과 같은 lib/reports 기준.
+    const shadow = shadowSaasPending()
     const saasEv = [
       { label: 'Shadow SaaS', href: '/discovery/saas' },
       { label: 'SaaS 카탈로그', href: '/settings/saas-catalog' },
