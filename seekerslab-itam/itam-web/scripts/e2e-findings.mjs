@@ -3047,6 +3047,24 @@ try {
   await pSG2.waitForTimeout(800)
   ok('저장 게이트: 저장 복원 시 변경 액션 성공(양성 대조)', ((await pSG2.textContent('body')) || '').includes('보증 연장'))
   await ctxSG2.close()
+  // 삭제 칸까지 — 매트릭스 7기능 중 마지막으로 남아 있던 미강제 칸이다(AI 어시스턴트 화면의 리포트 삭제).
+  //  메뉴 정의의 기능 목록에도 '삭제'가 빠져 있어 권한 화면이 '이 화면에 없는 기능'으로 흐려 표시했다 — 실제로는 있는 버튼이다.
+  const aiRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: 'AI 어시스턴트' }) }).first()
+  const aiCell = aiRow.locator('td').nth(10) // 라벨(0) + 자산담당(역할 2번째) × 삭제(기능 3번째)
+  ok('권한 매트릭스: AI 어시스턴트 × 삭제(자산담당) 초기 허용 — 화면이 제공하는 기능', ((await aiCell.textContent()) || '').includes('✓'))
+  await aiCell.click(); await pPM.waitForTimeout(600) // 허용 → 본인
+  await aiCell.click(); await pPM.waitForTimeout(800) // 본인 → 불가
+  const ctxDEL = await browser.newContext(); await ctxDEL.addCookies([cookie(ASSET)]); const pDEL = await ctxDEL.newPage()
+  await pDEL.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  // 리포트 유형 표가 먼저 나오므로 '삭제' 버튼이 실제로 있는 행을 골라야 한다(첫 tbody 행은 유형 표다).
+  const delRow = pDEL.locator('tr', { has: pDEL.locator('button', { hasText: /^삭제$/ }) }).first()
+  ok('삭제 게이트: 삭제 가능한 리포트 존재(양성 대조)', (await delRow.count()) > 0)
+  await delRow.locator('button', { hasText: /^삭제$/ }).click()
+  await pDEL.waitForTimeout(800)
+  ok('삭제 게이트: 매트릭스 삭제 회수 시 리포트 삭제 거부(사유 표기)', ((await pDEL.textContent('body')) || '').includes('삭제 권한이 회수되었습니다'))
+  await ctxDEL.close()
+  await aiCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
+  ok('권한 매트릭스: AI 어시스턴트 삭제 권한 복원(허용)', ((await aiCell.textContent()) || '').includes('✓'))
   await ctxPM.close()
   // 발견 편입·격리 버튼도 권한 매트릭스를 따르는지(라운드트립) — 서버 requestOnboard/requestQuarantine 은 can('발견 자산 · CMDB 대사', 편입/격리요청)을
   //  강제하고 메뉴 정의도 이 둘을 enforced 로 선언하는데, 화면은 아무 권한 게이트 없이 버튼을 내줬다. 게다가 거부가 undefined 반환이라

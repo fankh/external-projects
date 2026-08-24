@@ -236,9 +236,9 @@ function seedMenuDefs(): MenuDef[] {
     { code: 'INV-020',  category: '재고·계약',  menu: '계약 · 라이선스',      path: '/inventory/contracts',  actions: ['조회', '저장', '삭제', '엑셀', '결재'],            enforced: ['조회', '저장', '엑셀'] },
     { code: 'DSC-010',  category: 'Discovery', menu: '발견 자산 · CMDB 대사', path: '/discovery/found',      actions: ['조회', '저장', '엑셀', '편입', '격리요청', '결재'], enforced: ['조회', '엑셀', '편입', '격리요청'] },
     { code: 'DSC-030',  category: 'Discovery', menu: 'Shadow SaaS',        path: '/discovery/saas',       actions: ['조회', '저장', '엑셀', '격리요청', '결재'],        enforced: ['조회', '저장', '엑셀'] },
-    { code: 'AI-010',   category: 'AI',        menu: 'AI 어시스턴트',        path: '/ai/assistant',         actions: ['조회', '엑셀'],                                  enforced: ['조회'] },
+    { code: 'AI-010',   category: 'AI',        menu: 'AI 어시스턴트',        path: '/ai/assistant',         actions: ['조회', '삭제', '엑셀'],                                  enforced: ['조회', '삭제'] },
     { code: 'WFL-010',  category: '워크플로',   menu: '신청 · 결재',          path: '/workflow/approvals',   actions: ['조회', '저장', '엑셀', '격리요청', '결재'],        enforced: ['조회', '엑셀', '결재'] },
-    { code: 'CFG-010',  category: '환경설정',   menu: '권한 · 정책',          path: '/settings/permissions', actions: ['조회', '저장', '삭제', '엑셀'],                   enforced: ['조회', '엑셀'] },
+    { code: 'CFG-010',  category: '환경설정',   menu: '권한 · 정책',          path: '/settings/permissions', actions: ['조회', '저장', '삭제', '엑셀'],                   enforced: ['조회', '삭제', '엑셀'] },
   ]
 }
 
@@ -251,7 +251,7 @@ function seedMenuPermissions(): MenuPermission[] {
     { menu: '계약 · 라이선스', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['y','y','y','y','n','n','y'], SEC_MGR: ['y','n','n','y','n','n','n'], ADMIN: ['y','y','y','y','y','y','y'] } },
     { menu: '발견 자산 · CMDB 대사', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['y','y','n','y','y','y','y'], SEC_MGR: ['y','y','n','y','y','y','y'], ADMIN: ['y','y','y','y','y','y','y'] } },
     { menu: 'Shadow SaaS', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['y','n','n','y','n','n','n'], SEC_MGR: ['y','y','n','y','n','y','y'], ADMIN: ['y','y','y','y','y','y','y'] } },
-    { menu: 'AI 어시스턴트', cells: { USER: ['p','n','n','n','n','n','n'], ASSET_MGR: ['y','n','n','y','n','n','n'], SEC_MGR: ['y','n','n','y','n','n','n'], ADMIN: ['y','y','n','y','n','n','n'] } },
+    { menu: 'AI 어시스턴트', cells: { USER: ['p','n','n','n','n','n','n'], ASSET_MGR: ['y','n','y','y','n','n','n'], SEC_MGR: ['y','n','y','y','n','n','n'], ADMIN: ['y','y','y','y','n','n','n'] } },
     { menu: '신청 · 결재', cells: { USER: ['p','y','n','n','n','n','n'], ASSET_MGR: ['y','y','n','y','n','n','y'], SEC_MGR: ['y','y','n','y','n','y','y'], ADMIN: ['y','y','y','y','y','y','y'] } },
     { menu: '권한 · 정책', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['n','n','n','n','n','n','n'], SEC_MGR: ['n','n','n','n','n','n','n'], ADMIN: ['y','y','y','y','y','y','y'] } },
   ]
