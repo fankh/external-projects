@@ -13,8 +13,8 @@ import type { ChannelBinding, PortalBrand } from '@/lib/integrations/types'
 
 export const PORTAL: PortalBrand = {
   customer: '한빛제조 (예시)',
-  productName: 'HANBIT IT PORTAL',
-  productSub: 'IT · Security Governance',
+  productName: '한빛 IT포털',
+  productSub: 'IT·보안 거버넌스',
   version: 'v1.0',
 }
 
