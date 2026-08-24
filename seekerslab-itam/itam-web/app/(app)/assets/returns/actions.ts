@@ -5,6 +5,7 @@ import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOv
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
+import { loanRemindTargets, repairRemindTargets } from '@/lib/reminders'
 import { reclaimLicenseSeats } from '@/lib/license'
 import type { ReturnCondition } from '@/lib/types'
 
@@ -132,18 +133,11 @@ export async function remindLoans() {
     return { ok: false, message: '대여 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
   }
 
-  const s = getStore()
-  const t = today()
-  // 당일 이미 독촉한 자산은 건너뛴다 — ref = 자산번호
-  const sentToday = new Set(
-    s.dispatches.filter((m) => m.kind === '대여 독촉' && m.at.startsWith(t)).map((m) => m.ref),
-  )
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 연체·반환 임박 + 당일 발송분 제외.
 
   let n = 0
-  for (const a of s.assets) {
+  for (const a of loanRemindTargets()) {
     const overdue = isLoanOverdue(a)
-    if (!overdue && !isLoanDueSoon(a)) continue
-    if (sentToday.has(a.assetNo)) continue
     const d = daysUntil(a.loanDueDate ?? '') ?? 0
     dispatch({
       channel: '이메일',
@@ -170,20 +164,14 @@ export async function remindRepairs() {
     return { ok: false, message: '수리 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
   }
 
-  const s = getStore()
-  const t = today()
-  // 당일 이미 독촉한 자산은 건너뛴다 — ref = 자산번호
-  const sentToday = new Set(
-    s.dispatches.filter((m) => m.kind === '수리 독촉' && m.at.startsWith(t)).map((m) => m.ref),
-  )
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 예상 반환 경과·일정 미회신 + 당일 발송분 제외.
 
   let n = 0
-  for (const a of s.assets) {
+  for (const a of repairRemindTargets()) {
     // 예상 반환일이 지난 건과 아직 일정을 못 받은 건(eta 미기재)을 함께 독촉한다 — 둘 다 이 통보가 요청하는
     //  '반환 일정 회신'의 대상이다. 미기재 건은 경과일을 셀 수 없으므로 문구를 달리한다.
     const etaMissing = isRepairEtaMissing(a)
-    if ((!isRepairOverdue(a) && !etaMissing) || !a.repair) continue
-    if (sentToday.has(a.assetNo)) continue
+    if (!a.repair) continue // 타입 좁히기 — 대상 판정(lib/reminders)이 이미 수리 정보 보유를 보장한다
     const over = -(daysUntil(a.repair.eta ?? '') ?? 0)
     dispatch({
       channel: '이메일',

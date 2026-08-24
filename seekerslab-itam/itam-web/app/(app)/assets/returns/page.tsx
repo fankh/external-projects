@@ -6,6 +6,7 @@ import { warrantySavingsOf } from '@/lib/cost'
 import { buildRepairVendors } from '@/lib/repair-vendors'
 import { availableAssets } from '@/lib/stock'
 import { getStore } from '@/lib/store'
+import { loanRemindTargets, repairRemindTargets } from '@/lib/reminders'
 import { ReturnsView } from './ReturnsView'
 
 export const dynamic = 'force-dynamic'
@@ -63,9 +64,10 @@ export default async function ReturnsPage() {
     .sort((x, y) => (x.dday ?? 99_999) - (y.dday ?? 99_999))
   const overdueLoans = loans.filter((l) => l.overdue).length
   // 독촉 대상 — 연체 + 반환 임박(D-7). 대여자에게 반환 요청을 보낼 수 있는 건수
-  const remindable = s.assets.filter((a) => isLoanOverdue(a) || isLoanDueSoon(a)).length
+  // 독촉 버튼 건수 = 오늘 아직 안 보낸 대상 수(lib/reminders · 액션과 같은 소스). 신호 수를 그대로 쓰면 다 보낸 뒤에도 버튼이 남는다.
+  const remindable = loanRemindTargets().length
   // 버튼 건수 = 실제 발송 대상(remindRepairs) — 예상 반환 경과 + 일정 미회신. 어긋나면 눌러도 안 나가는 건수가 생긴다.
-  const repairRemindable = s.assets.filter((a) => isRepairOverdue(a) || isRepairEtaMissing(a)).length
+  const repairRemindable = repairRemindTargets().length
   const todayStr = today()
 
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])

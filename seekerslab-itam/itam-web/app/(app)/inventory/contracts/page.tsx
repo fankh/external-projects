@@ -8,6 +8,7 @@ import { buildLicenseUsage } from '@/lib/license-usage'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { contractAssetCount, getStore } from '@/lib/store'
+import { maintenanceBudgetTargets, maintenanceExecTargets, maintenanceSlaTargets, procurementRemindTargets } from '@/lib/reminders'
 import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ContractDocsButton, ExpiryNoticeButton } from './LicenseActions'
 import { LicenseTable } from './LicenseTable'
@@ -60,9 +61,9 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         pad={false}
         actions={<span className="hstack" style={{ gap: 10 }}>
           <span className="dim" style={{ fontSize: 11.5 }}>계약 {maint.rows.length}건 · 집행 {fmtAmount(maint.totalSpent)}/{fmtAmount(maint.totalAmount)}원</span>
-          <MaintenanceBudgetButton alert={maint.budgetAlert} />
-          <MaintenanceExecButton alert={maint.execAlert} />
-          <MaintenanceSlaButton alert={maint.slaBreachAlert} />
+          <MaintenanceBudgetButton alert={maintenanceBudgetTargets().length} />
+          <MaintenanceExecButton alert={maintenanceExecTargets().length} />
+          <MaintenanceSlaButton alert={maintenanceSlaTargets().length} />
         </span>}
       >
         <div className="stat-row" style={{ margin: 14 }}>
@@ -116,7 +117,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         pad={false}
         actions={<span className="hstack" style={{ gap: 10 }}>
           <span className="dim" style={{ fontSize: 11.5 }}>구매 계약 {proc.rows.length}건 · 발주 {fmtAmount(proc.totalOrdered)}/{fmtAmount(proc.totalAmount)}원{proc.atRisk.length > 0 ? ` · 미이행 위험 ${proc.atRisk.length}` : ''}</span>
-          <ProcurementRemindButton atRisk={proc.atRisk.length} />
+          <ProcurementRemindButton atRisk={procurementRemindTargets().length} />
           <ProcurementSettleButton settleable={proc.settleable.length} />
         </span>}
       >

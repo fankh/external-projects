@@ -6,7 +6,7 @@ import { answerQuestion, askQuestion, deleteQuestion, editQuestion, recordPostVi
 
 const CATEGORIES: QnaCategory[] = ['자산 신청·반납', '장애·수리', '라이선스', '보안·Discovery', '기타']
 
-export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdueDays = {} }: { posts: BoardPost[]; canAnswer: boolean; canModerate: boolean; me: string; initialSel?: string; overdueDays?: Record<string, number> }) {
+export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdueDays = {}, remindCount = 0 }: { posts: BoardPost[]; canAnswer: boolean; canModerate: boolean; me: string; initialSel?: string; overdueDays?: Record<string, number>; remindCount?: number }) {
   const overdueCount = Object.keys(overdueDays).length
   const [remindMsg, setRemindMsg] = useState<string | null>(null)
   // 딥링크(?sel=QNA-…) — 알림 로그(‘QnA 답변’ 통지)·대시보드에서 특정 문의로 진입. 없으면 첫 미답변→최신 폴백.
@@ -56,10 +56,10 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
     <>
       <Card kicker="Questions" title="문의 목록" pad={false}
         actions={<span className="hstack" style={{ gap: 6 }}>
-          {canAnswer && overdueCount > 0 && (
+          {canAnswer && remindCount > 0 && (
             <button className="btn sm warn" disabled={pending}
               onClick={() => startTransition(async () => setRemindMsg((await remindQna()).message))}
-              title="SLA 경과 미답변 문의의 담당 팀에 답변 처리를 재촉한다 (당일 중복 발송 차단)">답변 독촉 발송 ({overdueCount})</button>
+              title="SLA 경과 미답변 문의의 담당 팀에 답변 처리를 재촉한다 (당일 중복 발송 차단)">답변 독촉 발송 ({remindCount})</button>
           )}
           <button className="btn sm pri" onClick={() => setAsking((a) => !a)}>{asking ? '취소' : '질문하기'}</button>
         </span>}>

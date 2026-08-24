@@ -6,6 +6,7 @@ import { noticeTargets } from '@/lib/notice'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
+import { qnaRemindTargets } from '@/lib/reminders'
 import { NOTICE_CATEGORIES } from '@/lib/types'
 import type { NoticeCategory, QnaCategory } from '@/lib/types'
 
@@ -125,12 +126,9 @@ export async function reopenQuestion(postId: string) {
 export async function remindQna() {
   const session = await getSession()
   if (!session || session.role === 'USER') return { ok: false, message: 'QnA 답변 독촉 권한이 없습니다 (담당자·Admin).' }
-  const s = getStore()
-  const t = today()
-  const sentToday = new Set(s.dispatches.filter((m) => m.kind === 'QnA 독촉' && m.at.startsWith(t)).map((m) => m.ref))
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — SLA 경과 미답변 + 당일 발송분 제외.
   let n = 0
-  for (const p of s.posts) {
-    if (!isQnaOverdue(p) || sentToday.has(p.id)) continue
+  for (const p of qnaRemindTargets()) {
     dispatch({ channel: '이메일', to: qnaTeamOf(p.category), subject: `[QnA 답변 독촉] '${p.title}' — 등록 ${qnaAgeDays(p.createdAt)}일 경과, 답변 처리 부탁드립니다`, kind: 'QnA 독촉', ref: p.id })
     n += 1
   }

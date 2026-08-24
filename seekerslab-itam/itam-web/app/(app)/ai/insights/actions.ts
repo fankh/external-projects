@@ -8,6 +8,7 @@ import { dispatch } from '@/lib/notify'
 import { createReport, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
+import { replacementNoticeTargets } from '@/lib/reminders'
 
 /** AI 제안 판정 — 담당자 확인·결재를 거쳐야 제안이 조치로 이어진다.
  *  승인·반려 결과는 그대로 남아 재학습 신호(채택률·오탐 유형)로 집계된다.
@@ -163,12 +164,10 @@ export async function notifyReplacement() {
   if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '교체 검토 통보 권한이 없습니다 (자산담당·Admin).' }
   }
-  const s = getStore()
   const t = today()
-  const sentToday = new Set(s.dispatches.filter((m) => m.kind === '교체 검토 통보' && m.at.startsWith(t)).map((m) => m.ref))
+  // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 교체 대상 + 당일 발송분 제외.
   let n = 0
-  for (const { a, why } of replacementCandidates().cands) {
-    if (sentToday.has(a.assetNo)) continue
+  for (const { a, why } of replacementNoticeTargets()) {
     // 보유자 없는 자산(유휴·검수중 등 owner 미지정/-)은 '- (부서)' 로 아무에게도 아닌 발송이 되지 않게 관리 부서 앞으로(다른 owner 발송 사이트와 동일 가드).
     const to = a.owner && a.owner !== '미지정' && a.owner !== '-' ? `${a.owner} (${a.dept})` : a.dept
     dispatch({ channel: '이메일', to, subject: `자산 교체 검토 요청 — ${a.assetNo} ${a.model} (${why})`, kind: '교체 검토 통보', ref: a.assetNo })

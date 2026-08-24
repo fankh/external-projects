@@ -864,10 +864,15 @@ try {
   await p2.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
   const replBtn = p2.locator('button', { hasText: /교체 검토 통보/ })
   ok('교체 검토 통보: 교체 대상 있으면 자산담당에 통보 버튼 노출', (await replBtn.count()) > 0)
+  const replN = Number((((await replBtn.first().innerText()) || '').match(/\((\d+)\)/) || [])[1] || '0')
   await replBtn.first().click()
   await p2.waitForTimeout(700)
   const replBody = (await p2.locator('body').textContent()) || ''
   ok('교체 검토 통보: 발송 성공(소유 부서 교체 검토 요청·발송 이력)', replBody.includes('교체 검토 통보') && replBody.includes('발송'))
+  ok(`교체 검토 통보(화면-액션 정합): 버튼 건수 = 발송 건수(${replN}건 · lib/reminders 단일 소스)`, replN > 0 && replBody.includes(`교체 검토 통보 ${replN}건 발송`))
+  await p2.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  const replAfter = p2.locator('button', { hasText: /^교체 검토 통보 \(\d+\)$/ }).first()
+  ok('교체 검토 통보(중복 억제): 발송 직후 (0)·비활성(교체 대상 표는 유지)', ((await replAfter.innerText()) || '').includes('(0)') && (await replAfter.isDisabled()))
   // 위험 신호 요약(#4107 신규 역량 — 자산별 복합 위험 트리아지) — 대장 필터로 흩어진 주의 신호(정합성·EOL·보증·점검·SPOF·교체·미실측)를 자산 도시어 한 곳에 집약, 2+ 이면 복합 위험(우선 조치). 각 필터 셋 단일 소스 재사용.
   //  AST-2021-000432(유휴·Win10 EOL·내용연수/보증 경과 교체 대상)는 EOL+교체 등 2+ 신호 → 복합 위험.
   await p2.goto(`${BASE}/assets/register?sel=AST-2021-000432`, { waitUntil: 'networkidle' })
@@ -919,6 +924,14 @@ try {
   await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const returnsBodyW = (await p2.locator('body').textContent()) || ''
   ok('무상 보증 청구: 보증 절감 누계 반영(시드 200,000 + 377 350,000 = 550,000원 · 자사 TCO 제외분)', returnsBodyW.includes('보증 절감') && returnsBodyW.includes('550,000원'))
+  // 대여 반환 독촉도 같은 판정 — 연체·반환 임박 자산에 보내고 나면 버튼이 사라져야 한다.
+  const loanRemind = p2.locator('button', { hasText: /^반환 독촉 발송 \d+건$/ })
+  ok('대여 반환 독촉: 연체·임박 있으면 버튼 노출', (await loanRemind.count()) > 0)
+  await loanRemind.first().click()
+  await p2.waitForTimeout(800)
+  ok('대여 반환 독촉: 발송 성공(대여자 반환 요청·발송 이력)', ((await p2.textContent('body')) || '').includes('대여 반환 독촉'))
+  await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  ok('대여 반환 독촉(중복 억제): 발송 직후 버튼 소멸', (await p2.locator('button', { hasText: /^반환 독촉 발송 \d+건$/ }).count()) === 0)
   // 월간 자산 현황 리포트가 보증 절감을 노출(비용 회피 가시화·숫자 투명성) — 무상 청구분은 자사 수리비 총계에서 빠지되 '보증 절감'으로 별도 명시(위 377 청구 350,000 반영). 리포트 생성은 키 무관 결정적 처리.
   await p2.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
   const beforeM = await p2.locator('.msg.assistant .bub').count()
@@ -2042,6 +2055,9 @@ try {
   await qnaRemindBtn.click()
   await p3.waitForTimeout(700)
   ok('QnA 답변 독촉: 발송 성공(담당 팀 답변 요청·발송 이력)', ((await p3.locator('body').textContent()) || '').includes('QnA 답변 독촉') && ((await p3.locator('body').textContent()) || '').includes('발송'))
+  // 화면-액션 정합(유령 컨트롤 제거) — 버튼 건수는 '오늘 아직 안 보낸' 대상 수여야 한다(lib/reminders). 신호 수를 그대로 쓰면 다 보낸 뒤에도 같은 건수로 남아 누르면 '오늘 발송분 제외 — 대상 없음'이 된다.
+  await p3.goto(`${BASE}/board/qna`, { waitUntil: 'networkidle' })
+  ok('QnA 답변 독촉(중복 억제): 발송 직후 버튼 소멸(SLA 경과 배지·지표는 유지)', (await p3.locator('button', { hasText: /답변 독촉 발송/ }).count()) === 0 && ((await p3.textContent('body')) || '').includes('경과'))
   // 해결 확인된 QnA 답변이 바뀌면 해결 확인 해제(재확인) — 작성자가 '바뀌기 전 답변'으로 확인한 것이 개정 답변에 허위로 남지 않게(필독 공지 내용 변경 시 읽음 확인 초기화와 동형). ADMIN 이 문의·답변·해결 확인·재답변을 한 컨텍스트에서 검증(해결 확인 버튼은 작성자·미해결에만 노출되므로 재노출이 곧 해제 증거).
   await p3.goto(`${BASE}/board/qna`, { waitUntil: 'networkidle' })
   await p3.locator('button', { hasText: /^질문하기$/ }).click()
@@ -2284,6 +2300,8 @@ try {
   await repairRemind.click()
   await p4.waitForTimeout(800)
   ok('수리 지연 → 업체 독촉: 발송 성공', (await p4.textContent('body')).includes('수리 업체 독촉'))
+  await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  ok('수리 업체 독촉(중복 억제): 발송 직후 버튼 소멸', (await p4.locator('button', { hasText: /^업체 독촉 발송 \d+건$/ }).count()) === 0)
   const scrap = p4.locator('button', { hasText: /^폐기 검토$/ }).first()
   ok('장기 유휴: 폐기 검토 버튼 노출', (await scrap.count()) > 0)
   const idleAsset = (await p4.locator('tr', { has: p4.locator('button', { hasText: /^폐기 검토$/ }) }).first().locator('td').first().textContent())?.trim() || ''
@@ -2463,12 +2481,19 @@ try {
   await budgetBtn.first().click()
   await p4.waitForTimeout(800)
   ok('유지보수 예산: 통보 발송 성공(주관부서·공급사 · 발송 이력)', ((await p4.textContent('body')) || '').includes('유지보수 예산 통보') && ((await p4.textContent('body')) || '').includes('발송'))
+  // 화면-액션 정합(유령 컨트롤 제거) — 버튼 건수는 '오늘 아직 안 보낸' 대상 수여야 한다(lib/reminders). 신호 수를 그대로 쓰면 다 보낸 뒤에도 같은 건수로 남아 누르면 '오늘 발송분 제외 — 대상 없음'이 된다.
+  await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const budgetAfter = p4.locator('button', { hasText: /^예산 재협상·집행 점검 통보 \(\d+\)$/ }).first()
+  ok('유지보수 예산 통보(중복 억제): 발송 직후 (0)·비활성', ((await budgetAfter.innerText()) || '').includes('(0)') && (await budgetAfter.isDisabled()))
   // 유지보수 미집행 이행 독촉(로63) — 예산 통보의 반대편(집행률 0% 미집행)에 조치 채널이 없던 공백을 닫는다. 시드 CT-2024-011(스토리지·백업 유지보수, 비용 이력 없음=미집행) → 버튼 활성.
   const execBtn = p4.locator('button', { hasText: /^미집행 이행 독촉 \(\d+\)$/ })
   ok('유지보수 미집행: 이행 독촉 버튼 노출(미집행 배지 ≥1)', (await execBtn.count()) > 0 && !/\(0\)/.test(await execBtn.first().innerText()))
   await execBtn.first().click()
   await p4.waitForTimeout(800)
   ok('유지보수 미집행: 이행 독촉 발송 성공(주관부서·공급사 · 발송 이력)', ((await p4.textContent('body')) || '').includes('유지보수 이행 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
+  await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const execAfter = p4.locator('button', { hasText: /^미집행 이행 독촉 \(\d+\)$/ }).first()
+  ok('유지보수 미집행 독촉(중복 억제): 발송 직후 (0)·비활성', ((await execAfter.innerText()) || '').includes('(0)') && (await execAfter.isDisabled()))
   // 미집행 반올림 오분류(회귀) — 소액 착수비만 집행한 계약(30,000/60,000,000 = 0.05% · 반올림 0%)은 '집행 전무'가 아니므로 미집행이 아니라 정상. 시드 CT-2025-013(보안관제 MSS).
   await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const mssRow = (await p4.locator('tr', { has: p4.locator('td', { hasText: '보안관제(MSS) 유지보수' }) }).first().textContent()) || ''
@@ -2483,6 +2508,9 @@ try {
   await slaBtn.first().click()
   await p4.waitForTimeout(800)
   ok('유지보수 SLA 위반: 이행 독촉 발송 성공(주관부서·공급사 · 발송 이력)', ((await p4.textContent('body')) || '').includes('SLA 위반 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
+  await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const slaAfter = p4.locator('button', { hasText: /^SLA 위반 독촉 \(\d+\)$/ }).first()
+  ok('유지보수 SLA 독촉(중복 억제): 발송 직후 (0)·비활성', ((await slaAfter.innerText()) || '').includes('(0)') && (await slaAfter.isDisabled()))
 
   // 발주 이행 독촉(§03 구매 계약 · 신호→조치 채널) — 발주 미이행 위험 판정(발주율 저조·만료 임박)에 조치 채널이 없던 공백을 닫는다. 시드 CT-2023-021 미이행 → 버튼 활성.
   const procBtn = p4.locator('button', { hasText: /^발주 이행 독촉 \(\d+\)$/ })
@@ -2490,6 +2518,9 @@ try {
   await procBtn.first().click()
   await p4.waitForTimeout(800)
   ok('발주 이행 독촉: 발송 성공(주관부서·공급사·구매팀 · 발송 이력)', ((await p4.textContent('body')) || '').includes('발주 이행 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
+  await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const procAfter = p4.locator('button', { hasText: /^발주 이행 독촉 \(\d+\)$/ }).first()
+  ok('발주 이행 독촉(중복 억제): 발송 직후 (0)·비활성', ((await procAfter.innerText()) || '').includes('(0)') && (await procAfter.isDisabled()))
 
   // 발주 정산 종결(로72) — 검수 완료액을 '대금 정산 근거'로 약속하나 종결 조치가 없어 전량 이행된 계약도 이행 현황에 열린 채 남던 공백. 시드 CT-2026-018(8×3M=24M 전량 발주·검수 완료) → 정산 종결 가능 → 종결 시 정산 완료로 닫히고 이행/미이행 집계에서 빠진다. 검출·종결이 없으면 배지/버튼이 안 떠 실패.
   const settleCardPre = p4.locator('.card', { has: p4.locator('text=발주·검수 이행 현황') })
