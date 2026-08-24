@@ -1037,12 +1037,18 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <div className="callout" style={{ marginTop: 12, padding: '10px 12px' }}>
                 {maintMsg ? maintMsg : (
                   <>
-                    <b>정기 점검 예정 {sel.maintenanceDue}{props.today && sel.maintenanceDue < props.today ? ' (경과)' : ''}.</b> 예방 정비 대상 자산입니다.
+                    <b>정기 점검 예정 {sel.maintenanceDue}{props.today && sel.maintenanceDue < props.today ? ' (경과)' : ''}.</b>{' '}
+                    {/* 비운영(분실·수리중·반납대기) 자산은 점검 도래 큐·독촉에서 빠진 상태다 — 시행하지 않은 점검을 기록하면 이력이 거짓이 되고 다음 회차가 12개월 밀린다. */}
+                    {NON_OPERATIONAL_STATUSES.includes(sel.status)
+                      ? <>{sel.status} 상태라 예방 정비 대상이 아닙니다 — 점검 도래 큐·독촉에서 제외돼 있습니다(운영 복귀 후 시행 · 잘못 잡은 예약은 아래에서 취소).</>
+                      : <>예방 정비 대상 자산입니다.</>}
                     {!maintOpen ? (
                       <div className="hstack" style={{ marginTop: 8, gap: 6 }}>
+                        {!NON_OPERATIONAL_STATUSES.includes(sel.status) && (
                         <button className="btn sm pri" disabled={pending}
                           onClick={() => { setMaintOpen(true); setMaintNote(''); setMaintMsg(null) }}
                           title="예방 정비를 시행하고 다음 점검을 재예약">정기 점검 완료</button>
+                        )}
                         <button className="btn sm ghost" disabled={pending}
                           onClick={() => startTransition(async () => { const r = await cancelMaintenanceSchedule(sel.assetNo); setMaintMsg(r.message) })}
                           title="잘못 잡은 예약을 완료 처리 없이 해제 — 가짜 점검 이력을 남기지 않고 정비 사이클에서 제외">예약 취소</button>
