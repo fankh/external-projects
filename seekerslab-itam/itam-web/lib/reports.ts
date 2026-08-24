@@ -824,7 +824,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       {
         title: '저하 상태 상위 자산 (즉시 조치)',
         note: degraded.length
-          ? `분실·폐기·수리 등 저하 상태이면서 하위 의존이 있는 상위 ${degraded.length}건 — 장애가 하위로 전이됩니다`
+          ? `분실·폐기·수리·반납대기 등 저하·이탈 상태이면서 하위 의존이 있는 상위 ${degraded.length}건 — 장애가 하위로 전이됩니다`
           : '저하 상태로 하위에 위험을 주는 상위 자산 없음',
         columns: ['자산번호', '유형', '상태', '영향 대수', '영향 자산'],
         rows: degraded.length
@@ -1191,7 +1191,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const degH = impactSources()
     const maxB = spofH.length ? spofH[0].blastRadius.length : 0
     return `CMDB 의존 그래프 상 영향 범위 2대 이상인 단일 장애점(SPOF)은 ${spofH.length}건이며, 최대 영향 범위는 ${maxB}대입니다. `
-      + `이 중 현재 저하(분실·폐기·수리) 상태로 하위에 장애가 전이될 수 있는 상위 자산은 ${degH.length}건으로, 우선 복구·이중화 검토가 필요합니다.`
+      + `이 중 현재 저하·이탈(분실·폐기·수리·반납대기) 상태로 하위에 장애가 전이될 수 있는 상위 자산은 ${degH.length}건으로, 우선 복구·이중화 검토가 필요합니다.`
   }
   if (kind === '정보보호 컴플라이언스 증적') {
     return `정보보호 컴플라이언스 증적 — 대장 등록 운영 자산 ${s.assets.filter((a) => a.status !== '폐기완료').length}건, 미등록 발견 자산 ${onboardTargets().length}건이 편입 대상입니다. ISMS/ISO 27001 통제(자산 관리·접근 통제·매체 폐기·운영 보안·로깅)별 증적을 아래 섹션에 집약했습니다.`
