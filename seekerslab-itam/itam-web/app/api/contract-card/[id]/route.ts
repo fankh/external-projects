@@ -1,6 +1,7 @@
 import { daysUntil, fmtAmount } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { GONE_STATUSES } from '@/lib/types'
 
 /** 계약 카드 — 계약의 전체 요약(기본 정보·부속서류·SLA·비용 이력·연계 자산)을 한 장의 인쇄용 문서로.
  *  계약 갱신 검토·감사 대응 자료(계약 dossier)용. 계약은 자산담당·Admin 업무이므로 그 외 권한그룹은 차단한다. */
@@ -17,7 +18,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const esc = (v: string) => v.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch] as string)
   const d = daysUntil(c.end)
   const dLabel = c.status === '해지' ? `해지 (${c.terminatedAt ?? '-'})` : d === null ? '-' : d < 0 ? `만료 경과 ${-d}일` : `D-${d}`
+  // 목록에는 연계 이력이 있는 자산을 모두 싣되(감사 증빙), 헤더 수치는 계약 표·유지보수 커버리지와 같은 기준으로
+  //  손 떠난 자산을 뺀 '운영 연계'를 쓴다 — 같은 계약을 두 화면에서 보고 대수가 갈리지 않게.
   const linked = s.assets.filter((a) => a.contractId === c.id)
+  const liveLinked = linked.filter((a) => !GONE_STATUSES.includes(a.status))
+  const goneLinked = linked.length - liveLinked.length
   const row = (k: string, v: string) => `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>`
 
   const docsHtml = (c.documents ?? []).length
@@ -83,13 +88,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     </div>
     <div class="kv">
       ${row('공급사', c.vendor)}${row('주관부서', c.ownerDept)}
-      ${row('계약 금액', `${fmtAmount(c.amount)}원`)}${row('연계 자산', `${linked.length}건`)}
+      ${row('계약 금액', `${fmtAmount(c.amount)}원`)}${row('연계 자산', `${liveLinked.length}건${goneLinked > 0 ? ` (종료 상태 ${goneLinked}건 별도)` : ''}`)}
       ${row('시작일', c.start)}${row('만료일', c.end)}
     </div>
     <h2>부속서류 (${(c.documents ?? []).length}건)</h2>${docsHtml}
     ${maintHtml}
     ${renewalsHtml}
-    <h2>연계 자산 (${linked.length}건)</h2>${assetsHtml}
+    <h2>연계 자산 (운영 ${liveLinked.length}건${goneLinked > 0 ? ` · 종료 ${goneLinked}건` : ''})</h2>${assetsHtml}
     <div class="foot">발급: SEEKERSLAB ITAM — AI 자산관리 플랫폼 · 발급자 ${esc(session.name)}</div>
   </div>
 </body></html>`

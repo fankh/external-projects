@@ -12,7 +12,7 @@ import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import { can } from '@/lib/perm'
 import { contractDocsTargets, maintenanceBudgetTargets, maintenanceExecTargets, maintenanceSlaTargets, procurementRemindTargets } from '@/lib/reminders'
-import { CONTRACT_DOC_TYPES, type ContractDocType } from '@/lib/types'
+import { CONTRACT_DOC_TYPES, GONE_STATUSES, type ContractDocType } from '@/lib/types'
 
 /** 계약 등록 — 신규 구매·유지보수 계약을 대장에 편입한다 (갱신·알림만 있고 등록 경로 부재).
  *  등록 즉시 만료 임박 집계·알림 대상이 된다. 자산담당·Admin. */
@@ -408,7 +408,7 @@ export async function terminateContract(id: string, rawReason: string) {
   // 연계 영향 — 이 계약을 근거로 한 라이선스(구독)·자산(유지보수 커버리지)이 해지로 영향받는다.
   // 자동 해지/변경은 하지 않되(라이선스는 타 계약 이관 가능·자산은 소유 유지), 담당자가 검토하도록 규모를 드러낸다.
   const linkedLic = s.licenses.filter((l) => l.contractId === id && l.status !== '해지')
-  const linkedAssets = s.assets.filter((a) => a.contractId === id && !['폐기완료', '폐기예정'].includes(a.status))
+  const linkedAssets = s.assets.filter((a) => a.contractId === id && !GONE_STATUSES.includes(a.status)) // 커버리지 집계와 같은 기준(분실 포함)
   const impact = [linkedLic.length > 0 ? `라이선스 ${linkedLic.length}건(구독 확인)` : '', linkedAssets.length > 0 ? `자산 ${linkedAssets.length}대(${c.kind === '유지보수' ? '유지보수 커버리지' : '연계'} 확인)` : ''].filter(Boolean).join(' · ')
 
   dispatch({ channel: '이메일', to: c.ownerDept, subject: `${c.id} ${c.name} 계약 해지 — ${reason} (공급사 ${c.vendor})${impact ? ` · 연계 ${impact}` : ''}`, kind: '계약 해지', ref: c.id })

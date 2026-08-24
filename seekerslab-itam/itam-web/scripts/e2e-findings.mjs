@@ -3822,6 +3822,25 @@ try {
   const caRows = await pCA.locator('tbody tr.clickable').count()
   ok(`계약 연계 자산: 표시 ${caCount}대 = 드릴다운(${caHref.replace('/assets/register?q=', '')}) ${caRows}대`,
     caCount >= 1 && caCount === caRows)
+  // 연계 뒤에 죽은 자산은 커버리지에서 빠진다(신규) — 종료 상태 자산을 새로 연계하는 건 서버가 막는데,
+  //  연계된 뒤 폐기·분실된 자산은 계속 커버리지로 잡혀 재계약 단가 산정이 실제보다 넉넉한 대수를 근거로 삼았다.
+  const caFirstNo = ((await pCA.locator('tbody tr.clickable td.code').first().textContent()) || '').trim()
+  await pCA.goto(`${BASE}/assets/register?sel=${caFirstNo}`, { waitUntil: 'networkidle' })
+  const caLost = pCA.locator('button', { hasText: /^분실 · 도난 신고$/ })
+  if ((await caLost.count()) > 0) {
+    await caLost.first().click()
+    await pCA.locator('input[placeholder="정황 (마지막 확인 위치·경위)"]').fill('e2e 커버리지 검증 — 소재 불명')
+    await pCA.locator('button', { hasText: /^신고 확정$/ }).first().click()
+    await pCA.waitForTimeout(900)
+    await pCA.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+    const caCount2 = Number(((await pCA.locator('a[href^="/assets/register?q=CT-"]').first().textContent()) || '').trim())
+    await pCA.goto(`${BASE}${caHref}`, { waitUntil: 'networkidle' })
+    const caRows2 = await pCA.locator('tbody tr.clickable').count()
+    ok(`계약 연계 자산: 손 떠난 자산은 커버리지에서 빠진다 (${caCount} → ${caCount2}) · 드릴다운 ${caRows2}대 동수`,
+      caCount2 === caCount - 1 && caRows2 === caCount2)
+  } else {
+    ok('계약 연계 자산: 분실 · 도난 신고 컨트롤 확보(커버리지 감소 검증 전제)', false)
+  }
   await ctxCA.close()
   // 폐기 절차 불변식 — 상태가 '폐기예정'인 자산은 반드시 폐기 건(disposals)이 있어야 한다. 지금은 폐기예정으로
   //  바꾸는 8개 경로가 저마다 `if (!s.disposals.some(...)) push` 를 적어 지키고 있을 뿐, 이를 확인하는 검사가 없었다.

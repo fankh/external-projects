@@ -3,7 +3,7 @@ import { acquisitionCostOf, assetTco, bookValueOf, repairTotalOf } from './cost'
 import { buildLicenseUsage } from './license-usage'
 import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
-import { getStore } from './store'
+import { contractAssetCount, getStore } from './store'
 import { ASSET_CATEGORIES, type PermMenu, type Role } from './types'
 import type { Sheet } from './xlsx'
 
@@ -173,7 +173,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         rows: s.contracts.map((c) => {
           const miss = missingContractDocs(c)
           const spent = (c.costs ?? []).reduce((n, x) => n + x.amount, 0)
-          return [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, (c.costs?.length ?? 0) > 0 ? spent : '', s.assets.filter((a) => a.contractId === c.id).length, c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효', c.sla ?? '', miss.length > 0 ? miss.join('·') : '완비']
+          return [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, (c.costs?.length ?? 0) > 0 ? spent : '', contractAssetCount(c.id), c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효', c.sla ?? '', miss.length > 0 ? miss.join('·') : '완비']
         }),
       },
       {

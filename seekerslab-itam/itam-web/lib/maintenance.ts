@@ -2,7 +2,7 @@
  *  한 곳에 모은다. 그동안 비용 이력은 '누계'만 보였고 계약액 대비 집행률·잔여 예산·판정이 없었다.
  *  읽기 전용 합성 뷰 — 화면과 대장이 같은 산출을 쓴다(계약 amount·costs·연계 자산에서 결정적으로 파생). */
 import { ratioPct, daysUntil } from './dates'
-import { getStore } from './store'
+import { contractAssetCount, getStore } from './store'
 
 export interface MaintenanceRow {
   id: string
@@ -69,7 +69,7 @@ export function buildMaintenance(): {
         spent,
         rate,
         remaining: c.amount - spent,
-        covered: s.assets.filter((a) => a.contractId === c.id).length,
+        covered: contractAssetCount(c.id), // 연계 자산 수 단일 파생(손 떠난 자산 제외) — 계약 표·카드·엑셀과 같은 수
         sla: c.sla,
         slaResponseDays: c.slaResponseDays,
         slaBreach: breachAssetNos.length,
