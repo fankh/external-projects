@@ -45,11 +45,10 @@ export function groupGrantedMenus(name: string): string[] {
     if (!grp.members.includes(name) || !isGroupActive(grp)) continue
     for (const h of grp.menuGrants) if (isGrantableMenu(h)) hrefs.add(h)
     // 액션(쓰기) 위임도 해당 화면 열람을 함께 연다 — 위임받은 기능을 쓰려면 화면에 진입해야 한다.
-    // 쓰기 경로(groupGrantsAction)와 동일하게 isGrantableAction 로 액션 키 전체를 검증한다 — 손상·위조
-    // 데이터의 미등록 액션 키(예: `/infra/racks#save`)로 열람만 열리는 비대칭을 없앤다(fail-closed 대칭).
+    // parseGrantableActionKey 로 액션 키를 검증(쓰기 경로와 단일 원천)해 미등록 키로 열람만 열리는 비대칭 방지.
     for (const key of grp.actionGrants ?? []) {
-      const [h, a] = key.split('#')
-      if (h && a && isGrantableAction(h, a as ActionKey)) hrefs.add(h)
+      const p = parseGrantableActionKey(key)
+      if (p) hrefs.add(p.href)
     }
   }
   return [...hrefs]
@@ -59,14 +58,11 @@ export function groupGrantedMenus(name: string): string[] {
  *  메뉴 위임뿐 아니라 그 화면의 액션 위임을 받아도 열람이 열린다(액션을 쓰려면 화면 진입 필요). */
 export function groupGrantsMenu(name: string, href: string): boolean {
   if (!isGrantableMenu(href)) return false
-  // 액션 위임 분기도 isGrantableAction 로 액션 키를 검증한다(groupGrantedMenus·쓰기 경로와 대칭) —
-  // 미등록 액션 키가 열람만 여는 비대칭 제거. isGrantableMenu(href) 는 위에서 확정됨. 만료 그룹은 제외.
+  // 액션 위임 분기도 parseGrantableActionKey 로 검증(groupGrantedMenus·쓰기 경로와 단일 원천) — 미등록 액션
+  // 키가 열람만 여는 비대칭 제거. isGrantableMenu(href) 는 위에서 확정됨. 만료 그룹은 제외.
   return (getStore().userGroups ?? []).some((g) => g.members.includes(name) && isGroupActive(g)
     && (g.menuGrants.includes(href)
-      || (g.actionGrants ?? []).some((k) => {
-        const [h, a] = k.split('#')
-        return h === href && !!a && isGrantableAction(href, a as ActionKey)
-      })))
+      || (g.actionGrants ?? []).some((k) => parseGrantableActionKey(k)?.href === href)))
 }
 
 /** 화면 열람 가능 여부(단일 술어) — 역할 유효권한 OR 그룹 위임. 내비 표시(layout·AppShell)와 서버 가드
@@ -112,6 +108,16 @@ export function isGrantableAction(href: string, action: ActionKey): boolean {
   return !!SCREEN_ACTIONS[href]?.[action] && isGrantableMenu(href)
 }
 
+/** 그룹 액션 위임 키(`${href}#${action}`)를 파싱해 **부여 가능한** 것만 분해 반환 — 형식오염·미등록·ADMIN 화면
+ *  키는 null(fail-closed). split('#')+isGrantableAction 검증이 여러 리졸버(열람 개방·쓰기 판정·목록·대장)에
+ *  흩어져 한 곳만 느슨해지는 비대칭(과거 v1.5.437: 열람 분기가 검증 누락)을 막기 위해 이 검증을 단일 원천으로
+ *  모은다. 호출부는 결과의 href/action 을 쓰거나 원본 키를 넣거나 존재여부만 보는 등 후처리만 달리한다. */
+function parseGrantableActionKey(key: string): { href: string; action: ActionKey } | null {
+  const [href, action] = key.split('#')
+  if (!href || !action || !isGrantableAction(href, action as ActionKey)) return null
+  return { href, action: action as ActionKey }
+}
+
 /** 이 계정이 그룹 위임으로 해당 기능(쓰기)을 수행할 수 있는가 — 부여 가능 액션만 인정한다. 읽기 시점에
  *  isGrantableAction 로 필터하므로 손상·위조 데이터가 admin 화면·미등록 액션을 위임해도 무시된다(fail-closed). */
 export function groupGrantsAction(name: string, href: string, action: ActionKey): boolean {
@@ -126,8 +132,7 @@ export function groupGrantedActions(name: string): string[] {
   for (const grp of getStore().userGroups ?? []) {
     if (!grp.members.includes(name) || !isGroupActive(grp)) continue
     for (const key of grp.actionGrants ?? []) {
-      const [h, a] = key.split('#')
-      if (h && a && isGrantableAction(h, a as ActionKey)) keys.add(key)
+      if (parseGrantableActionKey(key)) keys.add(key)
     }
   }
   return [...keys]
@@ -149,8 +154,8 @@ export function groupDelegationRegister(): DelegationEntry[] {
     for (const m of new Set(g.members)) {
       for (const h of g.menuGrants) if (isGrantableMenu(h)) reg.push({ member: m, kind: '열람', target: TITLE_BY_HREF[h]?.title ?? h, group: g.label, expiresAt })
       for (const k of g.actionGrants ?? []) {
-        const [h, a] = k.split('#')
-        if (h && a && isGrantableAction(h, a as ActionKey)) reg.push({ member: m, kind: '기능', target: `${TITLE_BY_HREF[h]?.title ?? h} · ${ACTION_LABEL[a as ActionKey]}`, group: g.label, expiresAt })
+        const p = parseGrantableActionKey(k)
+        if (p) reg.push({ member: m, kind: '기능', target: `${TITLE_BY_HREF[p.href]?.title ?? p.href} · ${ACTION_LABEL[p.action]}`, group: g.label, expiresAt })
       }
     }
   }
