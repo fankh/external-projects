@@ -1102,6 +1102,8 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         ['결재 SLA', `${s.opsPolicy.approvalSlaDays}일`, '결재 대기 지연 판정 — 대시보드·결재함 지연 표기 (Admin)'],
         ['장기 미실측 기준', `${s.opsPolicy.staleVerifyDays}일`, '유령 자산 후보 판정 — 재물조사 자동 편성 (Admin)'],
         ['만료 알림 창', `${s.opsPolicy.expiryWindowDays}일`, '계약·보증·라이선스 만료 임박 알림 (Admin)'],
+        ['정기 점검 창', `${s.opsPolicy.maintenanceWindowDays}일`, '예방 정비 도래 판정 — 대시보드 점검 큐·대장 필터·어시스턴트 (Admin)'],
+        ['안전재고 기준', `${s.opsPolicy.safetyStock}대`, '불출형(단말·주변기기) 가용 재고 하한 — 재고 부족(발주 검토) 경보 (Admin)'],
         ['취약점 우선순위 P1', `점수 ${s.riskPolicy.p1MinScore} 이상`, '즉시 조치 등급 컷오프 (보안담당)'],
         ['취약점 우선순위 P2', `점수 ${s.riskPolicy.p2MinScore}~${s.riskPolicy.p1MinScore - 1}`, '우선 조치 등급 컷오프 (보안담당)'],
         ['AI 실행 환경 · 모델', `${s.aiPolicy.deployment} · ${s.aiPolicy.modelId}`, 'AI 거버넌스 — 실행 환경·모델 버전 (Admin)'],
