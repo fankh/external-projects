@@ -14,6 +14,28 @@ export function BulkImport() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, startTransition] = useTransition()
 
+/** CSV 한 줄을 필드로 나눈다 — 값에 쉼표가 들어가면 Excel 은 따옴표로 감싸 내보낸다(RFC4180).
+ *  split(',') 로 자르면 '"ThinkPad T14, Gen4"' 같은 모델명이 두 조각으로 쪼개져 모델·시리얼이 통째로 밀린다.
+ *  조용히 어긋난 값이 그대로 대장에 등록되므로(검증은 유형·모델 유무만 본다) 여기서 제대로 나눈다.
+ *  따옴표 안의 따옴표는 두 번 겹쳐 표기한다("") — 같은 규약으로 되돌린다. */
+function splitCsvLine(line: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++ } else inQuotes = false
+      } else cur += ch
+    } else if (ch === '"') inQuotes = true
+    else if (ch === ',') { out.push(cur); cur = '' }
+    else cur += ch
+  }
+  out.push(cur)
+  return out
+}
+
   const parsed = useMemo(() => {
     const out: { row: Row; valid: boolean; reason: string }[] = []
     // 템플릿(/api/asset-template.csv)은 Excel 이 한글을 깨지 않도록 BOM 을 붙여 내려간다 — 그 파일을 그대로
@@ -23,7 +45,7 @@ export function BulkImport() {
     for (const raw of body.split(/\r?\n/)) {
       const line = raw.trim()
       if (!line) continue
-      const c = line.split(',').map((v) => v.trim())
+      const c = splitCsvLine(line).map((v) => v.trim())
       // 헤더 행(유형·모델 등 라벨) 건너뛰기
       if (c[0] === '유형' && (c[1] === '모델' || c[1] === '')) continue
       const row: Row = { category: c[0] ?? '', model: c[1] ?? '', serial: c[2] ?? '', owner: c[3] ?? '', dept: c[4] ?? '', location: c[5] ?? '' }
