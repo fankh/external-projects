@@ -164,7 +164,7 @@ export default async function ManagePledgePage() {
   return (
     <>
       <ScreenHeader kicker="임직원 의식제고" title="전사 현황 · 양식관리"
-        desc="전사 서약 진행현황과 서약서 양식(개정일자), 보안담당자, 서면 스캔본 등록을 관리한다." />
+        desc="전사 서약 진행현황과 양식·담당자 관리. 서면 제출분은 스캔본으로 등록한다." />
 
       <div className="stat-row">
         <Stat value={s.people.length} label="전사 대상" />
