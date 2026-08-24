@@ -54,8 +54,8 @@ export default async function TodoPage() {
 
   return (
     <>
-      <ScreenHeader kicker="My Work" title="나의 할일"
-        desc="서약·교육·체크리스트·SR·결재 — 각 업무 화면에서 처리하면 할일이 자동으로 닫힌다." />
+      <ScreenHeader kicker="내 업무" title="나의 할일"
+        desc="각 업무 화면에서 처리하면 해당 할일은 자동으로 닫힌다." />
 
       <div className="stat-row">
         <Stat value={open.length} label="미처리" tone={open.length > 0 ? 'warn' : undefined} />
