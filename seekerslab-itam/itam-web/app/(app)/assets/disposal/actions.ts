@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { clearDependencyRefs } from '@/lib/cmdb'
-import { reclaimLicenseSeats } from '@/lib/license'
+import { clearSwInstalls, reclaimLicenseSeats } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, type Disposition, type DisposalPhotoLabel, type WipeMethod } from '@/lib/types'
@@ -134,6 +134,12 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
     if (freed.length) asset.history.push({ date: today(), kind: '폐기', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (폐기)`, actor: session.name })
     // CMDB 의존 참조 정리 — 좌석 회수와 같은 이유다. 사라진 자산을 상위로 두던 하위 자산의 dependsOn 을 그대로 두면
     //  없는 장비가 단일 장애점(SPOF)으로 계속 잡히고, 폐기완료는 저하 상태라 큐 맨 위로 올라간다.
+    // 폐기 완료 자산의 SW 설치 기록 정리 — 좌석은 회수됐는데 설치만 남으면 '배정 밖 설치(무단 사용)'로 영구히 잡힌다.
+    const swCleared = clearSwInstalls(asset.assetNo)
+    if (swCleared.length) {
+      asset.history.push({ date: today(), kind: '폐기', detail: `SW 설치 기록 정리 — ${swCleared.join(', ')} (폐기 · 좌석 대사에서 제외)`, actor: session.name })
+      appendAudit({ actor: session.name, action: `SW 설치 기록 정리 — ${asset.assetNo} 폐기로 ${swCleared.length}건 대사 제외`, target: asset.assetNo })
+    }
     const detached = clearDependencyRefs(asset.assetNo)
     if (detached.length) {
       asset.history.push({ date: today(), kind: '폐기', detail: `CMDB 의존 참조 정리 — ${detached.join(', ')} 의 상위 의존에서 제외 (폐기)`, actor: session.name })
@@ -177,6 +183,8 @@ export async function recordWipeMany(ids: string[], method: WipeMethod, disposit
       asset.history.push({ date: today(), kind: '폐기', detail: `데이터 소거 완료 (${method}) · 처분 ${disposition} · 증적 ${d.certNo} 보존 (일괄)`, actor: session.name })
       const freed = reclaimLicenseSeats(asset.assetNo, session.name, '폐기')
       if (freed.length) asset.history.push({ date: today(), kind: '폐기', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (폐기)`, actor: session.name })
+      const swClearedM = clearSwInstalls(asset.assetNo) // 단건 소거와 동일 — 유령 SW 설치 기록 정리
+      if (swClearedM.length) asset.history.push({ date: today(), kind: '폐기', detail: `SW 설치 기록 정리 — ${swClearedM.join(', ')} (폐기 · 일괄)`, actor: session.name })
       const detached = clearDependencyRefs(asset.assetNo) // 단건 소거와 동일 — 유령 의존 참조 정리
       if (detached.length) asset.history.push({ date: today(), kind: '폐기', detail: `CMDB 의존 참조 정리 — ${detached.join(', ')} 의 상위 의존에서 제외 (폐기 · 일괄)`, actor: session.name })
       asset.receiptPending = undefined

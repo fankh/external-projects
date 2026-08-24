@@ -52,6 +52,19 @@ export function raiseLicenseApproval(
  *  모든 라이선스 좌석을 대장에서 제거한다. 떠난 자산에 좌석이 물려 있으면 보유-사용 대사가 어긋나고
  *  비용이 새기 때문(로56의 좌석 생애주기 마감). 회수된 좌석은 다시 배정 가능한 여유석이 된다.
  *  제거된 라이선스명 목록을 반환한다(호출부가 이력·메시지에 반영). 감사 로그는 여기서 남긴다. */
+/** 폐기 완료 자산의 SW 설치 기록 정리 — 소거·처분으로 장비가 사라지면 EDR 설치 인벤토리에 남은 기록이
+ *  좌석 대사에서 '배정 밖 설치(무단 사용 · SAM 리스크)'로 계속 잡힌다. 좌석은 폐기 시 회수되므로
+ *  남은 설치는 반드시 배정 밖으로 분류되고, 화면은 존재하지 않는 장비에 '좌석 배정 — 무단 사용 합법화'를
+ *  권한다(없는 장비 몫의 라이선스를 사더라도 대사는 닫히지 않는다). 좌석 회수·CMDB 의존 참조 정리와
+ *  같은 폐기 시 참조 정리 규약. 정리된 라이선스 ID 목록을 돌려준다. 서버 전용. */
+export function clearSwInstalls(assetNo: string): string[] {
+  const s = getStore()
+  const hit = (s.swInstalls ?? []).filter((i) => i.assetNo === assetNo)
+  if (hit.length === 0) return []
+  s.swInstalls = (s.swInstalls ?? []).filter((i) => i.assetNo !== assetNo)
+  return [...new Set(hit.map((i) => i.licenseId))]
+}
+
 export function reclaimLicenseSeats(assetNo: string, actor: string, reason: string): string[] {
   const s = getStore()
   const freed: string[] = []
