@@ -8,6 +8,7 @@ import { replacementCandidates } from '@/lib/reports'
 import { compositeRiskAssetNos } from '@/lib/risk'
 import { requireView } from '@/lib/authz'
 import { pendingDisposalNos } from '@/lib/stock'
+import { requiresApproval } from '@/lib/approval'
 import { eolNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
 import { getStore } from '@/lib/store'
 import { BulkImport } from './BulkImport'
@@ -21,6 +22,9 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const s = getStore()
   // 자산 운영 권한 — 대장의 조작 컨트롤과 CSV 일괄 등록 패널이 같은 판정을 쓴다(서버 액션의 역할 집합과 일치).
   const canManage = ['ASSET_MGR', 'ADMIN'].includes(session.role)
+  // 필수 결재로 지정된 종류는 직접 실행이 서버에서 거부된다 — 컨트롤을 그대로 내주면 눌러야 거부되는 막다른 길이 된다.
+  const loanNeedsApproval = requiresApproval('대여')
+  const moveNeedsApproval = requiresApproval('이동')
   // 화면·기능 단위 최소권한 — 사용자 권한그룹은 본인 보유 자산만 조회
   const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
   // 연계 계약이 해지된 자산 — 상세에서 '계약 해지됨'으로 드러낸다. 라이선스는 이미 '근거 해지'를 표시하는데(LicenseTable)
@@ -90,7 +94,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       {/* CSV 일괄 등록은 bulkRegisterAssets(자산담당·Admin)를 부른다 — 보안담당에게 내주면 붙여넣고 눌러야 거부된다 */}
       {canManage && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canDoc={['ASSET_MGR', 'ADMIN'].includes(session.role)} canQuarantine={['SEC_MGR', 'ADMIN'].includes(session.role)} canManage={canManage} terminatedContracts={terminatedContracts} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} expiryWindowDays={s.opsPolicy.expiryWindowDays} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} eolNoticeCount={eolNoticeCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canDoc={['ASSET_MGR', 'ADMIN'].includes(session.role)} canQuarantine={['SEC_MGR', 'ADMIN'].includes(session.role)} canManage={canManage} loanNeedsApproval={loanNeedsApproval} moveNeedsApproval={moveNeedsApproval} terminatedContracts={terminatedContracts} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} expiryWindowDays={s.opsPolicy.expiryWindowDays} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} eolNoticeCount={eolNoticeCount} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
       </Card>
     </>
   )

@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -1132,7 +1132,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             )}
 
             {/* 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 후임/동료에게 직접 인계. 새 보유자 수령 확인 대기. 자산담당만(canEdit). */}
-            {props.canManage && sel.status === '사용중' && (props.users?.length ?? 0) > 0 && (
+            {/* 이동(재배정)이 필수 결재로 지정돼 있으면 직접 인계 컨트롤을 내주지 않는다 — 서버가 거부한다(신청 · 결재로). */}
+            {props.canManage && props.moveNeedsApproval && sel.status === '사용중' && (
+              <div className="callout" style={{ marginTop: 12 }}>재배정(이동)은 <b>필수 결재</b>로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.</div>
+            )}
+            {props.canManage && !props.moveNeedsApproval && sel.status === '사용중' && (props.users?.length ?? 0) > 0 && (
               <div style={{ marginTop: 12 }}>
                 {reassignMsg && <div className="callout" style={{ marginBottom: 10 }}>{reassignMsg}</div>}
                 {!reassignOpen ? (
@@ -1164,7 +1168,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <div className="mut" style={{ marginTop: 12, fontSize: 11 }}>폐기 절차(대상 선정~소거 대기) 중인 자산이라 대여·재불출 대상이 아닙니다 — 먼저 폐기 대상 선정을 취소하세요.</div>
             )}
 
-            {props.canManage && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && (
+            {/* 대여가 필수 결재로 지정돼 있으면 직접 대여 컨트롤을 내주지 않는다(좌석 배정 종료 상태 가드와 같은 규약). */}
+            {props.canManage && props.loanNeedsApproval && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && (
+              <div className="callout" style={{ marginTop: 12 }}>대여는 <b>필수 결재</b>로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.</div>
+            )}
+            {props.canManage && !props.loanNeedsApproval && sel.status === '유휴' && !disposalSet.has(sel.assetNo) && (
               <div style={{ marginTop: 12 }}>
                 {loanMsg && <div className="callout" style={{ marginBottom: 10 }}>{loanMsg}</div>}
                 {!loanOpen ? (

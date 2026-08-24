@@ -3157,27 +3157,35 @@ try {
   ok('권한 매트릭스: 자산 대장 조회 권한 복원(허용)', ((await aeCell.textContent()) || '').includes('✓'))
   // 필수 결재 지정(사용자·결재선 STEP 4) — 그동안 배지·지표·컴플라이언스 리포트에 표시만 되고 아무것도 막지 않아,
   //  '대여'를 필수로 지정해도 자산 대장에서 직접 대여가 그대로 됐다(선언된 정책이 강제되지 않는 계열).
+  // 필수 결재 지정(사용자·결재선 STEP 4) — 그동안 배지·지표에 표시만 되고 아무것도 막지 않아,
+  //  '대여'를 필수로 지정해도 자산 대장에서 직접 대여가 그대로 됐다(선언된 정책이 강제되지 않는 계열).
+  //  두 층을 함께 본다: 낡은 화면에서 누르면 서버가 사유와 함께 거부하고, 새로 열면 컨트롤 자체가 없다.
   const ctxRQ = await browser.newContext(); await ctxRQ.addCookies([cookie(ADMIN)]); const pRQ = await ctxRQ.newPage()
   await pRQ.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
   const rqRow = pRQ.locator('tr', { has: pRQ.locator('td', { hasText: '수명주기 · 대여' }) }).first()
   const rqBtn = rqRow.locator('button', { hasText: /^(필수 결재|선택)$/ }).first()
   ok('결재선: 대여는 선택(초기) — 직접 대여 허용 상태', ((await rqBtn.innerText()) || '').includes('선택'))
-  await rqBtn.click(); await pRQ.waitForTimeout(800)
-  ok('결재선: 대여를 필수 결재로 지정', ((await rqBtn.innerText()) || '').includes('필수 결재'))
+  // 아직 '선택'인 상태에서 대여 패널을 열어 둔다(이 화면이 곧 낡은 화면이 된다).
   const ctxRLN = await browser.newContext(); await ctxRLN.addCookies([cookie(ASSET)]); const pRLN = await ctxRLN.newPage()
   await pRLN.goto(`${BASE}/assets/register?status=${encodeURIComponent('유휴')}`, { waitUntil: 'networkidle' })
-  // 유휴 자산 상세에서 대여 처리(반출) — 대여자·부서·기한을 채우고 확정을 누른다.
-  const rlnRow = pRLN.locator('tbody tr.clickable').first()
-  await rlnRow.click(); await pRLN.waitForTimeout(400)
+  await pRLN.locator('tbody tr.clickable').first().click(); await pRLN.waitForTimeout(400)
+  ok('필수 지정 전(양성 대조): 직접 대여 컨트롤 노출', (await pRLN.locator('button', { hasText: /^대여 처리 \(반출\)$/ }).count()) > 0)
   await pRLN.locator('button', { hasText: /^대여 처리 \(반출\)$/ }).first().click()
   await pRLN.waitForTimeout(200)
   await pRLN.locator('input[placeholder="대여자 (성명)"]').fill('김민준')
   await pRLN.locator('input[placeholder="부서"]').fill('플랫폼개발팀')
   const rlnDue = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 30 * 86400000))
   await pRLN.locator('input[type="date"]').first().fill(rlnDue)
+  // 이 사이에 관리자가 대여를 필수 결재로 지정한다 — 열어 둔 화면은 그대로다.
+  await rqBtn.click(); await pRQ.waitForTimeout(800)
+  ok('결재선: 대여를 필수 결재로 지정', ((await rqBtn.innerText()) || '').includes('필수 결재'))
   await pRLN.locator('button', { hasText: /^대여 확정$/ }).click()
   await pRLN.waitForTimeout(900)
-  ok('필수 결재 강제: 직접 대여가 사유와 함께 거부', ((await pRLN.textContent('body')) || '').includes('대여는 필수 결재로 지정돼 있습니다'))
+  ok('필수 결재 강제: 낡은 화면의 직접 대여를 서버가 사유와 함께 거부', ((await pRLN.textContent('body')) || '').includes('대여는 필수 결재로 지정돼 있습니다'))
+  // 새로 열면 컨트롤 자체가 없다 — 누르기 전에 알 수 있어야 한다(막다른 컨트롤 제거).
+  await pRLN.goto(`${BASE}/assets/register?status=${encodeURIComponent('유휴')}`, { waitUntil: 'networkidle' })
+  await pRLN.locator('tbody tr.clickable').first().click(); await pRLN.waitForTimeout(400)
+  ok('필수 결재 지정: 직접 대여 컨트롤 미노출 · 상신 안내 노출', (await pRLN.locator('button', { hasText: /^대여 처리 \(반출\)$/ }).count()) === 0 && ((await pRLN.textContent('body')) || '').includes('필수 결재'))
   await ctxRLN.close()
   await rqBtn.click(); await pRQ.waitForTimeout(800) // 선택으로 복원(뒤 검사들은 직접 대여를 쓴다)
   ok('결재선: 대여 필수 지정 해제(복원)', ((await rqBtn.innerText()) || '').includes('선택'))
