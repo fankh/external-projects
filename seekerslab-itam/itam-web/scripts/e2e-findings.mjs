@@ -3206,6 +3206,45 @@ try {
   const prAfter = await prRiskOf()
   ok(`발주 미이행 집계: 무입고·만료 임박 계약이 위험으로 잡힘 (${prBefore} → ${prAfter})`, prAfter === prBefore + 1)
   await ctxPRO.close()
+  // 수리 예상 반환일 미기재 — eta 는 선택 입력이라 업체가 일정을 안 준 채 수리 의뢰만 접수될 수 있는데,
+  //  지연 판정(isRepairOverdue)은 eta 경과로만 계산해 그런 건은 영영 독촉 대상이 아니었다. 정작 그 통보의
+  //  문구가 '진행 상황·반환 일정 회신 요청'이라, 일정을 못 받은 건이야말로 보내야 할 대상이다.
+  //  버튼 건수도 실제 발송 대상과 같은 집합이어야 한다(눌러도 안 나가는 건수가 생기지 않게).
+  const ctxREP = await browser.newContext(); await ctxREP.addCookies([cookie(ASSET)]); const pREP = await ctxREP.newPage()
+  // 시작 시점의 독촉 대상 건수 — 일정 미회신 건을 만든 뒤 정확히 1 늘어야 한다(다른 지연 건에 묻히지 않게).
+  await pREP.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const repBtnBefore = Number((/(\d+)건/.exec((await pREP.locator('button', { hasText: /업체 독촉 발송/ }).first().textContent().catch(() => '')) || '') || [])[1] ?? 0)
+  // 수리 대기 자산을 직접 만든다 — 앞선 검사들이 시드 수리 건을 모두 처리했을 수 있어 남은 것에 기대지 않는다.
+  await pREP.goto(`${BASE}/assets/register?status=사용중`, { waitUntil: 'networkidle' })
+  const repNo = ((await pREP.locator('tbody tr.clickable').first().locator('td')
+    .filter({ hasText: /^AST-\d{4}-\d{6}$/ }).first().textContent()) || '').trim()
+  await pREP.goto(`${BASE}/assets/register?sel=${repNo}`, { waitUntil: 'networkidle' })
+  await pREP.locator('button', { hasText: /^장애 신고 \(수리 요청\)$/ }).first().click()
+  await pREP.locator('input[placeholder^="장애 증상"]').fill('회귀 — 수리 의뢰 일정 확인용')
+  await pREP.locator('button', { hasText: /^신고 접수$/ }).click()
+  await pREP.waitForTimeout(900)
+  ok(`수리 일정 미회신: 수리 대기 자산 생성 (${repNo})`, /^AST-/.test(repNo))
+  await pREP.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const repRow = pREP.locator('tr', { hasText: repNo }).first()
+  // 업체만 넣고 예상 반환일은 비운 채 의뢰 — 일정 미회신 상태를 만든다(재의뢰는 eta 를 덮어쓴다).
+  await repRow.locator('input[placeholder="수리 업체"]').fill('회귀수리센터')
+  await repRow.locator('input[title="예상 반환일"]').fill('')
+  await repRow.locator('button', { hasText: /^의뢰$/ }).click()
+  await pREP.waitForTimeout(900)
+  await pREP.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const repBtnText = (await pREP.locator('button', { hasText: /업체 독촉 발송/ }).first().textContent()) || ''
+  const repBtnN = Number((/(\d+)건/.exec(repBtnText) || [])[1] ?? -1)
+  ok(`수리 일정 미회신: 독촉 대상 건수가 정확히 1 증가 (${repBtnBefore} → ${repBtnN})`, repBtnN === repBtnBefore + 1)
+  await pREP.locator('button', { hasText: /업체 독촉 발송/ }).first().click()
+  await pREP.waitForTimeout(900)
+  ok('수리 일정 미회신: 독촉 발송 성공', ((await pREP.textContent('body')) || '').includes('수리 업체 독촉'))
+  await pREP.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  // 같은 행에서 자산번호와 '예상 반환일 미회신'이 함께 잡혀야 한다 — 페이지 어딘가에 두 문자열이 따로 있는 것으로는
+  //  이 건이 실제로 그 제목으로 발송됐다고 말할 수 없다(장애 신고 통보에도 자산번호가 들어간다).
+  const repLogRows = await pREP.locator('tr').filter({ hasText: repNo })
+    .filter({ hasText: '예상 반환일 미회신' }).count()
+  ok(`수리 일정 미회신: 발송 이력에 '예상 반환일 미회신' 통보 적재 (${repNo})`, repLogRows >= 1)
+  await ctxREP.close()
   await browser.close()
 } catch (err) {
   fail++

@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isValidDate, today } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, isValidDate, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -179,20 +179,25 @@ export async function remindRepairs() {
 
   let n = 0
   for (const a of s.assets) {
-    if (!isRepairOverdue(a) || !a.repair) continue
+    // 예상 반환일이 지난 건과 아직 일정을 못 받은 건(eta 미기재)을 함께 독촉한다 — 둘 다 이 통보가 요청하는
+    //  '반환 일정 회신'의 대상이다. 미기재 건은 경과일을 셀 수 없으므로 문구를 달리한다.
+    const etaMissing = isRepairEtaMissing(a)
+    if ((!isRepairOverdue(a) && !etaMissing) || !a.repair) continue
     if (sentToday.has(a.assetNo)) continue
     const over = -(daysUntil(a.repair.eta ?? '') ?? 0)
     dispatch({
       channel: '이메일',
       to: a.repair.vendor,
-      subject: `${a.assetNo} ${a.model} 수리 예상 반환 경과 (${over}일 지연) — 진행 상황·반환 일정 회신 요청`,
+      subject: etaMissing
+        ? `${a.assetNo} ${a.model} 수리 예상 반환일 미회신 (의뢰 ${a.repair.sentAt}) — 반환 일정 회신 요청`
+        : `${a.assetNo} ${a.model} 수리 예상 반환 경과 (${over}일 지연) — 진행 상황·반환 일정 회신 요청`,
       kind: '수리 독촉',
       ref: a.assetNo,
     })
     n += 1
   }
 
-  if (n === 0) return { ok: false, message: '독촉 대상 수리가 없습니다 (예상 반환 경과 없음, 오늘 발송분 제외).' }
+  if (n === 0) return { ok: false, message: '독촉 대상 수리가 없습니다 (예상 반환 경과·일정 미회신 없음, 오늘 발송분 제외).' }
   appendAudit({ actor: session.name, action: `수리 업체 독촉 발송 (${n}건)`, target: '수리중 자산' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `수리 업체 독촉 ${n}건 발송 — 수리 업체에 진행·반환 일정 회신 요청 (발송 이력 적재)` }
