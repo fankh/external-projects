@@ -2410,6 +2410,28 @@ try {
   await p4.waitForTimeout(300)
   const csvqBody = (await p4.textContent('body')) || ''
   ok('CSV 따옴표 필드: 쉼표가 든 모델명이 한 필드로 파싱(유효 1행)', csvqBody.includes('ThinkPad T14, Gen4') && csvqBody.includes('유효 1'))
+  // CMDB 대사 화면 — 그동안 e2e 가 한 번도 열지 않은 화면이다(스모크 렌더만). 대사 결과 4상태의 건수는
+  //  각 상태의 발견 처리 목록으로 이어지는 드릴다운인데, 표의 숫자와 목적지 목록이 갈리면 '가서 처리하라'는
+  //  안내가 거짓이 된다(대시보드 큐에서 이미 닫은 계열). 표 건수 ↔ 목록 건수를 상태별로 맞춰 본다.
+  await p4.goto(`${BASE}/discovery/reconcile`, { waitUntil: 'networkidle' })
+  const recCounts = {}
+  for (const st of ['등록·일치', '등록·불일치', '미등록', '미확인']) {
+    const row = p4.locator('tr', { has: p4.locator('td', { hasText: st }) }).first()
+    const txt = (await row.locator('td.num').first().textContent()) || ''
+    recCounts[st] = Number(txt.replace(/[^0-9]/g, '') || '-1')
+  }
+  ok(`CMDB 대사: 4상태 건수 표기(${Object.entries(recCounts).map(([k, v]) => k + ' ' + v).join(' · ')})`, Object.values(recCounts).every((n) => n >= 0))
+  for (const st of ['미등록', '등록·불일치']) {
+    await p4.goto(`${BASE}/discovery/found?state=${encodeURIComponent(st)}`, { waitUntil: 'networkidle' })
+    const cnt = (await p4.locator('span.cnt').last().textContent()) || ''
+    const shown = Number((cnt.match(/([0-9]+)건/) || [])[1] ?? '-1')
+    ok(`CMDB 대사 → 발견 처리: ${st} 건수 정합(표 ${recCounts[st]} = 목록 ${shown})`, shown === recCounts[st])
+  }
+  // 조사 편성 링크는 자산담당 화면(재물조사 계획)으로 간다 — 보안담당에게는 내주지 않는다(권한 밖 이동 방지).
+  const ctxRC = await browser.newContext(); await ctxRC.addCookies([cookie(SEC)]); const pRC = await ctxRC.newPage()
+  await pRC.goto(`${BASE}/discovery/reconcile`, { waitUntil: 'networkidle' })
+  ok('CMDB 대사(보안담당): 조사 편성 링크 미노출 · 발견 처리 링크는 노출', (await pRC.locator('a[href="/inventory/survey-plan"]').count()) === 0 && (await pRC.locator('a[href^="/discovery/found"]').count()) > 0)
+  await ctxRC.close()
 
   // 재물조사 기한 경과 독촉(로59) — 기한 지난 미완료 회차를 '기한 경과' 표시만 하던 것을 담당자 앞 독촉으로 닫는다. 시드 INV-2026-SP1(판교 수시·기한 08-08 경과·계획)이 대상.
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
