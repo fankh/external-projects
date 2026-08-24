@@ -1737,6 +1737,27 @@ try {
   await drvRow().locator('button', { hasText: /^회수 3석$/ }).click()
   await p3.waitForTimeout(500)
   ok('전량 미사용 라이선스 회수 차단(purchased=0 → NaN 방지 · 해지 유도)', ((await drvRow().textContent()) || '').includes('해지 대상'))
+  // 라이선스 해지 연계 영향(신규) — 해지하면 그 라이선스는 사용 수집 대사에서 빠진다. 좌석·설치가 남은 채 해지하면
+  //  구독은 끊겼는데 SW 는 깔린 단말이 아무 화면에도 안 잡혀 제거 대상이 사라진다(계약 해지는 연계 영향을 밝히는데 이쪽만 침묵했다).
+  await drvRow().locator('button', { hasText: /배정 0\/3석/ }).click()
+  await drvRow().locator('input[placeholder*="자산번호"]').fill('AST-2024-000618')
+  await drvRow().locator('button', { hasText: /^좌석 배정$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  await drvRow().locator('button', { hasText: /^해지$/ }).click()
+  await drvRow().locator('input[placeholder="해지 사유"]').fill('e2e 구독 중단')
+  await drvRow().locator('button', { hasText: /^해지 확정$/ }).click()
+  await p3.waitForTimeout(900)
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  await p3.locator('select[aria-label="라이선스 상태 필터"]').selectOption('해지')
+  await p3.waitForTimeout(300)
+  const retiredTxt = ((await drvRow().textContent()) || '').replace(/\s+/g, ' ')
+  ok('라이선스 해지: 잔여 좌석이 해지 행에 제거 대상으로 남는다(대사에서 사라진 설치 실종 방지)',
+    retiredTxt.includes('해지됨') && retiredTxt.includes('제거 대상') && retiredTxt.includes('좌석 1석'))
+  // 감사 추적 — 해지 감사 로그에도 같은 규모가 남아야 사후에 제거 범위를 소명할 수 있다.
+  await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const retAudit = ((await p3.locator('tr', { hasText: '라이선스 해지 — e2e-좌석파생-라이선스' }).first().textContent()) || '').replace(/\s+/g, ' ')
+  ok('라이선스 해지: 감사 로그에 연계 영향(좌석 수) 기록', retAudit.includes('연계 영향') && retAudit.includes('좌석 1석'))
   // 라이선스 STEP2 사용 수집(§03) — EDR 설치 SW 인벤토리를 배정 좌석과 대사. 배정 밖 설치(무단 사용)·미설치 좌석 식별 + 수집 실행.
   //  LIC-004: 좌석 2(871·112) vs 설치 2(871·432) → AST-2021-000432 배정 밖 설치, AST-2023-000112 미설치 좌석.
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })

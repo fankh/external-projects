@@ -7,7 +7,7 @@ import type { SwLicense } from '@/lib/types'
 import { LicenseAction, LicenseRecontract, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
 
 // 근거 계약 해지 여부·대기 결재는 서버에서 미리 계산해 넘긴다(클라이언트는 계약·결재 원본을 모른다)
-type LicRow = SwLicense & { d: number | null; baseTerminated: boolean; pendingApproval?: string }
+type LicRow = SwLicense & { d: number | null; baseTerminated: boolean; pendingApproval?: string; installCount?: number }
 
 type Verdict = '전체' | '초과' | '미사용' | '만료'
 // 대시보드 라이선스 큐 → 계약·라이선스 화면 딥링크(?lic=)를 판정 필터로 매핑. over=초과 사용, under=미사용 보유, expired=만료 경과.
@@ -108,7 +108,14 @@ export function LicenseTable({ rows, sel, canEdit, expiryWindowDays, lic }: { ro
                   <td className="c" style={{ minWidth: 120 }}>
                     <span className="hstack" style={{ gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
                       {retired ? (
-                        <span className="mut" style={{ fontSize: 11 }} title={`${l.terminatedAt ?? ''} 해지`}>해지됨</span>
+                        <span className="hstack" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+                          <span className="mut" style={{ fontSize: 11 }} title={`${l.terminatedAt ?? ''} 해지`}>해지됨</span>
+                          {/* 해지해도 좌석·설치는 남는다 — 해지 라이선스는 사용 수집 대사에서 빠지므로 여기서 규모를 밝히지 않으면
+                              구독은 끊겼는데 SW 는 깔린 채 남은 단말이 아무 화면에도 안 잡힌다(제거 대상 실종). */}
+                          {((l.seats?.length ?? 0) > 0 || (l.installCount ?? 0) > 0) && (
+                            <Chip tone="warn" bare>제거 대상 {[(l.seats?.length ?? 0) > 0 ? `좌석 ${l.seats?.length}석` : '', (l.installCount ?? 0) > 0 ? `설치 ${l.installCount}대` : ''].filter(Boolean).join(' · ')}</Chip>
+                          )}
+                        </span>
                       ) : (
                         <>
                           <LicenseAction row={{ id: l.id, over, low, seats: Math.abs(l.used - l.purchased), pendingApproval: l.pendingApproval }} />
