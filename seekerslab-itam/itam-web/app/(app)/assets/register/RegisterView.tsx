@@ -175,7 +175,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet, spofOnly, spofSet, impactOnly, impactSet, replaceOnly, replaceSet, receiptOnly, receiptSet, loanExtOnly, loanExtSet, loanRetOnly, loanRetSet, liveOnly])
+  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet, spofOnly, spofSet, impactOnly, impactSet, replaceOnly, replaceSet, receiptOnly, receiptSet, loanExtOnly, loanExtSet, loanRetOnly, loanRetSet, riskOnly, riskSet, liveOnly])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
   // CMDB 의존 관계 — 클라이언트에서 대장 스냅샷(props.assets)으로 순수 산출(상위 의존·영향 범위·저하 상위)
