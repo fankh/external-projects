@@ -22,7 +22,7 @@ npm run dev        # http://localhost:3000
 ## 테스트
 
 ```powershell
-npm run verify     # 빌드 → 스모크 → e2e → 헬스 순차 실행(포트 충돌·끊긴 빌드 방지)
+npm run verify     # 빌드 → 스모크 → e2e → 헬스 → 리포트 샘플 드리프트 순차 실행
 
 # 개별 실행
 npm run build
