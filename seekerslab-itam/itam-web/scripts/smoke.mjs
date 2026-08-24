@@ -1496,6 +1496,35 @@ try {
     localWindowParsers.length === 0 && failsClosed,
     `액션 내 파싱=${localWindowParsers.map(fileLabel).join(',')} · fail-closed=${failsClosed}`)
 
+  // 감사 누락 가드 — 상태를 바꾸는 서버 액션(revalidatePath 로 화면을 갱신하는 액션)은 §07 추적성에 따라 감사 기록을 남긴다.
+  //  지금은 195개 중 3개만 예외이고 그 셋도 위임(생성·상신 헬퍼가 대신 남김)이거나 감사 대상이 아니다. 새 액션이 감사 없이
+  //  들어오면 화면·데이터는 바뀌는데 누가 바꿨는지가 감사 로그에 없다 — 사람이 기억할 일이 아니라 테스트가 잡을 일이다.
+  const AUDIT_DELEGATED = {
+    generateReport: 'lib/reports createReport 가 남긴다',
+    actOnLicense: 'lib/license raiseLicenseApproval 이 남긴다',
+    recordPostView: '조회수 카운터 — 감사 대상 아님',
+  }
+  const auditMissing = []
+  let mutatingActions = 0
+  for (const f of actionFiles) {
+    const lines = readFileSync(f, 'utf8').split(/\r?\n/)
+    for (let li = 0; li < lines.length; li += 1) {
+      const m = /^export async function ([A-Za-z0-9_]+)/.exec(lines[li])
+      if (!m) continue
+      let e = li + 1
+      while (e < lines.length && lines[e] !== '}') e += 1
+      const body = lines.slice(li, e + 1).join('\n')
+      if (!body.includes('revalidatePath')) continue
+      mutatingActions += 1
+      if (/appendAudit|appendAdminAudit|\baudit\(/.test(body)) continue
+      if (m[1] in AUDIT_DELEGATED) continue
+      auditMissing.push(`${fileLabel(f)}:${m[1]}`)
+    }
+  }
+  check(`감사 누락 가드: 상태 변경 액션 ${mutatingActions}개가 모두 감사 기록(예외 ${Object.keys(AUDIT_DELEGATED).length}건은 위임·대상 외)`,
+    auditMissing.length === 0 && mutatingActions >= 190,
+    `감사 없음=${auditMissing.join(',')} · 대상=${mutatingActions}`)
+
 
 
 
