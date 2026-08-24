@@ -36,7 +36,9 @@ export async function requestOnboardMany(ids: string[]) {
   if (n === 0) return { ok: false, message: '편입 요청할 대상이 없습니다 (이미 처리 중이거나 대사 완료).' }
   appendAudit({ actor: session.name, action: `대장 편입 일괄 요청 (${n}건)`, target: 'Discovery' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${n}건 편입 요청 상신 완료 — 자산담당 결재 대기` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - n
+  return { ok: true, message: `${n}건 편입 요청 상신 완료 — 자산담당 결재 대기${skippedB > 0 ? ` (이미 처리·대사 완료 ${skippedB}건 제외)` : ''}` }
 }
 
 /** 소유자 확인 요청 — 편입·격리 앞단의 필수 단계. 부서에 확인 메일을 보내고 응답을 기다린다.
@@ -101,7 +103,9 @@ export async function requestOwnerConfirmMany(ids: string[]) {
   }
   appendAudit({ actor: session.name, action: `소유자 확인 일괄 요청 (${targets.length}건)`, target: 'Discovery' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${targets.length}건 소유자 확인 요청 상신 — 후보 부서 앞 확인 메일 발송` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - targets.length
+  return { ok: true, message: `${targets.length}건 소유자 확인 요청 상신 — 후보 부서 앞 확인 메일 발송${skippedB > 0 ? ` (이미 처리 중 ${skippedB}건 제외)` : ''}` }
 }
 
 /** 관리 제외 — 발견 자산이 관리 대상이 아닌 알려진 비자산(협력사 장비·게스트 단말·비관리 어플라이언스 등)일 때
@@ -142,7 +146,9 @@ export async function dismissDiscoveredMany(ids: string[], rawReason: string) {
   const names = targets.map((d) => d.hostname).slice(0, 5).join(', ')
   appendAudit({ actor: session.name, action: `발견 자산 관리 제외 일괄 (${targets.length}건 · ${reason}) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: 'Discovery' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${targets.length}건 관리 제외 — 미등록 갭에서 제외 (사유: ${reason})` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - targets.length
+  return { ok: true, message: `${targets.length}건 관리 제외 — 미등록 갭에서 제외 (사유: ${reason})${skippedB > 0 ? ` · 제외 ${skippedB}건(미등록·미처리 아님)` : ''}` }
 }
 
 /** 관리 제외 해제 — 잘못 제외한 발견 건을 다시 미등록·미처리로 되돌려 편입/격리/확인 대상으로 복귀시킨다. USER 제외. */
@@ -434,7 +440,9 @@ export async function respondToAccountMany(ids: string[], kind: '비활성화' |
   const names = targets.map((a) => a.account).slice(0, 5).join(', ')
   appendAudit({ actor: session.name, action: `휴면 계정 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: '휴면 계정' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `휴면 계정 ${targets.length}건 ${verb} — ${kind === '비활성화' ? '보안운영팀' : '해당 부서'} 통지·감사 적재` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - targets.length
+  return { ok: true, message: `휴면 계정 ${targets.length}건 ${verb} — ${kind === '비활성화' ? '보안운영팀' : '해당 부서'} 통지·감사 적재${skippedB > 0 ? ` (이미 처리 ${skippedB}건 제외)` : ''}` }
 }
 
 /** 휴면 계정 소유자 확인 결과 처리 — 소유자(부서) 확인 요청에 대한 응답을 반영해 루프를 닫는다.
@@ -531,7 +539,9 @@ export async function respondToUnauthorizedSwMany(ids: string[], kind: '제거' 
   const names = targets.map((w) => w.name).slice(0, 5).join(', ')
   appendAudit({ actor: session.name, action: `미인가 SW 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: '미인가 SW' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `미인가 SW ${targets.length}건 ${verb} — 담당 부서 통지·감사 적재${kind === '예외 승인' && registered ? ` · 화이트리스트 ${registered}건 등재` : ''}` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - targets.length
+  return { ok: true, message: `미인가 SW ${targets.length}건 ${verb} — 담당 부서 통지·감사 적재${kind === '예외 승인' && registered ? ` · 화이트리스트 ${registered}건 등재` : ''}${skippedB > 0 ? ` (이미 처리 ${skippedB}건 제외)` : ''}` }
 }
 
 /** SW 화이트리스트 해제 — 예외 승인으로 등재된 SW 를 목록에서 뺀다. 해제하면 그 SW 는 다시 미인가 SW 정책 대상이 된다.
@@ -629,7 +639,9 @@ export async function respondToUsbMany(ids: string[], kind: '차단' | '예외 �
   const names = targets.map((u) => u.device).slice(0, 5).join(', ')
   appendAudit({ actor: session.name, action: `USB 저장매체 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: 'USB 저장매체' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `USB ${targets.length}건 ${verb} — ${kind === '차단' ? '보안운영팀' : '해당 부서'} 통지·감사 적재` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - targets.length
+  return { ok: true, message: `USB ${targets.length}건 ${verb} — ${kind === '차단' ? '보안운영팀' : '해당 부서'} 통지·감사 적재${skippedB > 0 ? ` (이미 처리 ${skippedB}건 제외)` : ''}` }
 }
 
 /** 로컬 가상머신 일괄 조치 — 매체통제·하이퍼바이저 금지 정책 스윕으로 다수 단말의 로컬 VM을 선택해 한 번에 회수(또는 예외 승인).
@@ -657,7 +669,9 @@ export async function respondToLocalVmMany(ids: string[], kind: '회수' | '예�
   const names = targets.map((v) => v.vm).slice(0, 5).join(', ')
   appendAudit({ actor: session.name, action: `로컬 VM 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: '로컬 VM' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `로컬 VM ${targets.length}건 ${verb} — ${kind === '회수' ? '보안운영팀' : '해당 부서'} 통지·감사 적재` }
+  // 건너뛴 선택분을 결과에 밝힌다 — 처리 수만 돌려주면 조작자는 선택분이 전부 처리된 줄 안다(자산 일괄 조치와 같은 규약).
+  const skippedB = ids.length - targets.length
+  return { ok: true, message: `로컬 VM ${targets.length}건 ${verb} — ${kind === '회수' ? '보안운영팀' : '해당 부서'} 통지·감사 적재${skippedB > 0 ? ` (이미 처리 ${skippedB}건 제외)` : ''}` }
 }
 
 /** USB 매체 예외 승인 해제 — 잘못 승인했거나 정책이 바뀐 예외 등록을 되돌려 다시 미조치(차단/예외 판정 대상)로 전환한다.
