@@ -16,6 +16,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ name: s
   const s = getStore()
   const account = s.users.find((u) => u.name === name)
   const dept = account?.dept ?? s.assets.find((a) => a.owner === name)?.dept ?? '-'
+  // 대상이 실재해야 명세서다 — 사용자 목록에도 없고 보유 자산도 없는 이름이면 빈 명세서를 내주는 대신 없다고 답한다.
+  //  (형제 문서 API 들이 모두 대상·상태를 검증한다: 분실 신고서는 분실 상태만, 대여 확인서는 대여중만, 소거 확인서는 완료 건만.)
+  //  덤으로 아무 문자열이나 넣어 감사 로그에 반출 기록을 남기는 잡음도 막는다.
+  const known = Boolean(account) || s.assets.some((a) => a.owner === name)
+  if (!known) return new Response('해당 사용자를 찾을 수 없습니다.', { status: 404 })
 
   // 특정 개인의 보유 자산·대여·라이선스 좌석·미처리 상신을 한 장으로 모은 개인 단위 반출이라 감사에 남긴다
   //  (다른 데이터 반출과 같은 규약 — 단건 카드·라벨 인쇄는 화면 조회에 가까워 제외).

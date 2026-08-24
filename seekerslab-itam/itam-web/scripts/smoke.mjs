@@ -1295,6 +1295,8 @@ try {
   // 오프보딩 명세서(인수인계 체크리스트) 인쇄 — 요약의 회수·재배정 대상을 한 장 인쇄 산출물로. 자산 운영이므로 자산담당·Admin. (인쇄 링크는 확장 상세에 있어 e2e 로 검증)
   check('오프보딩 명세서: 미로그인 차단 (401)', (await get('/api/offboard-sheet/%EA%B9%80%EB%AF%BC%EC%A4%80')).status === 401)
   check('오프보딩 명세서: 사용자 차단 (403)', (await get('/api/offboard-sheet/%EA%B9%80%EB%AF%BC%EC%A4%80', 'USER')).status === 403)
+  // 실재하지 않는 이름 — 빈 명세서를 내주면 '그 사람은 보유 자산이 없다'로 읽히고, 감사 로그에는 반출 기록만 남는다.
+  check('오프보딩 명세서: 없는 사용자 404 (빈 명세서·잡음 감사 방지)', (await get('/api/offboard-sheet/%EC%97%86%EB%8A%94%EC%82%AC%EB%9E%8C', 'ASSET_MGR')).status === 404)
   const offSheet = await (await get('/api/offboard-sheet/%EA%B9%80%EB%AF%BC%EC%A4%80', 'ASSET_MGR')).text()  // 김민준: 사용중 000112·000015 + LIC-004 좌석
   check('오프보딩 명세서: 회수 대상(보유 자산·라이선스 좌석) 렌더', offSheet.includes('ASSET OFFBOARDING') && offSheet.includes('AST-2023-000112') && offSheet.includes('AutoCAD') && offSheet.includes('인수인계'))
   // MFA 등록 요구 — 미적용 사용자(시드 2명)가 있어 일괄 요구 버튼 + 행별 요구 버튼 노출(보안 정책 집행)
