@@ -1629,7 +1629,7 @@ def sc_compliance_trend(pg, base, check):
     check('2026-06' in card and '2026-07' in card, '전제: 추세 카드에 시드 스냅샷 2건')
     check('+12' in card, '서약률 개선 델타(+12, 50→62) 전기 대비 표시')
     # 포스처 점수(v1.5.144~) — 현재 점수 배너 + 추세 점수 열 개선 델타(56→65 = +9)
-    check('현재 포스처 점수' in card, '현재 포스처 점수 배너 표시')
+    check('현재 컴플라이언스 점수' in card, '현재 컴플라이언스 점수 배너 표시')
     check('+9' in card, '포스처 점수 개선 델타(+9, 56→65) 전기 대비 표시')
     # 축 분해(v1.5.149~) — 점수를 이루는 5축을 각각 보이고 최약 축을 개선 우선순위로 지목(점수=축 평균 단일원천)
     check('리스크 관리' in card and '취약점 조치율' in card and '점검 완료율' in card,
@@ -3498,7 +3498,7 @@ def sc_rebundle_multi(pg, base, check):
 def sc_profile(pg, base, check):
     """프로필 스위칭 — PORTAL_PROFILE=manufacturer 로 브랜딩·채널 구성 전환"""
     pg.goto(f'{base}/login', wait_until='networkidle')
-    check('HANBIT IT PORTAL' in pg.content(), '로그인 브랜딩 전환')
+    check('한빛 IT포털' in pg.content(), '로그인 브랜딩 전환')
     login(pg, base, '시스템관리자')
     check('한빛제조' in pg.locator('.statusbar').inner_text(), '상태바 고객사 전환')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
@@ -3516,7 +3516,7 @@ def sc_profile(pg, base, check):
 def sc_profile_public(pg, base, check):
     """프로필 스위칭 2 — PORTAL_PROFILE=public 로 공공기관 토폴로지 전환 (비종속성 증명)"""
     pg.goto(f'{base}/login', wait_until='networkidle')
-    check('HANUL GOV PORTAL' in pg.content(), '로그인 브랜딩(공공) 전환')
+    check('한울 IT포털' in pg.content(), '로그인 브랜딩(공공) 전환')
     login(pg, base, '시스템관리자')
     check('한울공공기관' in pg.locator('.statusbar').inner_text(), '상태바 고객사(공공) 전환')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
@@ -3539,7 +3539,7 @@ def sc_profile_finance(pg, base, check):
     """프로필 스위칭 3 — PORTAL_PROFILE=finance 로 금융권 토폴로지 전환 (산업 확장 증명). 포털 본체 무변경 +
     프로필·fin-* 어댑터 등록만으로 3번째 산업(금융)이 뜨고, 자가진단이 4개 프로필 전부 적합으로 확인."""
     pg.goto(f'{base}/login', wait_until='networkidle')
-    check('NARAE FIN PORTAL' in pg.content(), '로그인 브랜딩(금융) 전환')
+    check('나래 IT포털' in pg.content(), '로그인 브랜딩(금융) 전환')
     login(pg, base, '시스템관리자')
     check('나래금융' in pg.locator('.statusbar').inner_text(), '상태바 고객사(금융) 전환')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
@@ -4017,6 +4017,96 @@ def sc_code_expiry_malformed(pg, base, check):
     check(opts == ['정상등급'], f'형식오염 종료일 코드는 만료 취급(fail-closed) — 선택지 제외 (버그면 형식오염등급 포함; 실제 {opts})')
 
 
+def sc_security_objects(pg, base, check):
+    """보안준수 객체 정의 → 시스템별 준수 상태 → 인프라 현황 전파 (요구사항 75행 객체관리)"""
+    def objects_card():
+        return pg.locator('.card', has_text='객체 목록')
+
+    def matrix_card():
+        return pg.locator('.card', has_text='시스템별 준수 현황')
+
+    def reload_page():
+        # 서버 액션 직후의 재렌더를 기다리지 않고 단언하면 이전 DOM 을 본다 — 새로 받아온다.
+        pg.goto(f'{base}/settings/objects', wait_until='networkidle')
+
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/objects', wait_until='networkidle')
+
+    # 1) 등록 — 새 객체가 목록과 매트릭스 열에 함께 들어온다
+    card = objects_card()
+    card.locator('input[name=name]').fill('백업 무결성 검증')
+    card.locator('input[name=criterion]').fill('월 1회 복원 테스트로 백업본 검증')
+    card.locator('select[name=category]').select_option('로그·감사')
+    card.locator('button:has-text("객체 등록")').click()
+    pg.wait_for_selector('td:has-text("백업 무결성 검증")', timeout=10000)
+    heads = matrix_card().locator('thead th').all_inner_texts()
+    check('백업 무결성 검증' in heads, '신규 객체가 준수 현황 열에 반영')
+
+    # 2) 준수 기록이 있는 객체는 삭제할 수 없다 — 버튼 없이 '사용중' 표시
+    row_used = objects_card().locator('tr', has_text='전송구간 암호화')
+    check(row_used.locator('button:has-text("삭제")').count() == 0,
+          '준수 기록 있는 객체는 화면에서 삭제 버튼 숨김')
+
+    # 서버측 가드 — 화면 숨김만으로는 부족하다. 목록을 띄워 둔 사이 다른 담당자가 준수 기록을
+    # 남기면, 먼저 열어 둔 화면에는 아직 삭제 버튼이 살아 있다. 그 상태로 눌러도 서버가 막아야
+    # 점검 근거가 보존된다(화면 가드를 지워도 이 검사는 통과하고, 서버 가드를 지우면 깨진다).
+    stale = pg.context.new_page()
+    stale.goto(f'{base}/settings/objects', wait_until='networkidle')
+    stale_row = stale.locator('.card', has_text='객체 목록').locator('tr', has_text='백업 무결성 검증')
+    check(stale_row.locator('button:has-text("삭제")').count() == 1, '전제: 기록 없는 동안은 삭제 버튼 노출')
+
+    mform = matrix_card().locator('form')
+    mform.locator('select[name=systemId]').select_option(label='ERP')
+    mform.locator('select[name=objectId]').select_option(label='백업 무결성 검증')
+    mform.locator('select[name=status]').select_option('준수')
+    mform.locator('button:has-text("상태 저장")').click()
+    reload_page()
+
+    stale_row.locator('button:has-text("삭제")').click()   # 낡은 화면에서 삭제 시도
+    stale.close()
+    reload_page()
+    check(objects_card().locator('tr', has_text='백업 무결성 검증').count() == 1,
+          '서버 가드: 기록이 생긴 객체는 낡은 화면에서 눌러도 삭제되지 않음')
+
+    # 3) 기록 없는 신규 객체는 삭제된다 — 가드가 무차별 차단이 아님을 함께 확인
+    card = objects_card()
+    card.locator('input[name=name]').fill('임시 점검 항목')
+    card.locator('input[name=criterion]').fill('삭제 확인용')
+    card.locator('button:has-text("객체 등록")').click()
+    pg.wait_for_selector('td:has-text("임시 점검 항목")', timeout=10000)
+    row_new = objects_card().locator('tr', has_text='임시 점검 항목')
+    check(row_new.locator('button:has-text("삭제")').count() == 1, '기록 없는 객체는 삭제 가능')
+    row_new.locator('button:has-text("삭제")').click()
+    reload_page()
+    check(objects_card().locator('tr', has_text='임시 점검 항목').count() == 0, '삭제 반영')
+
+    # 4) 준수 상태 저장 → 인프라 시스템 현황에 미준수로 전파
+    form = matrix_card().locator('form')
+    form.locator('select[name=systemId]').select_option(label='그룹웨어')
+    form.locator('select[name=objectId]').select_option(label='취약점 점검 조치')
+    form.locator('select[name=status]').select_option('미준수')
+    form.locator('input[name=note]').fill('연간 진단 미실시')
+    form.locator('button:has-text("상태 저장")').click()
+    reload_page()
+    check('연간 진단 미실시' in pg.locator('.card', has_text='미준수 내역').inner_text(),
+          '미준수 사유가 미준수 내역에 표시')
+
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    gw = pg.locator('tr', has_text='그룹웨어').first.inner_text()
+    check('미준수' in gw, '인프라 시스템 현황에 미준수 전파 (요구사항 75행 비고: 보안준수 참고)')
+
+    # 5) 사용중지 — 매트릭스·집계에서 빠지되 기록 자체는 지워지지 않는다
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/objects', wait_until='networkidle')
+    objects_card().locator('tr', has_text='취약점 점검 조치').locator('button:has-text("중지")').click()
+    reload_page()
+    heads = matrix_card().locator('thead th').all_inner_texts()
+    check('취약점 점검 조치' not in heads, '사용중지 객체는 준수 현황 열에서 제외')
+    row = objects_card().locator('tr', has_text='취약점 점검 조치')
+    check('건' in row.inner_text(), '사용중지해도 준수 기록 건수는 보존')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
@@ -4156,6 +4246,7 @@ SCENARIOS = [
     ('apply_resubmit_route', '적용요청 재상신 할일 라우팅 — /sr/manage(재상신처)로 안내', sc_apply_resubmit_route,
      {'PORTAL_DATA_FILE': str(APPLYROUTE_DATA)}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
+    ('security_objects', '보안준수 객체 정의 → 시스템별 준수 → 인프라 전파(요구사항 75행)', sc_security_objects, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
     ('flash_create_audit', '재무 속보 등록 감사 이력 — 기준금액 등록자 추적(§VI)', sc_flash_create_audit, {}),
