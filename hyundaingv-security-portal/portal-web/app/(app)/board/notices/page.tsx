@@ -50,7 +50,7 @@ export default async function NoticesPage() {
 
   return (
     <>
-      <ScreenHeader kicker="Main" title="공지사항" desc="전사 공지 — 고정 공지가 상단에 노출된다." />
+      <ScreenHeader kicker="메인" title="공지사항" />
 
       {canPost && (
         <Card title="공지 등록">
