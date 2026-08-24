@@ -2313,6 +2313,27 @@ try {
   await p3.waitForTimeout(700)
   await p3.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
   ok('폐기 대상 선정 보유-상태 가드: 사용중 자산 폐기 선정 제외(실물 회수 전 폐기 방지)', ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2022-000512' }) }).first().textContent()) || '').includes('사용중'))
+  // 단건 선정 컨트롤도 서버와 같은 판정이어야 한다(신규) — 후보 표는 보증 만료만 보고 사용중 자산까지 싣는데,
+  //  단건 버튼은 그대로 활성인 채 결과 메시지마저 버려서 누르면 아무 일도 안 일어난 것처럼 보였다(조용한 거절).
+  await p3.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  const candRow = (no) => p3.locator('tr', { has: p3.locator('td', { hasText: no }) }).first()
+  const heldRow = ((await candRow('AST-2022-000512').textContent()) || '').replace(/\s+/g, ' ')
+  ok('폐기 후보 단건 컨트롤: 사용중 후보는 대상 선정 버튼 대신 사유 표기(막다른 컨트롤 방지)',
+    heldRow.includes('회수 후 선정') && (await candRow('AST-2022-000512').locator('button', { hasText: /^대상 선정$/ }).count()) === 0)
+  const idleCand = p3.locator('tbody tr', { has: p3.locator('button', { hasText: /^대상 선정$/ }) }).first()
+  ok('폐기 후보 단건 컨트롤: 유휴 후보에는 그대로 노출(양성 대조)', (await idleCand.count()) > 0)
+  // 단건 선정 결과가 화면에 남는다 — 성공 응답(자산번호·사유)이 그대로 보여야 다음 조치를 이어갈 수 있다.
+  const idleNo = ((await idleCand.locator('td.code').first().textContent()) || '').trim()
+  await idleCand.locator('button', { hasText: /^대상 선정$/ }).click()
+  await p3.waitForTimeout(800)
+  ok('폐기 후보 단건 선정: 서버 응답이 화면에 표시(조용한 처리·조용한 거절 방지)',
+    ((await p3.locator('body').textContent()) || '').includes(`${idleNo} 폐기 대상 선정`))
+  // 선정 취소로 원상 복구 — 이 검사는 화면 피드백만 보면 되고, 유휴 자산을 폐기예정으로 남기면
+  //  뒤의 대여·불출 시나리오가 재고를 잃는다(테스트가 서로의 전제를 흔들지 않게).
+  await p3.locator('tr', { has: p3.locator('td', { hasText: idleNo }) }).first().locator('button', { hasText: /^선정 취소$/ }).first().click()
+  await p3.waitForTimeout(700)
+  ok('폐기 후보 단건 선정 취소: 원 상태 복원(후보 목록 복귀)',
+    ((await p3.locator('body').textContent()) || '').includes(`${idleNo} 폐기 대상 선정을 취소했습니다`))
 
   // 결재 일괄 반려 — 중복·무효·예산 동결 등 한꺼번에 반려할 대기 결재를 같은 사유로 일괄 반려(일괄 승인의 반대편, 반려는 사유 필수). ADMIN 이 결재 가능한 자산 신청 APR-2607-120·121 선택 → 일괄 반려.
   await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })

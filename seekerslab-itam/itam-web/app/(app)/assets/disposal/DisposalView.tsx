@@ -1,7 +1,7 @@
 'use client'
 import { Fragment, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
-import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, type Disposition, type DisposalPhotoLabel, type DisposalRecord, type WipeMethod } from '@/lib/types'
+import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, HELD_STATUSES, type Disposition, type DisposalPhotoLabel, type DisposalRecord, type WipeMethod } from '@/lib/types'
 import { addDisposalPhoto, cancelDisposalCandidate, raiseDisposalApproval, recordWipe, recordWipeMany, removeDisposalPhoto, selectForDisposal, selectForDisposalMany } from './actions'
 
 const METHODS: WipeMethod[] = ['소프트웨어 3-pass', '디가우징', '물리 파쇄']
@@ -54,6 +54,12 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
   })
   const allChecked = candidates.length > 0 && sel.size === candidates.length
   const toggleAll = () => setSel(allChecked ? new Set() : new Set(candidates.map((c) => c.assetNo)))
+  // 단건 대상 선정 — 서버 응답을 그대로 보여 준다(권한·이미 폐기 절차·보유 상태 거절이 조용히 사라지지 않게).
+  const selectOne = (assetNo: string, reason: string) => startTransition(async () => {
+    const r = await selectForDisposal(assetNo, reason)
+    setMsg({ ok: r.ok, text: r.message })
+  })
+  const held = (status: string) => (HELD_STATUSES as readonly string[]).includes(status)
   const bulkSelect = () => startTransition(async () => {
     const items = candidates.filter((c) => sel.has(c.assetNo)).map((c) => ({ assetNo: c.assetNo, reason: c.reason }))
     const r = await selectForDisposalMany(items)
@@ -93,8 +99,14 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                   <td className="tnum">{c.warrantyEnd}</td>
                   <td className="num tnum">{c.overdue}일</td>
                   <td className="c">
-                    <button className="btn sm" disabled={pending}
-                      onClick={() => startTransition(async () => { await selectForDisposal(c.assetNo, c.reason) })}>대상 선정</button>
+                    {/* 보유자가 쥔·파이프라인 상태는 서버(selectForDisposal)가 거절한다 — 버튼을 그대로 내주면 눌러야 막히는
+                        막다른 컨트롤이 되고, 그전에는 결과 메시지마저 버려서 눌러도 아무 일이 없는 것처럼 보였다. */}
+                    {held(c.status) ? (
+                      <span className="mut" style={{ fontSize: 11 }} title={`${c.status} 자산은 회수·반환·검수 완료 후 유휴 상태에서 선정하세요`}>회수 후 선정</span>
+                    ) : (
+                      <button className="btn sm" disabled={pending}
+                        onClick={() => selectOne(c.assetNo, c.reason)}>대상 선정</button>
+                    )}
                   </td>
                 </tr>
               ))}
