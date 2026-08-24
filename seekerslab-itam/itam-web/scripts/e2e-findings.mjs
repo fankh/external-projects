@@ -329,6 +329,12 @@ async function aiPeriodQuery(page) {
   // 무압축 저장 ZIP 이라 셀 XML(inlineStr)이 평문 — 실제 리포트 데이터(제목·섹션)가 셀에 담겼는지 확인(빈 시트·오源 회귀 방지)
   const xtext = xbuf.toString('utf8')
   ok('리포트 반출: xlsx 셀에 실제 리포트 데이터(제목·섹션)', xtext.includes('연간 교체 계획') && xtext.includes('교체 대상 자산'))
+  // 워크북 안의 시트명은 서로 달라야 한다 — 같은 이름이 두 개면 Excel 이 파일 자체를 열지 못한다(부분 손상이 아니라 전체 거부).
+  //  시트명은 섹션 제목에서 오고 31자로 잘리므로, 긴 제목 두 개가 앞 31자를 공유하거나 같은 제목이 두 번 나오면 그 순간 깨진다.
+  //  본문 텍스트 단정으로는 절대 드러나지 않는 실패라(셀 데이터는 멀쩡하다) 반출물 자체에서 확인한다.
+  const sheetNames = (buf) => [...buf.toString('utf8').matchAll(/<sheet name="([^"]+)"/g)].map((m) => m[1])
+  const xNames = sheetNames(xbuf)
+  ok(`리포트 반출: 워크북 시트명이 서로 다름(${xNames.length}장 · Excel 열림 조건)`, xNames.length > 0 && new Set(xNames).size === xNames.length)
   // 잦은 장애 누계 정합(회귀) — 교체 계획의 '잦은 장애 누계'는 자사 부담만(무상 보증 청구 제외)이어야 월간 리포트·TCO 와 어긋나지 않는다. 시드 AST-2023-000112: 자사 부담 243,000 + 무상 보증 청구 200,000 → 누계는 243,000.
   ok('교체 계획 리포트: 잦은 장애 누계는 자사 부담만(무상 보증 청구 제외 · 월간 리포트 정합)', xtext.includes('누계 243,000') && !xtext.includes('누계 443,000'))
   // 감사 대응 자료 리포트에 이상 자산 행위 탐지(fn02) 섹션이 실제 생성됨 — fn02가 유일하게 리포트 미커버였던 공백 해소.
@@ -395,6 +401,11 @@ async function aiPeriodQuery(page) {
   const rncHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
   const rncId = decodeURIComponent((rncHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const rncText = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(rncId)}?format=xlsx`)).body()).toString('utf8')
+  // 섹션이 많은 리포트들도 같은 조건을 만족해야 한다 — 한 워크북에 같은 시트명이 둘이면 Excel 이 파일을 못 연다.
+  const dupSheets = [['컴플라이언스 증적', compText], ['단일 장애점', spofText], ['운영 리스크', riskText], ['계약 관리 현황', crText], ['부서별 비용', depText], ['재물조사 결과', rncText]]
+    .map(([label, t]) => { const n = [...t.matchAll(/<sheet name="([^"]+)"/g)].map((m) => m[1]); return { label, n } })
+    .filter(({ n }) => n.length === 0 || new Set(n).size !== n.length)
+  ok(`리포트 반출: 6종 워크북 모두 시트명 유일${dupSheets.length ? " — 문제: " + dupSheets.map((x) => x.label).join(", ") : ""}(중복이면 Excel 이 파일 자체를 거부)`, dupSheets.length === 0)
   ok('리포트 반출: 계약 갱신 전망 xlsx 에 분기별 갱신 전망·갱신 임박 상세 섹션(예상 갱신액)', rncText.includes('분기별 갱신 전망') && rncText.includes('예상 갱신액') && rncText.includes('갱신 임박 계약 상세'))
   // 분기별 갱신 전망 표에 합계 행 — 지평 총 갱신 예산을 표 안에서 바로 확인(예산 계획). 합계 금액은 네이티브 숫자 셀.
   ok('리포트 반출: 계약 갱신 전망 분기별 표에 합계 행(지평 총 갱신액)', rncText.includes('합계'))
