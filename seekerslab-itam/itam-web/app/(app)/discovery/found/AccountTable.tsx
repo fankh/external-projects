@@ -1,6 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
+import { dormantDaysOf } from '@/lib/dates'
 import type { AccountFinding } from '@/lib/types'
 import { resolveAccountReview, respondToAccount, respondToAccountMany } from '../actions'
 
@@ -68,7 +69,16 @@ export function AccountTable({ accounts, canAct }: { accounts: AccountFinding[];
                 <td><Chip tone={KIND_TONE[a.kind]} bare>{a.kind}</Chip></td>
                 <td className="c"><Chip tone="neutral" bare>{a.source}</Chip></td>
                 <td className="tnum">{a.lastLogin === '-' ? <span className="mut">이력 없음</span> : a.lastLogin}</td>
-                <td className="num tnum" style={a.dormantDays >= 180 ? { color: 'var(--err)', fontWeight: 700 } : undefined}>{a.dormantDays}</td>
+                {/* 휴면 경과일은 마지막 로그인에서 파생한다(lib/dates dormantDaysOf) — 저장 카운터는 시간이 지나면 어긋난다.
+                    로그인 이력이 없는 계정은 셀 수 없지만 휴면 위험이 가장 큰 쪽이라 함께 강조한다. */}
+                {(() => {
+                  const dd = dormantDaysOf(a)
+                  return (
+                    <td className="num tnum" style={dd === null || dd >= 180 ? { color: 'var(--err)', fontWeight: 700 } : undefined}>
+                      {dd === null ? '이력 없음' : dd}
+                    </td>
+                  )
+                })()}
                 <td className="c"><RiskChip risk={a.risk} /></td>
                 {canAct && (
                   <td className="c" style={{ whiteSpace: 'nowrap' }}>

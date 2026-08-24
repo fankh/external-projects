@@ -3245,6 +3245,22 @@ try {
     .filter({ hasText: '예상 반환일 미회신' }).count()
   ok(`수리 일정 미회신: 발송 이력에 '예상 반환일 미회신' 통보 적재 (${repNo})`, repLogRows >= 1)
   await ctxREP.close()
+  // 휴면 경과일은 저장값이 아니라 마지막 로그인에서 파생해야 한다 — 저장 카운터는 갱신되지 않아 시간이 지나면
+  //  같은 행 안에서 '마지막 로그인'과 '경과일'이 서로 다른 이야기를 한다(시드 기준 24일 차이였다).
+  //  로그인 이력이 없는 계정은 경과일을 셀 수 없으므로 숫자를 지어내지 않고 '이력 없음'으로 적고 강조한다.
+  const ctxDM = await browser.newContext(); await ctxDM.addCookies([cookie(SEC)]); const pDM = await ctxDM.newPage()
+  await pDM.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  const dmCells = await pDM.locator('tr', { has: pDM.locator('td', { hasText: 'sh.oh' }) }).first().locator('td').allTextContents()
+  const dmLast = dmCells.find((t) => /^\d{4}-\d{2}-\d{2}$/.test(t.trim()))
+  const dmIdx = dmCells.findIndex((t) => /^\d{4}-\d{2}-\d{2}$/.test(t.trim()))
+  const dmShown = Number((dmCells[dmIdx + 1] || '').trim())
+  const dmExpect = Math.round((Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`) - Date.parse(`${dmLast}T00:00:00Z`)) / 86_400_000)
+  ok(`휴면 경과일: 마지막 로그인(${dmLast})에서 파생 — 표시 ${dmShown}일 ≈ 계산 ${dmExpect}일`,
+    Number.isFinite(dmShown) && Math.abs(dmShown - dmExpect) <= 1)
+  const dmNoLogin = (await pDM.locator('tr', { has: pDM.locator('td', { hasText: 'jh.lim' }) }).first().textContent()) || ''
+  ok('휴면 경과일: 로그인 이력 없는 계정은 숫자를 지어내지 않고 이력 없음으로 표기',
+    dmNoLogin.includes('이력 없음') && !/\b402\b/.test(dmNoLogin))
+  await ctxDM.close()
   await browser.close()
 } catch (err) {
   fail++
