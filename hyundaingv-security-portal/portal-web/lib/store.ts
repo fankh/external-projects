@@ -6,7 +6,60 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { nowStamp, today, isCalendarDate } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, ComplianceSnapshot, RiskItem, RiskSnapshot, SecurityPolicy, DrPlan, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SecurityReview, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, UserGroup, Violation } from './types'
+import type {
+  Approval,
+  ApprovalLine,
+  Attachment,
+  AuditLog,
+  BatchJob,
+  BatchRun,
+  ChangeWork,
+  CiSr,
+  CodeGroup,
+  CompanyPledge,
+  ComplianceSnapshot,
+  Deliverable,
+  DrPlan,
+  EducationCourse,
+  EducationRecord,
+  ExcelTemplate,
+  ExpenseFlash,
+  Hardware,
+  Incident,
+  InspectionItem,
+  InspectionPlan,
+  InterfaceDef,
+  InvestContract,
+  InvestPlan,
+  Notice,
+  ObjectCompliance,
+  Person,
+  PledgeForm,
+  PledgeSign,
+  PrintoutRecord,
+  Project,
+  ProjectIssue,
+  ProjectNote,
+  QnaPost,
+  Rack,
+  RemoteCheck,
+  RemoteCycle,
+  RemoteTarget,
+  RiskItem,
+  RiskSnapshot,
+  Role,
+  SecurityObject,
+  SecurityPolicy,
+  SecurityReview,
+  SendLogEntry,
+  ServerInfo,
+  Settlement,
+  SrRequest,
+  SystemInfo,
+  TodoItem,
+  UserGroup,
+  Violation,
+} from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -56,6 +109,10 @@ export interface Store {
   interfaces: InterfaceDef[]
   qna: QnaPost[]
   codeGroups: CodeGroup[]
+  /** 보안준수 객체 정의 (요구사항 75행) — 시스템에 적용할 준수 항목의 단일 원천 */
+  securityObjects: SecurityObject[]
+  /** 시스템 × 객체 준수 상태 — 인프라>시스템관리의 보안준수 현황 */
+  objectCompliance: ObjectCompliance[]
   excelTemplates: ExcelTemplate[]
   /** 공통 첨부 — refId(업무 문서 번호)로 전 모듈이 공유 */
   attachments: Attachment[]
@@ -325,6 +382,26 @@ function seed(): Store {
       { id: 'DISCARD_METHOD', name: '출력물 폐기방법', values: [{ code: '세단', enabled: true }, { code: '소각', enabled: true }] },
       { id: 'SETTLE_ITEM', name: '정산 지급항목', values: [{ code: '착수금', enabled: true }, { code: '중도금', enabled: true }, { code: '잔금', enabled: true }, { code: '월정산', enabled: true }] },
     ],
+    securityObjects: [
+      { id: 'OBJ-01', name: '관리자 계정 접근통제', category: '접근통제', criterion: '관리자 화면은 지정 IP 대역에서만 접속', cycle: '분기', basis: 'ISMS 2.6 접근통제', enabled: true },
+      { id: 'OBJ-02', name: '전송구간 암호화', category: '암호화', criterion: '외부 구간 HTTPS(TLS 1.2 이상) 적용', cycle: '반기', basis: 'ISMS 2.7 암호화', enabled: true },
+      { id: 'OBJ-03', name: '개인정보 저장 암호화', category: '암호화', criterion: '주민번호·계좌 등 고유식별정보 DB 암호화', cycle: '반기', basis: 'ISMS 2.7 암호화', enabled: true },
+      { id: 'OBJ-04', name: '접속기록 보존', category: '로그·감사', criterion: '접속기록 6개월 이상 보존·월 1회 점검', cycle: '월', basis: 'ISMS 2.9 로그관리', enabled: true },
+      { id: 'OBJ-05', name: '휴면·퇴직자 계정 회수', category: '계정관리', criterion: '퇴직·전배 후 3영업일 내 계정 정지', cycle: '분기', basis: 'ISMS 2.5 인증관리', enabled: true },
+      { id: 'OBJ-06', name: '취약점 점검 조치', category: '취약점', criterion: '연 1회 취약점 진단 후 고위험 30일 내 조치', cycle: '년', basis: 'ISMS 2.11 취약점관리', enabled: true },
+    ],
+    objectCompliance: [
+      { systemId: 'SYS-01', objectId: 'OBJ-01', status: '준수', checkedAt: '2026-07-15' },
+      { systemId: 'SYS-01', objectId: 'OBJ-02', status: '준수', checkedAt: '2026-07-15' },
+      { systemId: 'SYS-01', objectId: 'OBJ-03', status: '미준수', checkedAt: '2026-07-15', note: '계좌정보 평문 저장 — 암호화 적용 계획 수립 중' },
+      { systemId: 'SYS-01', objectId: 'OBJ-04', status: '준수', checkedAt: '2026-08-01' },
+      { systemId: 'SYS-01', objectId: 'OBJ-05', status: '미준수', checkedAt: '2026-07-15', note: '퇴직자 3건 미회수 — 보안점검 IS-2026-22 와 동일 건' },
+      { systemId: 'SYS-02', objectId: 'OBJ-01', status: '준수', checkedAt: '2026-06-30' },
+      { systemId: 'SYS-02', objectId: 'OBJ-02', status: '준수', checkedAt: '2026-06-30' },
+      { systemId: 'SYS-02', objectId: 'OBJ-04', status: '준수', checkedAt: '2026-08-01' },
+      { systemId: 'SYS-03', objectId: 'OBJ-02', status: '미준수', checkedAt: '2026-07-20', note: '내부망 전용이나 대외 연계 구간 TLS 미적용' },
+      { systemId: 'SYS-03', objectId: 'OBJ-06', status: '해당없음', checkedAt: '2026-07-20', note: '올해 신규 오픈 — 차기 진단 대상' },
+    ],
     excelTemplates: [
       { id: 'XT-01', name: '장애보고 취합 양식', docType: '장애보고 상신', version: 3, uploadedAt: '2026-06-10' },
       { id: 'XT-02', name: '인프라변경 작업계획 양식', docType: '변경계획 상신', version: 2, uploadedAt: '2026-05-22' },
@@ -333,7 +410,7 @@ function seed(): Store {
       { id: 'XT-04', name: '보안성검토 체크리스트', docType: '공통', version: 1, uploadedAt: '2026-02-01' },
     ],
     qna: [
-      { id: 'QA-2026-11', title: 'SR 적용요청 후 반영 일정이 궁금합니다', domain: 'IT Request', author: '김현우', dept: '개발1팀', askedAt: '2026-07-30', assignee: '박정호', answer: '적용요청서 결재완료 건은 변경관리 편입 후 매주 수요일 마감, 목요일 반영됩니다.', answeredBy: '박정호', answeredAt: '2026-07-31' },
+      { id: 'QA-2026-11', title: 'SR 적용요청 후 반영 일정이 궁금합니다', domain: '서비스요청', author: '김현우', dept: '개발1팀', askedAt: '2026-07-30', assignee: '박정호', answer: '적용요청서 결재완료 건은 변경관리 편입 후 매주 수요일 마감, 목요일 반영됩니다.', answeredBy: '박정호', answeredAt: '2026-07-31' },
       { id: 'QA-2026-12', title: '재택근무 체크리스트 제출 주기가 어떻게 되나요?', domain: '임직원 의식제고', author: '정민서', dept: '경영지원팀', askedAt: '2026-08-01' },
     ],
     pledges: [

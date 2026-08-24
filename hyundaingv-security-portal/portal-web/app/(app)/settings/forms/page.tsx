@@ -52,7 +52,7 @@ export default async function FormsPage() {
   return (
     <>
       <ScreenHeader kicker="환경설정" title="엑셀양식 관리"
-        desc="결재 자동첨부·출력에 쓰는 엑셀 양식을 문서 유형에 매핑하고 버전을 관리한다." />
+        desc="문서 유형별 엑셀 양식과 버전" />
 
       <div className="stat-row">
         <Stat value={s.excelTemplates.length} label="등록 양식" />
