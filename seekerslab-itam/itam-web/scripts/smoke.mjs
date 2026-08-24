@@ -1459,6 +1459,25 @@ try {
     `내비에 없는 화면=${orphanPages.join(',')} · 화면 없는 내비=${deadNav.join(',')}`)
 
 
+
+  // 헬스 로드 횟수 ↔ 문서 — 헬스는 대상 화면을 내비에서 읽으므로(scripts/client-health.mjs) 화면·권한이 바뀌면
+  //  로드 횟수가 저절로 바뀐다. README 가 그 수를 적어 두고 있어 놔두면 조용히 어긋난다(다른 수치 주장과 같은 규약).
+  //  대상 권한그룹은 헬스가 여는 4종 — 여기 목록이 스크립트와 어긋나면 이 검사 자체가 헛돈다(스크립트도 4종 고정).
+  const healthRoles = ['ADMIN', 'ASSET_MGR', 'SEC_MGR', 'USER']
+  const healthLoads = healthRoles.reduce((n, r) => n + Object.values(navRoles).filter((rs) => rs.includes(r)).length, 0)
+  const healthClaims = claims(readme, /접근 화면 (\d+)회 로드/g)
+  check(`문서: 헬스 화면 로드 ${healthLoads}회 일치(권한그룹 4종 × 접근 화면)`,
+    allSame(healthClaims, healthLoads), `주장=${healthClaims.join(",")} 실제=${healthLoads}`)
+
+  // 레이아웃 스윕 규모 ↔ 문서 — 화면·폭 목록은 스크립트가 원천이고 README 가 그 수를 적는다.
+  const layoutSrc = readFileSync(path.join(ROOT, 'scripts', 'layout-sweep.mjs'), 'utf8')
+  const layoutRoutes = (/const ROUTES = \[([\s\S]*?)\]/.exec(layoutSrc)?.[1] ?? '').match(/'\/[^']+'/g)?.length ?? 0
+  const layoutWidths = (/const WIDTHS = \[([^\]]*)\]/.exec(layoutSrc)?.[1] ?? '').split(',').filter((x) => x.trim()).length
+  const layoutClaims = claims(readme, /화면 (\d+)종 × 폭 \d+종/g)
+  const widthClaims = claims(readme, /화면 \d+종 × 폭 (\d+)종/g)
+  check(`문서: 레이아웃 스윕 화면 ${layoutRoutes}종 × 폭 ${layoutWidths}종 일치`,
+    allSame(layoutClaims, layoutRoutes) && allSame(widthClaims, layoutWidths),
+    `화면 주장=${layoutClaims.join(",")} 실제=${layoutRoutes} · 폭 주장=${widthClaims.join(",")} 실제=${layoutWidths}`)
   const routeClaims = [...claims(readme, /\((\d+) 라우트 × 4/g), ...claims(summary, /(\d+) 라우트 × 4/g)]
   check(`문서: 라우트 수 ${routes}개 일치`, allSame(routeClaims, routes), `주장=${routeClaims.join(',')} 실제=${routes}`)
 
