@@ -218,7 +218,7 @@ export default async function InspectionPage() {
   return (
     <>
       <ScreenHeader kicker="보안 컴플라이언스" title="보안점검 (ISMS)"
-        desc="기준(Template) 관리 → 연간 점검계획 → 결과 등록·부서장 결재 → 현황판 집계 — ISMS·외부기관 점검 항목."
+        desc="ISMS·외부기관 점검 항목의 연간 계획과 결과 결재."
         right={<a className="btn sm" href="/api/export?type=compliance-summary" title="서약·교육·점검·보안성검토·위반 종합 현황 (ISMS 감사 근거)">컴플라이언스 종합 현황</a>} />
 
       {/* 현황판식 숫자 표현 (요구사항: 계획·결과미등록·완료 등 항목 정의하여 숫자로) */}
@@ -234,11 +234,11 @@ export default async function InspectionPage() {
         actions={<span className="hstack">
           <a className="btn sm" href="/api/export?type=compliance-trend">엑셀 다운로드</a>
           <form action={recordComplianceSnapshot} style={{ display: 'inline' }}>
-            <button type="submit" className="btn sm pri" title={`${thisMonth} 포스처를 스냅샷으로 기록(같은 달 재기록은 갱신)`}>현황 스냅샷 기록</button>
+            <button type="submit" className="btn sm pri" title={`${thisMonth} 점수를 스냅샷으로 기록(같은 달 재기록은 갱신)`}>현황 스냅샷 기록</button>
           </form>
         </span>}>
         <div className="hstack" style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)', gap: 10, alignItems: 'baseline' }}>
-          <span className="mut" style={{ fontSize: 11.5 }}>현재 포스처 점수</span>
+          <span className="mut" style={{ fontSize: 11.5 }}>현재 컴플라이언스 점수</span>
           <span className="strong" style={{ fontSize: 22 }}>{curScore}<small style={{ fontSize: 12 }}>/100</small></span>
           <Chip tone={curRating.tone}>{curRating.label}</Chip>
           <span className="mut" style={{ fontSize: 10.5 }}>서약·이수·조치·점검·리스크 5축 균등 (경영 보고용 단일 지표)</span>
@@ -270,7 +270,7 @@ export default async function InspectionPage() {
           </div>
         </div>
         {snaps.length === 0 ? (
-          <div className="empty">기록된 스냅샷이 없습니다 — ‘현황 스냅샷 기록’으로 이번 달 포스처를 남기세요.</div>
+          <div className="empty">기록된 스냅샷이 없습니다 — ‘현황 스냅샷 기록’으로 이번 달 점수를 남기세요.</div>
         ) : (
           <div className="tbl-wrap">
             <table className="tbl">
@@ -359,12 +359,13 @@ export default async function InspectionPage() {
               <button type="submit" className="btn sm" title="최신 연도 점검계획을 다음 해로 복제해 초안 생성 (연도만 +1, 상태 계획으로 리셋)">전년 불러오기</button>
             </form>
           }>
-          {/* 컨트롤 4개를 한 줄에 두면 c2 그리드 반폭에서 카드를 넘쳐 옆 카드 sticky 헤더에 가려진다 — 2행으로 나눈다 */}
+          {/* c2 그리드 반폭에서는 이 줄의 컨트롤이 카드를 넘쳐 옆 카드 sticky 헤더에 가려진다 — 항목 select 를 윗줄로 분리하고,
+              남은 줄은 flexWrap 으로 접는다(같은 파일 점검항목 추가 폼과 동일 처리). */}
           <form action={addPlan} className="vstack" style={{ gap: 7 }}>
             <select aria-label="점검 항목" className="select" name="itemId" required style={{ width: '100%' }}>
               {s.inspectionItems.map((i) => <option key={i.id} value={i.id}>[{i.category}] {i.control}</option>)}
             </select>
-            <div className="hstack">
+            <div className="hstack" style={{ flexWrap: 'wrap' }}>
               <input aria-label="점검 대상" className="input" name="target" maxLength={60} placeholder="점검 대상 (조직·시스템)" style={{ flex: 1 }} />
               <input aria-label="월" className="input" name="month" required type="month" defaultValue={thisMonth} style={{ flex: 1 }} />
               <select aria-label="점검자" className="select" name="inspector" style={{ flex: 1 }}>
@@ -384,11 +385,11 @@ export default async function InspectionPage() {
             <button type="submit" className="btn sm">계획 업로드</button>
           </form>
           <div className="dim" style={{ fontSize: 11.5, marginTop: 8 }}>
-            항목·주기는 기준관리(Template)에서 온다 — 전년 계획은 상단 ‘전년 불러오기’로 복제, 다건은 CSV 업로드(점검항목코드·예정월·점검자).
+            항목·주기는 기준관리에서 가져온다 — 전년 계획은 상단 ‘전년 불러오기’로 복제, 다건은 CSV 업로드(점검항목코드·예정월·점검자).
           </div>
         </Card>
 
-        <Card title="기준관리 — 점검 항목 (Template)" pad={false}
+        <Card title="기준관리 — 점검 항목" pad={false}
           actions={<a className="btn sm" href="/api/export?type=inspection-items">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">

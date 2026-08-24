@@ -69,7 +69,7 @@ export default async function SchedulePage() {
   return (
     <>
       <ScreenHeader kicker="프로젝트" title="일정 · 산출물 · 이슈"
-        desc="계획 일정 대비 산출물 등록·점검과 이슈·리스크를 추적한다." />
+        desc="계획 일정 대비 산출물 등록 현황과 이슈·리스크" />
 
       <div className="stat-row">
         <Stat value={`${pmo.dlDone} / ${pmo.dlTotal}`} label="산출물 완료" />
@@ -103,7 +103,7 @@ export default async function SchedulePage() {
             </table>
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
-            <form action={addDeliverable} className="hstack">
+            <form action={addDeliverable} className="hstack" style={{ flexWrap: 'wrap' }}>
               <select aria-label="projectId" className="select" name="projectId">
                 {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
               </select>
@@ -142,7 +142,7 @@ export default async function SchedulePage() {
             </table>
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
-            <form action={addIssue} className="hstack">
+            <form action={addIssue} className="hstack" style={{ flexWrap: 'wrap' }}>
               <select aria-label="projectId" className="select" name="projectId">
                 {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
               </select>

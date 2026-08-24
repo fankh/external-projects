@@ -28,8 +28,7 @@ export default async function ReportsPage() {
 
   return (
     <>
-      <ScreenHeader kicker="프로젝트" title="회의록 · 주간보고"
-        desc="프로젝트 커뮤니케이션 기록 — 회의록과 주간보고를 원본 파일 첨부와 함께 작성·조회한다." />
+      <ScreenHeader kicker="프로젝트" title="회의록 · 주간보고" desc="원본 파일을 첨부해 등록한다." />
 
       <div className="stat-row">
         <Stat value={s.projectNotes.length} label="전체 기록" />
@@ -38,7 +37,7 @@ export default async function ReportsPage() {
       </div>
 
       <Card title="작성">
-        <form action={addNote} className="hstack">
+        <form action={addNote} className="hstack" style={{ flexWrap: 'wrap' }}>
           <select aria-label="projectId" className="select" name="projectId">
             {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id} · {p.title}</option>)}
           </select>

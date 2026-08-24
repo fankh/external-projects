@@ -100,8 +100,8 @@ export default async function SrCiPage() {
 
   return (
     <>
-      <ScreenHeader kicker="IT Request" title="CI SR 관리"
-        desc="결재 완료 SR의 BA 검토·CI 배정과, 결재 없는 건의 보안/업무 구분 직접 접수·처리 이력을 관리한다." />
+      <ScreenHeader kicker="서비스요청" title="CI SR 관리"
+        desc="결재 완료 SR의 BA 검토·CI 배정, 결재 없는 건의 직접 접수" />
 
       <div className="stat-row">
         <Stat value={waiting.length} label="배정 대기" tone={waiting.length > 0 ? 'warn' : undefined} note="결재 완료 건" />
@@ -128,7 +128,7 @@ export default async function SrCiPage() {
                     <td className="strong">{r.title}<Clip count={attachCount(r.srNo)} title="SR 첨부" /></td>
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
                     <td colSpan={3}>
-                      <form action={assignCi} className="hstack" style={{ padding: '3px 0' }}>
+                      <form action={assignCi} className="hstack" style={{ padding: '3px 0', flexWrap: 'wrap' }}>
                         <input type="hidden" name="srNo" value={r.srNo} />
                         <select aria-label="ci" className="select" name="ci" required style={{ height: 25, fontSize: 11.5 }}>
                           {ciCandidates.map((c) => <option key={c.login} value={c.name}>{c.name} ({c.dept})</option>)}
