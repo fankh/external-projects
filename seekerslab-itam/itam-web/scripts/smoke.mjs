@@ -1760,6 +1760,22 @@ try {
     aiPolicySrc.includes('aiAuditLogs(s.auditLogs, s.aiPolicy.auditRetentionDays')
     && aiStatusSrc.includes('const cutoff = addDays(today, -Math.max(0, retentionDays))'),
     '화면이 보존 기간 없이 직접 필터하고 있음')
+
+  // 정책 기준 증빙 완전성 — 감사 대응 자료의 「운영 · 거버넌스 정책 기준」 표는 "화면·리포트·스케줄러가 공유·강제하는
+  //  임계값"을 증빙한다고 적어 두고도, 관리자가 설정 화면에서 바꾸는 운영 정책 항목 일부(정기 점검 창·안전재고)가
+  //  표에서 빠져 있었다. 빠진 항목은 바꿔도 증빙에 흔적이 없어 감사가 보는 기준선이 실제 운영값과 갈린다.
+  //  정책 필드가 늘 때 표가 따라오지 않는 재발을 막으려고, OpsPolicy 기본값의 키 전부가 표 블록에서 읽히는지 본다.
+  const polTypesSrc = readFileSync(path.join(ROOT, "lib", "types.ts"), "utf8")
+  const polReportsSrc = readFileSync(path.join(ROOT, "lib", "reports.ts"), "utf8")
+  const opsBlock = polTypesSrc.slice(polTypesSrc.indexOf("export const DEFAULT_OPS_POLICY"))
+  const opsKeys = [...opsBlock.slice(0, opsBlock.indexOf("}")).matchAll(/^ *([a-zA-Z]+):/gm)].map((m) => m[1])
+  const polStart = polReportsSrc.indexOf("title: '운영 · 거버넌스 정책 기준'")
+  // 표 끝 = 다음 섹션 제목 직전(행 하나하나가 배열이라 첫 "]," 로 끊으면 첫 행만 본다)
+  const polEnd = polReportsSrc.indexOf("title: '", polStart + 10)
+  const polBlock = polStart === -1 ? "" : polReportsSrc.slice(polStart, polEnd === -1 ? polStart + 4000 : polEnd)
+  const missingPol = opsKeys.filter((k) => !polBlock.includes("s.opsPolicy." + k))
+  check(`정책 증빙: 운영 정책 ${opsKeys.length}개 항목이 모두 감사 대응 자료 기준표에 등장`,
+    opsKeys.length >= 6 && missingPol.length === 0, `누락=${missingPol.join(", ")}`)
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')
