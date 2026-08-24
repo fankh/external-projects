@@ -295,3 +295,118 @@ Source IP 가 방화벽 자신(10.1.1.1)이 아니라 **실제 트래픽 출발�
 3. `service=`, `user=` 는 여전히 미추출입니다. 특히 `user=` 는 계정 기반 탐지에 필요합니다.
 4. Linux/Syslog 파서 3종은 표준 필드명 미적용 상태입니다
    (`PARSER-FIELD-CONVENTION.md` 현황표 참조).
+
+---
+
+## FIX-006 · 기본 탐지룰 56개가 적재되었으나 2개만 동작 가능
+
+**상태: 요청** (적용하지 않았습니다)
+
+### 경위
+
+`/threat/rule` 이 비어 있어 제품 기본 룰 세트를 적재했습니다.
+
+| 항목 | 내용 |
+|---|---|
+| 출처 | `seekurity-siem-patch/sql/migrations/019_firewall_vpn_security_rules.sql` (2026-08-02, MD5 `1a91f36f…`) |
+| 결과 | 룰 56개 + 조건 73개, `created_by = system`, 전부 탐지 활성 |
+| 심각도 | CRITICAL 14 / HIGH 24 / MEDIUM 15 / LOW 3 |
+
+적재 시 `ON CONFLICT (uuid) DO NOTHING` 21곳을 제거해야 했습니다.
+이 스키마의 `rules` 테이블은 PK 가 `row_number` 뿐이고 **`uuid` 유니크 제약이 없어**
+벤더 SQL 이 그대로는 오류로 중단됩니다. 룰 내용은 변경하지 않았습니다.
+
+> 제품 측에 전달할 사항입니다. 마이그레이션 SQL 이 배포 스키마와 맞지 않습니다.
+> `rules.uuid` 에 유니크 제약을 추가하거나 SQL 에서 해당 절을 빼야 합니다.
+
+### 문제 — 룰이 참조하는 필드가 우리 데이터에 없습니다
+
+| 룰이 요구 | 조건/룰 수 | 우리 데이터 | 판정 |
+|---|---|---|---|
+| `deviceAction` (조건 key) | 조건 54개 | **없음** (우리는 `action`) | 불일치 |
+| `hostname` (집계기준) | 룰 11개 | **없음** (우리는 `machineName`) | 불일치 |
+| `username` (집계기준·조건) | 룰 13개 + 조건 1개 | **없음** | 미추출 |
+| `source.ip` (집계기준) | 룰 2개 | **없음** (우리는 `sourceIp`) | 표기 오류로 보임 |
+| `sourceIp`, `deviceIp`, `destinationIp`, `destinationPort`, `message` | — | 있음 | 정상 |
+
+`deviceAction` 은 색인·JAR·콘솔 번들 어디에서도 발견되지 않았습니다. 이 룰 SQL 에만 존재합니다.
+
+**현재 실제로 동작 가능한 룰은 2개뿐입니다** (`서버 오류 급증`, `DNS 터널링 의심`).
+나머지 54개는 콘솔에 '탐지 ON' 으로 보이지만 영원히 매칭되지 않습니다.
+**설정된 것처럼 보이면서 탐지하지 않는 상태가 가장 위험**하므로 조정이 필요합니다.
+
+### 조치 SQL
+
+```sql
+BEGIN;
+CREATE TABLE IF NOT EXISTS aig_rule_backup AS SELECT *, now() AS backed_up_at FROM rules WHERE false;
+INSERT INTO aig_rule_backup SELECT *, now() FROM rules WHERE NOT is_deleted;
+CREATE TABLE IF NOT EXISTS aig_rulecond_backup AS SELECT *, now() AS backed_up_at FROM rule_conditions WHERE false;
+INSERT INTO aig_rulecond_backup SELECT *, now() FROM rule_conditions;
+
+-- 1) 조건 key : deviceAction -> action  (조건 54개)
+UPDATE rule_conditions SET key = 'action' WHERE key = 'deviceAction';
+
+-- 2) 집계기준 : hostname -> machineName (룰 11개)
+UPDATE rules SET standard_field = 'machineName'
+ WHERE standard_field = 'hostname' AND NOT is_deleted;
+
+-- 3) 집계기준 표기 오류 : source.ip -> sourceIp (룰 2개)
+UPDATE rules SET standard_field = 'sourceIp'
+ WHERE standard_field = 'source.ip' AND NOT is_deleted;
+COMMIT;
+```
+
+**적용 후 예상: 동작 가능 룰이 2개 → 43개로 늘어납니다.** 남는 13개는 `username` 필요분입니다.
+
+### 값(value)도 맞춰야 합니다
+
+키를 바꿔도 값이 다르면 매칭되지 않습니다. FortiGate 실제 값과 대조한 결과입니다.
+
+| 룰 조건 값 | 조건 수 | FortiGate 실측 | 판정 |
+|---|---|---|---|
+| `deny` | 4 | 7,372건 | **일치** |
+| `accept` | 4 | 8,499건 | **일치** |
+| `drop`, `blocked`, `alert` | 12 | 없음 | 다른 장비용(IPS/WAF)으로 보임 |
+| `tunnel-up/down`, `authentication-*` | 9 | 없음 | VPN 연동 후 유효 |
+| `file-modified`, `usb-storage-connected` | 4 | 없음 | DLP/EDR 연동 후 유효 |
+
+즉 미연동 장비를 전제한 룰이 상당수입니다. 해당 장비가 붙기 전까지는 동작하지 않는 것이 정상이므로,
+**연동 완료된 장비의 룰만 활성화하고 나머지는 비활성으로 두는 편**이 운영상 명확합니다.
+
+```sql
+-- 예: 미연동 장비 전제 룰 비활성화 (선택)
+UPDATE rules SET is_detection_active = false
+ WHERE uuid IN (SELECT rule_id FROM rule_conditions
+                 WHERE value IN ('tunnel-up','tunnel-down','file-modified','usb-storage-connected'));
+```
+
+### 남은 과제 — `username` 미추출 (룰 13개)
+
+FIX-005 에서 미룬 `user=` 추출이 선행되어야 합니다. 원문에 7,019건 존재합니다.
+파서에 `username` 을 추가하면 계정 관련 룰 13개가 살아납니다.
+
+### 검증
+
+```sql
+-- 조정 후 동작 가능 룰 수 확인
+SELECT COUNT(*) FROM rules r WHERE NOT r.is_deleted
+  AND r.standard_field IN ('sourceIp','destinationIp','deviceIp','machineName')
+  AND NOT EXISTS (SELECT 1 FROM rule_conditions c
+                   WHERE c.rule_id = r.uuid AND c.key NOT IN ('action','message','destinationPort'));
+-- 43 이 나와야 합니다
+
+-- 실제 탐지 발생 여부 (조정 후 10분 이상 경과 후)
+SELECT COUNT(*) FROM detection_histories;
+```
+
+콘솔 `/threat/rule` 에서 룰을 선택해 '탐지 내역' 탭에 건수가 쌓이는지 확인합니다.
+
+### 롤백
+
+```sql
+UPDATE rule_conditions c SET key = b.key FROM aig_rulecond_backup b WHERE c.uuid = b.uuid;
+UPDATE rules r SET standard_field = b.standard_field FROM aig_rule_backup b WHERE r.uuid = b.uuid;
+```
+
+전체 제거가 필요하면 `DELETE FROM rule_conditions; DELETE FROM rules WHERE created_by='system';`
