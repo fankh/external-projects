@@ -8,7 +8,7 @@ import { NAV } from '@/components/chrome/menus'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 
-const DOMAINS = NAV.map((g) => g.label).filter((l) => l !== 'Main' && l !== 'My Work')
+const DOMAINS = NAV.map((g) => g.label).filter((l) => l !== '메인' && l !== '내 업무')
 
 async function ask(formData: FormData) {
   'use server'
@@ -94,8 +94,7 @@ export default async function QnaPage() {
 
   return (
     <>
-      <ScreenHeader kicker="Main" title="QnA"
-        desc="포털 업무 문의 — 업무 도메인을 지정해 질문하면 담당자가 답변한다." />
+      <ScreenHeader kicker="메인" title="QnA" desc="업무 도메인을 지정해 문의하면 담당자가 답변한다." />
 
       <div className="stat-row">
         <Stat value={s.qna.length} label="전체 문의" />
