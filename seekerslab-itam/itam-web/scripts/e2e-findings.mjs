@@ -5,6 +5,7 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertFreshBuild } from './build-guard.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = 3396
@@ -24,6 +25,9 @@ const cookie = (acct) => ({ name: 'itam_session', value: encodeURIComponent(JSON
 
 let pass = 0, fail = 0
 const ok = (name, cond) => { if (cond) { pass++; console.log('  ✓ ' + name) } else { fail++; console.log('  ✗ ' + name) } }
+
+// 빌드 신선도 — 예전 빌드로 회귀를 돌리면 고친 결함이 그대로인 채 초록으로 통과한다(scripts/build-guard.mjs)
+assertFreshBuild(ROOT, { remote: REMOTE })
 
 let server = null
 if (!REMOTE) {
