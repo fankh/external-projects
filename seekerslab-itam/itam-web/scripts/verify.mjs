@@ -80,6 +80,12 @@ for (const s of SUITES) {
   // 샘플 검사는 '결과: N passed' 대신 자체 요약을 낸다 — 두 형식을 모두 읽어 한 줄로 정리한다.
   const sm = /(\d+)종 샘플 최신/.exec(r.tail)
   results.push({ name: s.name, code: r.code, passed: m?.[1] ?? (sm ? `${sm[1]}종 최신` : '?'), failed: m?.[2] ?? (r.code === 0 ? '0' : '?') })
+  // 결과 줄을 못 읽었으면 원인을 같이 남긴다 — '? passed / ? failed' 만 보이면 스위트가 왜 죽었는지 알 수 없다.
+  //  (스위트가 중간에 죽으면 마지막 4000자에 결과 줄이 없다 — 종료 코드와 마지막 출력이 유일한 단서다.)
+  if (!m && !sm) {
+    console.error(`  · ${s.name}: 결과 줄을 찾지 못했습니다 (종료 코드 ${r.code}) — 마지막 출력:`)
+    console.error(r.tail.split(/\r?\n/).filter((x) => x.trim()).slice(-12).map((x) => '      ' + x).join('\n'))
+  }
   if (r.code !== 0) break
 }
 
