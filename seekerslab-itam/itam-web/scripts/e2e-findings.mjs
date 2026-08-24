@@ -3655,6 +3655,27 @@ try {
   const prAfter = await prRiskOf()
   ok(`발주 미이행 집계: 무입고·만료 임박 계약이 위험으로 잡힘 (${prBefore} → ${prAfter})`, prAfter === prBefore + 1)
   await ctxPRO.close()
+  // 금액 단위 표기(신규) — 만 단위 반올림이 1억에 닿는 구간(99,995,000~99,999,999원)이 "10,000만"으로 찍혀,
+  //  같은 금액이 1억 문턱을 사이에 두고 다른 단위로 보였다(계약 금액은 이 구간이 흔하다). 등록 → 표 표기로 검증.
+  const ctxAMT = await browser.newContext(); await ctxAMT.addCookies([cookie(ASSET)]); const pAMT = await ctxAMT.newPage()
+  await pAMT.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const amtName = '금액 표기 회귀 계약'
+  await pAMT.locator('button', { hasText: /계약 등록$/ }).first().click()
+  await pAMT.waitForTimeout(300)
+  await pAMT.locator('input[placeholder="계약명"]').fill(amtName)
+  await pAMT.locator('input[placeholder="공급사"]').fill('회귀상사')
+  await pAMT.locator('input[placeholder="주관부서"]').fill('자산관리팀')
+  const amtDates = pAMT.locator('input[placeholder="YYYY-MM-DD"]')
+  await amtDates.nth(0).fill('2026-01-02')
+  await amtDates.nth(1).fill('2027-01-01')
+  await pAMT.locator('input[type="number"]').first().fill('99999999')
+  await pAMT.locator('button', { hasText: /^등록$/ }).first().click()
+  await pAMT.waitForTimeout(900)
+  await pAMT.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const amtRow = (await pAMT.locator('tr', { hasText: amtName }).first().textContent()) || ''
+  ok('금액 표기: 1억 직전 금액이 억 단위로 올라간다(10,000만 표기 없음)',
+    amtRow.includes('1.0억원') && !amtRow.includes('10,000만'))
+  await ctxAMT.close()
   // 수리 예상 반환일 미기재 — eta 는 선택 입력이라 업체가 일정을 안 준 채 수리 의뢰만 접수될 수 있는데,
   //  지연 판정(isRepairOverdue)은 eta 경과로만 계산해 그런 건은 영영 독촉 대상이 아니었다. 정작 그 통보의
   //  문구가 '진행 상황·반환 일정 회신 요청'이라, 일정을 못 받은 건이야말로 보내야 할 대상이다.
