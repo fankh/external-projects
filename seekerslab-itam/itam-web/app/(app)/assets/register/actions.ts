@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { isMaintenanceOverdue, today } from '@/lib/dates'
+import { addYears, isMaintenanceOverdue, today } from '@/lib/dates'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
 import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
@@ -209,8 +209,7 @@ export async function extendWarranty(assetNo: string, termYears: number) {
   if (asset.warrantyEnd === '-') return { ok: false, message: '보증 정보가 없는 자산입니다 (SW·가상자원 등).' }
 
   const base = asset.warrantyEnd >= today() ? asset.warrantyEnd : today()
-  const [y, m, d] = base.split('-')
-  const newEnd = `${Number(y) + termYears}-${m}-${d}`
+  const newEnd = addYears(base, termYears)
   const oldEnd = asset.warrantyEnd
   asset.warrantyEnd = newEnd
 
@@ -237,8 +236,7 @@ export async function extendWarrantyMany(assetNos: string[], termYears: number) 
     const asset = s.assets.find((a) => a.assetNo === no)
     if (!asset || asset.warrantyEnd === '-' || ['폐기완료', '폐기예정'].includes(asset.status)) { skipped += 1; continue }
     const base = asset.warrantyEnd >= t ? asset.warrantyEnd : t
-    const [y, m, d] = base.split('-')
-    const newEnd = `${Number(y) + termYears}-${m}-${d}`
+    const newEnd = addYears(base, termYears)
     const oldEnd = asset.warrantyEnd
     asset.warrantyEnd = newEnd
     asset.history.push({ date: t, kind: '보증연장', detail: `보증 만료 ${oldEnd} → ${newEnd} (${termYears}년 연장 · 일괄)`, actor: session.name })
@@ -715,8 +713,8 @@ export async function recordMaintenance(assetNo: string, rawNote: string) {
   const note = rawNote.trim()
   const t = today()
   const prevDue = asset.maintenanceDue
-  // 완료일 기준 12개월 후(연 1회 정비)로 재예약 — 문자열 날짜라 연도만 +1(같은 월·일)
-  const nextDue = `${Number(t.slice(0, 4)) + 1}${t.slice(4)}`
+  // 완료일 기준 12개월 후(연 1회 정비)로 재예약 — addYears 가 TZ 없이 같은 월·일로, 없는 날(2/29)은 말일로 당긴다
+  const nextDue = addYears(t, 1)
   asset.maintenanceDue = nextDue
   asset.history.push({ date: t, kind: '점검', detail: `정기 점검 완료 — 예정 ${prevDue}${note ? ` · ${note}` : ''} · 다음 예정 ${nextDue}`, actor: session.name })
   appendAudit({ actor: session.name, action: `정기 점검 완료 — ${asset.model} (다음 ${nextDue})`, target: assetNo })

@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { daysUntil, isIntakeOverdue, today } from '@/lib/dates'
+import { addYears, daysUntil, isIntakeOverdue, today } from '@/lib/dates'
 import { checklistFor } from '@/lib/intake'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -242,7 +242,6 @@ export async function issueAssetNo(lotId: string) {
   if (lot.status !== '검수 완료') return { ok: false, message: '검수 체크리스트를 모두 완료해야 채번할 수 있습니다.' }
   if (lot.issued.length >= lot.qty) return { ok: false, message: '입고 수량만큼 채번이 완료되었습니다.' }
 
-  const year = today().slice(0, 4)
   const assetNo = nextAssetNo()
 
   const asset: Asset = {
@@ -255,7 +254,7 @@ export async function issueAssetNo(lotId: string) {
     dept: '자산관리팀',
     location: '본사 3F 검수실',
     purchaseDate: lot.arrivedAt,
-    warrantyEnd: `${Number(year) + 3}-${today().slice(5)}`,
+    warrantyEnd: addYears(today(), 3),
     contractId: lot.contractId,
     // 발주 단가가 입력됐으면 실제 취득 원가로 반영(없으면 유형 표준 단가 폴백 — lib/cost)
     acquisitionCost: lot.unitCost && lot.unitCost > 0 ? lot.unitCost : undefined,

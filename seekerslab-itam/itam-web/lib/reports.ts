@@ -6,7 +6,7 @@ import { buildMaintenance } from './maintenance'
 import { buildProcurement } from './procurement'
 import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
-import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
+import { addYears, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
 import { ACQ_COST, USEFUL_LIFE_YEARS, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
@@ -91,7 +91,7 @@ export function replacementCandidates() {
   const s = getStore()
   const t = today()
   // 도입 5년 초과 기준일 — 문자열 비교로 TZ 문제를 피한다 (예: 2026-08-01 → 2021-08-01)
-  const cutoff = `${Number(t.slice(0, 4)) - 5}${t.slice(4)}`
+  const cutoff = addYears(t, -5)
   // 하드웨어 교체 계획 — 실물 자산만 대상. SW(라이선스 만료·최적화로 다룸)·가상자원(클라우드·사용량 과금)은
   //  내용연수·보증 경과 기반 하드웨어 교체 대상이 아니다(lib/cost ACQ_COST 도 SW·가상자원=0으로 같은 전제).
   const active = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.category !== 'SW' && a.category !== '가상자원')
