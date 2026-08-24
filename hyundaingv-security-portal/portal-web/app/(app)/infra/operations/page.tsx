@@ -98,7 +98,7 @@ export default async function OperationsPage() {
   return (
     <>
       <ScreenHeader kicker="인프라 운영" title="배치 · 인터페이스 · 디스크"
-        desc="배치 잡 실행 이력과 대내외 인터페이스 연계 상태, 서버별 디스크 사용률을 관리한다." />
+        desc="배치 실행 이력, 인터페이스 연계 상태, 서버별 디스크 사용률" />
 
       <div className="stat-row">
         <Stat value={infra.batchTotal} label="배치 잡" />

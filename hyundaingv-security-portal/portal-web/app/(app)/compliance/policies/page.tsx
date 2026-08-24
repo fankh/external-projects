@@ -127,7 +127,7 @@ export default async function PoliciesPage() {
   return (
     <>
       <ScreenHeader kicker="보안 컴플라이언스" title="정책·지침 관리"
-        desc="정보보호 정책·지침·절차 문서를 버전·시행일·재검토 주기로 관리한다 — 재검토 예정일 경과를 추적해 주기적 재검토(ISMS 관리체계 1.1)를 강제한다." />
+        desc="정보보호 정책·지침 문서의 버전과 시행일. 재검토 주기가 지난 문서는 경과로 잡힌다." />
 
       <div className="stat-row">
         <Stat value={k.total} label="전체 정책" note={`시행 ${k.active} · 개정중 ${k.revising}`} />

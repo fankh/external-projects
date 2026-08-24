@@ -554,6 +554,35 @@ export interface ServerInfo {
   diskUsedPct: number
 }
 
+/** 보안준수 객체 분류 — 점검 성격에 따른 묶음. 공통코드가 아니라 타입으로 고정한다:
+ *  분류가 늘면 화면 집계·정렬 규칙도 함께 바뀌어야 해 현업이 임의로 늘릴 값이 아니다. */
+export type SecurityObjectCategory = '접근통제' | '암호화' | '로그·감사' | '계정관리' | '취약점'
+
+/** 보안준수 객체 — 시스템에 적용할 준수 항목의 단일 원천 (요구사항 75행 객체관리).
+ *  공통코드와 같은 자리(환경설정)에 두되, 코드는 '선택지'를 주고 객체는 '점검 대상'을 준다. */
+export interface SecurityObject {
+  id: string
+  name: string
+  category: SecurityObjectCategory
+  /** 준수 기준 한 줄 — 무엇을 충족해야 준수인지 */
+  criterion: string
+  /** 점검 주기 — 공통코드 INSPECT_CYCLE 값(월·분기·반기·년) */
+  cycle: string
+  /** 근거 — ISMS 인증기준 항목 등 */
+  basis?: string
+  enabled: boolean
+}
+
+/** 시스템 × 객체 준수 상태 — 인프라>시스템관리의 보안준수 현황을 이룬다.
+ *  객체를 사용중지해도 기록은 남긴다(이력 보존). 화면 집계에서만 빠진다. */
+export interface ObjectCompliance {
+  systemId: string
+  objectId: string
+  status: '준수' | '미준수' | '해당없음'
+  checkedAt?: string
+  note?: string
+}
+
 export interface SystemInfo {
   id: string
   name: string
