@@ -2080,13 +2080,17 @@ try {
   //  보유자는 미지정으로 두고 부서만 승계해, 정합성 큐가 실사로 보유자를 확정하게 한다.
   const encNo = (/AST-\d{4}-\d{6}/.exec(encBody) || [])[0] ?? ''
   await p3.goto(`${BASE}/assets/register?sel=${encNo}`, { waitUntil: 'networkidle' })
-  const encAsset = ((await p3.locator('body').textContent()) || '').replace(/\s+/g, ' ')
+  // 값은 표 행에서, 이슈는 정합성 배너에서 읽는다 — body 전체 텍스트에는 RSC 페이로드(다른 자산의 값·이슈)가 섞인다.
+  const rowOf = async (page, no) => ((await page.locator('tbody tr', { hasText: no }).first().textContent()) || '').replace(/\s+/g, ' ')
+  const dqBannerOf = async (page) => ((await page.locator('.callout.warn', { hasText: '대장 정합성 미흡' }).first().textContent()) || '').replace(/\s+/g, ' ')
+  const encRowText = await rowOf(p3, encNo)
+  const encBanner = await dqBannerOf(p3)
   ok(`편입 자산 보유자: 부서 추정을 사람으로 기록하지 않는다(${encNo} · 보유자 미지정 · 부서 승계)`,
-    /^AST-/.test(encNo) && encAsset.includes('미지정') && encAsset.includes('플랫폼개발팀'))
+    /^AST-/.test(encNo) && encRowText.includes('미지정') && encRowText.includes('플랫폼개발팀'))
   ok('편입 자산 보유자: 소유자 미지정이 정합성 미흡으로 잡혀 실사 확정 대상이 된다',
-    encAsset.includes('대장 정합성 미흡') && encAsset.includes('소유자 미지정'))
+    encBanner.includes('대장 정합성 미흡') && encBanner.includes('소유자 미지정'))
   ok('편입 자산 위치: 자리표시자(실사 확인 필요)도 위치 누락으로 잡힌다(실사 확정 계기 유지)',
-    encAsset.includes('위치 누락') && encAsset.includes('실사 확인 필요'))
+    encBanner.includes('위치 누락') && encRowText.includes('실사 확인 필요'))
   // 자리표시자 보정 경로(신규) — 판정은 "미흡"이라 하면서 보정은 "이미 값이 있다"고 거절하면 화면이 내준 입력이
   //  막다른 컨트롤이 된다. 편입 자산의 보유자(미지정)를 실제 사람으로 보정하고, 부서도 그 사람 부서로 맞는지 본다.
   const encFix = p3.locator('.callout.warn', { hasText: '대장 정합성 미흡' }).first()
@@ -2094,11 +2098,12 @@ try {
   await encFix.locator('button', { hasText: /^보정$/ }).first().click()
   await p3.waitForTimeout(800)
   await p3.goto(`${BASE}/assets/register?sel=${encNo}`, { waitUntil: 'networkidle' })
-  const encFixed = ((await p3.locator('body').textContent()) || '').replace(/\s+/g, ' ')
+  const encFixedRow = await rowOf(p3, encNo)
+  const encFixedBanner = await dqBannerOf(p3)
   ok('정합성 보정: 자리표시자(미지정) 보유자를 보정할 수 있다(막다른 컨트롤 아님)',
-    encFixed.includes('오세훈') && !encFixed.includes('이미 값이 있습니다'))
+    encFixedRow.includes('오세훈') && !encFixedBanner.includes('소유자 미지정'))
   ok('정합성 보정: 보유자를 채우면 부서도 그 사람 부서로 동기화(비용 배분·통지 어긋남 방지)',
-    encFixed.includes('인사팀') && !encFixed.includes('소유자 미지정'))
+    encFixedRow.includes('인사팀') && !encFixedRow.includes('플랫폼개발팀'))
   // 등록·불일치(이미 대장에 매칭된 자산)는 편입 불가 — 편입하면 대장에 중복 자산이 생긴다. 불일치는 재물조사 차이 조정으로 대사.
   await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
   const mis029 = p3.locator('tr', { has: p3.locator('td', { hasText: 'DSC-2607-0029' }) }).first()
@@ -2447,13 +2452,23 @@ try {
   await p4.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p4.locator('button', { hasText: /^＋ 일괄 등록$/ }).click()
   await p4.waitForTimeout(200)
-  await p4.locator('textarea').fill(['유형,모델,시리얼,소유자,부서,위치', '단말,BulkE2E Term,SN-BULKE2E,홍길동,영업1팀,본사 8F', '노트북,BadCat,SN-BULK2,,,', '단말,,SN-BULK3,,,', '단말,Dup A,SN-BULKDUP,,,', '단말,Dup B,SN-BULKDUP,,,'].join('\n'))
+  await p4.locator('textarea').fill(['유형,모델,시리얼,소유자,부서,위치', '단말,BulkE2E Term,SN-BULKE2E,홍길동,영업1팀,본사 8F', '단말,Mismatch E2E,SN-BULKMM,김민준,자산관리팀,본사 8F', '노트북,BadCat,SN-BULK2,,,', '단말,,SN-BULK3,,,', '단말,Dup A,SN-BULKDUP,,,', '단말,Dup B,SN-BULKDUP,,,'].join('\n'))
   await p4.locator('button', { hasText: /^미리보기$/ }).click()
   await p4.waitForTimeout(300)
-  ok('CSV 일괄 등록: 미리보기 집계(파싱 5·유효 3·오류 2)', (await p4.textContent('body')).includes('파싱 5행') && (await p4.textContent('body')).includes('유효 3') && (await p4.textContent('body')).includes('오류 2'))
-  await p4.locator('button', { hasText: /^3건 등록$/ }).click()
+  ok('CSV 일괄 등록: 미리보기 집계(파싱 6·유효 4·오류 2)', (await p4.textContent('body')).includes('파싱 6행') && (await p4.textContent('body')).includes('유효 4') && (await p4.textContent('body')).includes('오류 2'))
+  await p4.locator('button', { hasText: /^4건 등록$/ }).click()
   await p4.waitForTimeout(900)
-  ok('CSV 일괄 등록: 2건 생성·서버 시리얼 중복 건너뜀', (await p4.textContent('body')).includes('2건') && (await p4.textContent('body')).includes('시리얼 중복'))
+  ok('CSV 일괄 등록: 3건 생성·서버 시리얼 중복 건너뜀', (await p4.textContent('body')).includes('3건') && (await p4.textContent('body')).includes('시리얼 중복'))
+  // 보유자 ↔ 부서 불일치(신규) — CSV 온보딩은 보유자와 부서를 따로 받는다. 대장에 있는 사람인데 부서가 다르면
+  //  부서별 비용 배분·통지·오프보딩 집계가 실제 보유 부서가 아닌 곳을 가리킨다. 정합성 큐가 그것을 잡아야 한다.
+  await p4.goto(`${BASE}/assets/register?q=Mismatch E2E`, { waitUntil: 'networkidle' })
+  const mmNo = (/AST-\d{4}-\d{6}/.exec((await p4.locator('tbody').textContent()) || '') || [])[0] ?? ''
+  await p4.goto(`${BASE}/assets/register?sel=${mmNo}`, { waitUntil: 'networkidle' })
+  const mmBanner = ((await p4.locator('.callout.warn', { hasText: '대장 정합성 미흡' }).first().textContent()) || '').replace(/\s+/g, ' ')
+  ok(`보유자↔부서 정합: 대장 사용자와 다른 부서로 등록되면 정합성 미흡으로 잡힌다(${mmNo})`,
+    /^AST-/.test(mmNo) && mmBanner.includes('부서 불일치'))
+  ok('보유자↔부서 정합: 보정 입력이 없는 이슈라 해소 경로를 안내한다(막다른 배너 방지)',
+    mmBanner.includes('재배정(직접 인계)으로 보유자·부서를 함께 맞추거나'))
   // 템플릿 그대로 붙여넣기 — /api/asset-template.csv 는 Excel 한글 대응으로 BOM 을 붙여 내려간다.
   //  BOM 을 안 걷어내면 헤더 판정이 빗나가 헤더 행이 데이터로 읽히고 '유형 오류'로 건너뛴다(보이지 않는 글자라 원인을 알 수 없다).
   const tplRes = await p4.request.get(`${BASE}/api/asset-template.csv`)

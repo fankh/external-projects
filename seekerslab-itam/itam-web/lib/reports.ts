@@ -9,7 +9,7 @@ import { appendAudit } from './audit'
 import { ratioPct, addDays, addYears, dormantDaysOf, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
 import { ACQ_COST, USEFUL_LIFE_YEARS, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf, isEolTarget } from './eol'
-import { assetDataIssues, hasDataIssue } from './quality'
+import { assetDataIssues, deptOfOwner, hasDataIssue } from './quality'
 import { getStore } from './store'
 import { buildVulnPriority } from './vuln-priority'
 import { buildAnomalies } from './anomaly'
@@ -727,7 +727,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     // ISMS/ISO 27001 통제별 증적 — 기존 대장·라이선스·폐기·위협 데이터를 감사 대응 번들로 집약(추가 데이터 없음).
     const liveC = s.assets.filter((a) => a.status !== '폐기완료')
     const unregC = onboardTargets().length // 편입 대상 — 관리 제외·격리 요청 제외(편입하지 않기로 판정된 건)
-    const flaggedC = liveC.filter(hasDataIssue).length
+    const flaggedC = liveC.filter((a) => hasDataIssue(a, deptOfOwner(s.users))).length
     const accuracyC = liveC.length ? ratioPct(liveC.length - flaggedC, liveC.length) : 100
     const byCatC = [...new Set(liveC.map((a) => a.category))].map((c) => [c, String(liveC.filter((a) => a.category === c).length)])
     const licC = s.licenses.filter((l) => l.status !== '해지')
@@ -1052,7 +1052,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
   }
 
   const live = s.assets.filter((a) => a.status !== '폐기완료')
-  const flagged = live.filter(hasDataIssue)
+  const flagged = live.filter((a) => hasDataIssue(a, deptOfOwner(s.users)))
   const accuracy = live.length ? ratioPct(live.length - flagged.length, live.length) : 100
   const dqSection: ReportSection = flagged.length === 0
     ? { title: '대장 정합성 (CMDB 정확도)', note: `운영 자산 ${live.length}건 · 정확도 ${accuracy}% — 핵심 필드 누락·불일치 없음`, bullets: ['소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산이 없습니다.'] }
@@ -1060,7 +1060,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: '대장 정합성 (CMDB 정확도)',
         note: `운영 자산 ${live.length}건 중 정합성 미흡 ${flagged.length}건 · 정확도 ${accuracy}%`,
         columns: ['자산번호', '유형', '상태', '미흡 항목'],
-        rows: flagged.map((a) => [a.assetNo, a.category, a.status, assetDataIssues(a).join(', ')]),
+        rows: flagged.map((a) => [a.assetNo, a.category, a.status, assetDataIssues(a, deptOfOwner(s.users)).join(', ')]),
       }
   // 이상 자산 행위 탐지(§05 기능02) — 위협 '대응 현황'(검출·조치 카운트)과 달리, 미해결 이탈을 심각도 순으로 나열한 증적.
   // 특히 '유휴 자산 사용'(대장 유휴인데 실사에서 사용 중 = 미승인 불출)은 위협 카운트 섹션에 없는 행위 이상. 화면 패널·어시스턴트와 같은 buildAnomalies() 단일 소스.
@@ -1286,7 +1286,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
       + '만료·예산 집행·발주 이행·SLA·부속서류를 한 곳에서 점검해 계약 갱신·정산·재협상 결정의 근거로 씁니다.'
   }
   const liveA = s.assets.filter((a) => a.status !== '폐기완료')
-  const flaggedA = liveA.filter(hasDataIssue).length
+  const flaggedA = liveA.filter((a) => hasDataIssue(a, deptOfOwner(s.users))).length
   const accuracyA = liveA.length ? ratioPct(liveA.length - flaggedA, liveA.length) : 100
   return `사용자 ${s.users.length}명에 대해 화면·기능 단위 최소권한이 적용되어 있으며 MFA 적용률은 ${ratioPct(s.users.filter((u) => u.mfa).length, s.users.length)}%입니다. `
     + `필수 결재 지정 화면은 ${s.approvalLines.filter((l) => l.required).length}개이며, 탐지 채널 ${s.scanPolicies.filter((p) => p.enabled).length}/${s.scanPolicies.length}이 정책에 따라 운영 중입니다. `

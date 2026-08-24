@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; dqIssues?: Record<string, string[]>; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -573,7 +573,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </div>
             )}
             {(() => {
-              const issues = assetDataIssues(sel)
+              const issues = props.dqIssues?.[sel.assetNo] ?? assetDataIssues(sel)
               if (issues.length === 0) return null
               // 이슈 라벨 → 보정 필드 매핑
               const fieldOf: Record<string, StewardField> = { '소유자 미지정': '소유자', '시리얼 누락': '시리얼', '위치 누락': '위치' }
@@ -604,6 +604,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                           </div>
                         )
                       })}
+                      {issues.includes('부서 불일치') && (
+                        // 보정 입력이 없는 이슈라 안내를 남긴다 — 보유자와 부서를 함께 바꾸는 것은 거버넌스 대상(이동·인계)이다.
+                        <div className="mut" style={{ fontSize: 11.5 }}>부서 불일치는 필드 보정 대상이 아닙니다 — 재배정(직접 인계)으로 보유자·부서를 함께 맞추거나, 보유자를 보정하면 부서가 따라옵니다.</div>
+                      )}
                       {fixMsg && <div className="mut" style={{ fontSize: 11.5 }}>{fixMsg}</div>}
                     </div>
                   )}
