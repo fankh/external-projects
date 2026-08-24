@@ -29,9 +29,13 @@ const W: Record<RiskLevel, number> = { 높음: 3, 중간: 2, 낮음: 1 }
 export function buildAnomalies(): AnomalyResult {
   const s = getStore()
   const items: AnomalyItem[] = []
+  // 폐기 경로 자산 — 소거·처분됐거나 폐기 선정된 장비의 설치·반출 기록은 '지금 일어나는 행위 이탈'이 아니다.
+  //  제거·차단을 요청할 대상이 없는데 목록과 '높음 심각도' 집계를 차지해 실재하는 이탈을 밀어낸다
+  //  (취약점 조치 우선순위의 EOL·미인가 SW 축이 쓰는 기준과 동일). 위반 기록 자체는 각 화면에 그대로 남는다.
+  const disposedAsset = new Set(s.assets.filter((a) => ['폐기완료', '폐기예정'].includes(a.status)).map((a) => a.assetNo))
 
   // 1) 미인가 SW 설치 — 평시 설치 SW 프로파일 대비 이탈(EDR 인벤토리). 미조치분.
-  for (const w of s.unauthorizedSw.filter((x) => !x.action)) {
+  for (const w of s.unauthorizedSw.filter((x) => !x.action && !disposedAsset.has(x.assetNo))) {
     items.push({ id: `AN-${w.id}`, kind: '미인가 SW 설치', target: w.assetNo, detail: `${w.name} (${w.kind})`, severity: w.risk, basis: `EDR 설치 SW 인벤토리 이탈 · 최초 ${w.firstSeen}`, href: '/discovery/found' })
   }
 
@@ -53,7 +57,7 @@ export function buildAnomalies(): AnomalyResult {
   }
 
   // 4) USB 대용량 반출 — 정상 사용 패턴 대비 이상 데이터 반출(EDR 장치 제어·DLP). 미조치분.
-  for (const u of s.usbFindings.filter((x) => !x.action && x.kind === '대용량 반출 의심')) {
+  for (const u of s.usbFindings.filter((x) => !x.action && x.kind === '대용량 반출 의심' && !disposedAsset.has(x.assetNo))) {
     items.push({ id: `AN-${u.id}`, kind: 'USB 대용량 반출', target: u.assetNo, detail: `${u.device}${u.note ? ` · ${u.note}` : ''}`, severity: u.risk, basis: `EDR 장치 제어 로그 이탈 · 최초 ${u.firstSeen}`, href: '/discovery/found' })
   }
 
