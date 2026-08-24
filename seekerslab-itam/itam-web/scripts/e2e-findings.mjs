@@ -3842,6 +3842,19 @@ try {
     ok('계약 연계 자산: 분실 · 도난 신고 컨트롤 확보(커버리지 감소 검증 전제)', false)
   }
   await ctxCA.close()
+
+  // 화면 필터 ↔ 엑셀 반출 집합 정합 — 반출 버튼은 화면이 좁혀 본 그 집합을 약속하고 건수까지 괄호로 찍는다.
+  //  서버 빌더가 모르는 필터(정합성·EOL·운영 자산만 …)가 켜져 있으면 보이는 행 번호(nos)를 넘겨야 하는데,
+  //  목록에 필터를 새로 붙이면서 이 목록에 넣는 걸 빠뜨리면 파일만 조용히 더 넓어진다(버튼이 약속한 건수와 어긋남).
+  const ctxXP = await browser.newContext(); await ctxXP.addCookies([cookie(ASSET)]); const pXP = await ctxXP.newPage()
+  await pXP.goto(`${BASE}/assets/register?live=1`, { waitUntil: 'networkidle' })
+  const xpCnt = Number((/(\d+)건 \/ 전체/.exec((await pXP.locator('.cnt').first().textContent()) || '') || [])[1] ?? 0)
+  const xpHref = (await pXP.locator('a', { hasText: /자산 대장 엑셀/ }).first().getAttribute('href')) || ''
+  const xpBody = Buffer.from(await (await pXP.request.get(`${BASE}${xpHref}`)).body()).toString('utf8')
+  const xpRows = new Set([...xpBody.matchAll(/AST-\d{4}-\d{6}/g)].map((m) => m[0])).size
+  ok(`반출 정합: 운영 자산만 필터의 화면 ${xpCnt}건 = 엑셀 ${xpRows}건(서버가 모르는 필터는 nos 로 넘긴다)`,
+    xpCnt > 0 && xpRows === xpCnt && xpHref.includes('nos='))
+  await ctxXP.close()
   // 폐기 절차 불변식 — 상태가 '폐기예정'인 자산은 반드시 폐기 건(disposals)이 있어야 한다. 지금은 폐기예정으로
   //  바꾸는 8개 경로가 저마다 `if (!s.disposals.some(...)) push` 를 적어 지키고 있을 뿐, 이를 확인하는 검사가 없었다.
   //  한 경로가 빠뜨리면 그 자산은 폐기예정인데 폐기 화면에 없어 결재·소거로 나아갈 수 없다(상태만 종착, 절차는 없음).
