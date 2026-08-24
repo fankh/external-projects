@@ -3446,6 +3446,33 @@ try {
   ok('비식별: MAC·이메일 마스킹', diMasked.includes('**:**:**:**:**:**') && diMasked.includes('[이메일]') && !diMasked.includes('@corp.example.com'))
   ok('비식별: 분석에 필요한 값은 보존(자산번호·상태)', /AST-\d{4}-\d{6}/.test(diMasked))
   await ctxDI.close()
+  // 배정 밖 설치 처리 게이트 — 좌석 배정(assignLicenseSeat)은 종료 상태(분실·폐기완료) 자산을 거부하는데,
+  //  SAM 대사 표는 상태와 무관하게 '좌석 배정' 버튼을 내줬다. 설치가 관측된 자산이 분실로 확정되면
+  //  누르는 족족 거부되는 막다른 길이 된다. 행은 남기고(설치 잔존은 SAM 리스크다) 버튼만 사유로 바꾼다.
+  const ctxST = await browser.newContext(); await ctxST.addCookies([cookie(ASSET)]); const pST = await ctxST.newPage()
+  await pST.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  // 좌석 배정 버튼이 붙은 배정 밖 설치들 중, 아직 운영 상태라 분실 신고를 할 수 있는 자산을 고른다
+  //  (앞선 검사들이 일부 자산을 이미 폐기 경로로 보냈다 — 남은 것에 기대지 않고 조건에 맞는 행을 찾는다).
+  const stCells = pST.locator('span.hstack', { has: pST.locator('button', { hasText: /^좌석 배정$/ }) })
+  const stTexts = await stCells.allTextContents()
+  const stCandidates = [...new Set(stTexts.join(' ').match(/AST-\d{4}-\d{6}/g) ?? [])]
+  let stAsset = ''
+  for (const no of stCandidates) {
+    await pST.goto(`${BASE}/assets/register?sel=${no}`, { waitUntil: 'networkidle' })
+    if ((await pST.locator('button', { hasText: /^분실 · 도난 신고$/ }).count()) > 0) { stAsset = no; break }
+  }
+  ok(`배정 밖 설치: 좌석 배정 버튼 노출 · 운영 상태 대상 확보(양성 대조 · ${stAsset})`, /^AST-/.test(stAsset))
+  // 그 자산을 분실로 신고한다 — 설치 기록은 남고 상태만 종료가 된다(폐기 소거 전이라 정리도 아직 없다).
+  await pST.locator('button', { hasText: /^분실 · 도난 신고$/ }).first().click()
+  await pST.locator('input[placeholder^="정황"]').fill('회귀 — 배정 밖 설치 처리 게이트')
+  await pST.locator('button', { hasText: /^신고 확정$/ }).click()
+  await pST.waitForTimeout(900)
+  await pST.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const stRow = pST.locator('span.hstack', { hasText: stAsset }).first()
+  ok(`배정 밖 설치: 분실 자산은 좌석 배정 대신 사유 표기 (${stAsset})`,
+    ((await stRow.textContent()) || '').includes('분실 — 좌석 배정 불가')
+    && (await stRow.locator('button', { hasText: /^좌석 배정$/ }).count()) === 0)
+  await ctxST.close()
   await browser.close()
 } catch (err) {
   fail++

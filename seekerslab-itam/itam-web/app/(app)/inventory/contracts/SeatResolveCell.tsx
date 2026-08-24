@@ -5,7 +5,7 @@ import { assignLicenseSeat, requestOffSeatRemoval, unassignLicenseSeat } from '.
 
 /** SAM 좌석 대사 인라인 처리 — STEP2 대사에서 검출한 좌석 불일치를 화면 이탈 없이 처리한다(그동안 라이선스 좌석 관리로 이동해야 했다).
  *  배정 밖 설치(무단 사용)는 좌석 배정(합법화) 또는 제거 요청(무단 설치 소거), 미설치 좌석(회수 후보)은 좌석 회수로 여유석을 확보한다. 자산담당·Admin. */
-export function SeatResolveCell({ licenseId, assets, kind, canEdit }: { licenseId: string; assets: { assetNo: string; label: string }[]; kind: 'offSeat' | 'unusedSeat'; canEdit: boolean }) {
+export function SeatResolveCell({ licenseId, assets, kind, canEdit }: { licenseId: string; assets: { assetNo: string; label: string; status?: string }[]; kind: 'offSeat' | 'unusedSeat'; canEdit: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -30,12 +30,18 @@ export function SeatResolveCell({ licenseId, assets, kind, canEdit }: { licenseI
       {assets.map((a) => (
         <span key={a.assetNo} className="hstack" style={{ gap: 4, fontSize: 11 }}>
           <span className="dim">{a.assetNo} ({a.label})</span>
+          {/* 종료 상태(분실·폐기완료) 자산은 서버가 좌석 배정을 거부한다 — 버튼 대신 이유를 적는다.
+              제거 요청도 의미가 없다(실물이 없어 소거할 대상이 없다). 설치 기록은 폐기 소거 시 정리된다. */}
+          {canEdit && a.status && ['분실', '폐기완료'].includes(a.status)
+            ? <span className="mut">{a.status} — 좌석 배정 불가</span>
+            : <>
           {canEdit && <button className="btn sm ghost" disabled={pending}
             title={kind === 'offSeat' ? '이 자산에 라이선스 좌석 배정 — 무단 사용 합법화' : '미설치 좌석 회수 — 여유석 확보'}
             onClick={() => act(a.assetNo)}>{busy === a.assetNo ? '…' : kind === 'offSeat' ? '좌석 배정' : '좌석 회수'}</button>}
           {canEdit && kind === 'offSeat' && <button className="btn sm ghost" disabled={pending}
             title="배정 밖 설치 제거 요청 — 좌석 배정(구매) 대신 무단 설치를 소거하도록 소유 부서에 통지"
             onClick={() => remove(a.assetNo)}>제거 요청</button>}
+              </>}
         </span>
       ))}
       {msg && <span className="dim" style={{ fontSize: 10.5 }}>{msg}</span>}
