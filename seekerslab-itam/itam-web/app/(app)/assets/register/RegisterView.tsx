@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { ASSET_CATEGORIES } from '@/lib/types'
+import { ASSET_CATEGORIES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus, BizCriticality } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
@@ -1064,7 +1064,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </div>
             )}
             {/* 정기 점검 일정 등록 — 예방 정비 예정이 아직 없는 운영 자산을 정비 사이클에 편입(§03 점검). 완료 재예약과 달리 최초 등록 접점. 자산담당만(canEdit). */}
-            {props.canManage && !sel.maintenanceDue && !['폐기완료', '폐기예정'].includes(sel.status) && (
+            {props.canManage && !sel.maintenanceDue && NON_OPERATIONAL_STATUSES.includes(sel.status) && (
+              <div className="mut" style={{ marginTop: 12, fontSize: 11 }}>{sel.status} 자산은 예방 정비 대상이 아닙니다 — 점검 도래 큐·독촉이 비운영 자산을 제외하므로 예약해도 어디에도 뜨지 않습니다(운영 복귀 후 등록).</div>
+            )}
+            {props.canManage && !sel.maintenanceDue && !NON_OPERATIONAL_STATUSES.includes(sel.status) && (
               <div style={{ marginTop: 12 }}>
                 {schedMsg && <div className="callout" style={{ marginBottom: 10 }}>{schedMsg}</div>}
                 {!schedOpen ? (

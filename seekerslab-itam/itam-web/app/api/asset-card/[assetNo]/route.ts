@@ -4,6 +4,7 @@ import { today, warrantyState } from '@/lib/dates'
 import { qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
 
 /** 자산 카드 — 선택 자산의 전체 프로필(사양·소유·보증·계약)과 변경 이력 타임라인을 한 장의 인쇄용 문서로.
  *  자산 인수인계·감사 대응 자료(자산 dossier)용. 라벨(작은 스티커)과 달리 전체 정보를 담는다.
@@ -34,7 +35,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('보증 만료', a.warrantyEnd === '-' ? undefined : `${a.warrantyEnd}${({ covered: ' · 보증 내', soon: ' · 만료 임박', expired: ' · 보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())]}`),
     row('연계 계약', a.contractId), row('최초 발견 채널', a.discoveredVia),
     row('최근 실측', a.lastVerifiedAt), row('반환 기한', a.loanDueDate),
-    row('정기 점검 예정', a.maintenanceDue && !['폐기완료', '폐기예정'].includes(a.status) ? a.maintenanceDue : undefined),
+    // 화면(점검 도래 큐·대장 필터)과 같은 운영 상태 게이트 — 비운영 자산의 잔여 예정일을 카드에만 남기면 현장에서 점검을 기다린다.
+    row('정기 점검 예정', a.maintenanceDue && !NON_OPERATIONAL_STATUSES.includes(a.status) ? a.maintenanceDue : undefined),
     row('수리 의뢰', a.repair ? `${a.repair.vendor}${a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}${a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}` : undefined),
     row('누적 수리비', repairTotalOf(a) > 0 ? `${repairTotalOf(a).toLocaleString()}원 (${a.repairCosts!.filter((c) => !c.warrantyClaimed).length}건 · 자사 부담)` : undefined),
     row('취득가', acquisitionCostOf(a) > 0 ? `${acquisitionCostOf(a).toLocaleString()}원${a.acquisitionCost === undefined ? ' (표준 단가)' : ''}` : undefined),

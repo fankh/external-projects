@@ -10,6 +10,7 @@ import { getStore, nextAssetNo, nextId } from '@/lib/store'
 import { requiresApproval } from '@/lib/approval'
 import { can } from '@/lib/perm'
 import { eolNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
+import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
 const CRITICALITY_LEVELS: BizCriticality[] = ['핵심', '중요', '일반']
@@ -747,7 +748,10 @@ export async function scheduleMaintenance(assetNo: string, rawDate: string) {
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
-  if (['폐기완료', '폐기예정'].includes(asset.status)) return { ok: false, message: '폐기 대상 자산은 정기 점검 일정을 등록할 수 없습니다.' }
+  // 예방 정비 대상 판정(isMaintenanceDue/isMaintenanceOverdue)과 같은 운영 상태 게이트를 쓴다 — 그전에는 폐기 두 상태만 막아
+  //  수리중·분실·반납대기 자산에도 '등록했습니다'가 떴는데, 정작 점검 도래 큐·대장 필터·독촉은 그 자산을 비운영으로 걸러
+  //  예약이 어디에도 나타나지 않았다(성공 메시지만 있고 결과가 없는 조용한 무효 처리).
+  if (NON_OPERATIONAL_STATUSES.includes(asset.status)) return { ok: false, message: `${asset.status} 자산은 예방 정비 대상이 아닙니다 — 정기 점검 예약은 운영 상태(검수중·사용중·유휴·대여중) 자산만 가능합니다.` }
   const due = rawDate.trim()
   if (!isValidDate(due)) return { ok: false, message: '점검 예정일을 실재하는 날짜(YYYY-MM-DD)로 입력하세요.' }
   const t = today()
@@ -796,16 +800,17 @@ export async function scheduleMaintenanceMany(assetNos: string[], rawDate: strin
   let skipped = 0
   for (const no of assetNos) {
     const asset = s.assets.find((a) => a.assetNo === no)
-    if (!asset || ['폐기완료', '폐기예정'].includes(asset.status)) { skipped += 1; continue }
+    // 단건 예약(scheduleMaintenance)과 같은 운영 상태 게이트 — 비운영 자산은 건너뛴다(큐에 안 뜨는 예약을 만들지 않게).
+    if (!asset || NON_OPERATIONAL_STATUSES.includes(asset.status)) { skipped += 1; continue }
     const prevDue = asset.maintenanceDue
     asset.maintenanceDue = due
     asset.history.push({ date: t, kind: '점검', detail: `정기 점검(예방 정비) ${prevDue ? `일정 변경 — 기존 ${prevDue}${due}` : `일정 등록 — ${due}`} (일괄)`, actor: session.name })
     done += 1
   }
-  if (done === 0) return { ok: false, message: '점검 예약 대상이 없습니다 (폐기 자산 제외).' }
+  if (done === 0) return { ok: false, message: '점검 예약 대상이 없습니다 (폐기·분실·수리중·반납대기 자산 제외).' }
   appendAudit({ actor: session.name, action: `정기 점검 일괄 예약 (${done}건 · ${due})${skipped ? ` · 제외 ${skipped}` : ''}`, target: '자산 대장' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `정기 점검 일괄 예약 — ${done}건 예정 ${due}${skipped ? ` (폐기 ${skipped}건 제외)` : ''}` }
+  return { ok: true, message: `정기 점검 일괄 예약 — ${done}건 예정 ${due}${skipped ? ` (비운영 ${skipped}건 제외)` : ''}` }
 }
 
 /** 자산 수령(인수) 확인 — 불출로 배정받은 자산을 사용자가 실물 수령했음을 확인한다(체인 오브 커스터디).

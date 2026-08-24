@@ -3916,6 +3916,58 @@ try {
     ((await stRow.textContent()) || '').includes('분실 — 좌석 배정 불가')
     && (await stRow.locator('button', { hasText: /^좌석 배정$/ }).count()) === 0)
   await ctxST.close()
+
+  // ── 정기 점검 운영 상태 게이트(신규) — 예약 접점·주간 아젠다·점검 도래 큐가 같은 판정을 써야 한다.
+  //  점검 도래(isMaintenanceDue)·독촉(isMaintenanceOverdue)은 분실·수리중·반납대기를 비운영으로 빼는데,
+  //  예약 접점(scheduleMaintenance)과 대시보드 '다가오는 일정'은 폐기 두 상태만 걸러 두 정의가 갈렸다 —
+  //  비운영 자산에 '등록했습니다'가 뜨고도 어느 큐에도 안 뜨는 조용한 무효 처리, 아무도 쫓지 않을 점검이 실린 주간 계획.
+  const ctxMT = await browser.newContext(); await ctxMT.addCookies([cookie(ASSET)]); const pMT = await ctxMT.newPage()
+  const agendaCount = async () => {
+    await pMT.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+    const card = pMT.locator('.card', { hasText: '다가오는 일정 (향후 14일)' }).first()
+    const t = (await card.textContent()) || ''
+    return Number((/(\d+)건/.exec(t) || [])[1] ?? 0)
+  }
+  // 예방 정비 미편성 운영 자산을 하나 고른다 — 등록 컨트롤과 분실 신고(비운영 전환 경로)가 모두 있는 자산.
+  await pMT.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const mtCandidates = [...new Set(((await pMT.locator('tbody').textContent()) || '').match(/AST-\d{4}-\d{6}/g) ?? [])]
+  let mtAsset = ''
+  for (const no of mtCandidates.slice(0, 25)) {
+    await pMT.goto(`${BASE}/assets/register?sel=${no}`, { waitUntil: 'networkidle' })
+    if ((await pMT.locator('button', { hasText: /^정기 점검 일정 등록$/ }).count()) > 0
+      && (await pMT.locator('button', { hasText: /^분실 · 도난 신고$/ }).count()) > 0) { mtAsset = no; break }
+  }
+  ok(`정기 점검 아젠다: 예방 정비 미편성 운영 자산 확보(양성 대조 · ${mtAsset})`, /^AST-/.test(mtAsset))
+  const mtBefore = await agendaCount()
+  await pMT.goto(`${BASE}/assets/register?sel=${mtAsset}`, { waitUntil: 'networkidle' })
+  await pMT.locator('button', { hasText: /^정기 점검 일정 등록$/ }).first().click()
+  await pMT.waitForTimeout(200)
+  const mtDue = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10) // 창(14일) 안 — 고정 날짜면 시간이 지나며 창을 벗어난다
+  await pMT.locator('input[title*="점검 예정일"]').fill(mtDue)
+  await pMT.locator('button', { hasText: /^일정 등록$/ }).click()
+  await pMT.waitForTimeout(700)
+  const mtAfter = await agendaCount()
+  ok(`정기 점검 아젠다: 운영 자산 예약이 주간 계획에 편입(${mtBefore} → ${mtAfter} · 양성 대조)`, mtAfter === mtBefore + 1)
+  // 같은 자산을 분실 신고 → 비운영. 점검 도래 큐·독촉이 빼는 자산이므로 아젠다에서도 빠져야 한다(같은 게이트).
+  await pMT.goto(`${BASE}/assets/register?sel=${mtAsset}`, { waitUntil: 'networkidle' })
+  await pMT.locator('button', { hasText: /^분실 · 도난 신고$/ }).first().click()
+  await pMT.locator('input[placeholder^="정황"]').fill('회귀 — 정기 점검 운영 상태 게이트')
+  await pMT.locator('button', { hasText: /^신고 확정$/ }).click()
+  await pMT.waitForTimeout(900)
+  const mtLost = await agendaCount()
+  ok(`정기 점검 아젠다: 비운영(분실) 전환 자산은 주간 계획에서 제외(${mtAfter} → ${mtLost} · 점검 도래 큐와 같은 판정)`, mtLost === mtBefore)
+  // 예약 접점도 같은 게이트 — 비운영·미편성 자산 상세에는 등록 버튼 대신 사유가 뜬다(막다른 컨트롤 제거).
+  await pMT.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const mtNonOp = [...new Set(((await pMT.locator('tbody').textContent()) || '').match(/AST-\d{4}-\d{6}/g) ?? [])]
+  let mtOff = ''
+  for (const no of mtNonOp.slice(0, 40)) {
+    await pMT.goto(`${BASE}/assets/register?sel=${no}`, { waitUntil: 'networkidle' })
+    const body = (await pMT.locator('body').textContent()) || ''
+    if (/예방 정비 대상이 아닙니다/.test(body)) { mtOff = no; break }
+  }
+  ok(`정기 점검 예약 게이트: 비운영·미편성 자산에 등록 버튼 대신 사유 표기(${mtOff})`,
+    /^AST-/.test(mtOff) && (await pMT.locator('button', { hasText: /^정기 점검 일정 등록$/ }).count()) === 0)
+  await ctxMT.close()
   await browser.close()
 } catch (err) {
   fail++
