@@ -3291,6 +3291,34 @@ try {
   ok(`폐기 절차 불변식: 폐기예정 ${dpPending.length}대 모두 폐기 건 보유(폐기 화면에 존재 · 시드 2대 + 실행 중 생성분)`,
     dpPending.length >= 3 && dpMissing.length === 0)
   await ctxDP.close()
+  // NAC 격리 해제(신규) — 격리는 결재로 집행되는데 되돌릴 수단이 없어 한쪽 문이었다. 조사가 끝나도 자산에 격리
+  //  표시가 영구히 남고, 이상 행위 목록은 그 자산을 '차단 집행됨'으로 계속 빼둔다(신호가 영영 닫힌다).
+  //  해제는 보안 운영의 조사 종결 판단이라 즉시 처리하되 사유·이력·통보를 남기고, 보안담당·Admin 만 할 수 있다.
+  //  앞의 로70 검사가 AST-2024-000377 을 격리해 두었으므로 그 상태에서 이어 검증한다.
+  const ctxQR = await browser.newContext(); await ctxQR.addCookies([cookie(ASSET)]); const pQR = await ctxQR.newPage()
+  await pQR.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
+  ok('격리 해제: 자산담당 상세에는 해제 컨트롤 미노출(보안담당·Admin 전용)',
+    ((await pQR.textContent('body')) || '').includes('NAC 격리') && (await pQR.locator('button', { hasText: /^격리 해제$/ }).count()) === 0)
+  await ctxQR.close()
+
+  const ctxQD = await browser.newContext(); await ctxQD.addCookies([cookie(SEC)]); const pQD = await ctxQD.newPage()
+  await pQD.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
+  ok('격리 해제: 보안담당 상세에 해제 컨트롤 노출', (await pQD.locator('button', { hasText: /^격리 해제$/ }).count()) === 1)
+  await pQD.locator('input[placeholder^="해제 사유"]').fill('e2e — 침해 조사 종결·보상통제 적용')
+  await pQD.locator('button', { hasText: /^격리 해제$/ }).click()
+  await pQD.waitForTimeout(900)
+  ok('격리 해제: 해제 처리·통보 메시지', ((await pQD.textContent('body')) || '').includes('NAC 격리 해제'))
+  await pQD.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
+  const qrRow = (await pQD.locator('tr', { has: pQD.locator('td', { hasText: 'AST-2024-000377' }) }).first().textContent()) || ''
+  ok('격리 해제: 대장 행에서 격리 표시 제거', !qrRow.includes('격리'))
+  // 차단이 풀렸으므로 이상 행위 신호도 다시 열린다 — 격리로 목록에서 빠졌던 자산이 되돌아온다(로70 검사의 짝).
+  await pQD.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  const qrPanel = (await pQD.locator('.card', { hasText: '이상 자산 행위 탐지' }).first().textContent()) || ''
+  ok('격리 해제: 차단 해제 시 이상 행위 신호 재개(격리로 닫혔던 건이 다시 열림)', qrPanel.includes('AST-2024-000377'))
+  await pQD.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('격리 해제: 감사 로그에 해제 기록',
+    (await pQD.locator('tr').filter({ hasText: 'AST-2024-000377' }).filter({ hasText: 'NAC 격리 해제' }).count()) >= 1)
+  await ctxQD.close()
   await browser.close()
 } catch (err) {
   fail++

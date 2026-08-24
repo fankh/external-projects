@@ -11,7 +11,7 @@ import { assetDependenciesFrom } from '@/lib/cmdb-graph'
 import { TopologyDiagram } from './TopologyDiagram'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, reassignAsset, reassignAssetMany, notifyEolUpgrade, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
+import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, notifyEolUpgrade, reassignAsset, reassignAssetMany, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, releaseQuarantine, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, requestReturn, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -109,6 +109,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [lostCond, setLostCond] = useState<'정상' | '수리 필요' | '폐기 권고'>('정상') // 분실 회수 시 실물 상태 점검
   const [faultOpen, setFaultOpen] = useState(false)
   const [faultNote, setFaultNote] = useState('')
+  const [qrNote, setQrNote] = useState('')
+  const [qrMsg, setQrMsg] = useState<string | null>(null)
   const [faultMsg, setFaultMsg] = useState<string | null>(null)
   const [receiptMsg, setReceiptMsg] = useState<string | null>(null)
   const [rcptRemindMsg, setRcptRemindMsg] = useState<string | null>(null)
@@ -578,6 +580,27 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             })()}
             <dl className="kv" style={{ marginTop: 14 }}>
               <dt>상태</dt><dd><Chip tone={STATUS_TONE[sel.status]}>{sel.status}</Chip>{sel.quarantinedAt && <> <Chip tone="err" bare>NAC 격리 {sel.quarantinedAt}</Chip></>}</dd>
+              {sel.quarantinedAt && props.canQuarantine && (
+                <>
+                  <dt>격리 해제</dt>
+                  <dd>
+                    {/* 격리는 결재로 집행되지만 해제는 조사 종결 판단이라 즉시 처리한다 — 사유가 감사 증적으로 남는다.
+                        해제할 수단이 없으면 격리가 한쪽 문이 되어, 조사가 끝나도 표시가 남고 이상 행위 신호가 영영 닫힌다. */}
+                    <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                      <input className="input" style={{ width: 240 }} placeholder="해제 사유 (조사 결과·보상통제)"
+                        value={qrNote} disabled={pending} onChange={(e) => setQrNote(e.target.value)} />
+                      <button className="btn sm warn" disabled={pending || !qrNote.trim()}
+                        title="침해 조사·조치가 끝난 자산의 NAC 차단을 해제합니다 (보안운영팀 통보·감사 적재)"
+                        onClick={() => startTransition(async () => {
+                          const r = await releaseQuarantine(sel.assetNo, qrNote)
+                          setQrMsg(r.message)
+                          if (r.ok) setQrNote('')
+                        })}>격리 해제</button>
+                    </span>
+                    {qrMsg && <div className="mut" style={{ fontSize: 11, marginTop: 4 }}>{qrMsg}</div>}
+                  </dd>
+                </>
+              )}
               <dt>소유자</dt><dd>{sel.owner} · {sel.dept}</dd>
               <dt>위치</dt><dd>{sel.location}</dd>
               <dt>업무 중요도</dt>
