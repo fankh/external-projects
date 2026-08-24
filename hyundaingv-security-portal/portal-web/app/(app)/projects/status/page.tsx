@@ -90,7 +90,7 @@ export default async function ProjectStatusPage() {
   return (
     <>
       <ScreenHeader kicker="프로젝트" title="진행현황 · 인력투입"
-        desc="계약정보 연동으로 프로젝트를 등록하고 진척·인력·완료 예정일을 추적한다." />
+        desc="계약 연동 프로젝트의 진척률과 투입 인력" />
 
       <div className="stat-row">
         <Stat value={active.length} label="진행중" note={`전체 ${s.projects.length}건`} />
