@@ -740,6 +740,7 @@ router.get('/audit-logs', asyncHandler(async (req, res) => {
 
   const filters = { search, eventType, status };
   const flashSuccess = req.query.success || null;
+  const flashError = req.query.error || null;
 
   res.render('admin/audit-logs', {
     title: 'Audit Logs - KYRA Admin Console',
@@ -748,6 +749,7 @@ router.get('/audit-logs', asyncHandler(async (req, res) => {
     pagination: result.pagination,
     filters,
     flashSuccess,
+    flashError,
     user: req.user,
     csrfToken: req.csrfToken?.() || ''
   });
