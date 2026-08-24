@@ -3065,6 +3065,26 @@ try {
   await ctxDEL.close()
   await aiCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
   ok('권한 매트릭스: AI 어시스턴트 삭제 권한 복원(허용)', ((await aiCell.textContent()) || '').includes('✓'))
+  // 권한그룹 변경의 즉시 반영 — 세션(쿠키)에 박힌 역할을 그대로 믿으면 관리자가 권한그룹을 회수해도
+  //  이미 로그인해 있는 사람은 다음 로그인까지 예전 권한으로 계속 움직인다(회수했는데 회수되지 않는다).
+  //  자산담당(js.park)을 사용자로 강등한 뒤 기존 세션으로 담당자 화면 진입을 시도하고, 복원한다.
+  const ctxUR = await browser.newContext(); await ctxUR.addCookies([cookie(ADMIN)]); const pUR = await ctxUR.newPage()
+  await pUR.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
+  const urRow = pUR.locator('tr', { has: pUR.locator('td', { hasText: 'js.park' }) }).first()
+  await urRow.locator('select').first().selectOption('USER')
+  await pUR.waitForTimeout(900)
+  ok('사용자·그룹: 권한그룹 강등 반영(자산담당 → 사용자)', ((await pUR.textContent('body')) || '').includes('일반 사용자'))
+  const ctxOld = await browser.newContext(); await ctxOld.addCookies([cookie(ASSET)]); const pOld = await ctxOld.newPage()
+  await pOld.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
+  ok('세션 권한: 강등 즉시 기존 세션도 담당자 화면 진입 차단(쿠키 역할 무효화)', pOld.url().endsWith('/dashboard'))
+  await ctxOld.close()
+  await urRow.locator('select').first().selectOption('ASSET_MGR')
+  await pUR.waitForTimeout(900)
+  const ctxNew = await browser.newContext(); await ctxNew.addCookies([cookie(ASSET)]); const pNew = await ctxNew.newPage()
+  await pNew.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
+  ok('세션 권한: 권한그룹 복원 시 다시 진입 가능(양성 대조)', pNew.url().endsWith('/assets/lifecycle'))
+  await ctxNew.close()
+  await ctxUR.close()
   await ctxPM.close()
   // 발견 편입·격리 버튼도 권한 매트릭스를 따르는지(라운드트립) — 서버 requestOnboard/requestQuarantine 은 can('발견 자산 · CMDB 대사', 편입/격리요청)을
   //  강제하고 메뉴 정의도 이 둘을 enforced 로 선언하는데, 화면은 아무 권한 게이트 없이 버튼을 내줬다. 게다가 거부가 undefined 반환이라
