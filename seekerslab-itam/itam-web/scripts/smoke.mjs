@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { assertFreshBuild } from './build-guard.mjs'
+import { damagedRegexLiterals } from './regex-guard.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const PORT = 3378
@@ -1580,6 +1581,13 @@ try {
     .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
     .filter((rel) => rel !== 'lib/dates.ts')
   check(`보증 임박 판정: lib/dates 한 곳만 임계 비교(소스 ${sourceFiles.length}개 검사)`, warrantyHardcoded.length === 0, `직접 비교=${warrantyHardcoded.join(', ')}`)
+
+  // 정규식 리터럴의 역슬래시 유실 — 편집 중 문자 클래스의 역슬래시가 떨어지면 정규식은 문법 오류 없이 살아남고
+  //  타입 검사·빌드도 통과하지만 아무것도 매칭하지 않는다. lib/dates 의 addDays 가 실제로 그렇게 깨져 있었고,
+  //  날짜 파싱이 늘 실패해 입력을 그대로 반환하는 바람에 재물조사 기한(+14일)·리포트 다음 실행일(+7일)·
+  //  EASM 재스캔 주기·AI 로그 보존 컷오프가 전부 더해지지 않은 날짜로 계산됐다(항상 기한 도래).
+  const reDamaged = damagedRegexLiterals(sourceFiles, (f) => path.relative(ROOT, f).split(path.sep).join('/'))
+  check(`정규식 리터럴: 역슬래시 유실된 문자 클래스 없음(소스 ${sourceFiles.length}개 검사)`, reDamaged.length === 0, `손상=${reDamaged.join(', ')}`)
 
 
   // AI 로그 보존 정책의 강제 — auditRetentionDays 는 화면·리포트에 숫자로만 찍히고 조회에는 쓰이지 않아,

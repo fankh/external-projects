@@ -4,7 +4,7 @@
  *  실서비스에서는 자산 대장 RDB(CMDB) + 발견 저장소 분리 구조로 대체된다(제품안내서 §02). */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { today } from './dates'
+import { addDays, today } from './dates'
 import { checklistFor } from './intake'
 import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, fingerprintOf } from './types'
 import type {
@@ -106,7 +106,7 @@ function seedAssets(): Asset[] {
     // EOL OS(Windows 10) + 수리중(비운영) — EOL 교체 대상 게이트가 분실·수리중·반납대기를 제외하는지 회귀 가드(실물이 수리 입고된 자산에 교체 통보가 나가면 안 된다).
     mk({ assetNo: 'AST-2021-000556', category: '단말', model: 'ThinkPad L14 Gen2', status: '수리중', owner: '한지원', dept: '고객지원팀', location: '본사 5F 수리대기', os: 'Windows 10 Pro', cpu: 'i5-1135G7', memory: '16GB', ip: '10.20.51.44', mac: '9C:2A:70:11:8E:23', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09', lastVerifiedAt: '2026-07-20' }),
     // 감가상각 반올림 회귀 — 도입 4.99년 경과(≈99.8%). 반올림이면 100%(상각 완료)로 잔존가치(≈3,600원)와 모순, 내림이면 99%. 상대일자로 계산해 실행일과 무관하게 창 안에 머문다. 사용중(가용 재고 집계 미영향).
-    mk({ assetNo: 'AST-2021-000997', category: '단말', model: 'ThinkPad T14 (감가 회귀)', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', purchaseDate: new Date(Date.now() - Math.round(4.99 * 365.25 * 86_400_000)).toISOString().slice(0, 10), warrantyEnd: '2024-09-01', acquisitionCost: 1_800_000, lastVerifiedAt: '2026-07-20' }),
+    mk({ assetNo: 'AST-2021-000997', category: '단말', model: 'ThinkPad T14 (감가 회귀)', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', purchaseDate: addDays(today(), -Math.round(4.99 * 365.25)), warrantyEnd: '2024-09-01', acquisitionCost: 1_800_000, lastVerifiedAt: '2026-07-20' }),
     // 대여 자동 집행 회귀 대상 — 유휴 서버(단말 아님 → 단말 가용 0 검증 미영향). 최근 도입·보증 유효·최근 실측이라 노후·재물조사·EOL 배치 스윕에 안 걸려 스위트 끝까지 유휴 유지. 대여 결재 승인 시 대여중으로 자동 집행.
     mk({ assetNo: 'AST-2025-000701', category: '서버', model: 'PowerEdge R660 (대여 회귀)', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'RHEL 9.3', cpu: 'Xeon Gold 6438', memory: '128GB', ip: '10.30.9.11', mac: '2C:EA:7F:11:90:44', purchaseDate: '2025-03-01', warrantyEnd: '2028-02-29', lastVerifiedAt: '2026-08-01' }),
     // 대여 반환 좌석 회수 회귀 — 대여중이면서 라이선스 좌석 보유. 반환 시 좌석이 회수돼야 한다(로56, 이탈 5번째 경로). 반환 기한은 먼 미래(연체·임박 큐 미영향).
