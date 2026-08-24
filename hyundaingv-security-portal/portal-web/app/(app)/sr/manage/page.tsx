@@ -109,8 +109,8 @@ export default async function SrManagePage() {
 
   return (
     <>
-      <ScreenHeader kicker="IT Request" title="SR 관리"
-        desc="전사 SR 파이프라인 — 개발 · 테스트 · 적용 단계를 진행 처리한다." />
+      <ScreenHeader kicker="서비스요청" title="SR 관리"
+        desc="개발·테스트·적용 단계별 SR 처리" />
 
       <div className="stat-row">
         {SR_FLOW.filter((st) => st !== '작성중').map((st) => (
