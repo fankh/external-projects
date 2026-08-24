@@ -1031,6 +1031,23 @@ try {
   })
   ok(`수명주기 대기열: 모든 행이 처리 화면 링크를 가짐(${lifeStat.total}행 · 막다른 행 ${lifeStat.noLink})`, lifeStat.total > 0 && lifeStat.noLink === 0)
   ok(`수명주기 대기열: 운영 중·종결 자산 제외(사용중·폐기완료 ${lifeStat.bad}행)`, lifeStat.bad === 0)
+  // 재고 현황 — 유형·부서·위치는 같은 대장을 세 각도로 자른 것이라 세 합계가 모두 총 보유 자산과 같아야 한다.
+  //  (미사용 공통코드로 유형을 걸러내지 않는 이유가 이 합계 정합이다 — 걸러내면 합계가 총 보유와 어긋나 대장이 틀려 보인다.)
+  await p2.goto(`${BASE}/inventory/stock`, { waitUntil: 'networkidle' })
+  const stockAll = Number(((await p2.locator('.stat', { hasText: '총 보유 자산' }).first().locator('.v').textContent()) || '').replace(/[^0-9]/g, '') || '-1')
+  const bdCard = p2.locator('.card', { hasText: '보유 현황 — 유형·부서·위치별' }).first()
+  const bdTotals = []
+  for (const label of ['유형별', '부서별', '위치별']) {
+    await bdCard.locator('.seg button', { hasText: label }).click()
+    await p2.waitForTimeout(250)
+    bdTotals.push(Number(((await bdCard.locator('tfoot td').nth(1).textContent()) || '').replace(/[^0-9]/g, '') || '-1'))
+  }
+  ok(`재고 현황: 세 기준 합계가 총 보유 자산과 일치(총 ${stockAll} · 합계 ${bdTotals.join('/')})`, stockAll > 0 && bdTotals.every((n) => n === stockAll))
+  // 가용 재고는 유휴에서 폐기 절차 진입분을 뺀 값이다 — 같은 화면의 안전재고 경보와 한 판정(lib/stock)을 쓴다.
+  const availN = Number(((await p2.locator('.stat', { hasText: '가용 재고' }).first().locator('.v').textContent()) || '').replace(/[^0-9]/g, '') || '-1')
+  await p2.goto(`${BASE}/assets/register?status=${encodeURIComponent('유휴')}`, { waitUntil: 'networkidle' })
+  const idleShown = Number((((await p2.locator('span.cnt').first().textContent()) || '').match(/([0-9]+)건/) || [])[1] ?? '-1')
+  ok(`재고 현황: 가용 재고(${availN}) ≤ 유휴 목록(${idleShown}) — 폐기 절차 진입분 제외`, availN >= 0 && idleShown >= 0 && availN <= idleShown)
 
   // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
