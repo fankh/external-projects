@@ -1,3 +1,4 @@
+import { appendAudit } from '@/lib/audit'
 import { getSession } from '@/lib/session'
 import { toCsv, toMarkdown, toSheets } from '@/lib/reports'
 import { getStore } from '@/lib/store'
@@ -20,6 +21,16 @@ export async function GET(
   const format = fmt === 'md' ? 'md' : fmt === 'csv' ? 'csv' : 'xlsx'
   const meta = `${report.mode} 생성 · ${report.generatedBy}`
   const base = `${report.id}_${report.kind.replace(/\s+/g, '')}`
+
+  // 리포트 내려받기도 데이터 반출이라 감사에 남긴다 — 대장·감사 로그·발송 이력 반출(/api/export·audit-export·
+  //  dispatch-export)은 "누가 무엇을 몇 건 받았는지" 를 남기는데, 정작 감사 대응 자료·부서별 비용·취약점
+  //  우선순위 같은 리포트 전문은 고정 URL 로 내려받아도 흔적이 없었다(결재 첨부 근거 문서로도 쓰인다).
+  const reportRows = report.sections.reduce((n, sec) => n + (sec.rows?.length ?? 0), 0)
+  appendAudit({
+    actor: session.name,
+    action: `리포트 반출 — ${report.kind} (${format} · ${reportRows}건)`,
+    target: report.id,
+  })
 
   if (format === 'xlsx') {
     const buf = buildXlsx(toSheets(report.title, report.headline, report.sections))

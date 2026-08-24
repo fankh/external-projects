@@ -1,3 +1,4 @@
+import { appendAudit } from '@/lib/audit'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { today } from '@/lib/dates'
@@ -15,6 +16,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ name: s
   const s = getStore()
   const account = s.users.find((u) => u.name === name)
   const dept = account?.dept ?? s.assets.find((a) => a.owner === name)?.dept ?? '-'
+
+  // 특정 개인의 보유 자산·대여·라이선스 좌석·미처리 상신을 한 장으로 모은 개인 단위 반출이라 감사에 남긴다
+  //  (다른 데이터 반출과 같은 규약 — 단건 카드·라벨 인쇄는 화면 조회에 가까워 제외).
+  appendAudit({ actor: session.name, action: `오프보딩 명세서 반출 — ${name} (${dept})`, target: name })
 
   const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const inUse = s.assets.filter((a) => a.owner === name && a.status === '사용중')

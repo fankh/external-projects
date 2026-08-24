@@ -33,7 +33,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       me.role === 'DEPT_MGR' ? r.dept === me.dept : true,
     )
     groups.push({
-      label: 'IT Request',
+      label: '서비스요청',
       hits: srScoped.filter((r) => has(r.srNo, r.title, r.system, r.content)).map((r) => ({
         href: `/sr/requests?q=${encodeURIComponent(r.srNo)}`,
         code: r.srNo, title: r.title, meta: `${r.kind} · ${r.system} · ${srStatusLabel(r)}`,
@@ -164,7 +164,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <ScreenHeader kicker="Search" title="통합 검색"
+      <ScreenHeader kicker="통합검색" title="통합 검색"
         desc={query ? `"${query}" 검색 결과 — 화면별 권한·데이터 스코핑이 그대로 적용된다.` : '타이틀바 검색창에 번호·제목·시스템명을 입력하세요.'} />
 
       <div className="stat-row">

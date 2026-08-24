@@ -2830,6 +2830,21 @@ try {
   ok('발송 이력 딥링크: 외부 위협 ref(크리덴셜·IOC·노출)가 외부 위협 화면으로 연결', rlExternal > 0)
   ok('발송 이력 딥링크: 발견 채널 ref(계정·미인가 SW·USB·로컬 VM)가 발견 화면으로 연결', rlFound > 0)
   await ctxRL.close()
+  // 리포트 반출 감사 — 리포트 전문(감사 대응 자료·부서별 비용·취약점 우선순위)은 고정 URL 로 내려받아도 흔적이 없었다.
+  //  대장·감사 로그·발송 이력 반출은 "누가 무엇을 몇 건 받았는지"를 남기는데 리포트만 빠져 있었다(결재 첨부 근거 문서로도 쓰인다).
+  //  시드에 리포트가 없어(reports: []) 스모크로는 못 잡는다 — 여기서 생성 → 내려받기 → 감사 로그 확인까지 본다.
+  const ctxRA = await browser.newContext(); await ctxRA.addCookies([cookie(ASSET)]); const pRA = await ctxRA.newPage()
+  await pRA.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  await pRA.locator('.card', { hasText: '리포트 유형' }).locator('tr', { hasText: '감사 대응 자료' }).locator('button', { hasText: /^생성$/ }).click()
+  await pRA.waitForTimeout(1200)
+  const raHref = (await pRA.locator('a', { hasText: '결재 첨부용 문서' }).first().getAttribute('href')) || ''
+  ok('리포트 반출 감사: 생성 후 결재 첨부용 문서 링크 확보', raHref.includes('/api/reports/'))
+  const raRes = await pRA.request.get(`${BASE}${raHref}`)
+  ok('리포트 반출 감사: 문서 내려받기 200', raRes.status() === 200)
+  const ctxRA2 = await browser.newContext(); await ctxRA2.addCookies([cookie(SEC)]); const pRA2 = await ctxRA2.newPage()
+  await pRA2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('리포트 반출 감사: 감사 로그에 반출 기록(누가 무엇을 몇 건)', ((await pRA2.textContent('body')) || '').includes('리포트 반출'))
+  await ctxRA2.close(); await ctxRA.close()
   await browser.close()
 } catch (err) {
   fail++
