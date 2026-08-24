@@ -18,7 +18,7 @@ import { criticalDependencies, impactSources } from './cmdb'
 // 양쪽 모두 함수 본문에서만 서로를 호출(모듈 최상위 미참조)해 순환이 안전하다.
 import { compositeRiskAssetNos, riskSignals } from './risk'
 import type { CellValue, Sheet } from './xlsx'
-import type { ReportKind, ReportSchedule, ReportSection, SaasUsage, SwLicense } from './types'
+import type { DiscoveredAsset, ReportKind, ReportSchedule, ReportSection, SaasUsage, SwLicense } from './types'
 
 /** 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 대상
  *  (제품안내서 §05 라이선스 최적화: 중복 기능 SaaS 통합 후보). Shadow SaaS 화면과 라이선스 컴플라이언스
@@ -50,6 +50,15 @@ export function saasConsolidationCandidates(): { category: string; services: Saa
 
 /** 라이선스 최적화 산정(§05 AI 기능05) — 초과 사용·미사용 회수·만료 경과·중복 SaaS 통합을 한 번에 뽑는다.
  *  라이선스 컴플라이언스 리포트와 분석 화면 패널이 같은 근거를 쓰도록 단일 소스로 둔다(해지분 제외). */
+/** 편입 대상 미등록 발견 자산 — 대장에 없는 발견 건 중 '편입하지 않기로 판정된' 것을 뺀다.
+ *  관리 제외는 우리 자산이 아니라는 판정(사유 필수)이고 격리 요청은 차단 절차라, 둘 다 편입 대상이 아니다.
+ *  확인 요청·편입 요청은 아직 편입 경로 위에 있으므로 남긴다.
+ *  컴플라이언스 증적이 '미등록 발견 자산 N건(편입 대상)'을 감사에 제시하므로, 편입하지 않기로 한 건까지 세면
+ *  실재하지 않는 통제 갭을 증적에 올리게 된다. 표·서술이 이 한 함수를 공유한다. */
+export function onboardTargets(): DiscoveredAsset[] {
+  return getStore().discovered.filter((d) => d.state === '미등록' && d.action !== '관리 제외' && d.action !== '격리요청')
+}
+
 /** 만료 경과 — 유효(미해지)인데 만료일이 지난(미갱신) 라이선스. 만료 라이선스 사용은 컴플라이언스 위반이라 별도 집계한다. */
 export function isLicenseExpired(l: SwLicense): boolean {
   return l.status !== '해지' && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
@@ -692,7 +701,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
   if (kind === '정보보호 컴플라이언스 증적') {
     // ISMS/ISO 27001 통제별 증적 — 기존 대장·라이선스·폐기·위협 데이터를 감사 대응 번들로 집약(추가 데이터 없음).
     const liveC = s.assets.filter((a) => a.status !== '폐기완료')
-    const unregC = s.discovered.filter((d) => d.state === '미등록').length
+    const unregC = onboardTargets().length // 편입 대상 — 관리 제외·격리 요청 제외(편입하지 않기로 판정된 건)
     const flaggedC = liveC.filter(hasDataIssue).length
     const accuracyC = liveC.length ? Math.round(((liveC.length - flaggedC) / liveC.length) * 100) : 100
     const byCatC = [...new Set(liveC.map((a) => a.category))].map((c) => [c, String(liveC.filter((a) => a.category === c).length)])
@@ -1160,7 +1169,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
       + `이 중 현재 저하(분실·폐기·수리) 상태로 하위에 장애가 전이될 수 있는 상위 자산은 ${degH.length}건으로, 우선 복구·이중화 검토가 필요합니다.`
   }
   if (kind === '정보보호 컴플라이언스 증적') {
-    return `정보보호 컴플라이언스 증적 — 대장 등록 운영 자산 ${s.assets.filter((a) => a.status !== '폐기완료').length}건, 미등록 발견 자산 ${s.discovered.filter((d) => d.state === '미등록').length}건이 편입 대상입니다. ISMS/ISO 27001 통제(자산 관리·접근 통제·매체 폐기·운영 보안·로깅)별 증적을 아래 섹션에 집약했습니다.`
+    return `정보보호 컴플라이언스 증적 — 대장 등록 운영 자산 ${s.assets.filter((a) => a.status !== '폐기완료').length}건, 미등록 발견 자산 ${onboardTargets().length}건이 편입 대상입니다. ISMS/ISO 27001 통제(자산 관리·접근 통제·매체 폐기·운영 보안·로깅)별 증적을 아래 섹션에 집약했습니다.`
   }
   if (kind === '라이선스 갱신·트루업 계획') {
     const loH = licenseOptimization()
