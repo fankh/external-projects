@@ -861,6 +861,25 @@ try {
   await p2.goto(`${BASE}/assets/register?os=eol`, { waitUntil: 'networkidle' })
   ok('EOL 필터: 운영 중 EOL 자산 노출(AST-2021-000432 유휴)', (await p2.locator('td', { hasText: 'AST-2021-000432' }).count()) > 0)
   ok('EOL 필터: 비운영(수리중) EOL 자산 제외(AST-2021-000556 · 교체 통보 오발송 방지)', (await p2.locator('td', { hasText: 'AST-2021-000556' }).count()) === 0)
+  // 어시스턴트 EOL 답변 ↔ 이 목록 정합 — 답변 바로 아래 근거 링크가 이 화면(?os=eol)이다. 어시스턴트는 폐기 경로만
+  //  빼고 세어 비운영(수리중·분실·반납대기) EOL 자산까지 포함했고, 그래서 "N건입니다"를 읽고 그 답이 준 링크를 열면
+  //  더 적게 나왔다(같은 질문에 두 답). 지금 시점의 AST-2021-000556 은 수리중이라 두 게이트가 갈리는 자산이다 —
+  //  바로 아래 '수리 불가' 검사가 이 자산을 폐기예정으로 바꾸므로 반드시 그 전에 본다.
+  const eolRows = await p2.locator('tbody tr.clickable').count()
+  const ctxEOL = await browser.newContext(); await ctxEOL.addCookies([cookie(ASSET)]); const pEOL = await ctxEOL.newPage()
+  await pEOL.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+  const eolBubbles = await pEOL.locator('.msg.assistant .bub').count()
+  await pEOL.locator('.chat-in input').fill('교체 대상 자산과 교체 예산 알려줘')
+  await pEOL.locator('.chat-in input').press('Enter')
+  await pEOL.waitForFunction((k) => document.querySelectorAll('.msg.assistant .bub').length > k, eolBubbles, { timeout: 8000 })
+  await pEOL.waitForTimeout(250)
+  const eolAns = (await pEOL.locator('.msg.assistant .bub').last().textContent()) || ''
+  const eolLine = eolAns.split('\n').find((l) => l.includes('OS 지원 종료(EOL) 자산')) || ''
+  const eolAnswerN = Number((/OS 지원 종료\(EOL\) 자산 (\d+)건/.exec(eolLine) || [])[1] ?? -1)
+  ok(`AI EOL질의 ↔ 대장 EOL 필터: 답변 ${eolAnswerN}건 = 목록 ${eolRows}건(같은 게이트)`, eolRows >= 1 && eolAnswerN === eolRows)
+  ok('AI EOL질의: 비운영(수리중) EOL 자산 제외(AST-2021-000556 — 대장 필터와 같은 판정)',
+    eolLine !== '' && !eolLine.includes('AST-2021-000556'))
+  await ctxEOL.close()
   // 수리 불가 → 보유자 정리(홀더-스테이트 불변식) — 장애 신고로 소유자를 유지한 채 수리에 든 자산(AST-2021-000556 한지원)이 수리 불가로 폐기예정 전환될 때 소유자를 비워야 한다.
   //  안 하면 폐기 결재 반려 시 유휴 자산이 원 소유자에 오귀속되고 좌석이 샌다(반납·회수·폐기와 동일 정리). 이 EOL 게이트가 556 을 읽은 뒤에 소비.
   await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })

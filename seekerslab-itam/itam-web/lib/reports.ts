@@ -8,7 +8,7 @@ import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
 import { addDays, addYears, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
 import { ACQ_COST, USEFUL_LIFE_YEARS, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
-import { eolOsOf } from './eol'
+import { eolOsOf, isEolTarget } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
 import { buildVulnPriority } from './vuln-priority'
@@ -436,7 +436,8 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const failingN = cands.filter((x) => x.why.includes('잦은 장애')).length
     // OS 지원 종료(EOL) — 하드웨어 노후(내용연수·보증)와 별개의 교체·업그레이드 드라이버. 미패치 취약점 상시 노출.
     const t = today()
-    const eolAssets = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, t))
+    // 빈 상태 문구가 '운영 자산'이라고 말하는 그 집합 — 대장 EOL 필터·대시보드 큐와 같은 게이트(lib/eol isEolTarget)를 쓴다.
+    const eolAssets = s.assets.filter((a) => isEolTarget(a.status, a.os, t))
     const eolSection: ReportSection = eolAssets.length === 0
       ? { title: 'OS 지원 종료(EOL) 자산 — 업그레이드·교체', bullets: ['OS 지원 종료가 경과한 운영 자산이 없습니다.'] }
       : {
@@ -1225,7 +1226,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   if (kind === '연간 교체 계획') {
     const { cands, budget, residualBook } = replacementCandidates()
     const warrN = cands.filter((x) => x.why.includes('보증')).length
-    const eolN = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, today())).length
+    const eolN = s.assets.filter((a) => isEolTarget(a.status, a.os, today())).length
     return `내용연수·보증 경과 기준 교체 대상은 ${cands.length}대이며 추정 예산은 ${fmtAmount(budget)}원입니다. `
       + `이 중 보증이 경과한 ${warrN}대는 장애 시 무상 수리가 불가해 우선 교체 대상이며, 잔여 장부가는 ${fmtAmount(residualBook)}원입니다. `
       + `하드웨어 노후와 별개로 OS 지원 종료(EOL) 자산이 ${eolN}대 있어 업그레이드 또는 교체가 필요합니다. `

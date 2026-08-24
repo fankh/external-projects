@@ -7,7 +7,7 @@ import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
 import { daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
-import { eolOsOf } from '@/lib/eol'
+import { eolOsOf, isEolTarget } from '@/lib/eol'
 import { assetDependencies, criticalDependencies, impactSources } from '@/lib/cmdb'
 import { availableAssets, lowStockCategories } from '@/lib/stock'
 import { upcomingSchedule } from '@/lib/upcoming'
@@ -325,7 +325,10 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   if (canAsset && (q.includes('교체') || q.includes('수명') || q.includes('내용연수') || q.includes('노후') || q.includes('eol'))) {
     const t = today()
     const { cands, budget, residualBook } = replacementCandidates()
-    const eolAssets = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, t))
+    // EOL 게이트는 lib/eol 의 isEolTarget 하나로 — 바로 아래 근거 링크가 여는 대장 EOL 필터(?os=eol)·대시보드 큐와
+    //  같은 집합이어야 한다. 폐기 경로만 빼고 세면 비운영(수리중·분실·반납대기) 자산까지 들어가, 답은 N건인데
+    //  그 답이 준 링크를 열면 더 적게 나온다(시드 AST-2021-000556 수리중·Win10 EOL 이 실제로 그랬다).
+    const eolAssets = s.assets.filter((a) => isEolTarget(a.status, a.os, t))
     const cat = ASSET_CATEGORIES.find((c) => q.includes(c.toLowerCase()))
     const scoped = cat ? cands.filter((x) => x.a.category === cat) : cands
     const list = scoped.slice(0, 12)
