@@ -1286,6 +1286,12 @@ try {
   check('사용자: MFA 미등록자 등록 요구 버튼(보안 정책)', usrHtml.includes('MFA 미등록자 등록 요구') && usrHtml.includes('미적용'))
   check('사용자 · 결재선: 필수 결재선 잠금 표시(🔒)', usrHtml.includes('🔒') && usrHtml.includes('해제할 수 없'))
   check('사용자 · 결재선: 선택 결재선 토글 버튼 렌더', /class="[^"]*btn[^"]*sm/.test(usrHtml))
+  // 오프보딩 명세서 반출도 감사 대상 — 대장·감사 로그·발송 이력 반출은 "누가 무엇을 몇 건 받았는지"를 남기는데
+  //  개인 단위 오프보딩 명세서는 고정 URL 로 받아도 흔적이 없었다(리포트 반출은 생성이 필요해 e2e 에서 확인).
+  const offDl = await get('/api/offboard-sheet/%EA%B9%80%EB%AF%BC%EC%A4%80', 'ASSET_MGR')
+  const auditAfterDl = await (await get('/platform/integrations', 'SEC_MGR')).text()
+  check('감사: 오프보딩 명세서 반출이 감사 로그에 기록', offDl.status === 200 && auditAfterDl.includes('오프보딩 명세서 반출'))
+
   const intHtml = await (await get('/platform/integrations', 'SEC_MGR')).text()
   check('연동 · 인프라: 커넥터·감사 로그(검색·필터) 렌더', intHtml.includes('EDR · 백신 콘솔') && intHtml.includes('감사 로그') && intHtml.includes('수행자·동작·대상 검색') && intHtml.includes('권한 밖 화면 접근 시도'))
   // 감사 로그 대상(target) 딥링크 — 시드 로그의 DSC- 대상이 발견 자산 화면 링크로 렌더된다
@@ -1327,6 +1333,46 @@ try {
   const screenClaims = [...claims(readme, /명시 화면 (\d+)종/g), ...claims(readme, /매핑 \((\d+)종\)/g),
                         ...claims(summary, /명시 화면 (\d+)종/g), ...claims(summary, /도메인 (\d+)화면/g)]
   check(`문서: 화면 수 ${screens}종 일치`, allSame(screenClaims, screens), `주장=${screenClaims.join(',')} 실제=${screens}`)
+
+  // 리포트 종류 — REPORT_KINDS 항목마다 buildSections 분기가 있어야 한다. 분기를 빠뜨리면 제목만 그 종류이고
+  //  내용은 마지막 구간(감사 대응 자료)인 리포트가 만들어져 결재 근거 문서로 첨부되고 xlsx·md 로 반출된다.
+  const reportsSrc = readFileSync(path.join(ROOT, 'lib', 'reports.ts'), 'utf8')
+  const reportKinds = [...reportsSrc.matchAll(/\{ kind: '([^']+)', period:/g)].map((m) => m[1])
+  const sectionBranches = new Set([...reportsSrc.matchAll(/kind (?:===|!==) '([^']+)'/g)].map((m) => m[1])) // '감사 대응 자료' 는 마지막 구간이라 !== 로 분기한다
+  const kindsNoBranch = reportKinds.filter((k) => !sectionBranches.has(k))
+  check(`리포트: 종류 ${reportKinds.length}종 모두 섹션 분기 보유(제목·내용 불일치 방지)`, kindsNoBranch.length === 0, `분기 없음=${kindsNoBranch.join(',')}`)
+  const reportClaims = [...claims(readme, /리포트 (\d+)종/g), ...claims(summary, /리포트 (\d+)종/g)]
+  check(`문서: 리포트 ${reportKinds.length}종 일치`, allSame(reportClaims, reportKinds.length), `주장=${reportClaims.join(',')} 실제=${reportKinds.length}`)
+
+  // 반출 종류 — EXPORT_KINDS 항목마다 buildSheets 분기가 있어야 한다. 분기를 빠뜨리면 마지막 구간(결재 이력)이
+  //  그 종류의 라벨·파일명으로 반출되고, 권한도 그 종류의 메뉴 '엑셀' 칸으로 판정돼 결재를 볼 수 없어야 할 역할에게 나간다.
+  const exportsSrc = readFileSync(path.join(ROOT, 'lib', 'exports.ts'), 'utf8')
+  const exportKinds = [...((exportsSrc.match(/EXPORT_KINDS = \[([^\]]*)\]/) || [])[1] || '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const sheetBranches = new Set([...exportsSrc.matchAll(/kind (?:===|!==) '([^']+)'/g)].map((m) => m[1]))
+  const exportsNoBranch = exportKinds.filter((k) => !sheetBranches.has(k))
+  check(`반출: 종류 ${exportKinds.length}종 모두 시트 분기 보유(라벨·내용 불일치 방지)`, exportsNoBranch.length === 0, `분기 없음=${exportsNoBranch.join(',')}`)
+
+  // 라우트 권한 3중 정합 — README 가 "라우트 권한을 바꿀 때는 세 곳(lib/authz requireRole · components/chrome/menus.ts ·
+  //  스모크 ROUTES)을 함께 갱신하라"고 적어 둔 수작업 규칙이다. requireRole 은 위 접근 매트릭스(라우트 × 권한 HTTP 호출)가
+  //  검증하지만 menus.ts 는 아무도 검증하지 않았다 — 어긋나면 내비에 보이는데 서버가 막거나(막다른 길),
+  //  접근은 되는데 내비에 없어(화면 도달 불가) 조용히 갈린다. 역할 상수는 파일에서 그대로 읽어 새 상수가 생겨도 따라간다.
+  const navSrc = readFileSync(path.join(ROOT, 'components', 'chrome', 'menus.ts'), 'utf8')
+  const navConst = {}
+  for (const m of navSrc.matchAll(/const ([A-Z_]+): Role\[\] = \[([^\]]*)\]/g)) {
+    navConst[m[1]] = [...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1])
+  }
+  const navRoles = {}
+  for (const m of navSrc.matchAll(/href: '([^']+)'[^}]*roles: ([A-Z_]+|\[[^\]]*\])/g)) {
+    navRoles[m[1]] = navConst[m[2]] ?? [...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1])
+  }
+  const roleKey = (a) => [...a].sort().join(',')
+  const navDiff = []
+  for (const [href, roles] of Object.entries(navRoles)) {
+    if (!ROUTES[href]) navDiff.push(`${href}(내비에만 있음)`)
+    else if (roleKey(roles) !== roleKey(ROUTES[href])) navDiff.push(`${href}(내비=${roles.join('·')} 가드=${ROUTES[href].join('·')})`)
+  }
+  for (const href of Object.keys(ROUTES)) if (!navRoles[href]) navDiff.push(`${href}(가드에만 있음)`)
+  check(`라우트 권한: 내비(menus.ts) ${Object.keys(navRoles).length}개와 화면 가드 매트릭스 일치`, navDiff.length === 0, navDiff.join(', '))
 
   const routeClaims = [...claims(readme, /\((\d+) 라우트 × 4/g), ...claims(summary, /(\d+) 라우트 × 4/g)]
   check(`문서: 라우트 수 ${routes}개 일치`, allSame(routeClaims, routes), `주장=${routeClaims.join(',')} 실제=${routes}`)

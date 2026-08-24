@@ -10,9 +10,15 @@ import type { ReportKind } from '@/lib/types'
 
 export async function generateReport(kind: ReportKind) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return
-  await createReport(kind, session.name)
+  if (!session || session.role === 'USER') return { ok: false, message: '리포트 생성 권한이 없습니다.' }
+  // 종류 열거 검증 — ReportKind 는 타입일 뿐 런타임 가드가 아니다. 목록에 없는 값이 들어오면
+  //  buildSections 의 마지막 폴백(감사 대응 자료)이 실행돼, 제목만 임의 문자열이고 내용은 감사 대응 자료인
+  //  리포트가 대장에 남는다. 그 리포트는 결재에 '근거 리포트'로 첨부되고 xlsx·md 로 반출된다 — 감사 산출물이라
+  //  제목과 내용이 어긋나면 안 된다(위조 POST 방어 — decide verdict·처분 방식 열거 검증과 같은 규약).
+  if (!REPORT_KINDS.some((r) => r.kind === kind)) return { ok: false, message: '알 수 없는 리포트 종류입니다.' }
+  const id = await createReport(kind, session.name)
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${kind} 리포트 생성 완료 — ${id}` }
 }
 
 /** 결재 첨부 — 생성 리포트를 대기 중 결재의 근거 문서로 첨부한다(제품안내서 §05 "결재 첨부용 문서 산출"의
