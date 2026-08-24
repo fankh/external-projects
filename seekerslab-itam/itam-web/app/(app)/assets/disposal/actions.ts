@@ -109,6 +109,14 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
 
   const proceeds = disposition === '매각' && Number.isFinite(rawProceeds) ? Math.max(0, Math.round(rawProceeds)) : 0 // 비유한(Infinity/NaN) 방어 — 매각 대금이 ∞/NaN 로 리포트·집계를 오염하지 않게
 
+  // 폐기 시 참조 정리 — 자산번호를 참조하는 컬렉션과 이 절차의 처리 방침(추가 시 여기에 함께 등록할 것):
+  //   · LicenseSeat  → 좌석 회수(reclaimLicenseSeats) — 없는 자산에 좌석이 남으면 비용·대사가 샌다
+  //   · SwInstall    → 설치 기록 정리(clearSwInstalls) — 좌석 없는 설치는 '배정 밖 설치(무단 사용)'로 영구 오분류된다
+  //   · Asset.dependsOn → 의존 참조 정리(clearDependencyRefs) — 사라진 장비가 단일 장애점으로 남는다
+  //   · SurveyScan/SurveyDiff → 보존 — 과거 실사 증적이고, 차이 조정은 승인 시 '미적용'으로 닫힌다
+  //   · DisposalRecord → 이 절차의 원장 자체
+  //   · UnauthorizedSw/UsbFinding/LocalVmFinding → 보존(정책 판단) — 위반 사실은 지우지 않는다. 다만 '미조치'로
+  //     남으면 사라진 장비가 열린 위협으로 계속 잡히므로, 조치 우선순위 산정은 폐기 경로 자산을 제외한다(lib/vuln-priority).
   s.seq += 1
   d.wipeMethod = method
   d.disposition = disposition

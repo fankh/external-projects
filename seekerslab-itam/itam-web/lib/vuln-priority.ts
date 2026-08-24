@@ -106,6 +106,9 @@ export function buildVulnPriority(): VulnPriority {
   for (const w of s.unauthorizedSw) {
     if (w.action) continue
     const asset = s.assets.find((x) => x.assetNo === w.assetNo)
+    // 폐기 경로 자산의 미인가 SW 는 조치 우선순위가 아니다 — 같은 함수의 EOL OS 축이 이미 쓰는 기준을 맞춘다.
+    //  장비가 소거·처분되면 SW 제거를 요청할 대상이 없고, P1/P2 목록에 남으면 실재하는 조치 대상을 밀어낸다.
+    if (asset && ['폐기완료', '폐기예정'].includes(asset.status)) continue
     const criticality = assetCriticality({ asset })
     const score = scoreOf(w.risk, criticality)
     items.push({
