@@ -1,6 +1,6 @@
 import { getStore } from './store'
 import { isMaintenanceDue, isStaleVerify, isWarrantyExpiring, today } from './dates'
-import { hasDataIssue } from './quality'
+import { deptOfOwner, hasDataIssue } from './quality'
 import { isEolTarget } from './eol'
 import { criticalDependencies } from './cmdb'
 import { replacementCandidates } from './reports'
@@ -14,7 +14,7 @@ export function riskSignals(a: Asset): string[] {
   const s = getStore()
   const t = today()
   const out: string[] = []
-  if (hasDataIssue(a)) out.push('정합성 미흡')
+  if (hasDataIssue(a, deptOfOwner(s.users))) out.push('정합성 미흡')
   if (isEolTarget(a.status, a.os, t)) out.push('EOL OS')
   if (isWarrantyExpiring(a, s.opsPolicy.expiryWindowDays)) out.push('보증 임박') // 창은 운영 정책 만료창 — 대장 필터·통지와 같은 판정
   if (isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays)) out.push('정기 점검 도래')

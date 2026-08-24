@@ -10,7 +10,7 @@ import { buildLicenseUsage } from '@/lib/license-usage'
 import { isEolTarget } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { inNoticeAudience, noticeTargets } from '@/lib/notice'
-import { hasDataIssue } from '@/lib/quality'
+import { deptOfOwner, hasDataIssue } from '@/lib/quality'
 import { canViewMenu } from '@/lib/perm'
 import { approvalHref, entityHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { impactNoticeTargets } from '@/lib/reminders'
@@ -142,7 +142,7 @@ export default async function DashboardPage() {
       // 구매 계약 발주 미이행 — 발주율 저조 + 만료 임박(§03 구매 계약 검수 연계). 방치하면 계약 미소진·예산 실기·정산 지연.
       { label: '구매 계약 발주 미이행 · 만료 임박 (이행 점검)', count: buildProcurement().atRisk.length, href: '/inventory/contracts', tone: 'err' },
       // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.
-      { label: '대장 정합성 미흡 (필드 누락·불일치)', count: s.assets.filter(hasDataIssue).length, href: '/assets/register?dq=1', tone: 'warn' },
+      { label: '대장 정합성 미흡 (필드 누락·불일치)', count: s.assets.filter((a) => hasDataIssue(a, deptOfOwner(s.users))).length, href: '/assets/register?dq=1', tone: 'warn' },
       // 정례 리포트 배포 기한 경과 — 가동 스케줄의 예약 실행일이 지났는데 미배포(§05 리포트 자동화 정례 증적). 자동 생성 밀림.
       { label: '정례 리포트 배포 기한 경과 (자동 생성 밀림)', count: s.reportSchedules.filter(isScheduleOverdue).length, href: '/ai/reports', tone: 'warn' },
     )
