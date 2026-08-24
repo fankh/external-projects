@@ -3157,6 +3157,27 @@ try {
   ok('근거 리포트 링크: 사용자의 리포트 열람 API 는 403 — 화면 게이트와 같은 집합',
     (await pRPL.request.get(`${BASE}/api/reports/RPT-0001?format=md`)).status() === 403)
   await ctxRPL.close()
+  // 재물조사 결과 요약 리포트의 '조정 결재 대상' 절 — 세 숫자가 한 문단 안에서 서로 맞아야 한다.
+  //  누적 차이는 회차 카운터(round.mismatched)를 더해 왔는데, 그 카운터는 진행 중 회차에선 미조치 수이고 완료
+  //  회차에선 당시 발견 수라 성격이 섞인다. 그래서 같은 문단에서 누적 20건인데 완료 0 + 미해결 6 으로 합이
+  //  안 맞았고, 조정이 승인될수록 카운터가 줄어 '누적'이 감소했다. 이제 차이 행에서 세므로 항상 누적 = 완료 + 미해결.
+  const ctxRS = await browser.newContext(); await ctxRS.addCookies([cookie(ADMIN)]); const pRS = await ctxRS.newPage()
+  await pRS.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  await pRS.locator('.card', { hasText: '리포트 유형' }).first()
+    .locator('tr', { hasText: '재물조사 결과 요약' }).first().locator('button', { hasText: /^생성$/ }).click()
+  await pRS.waitForTimeout(900)
+  // 생성 이력 표의 행만 고른다 — 유형 표에는 '문서' 링크가 없으므로 그 링크 유무로 두 표를 가른다.
+  const rsRow = pRS.locator('tr').filter({ hasText: '재물조사 결과 요약' })
+    .filter({ has: pRS.locator('a', { hasText: '문서' }) }).first()
+  const rsHref = (await rsRow.locator('a', { hasText: '문서' }).first().getAttribute('href')) || ''
+  ok(`재물조사 리포트: 생성·문서 링크 확보 (${rsHref})`, rsHref.includes('/api/reports/RPT-'))
+  const rsMd = await (await pRS.request.get(`${BASE}${rsHref}`)).text()
+  const rsTotal = Number((/누적 차이 (\d+)건/.exec(rsMd) || [])[1] ?? -1)
+  const rsDone = Number((/조정 완료 (\d+)건/.exec(rsMd) || [])[1] ?? -1)
+  const rsOpen = Number((/미해결 (\d+)건/.exec(rsMd) || [])[1] ?? -1)
+  ok(`재물조사 리포트: 누적 차이(${rsTotal}) = 조정 완료(${rsDone}) + 미해결(${rsOpen}) — 한 문단 안 수치 정합`,
+    rsTotal >= 0 && rsDone >= 0 && rsOpen >= 0 && rsTotal === rsDone + rsOpen)
+  await ctxRS.close()
   await browser.close()
 } catch (err) {
   fail++

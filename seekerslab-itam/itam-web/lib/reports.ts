@@ -419,7 +419,12 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       {
         title: '조정 결재 대상',
         bullets: [
-          `누적 차이 ${s.inventoryRounds.reduce((n, r) => n + r.mismatched, 0)}건`,
+          // 같은 목록의 아래 두 줄(유형별 분포·조정 완료/미해결)은 차이 행(surveyDiffs)에서 세는데, 이 줄만 회차 카운터
+          //  (round.mismatched)를 더했다. 카운터는 진행 중 회차에선 '미조치 수'고 완료 회차에선 당시 발견 수라 성격이 섞여,
+          //  한 문단 안에서 누적 20건인데 완료 0 + 미해결 6 으로 합이 안 맞았다. 게다가 조정이 승인될수록 카운터가 줄어
+          //  '누적'이 감소한다. 이 절의 기준인 차이 행으로 세어 누적 = 완료 + 미해결 이 항상 성립하게 한다
+          //  (회차별 카운터는 위 '회차별 진행' 표가 그대로 보여준다).
+          `누적 차이 ${s.surveyDiffs.length}건`,
           `유형별 분포 — ${(['위치 불일치', '상태 불일치', '미확인 (실사 없음)', '대장 미등록'] as const).map((k) => `${k} ${s.surveyDiffs.filter((d) => d.kind === k).length}`).join(' · ')}`,
           `조정 완료 ${s.surveyDiffs.filter((d) => d.status === '조정 완료').length}건 · 미해결 ${s.surveyDiffs.filter((d) => d.status !== '조정 완료').length}건`,
           `차이 조정 결재는 필수 결재 — 결재선: ${s.approvalLines.find((l) => l.kind === '차이 조정')?.steps.join(' → ') ?? '-'}`,
