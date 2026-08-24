@@ -3274,6 +3274,23 @@ try {
   ok(`계약 연계 자산: 표시 ${caCount}대 = 드릴다운(${caHref.replace('/assets/register?q=', '')}) ${caRows}대`,
     caCount >= 1 && caCount === caRows)
   await ctxCA.close()
+  // 폐기 절차 불변식 — 상태가 '폐기예정'인 자산은 반드시 폐기 건(disposals)이 있어야 한다. 지금은 폐기예정으로
+  //  바꾸는 8개 경로가 저마다 `if (!s.disposals.some(...)) push` 를 적어 지키고 있을 뿐, 이를 확인하는 검사가 없었다.
+  //  한 경로가 빠뜨리면 그 자산은 폐기예정인데 폐기 화면에 없어 결재·소거로 나아갈 수 없다(상태만 종착, 절차는 없음).
+  //  이 스위트가 반납 폐기 권고·수리 불가·분실 회수·AI 취약점·대여 반환 점검·일괄 선정을 모두 밟은 뒤에 확인한다.
+  const ctxDP = await browser.newContext(); await ctxDP.addCookies([cookie(ASSET)]); const pDP = await ctxDP.newPage()
+  await pDP.goto(`${BASE}/assets/register?status=폐기예정`, { waitUntil: 'networkidle' })
+  const dpPending = (await pDP.locator('tbody tr.clickable td').allTextContents())
+    .map((t) => t.trim()).filter((t) => /^AST-\d{4}-\d{6}$/.test(t))
+  await pDP.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  const dpListed = new Set((await pDP.locator('tbody tr td').allTextContents())
+    .map((t) => t.trim()).filter((t) => /^AST-\d{4}-\d{6}$/.test(t)))
+  const dpMissing = dpPending.filter((no) => !dpListed.has(no))
+  // 시드가 폐기예정 2대를 갖고 시작하므로, 3대 이상이어야 이 스위트가 만든 건(반납 폐기 권고·수리 불가·분실 회수 등)
+  //  까지 함께 검사한 것이다 — 시드만 보고 통과하는 검사가 되지 않게 하한을 둔다.
+  ok(`폐기 절차 불변식: 폐기예정 ${dpPending.length}대 모두 폐기 건 보유(폐기 화면에 존재 · 시드 2대 + 실행 중 생성분)`,
+    dpPending.length >= 3 && dpMissing.length === 0)
+  await ctxDP.close()
   await browser.close()
 } catch (err) {
   fail++
