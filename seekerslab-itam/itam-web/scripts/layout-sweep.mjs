@@ -13,6 +13,7 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertFreshBuild } from './build-guard.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = 3391 // client-health(3388) 와 겹치지 않는 대역
@@ -23,6 +24,9 @@ const REMOTE = !!process.env.LAYOUT_BASE
 const pw = await import('file:///C:/Users/seekers/AppData/Roaming/npm/node_modules/playwright/index.js')
 const { chromium } = pw.default ?? pw
 const EXE = 'C:/Users/seekers/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe'
+
+// 빌드 신선도 — 예전 빌드로 레이아웃을 훑으면 고친 이탈이 그대로인 채 초록으로 통과한다(다른 스위트와 같은 가드).
+assertFreshBuild(ROOT, { remote: REMOTE })
 
 const ADMIN = { login: 'admin', name: '시스템관리자', dept: 'IT기획팀', role: 'ADMIN' }
 
@@ -99,4 +103,7 @@ if (failures.length === 0) {
 } else {
   console.log(`✗ layout: ${checks}건 중 ${failures.length}건 도달 불가 이탈`)
 }
+// 러너(scripts/verify.mjs)가 다른 스위트와 같은 형식으로 결과를 읽는다 — 형식이 다르면 요약이 "? passed" 로 남는다.
+console.log('')
+console.log(`결과: ${checks - failures.length} passed / ${failures.length} failed`)
 process.exit(failures.length === 0 ? 0 : 1)

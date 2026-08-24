@@ -22,18 +22,19 @@ npm run dev        # http://localhost:3000
 ## 테스트
 
 ```powershell
-npm run verify     # 빌드 → 스모크 → e2e → 헬스 → 리포트 샘플 드리프트 순차 실행
+npm run verify     # 빌드 → 스모크 → e2e → 헬스 → 레이아웃 → 리포트 샘플 드리프트 순차 실행
 
 # 개별 실행
 npm run build
 npm run smoke      # 프로덕션 서버 기동 → 762개 검증(SSR HTML) → 종료
 npm run health     # 실제 브라우저로 권한그룹 4종 × 접근 화면 74회 로드 + 역할별 링크·API 링크 권한 8건 → 응답 상태·클라이언트 크래시·하이드레이션 오류 검사
 npm run e2e        # 실제 브라우저로 보안 findings 대응(45~50)·AI 제안 판정(11) 클릭·상태 전환·역할 게이트 검증
+npm run layout     # 화면 30종 × 폭 5종 — 카드 밖으로 이탈해 도달 불가한 컨트롤(스크롤 조상 없는 넘침) 검사
 ```
 
-세 스위트 모두 `next start` 로 **이미 만들어진** `.next` 를 띄운다 — 그래서 소스가 빌드보다 새로우면
+네 스위트 모두 `next start` 로 **이미 만들어진** `.next` 를 띄운다 — 그래서 소스가 빌드보다 새로우면
 시작하지 않고 무엇이 새로운지 알리며 멈춘다(`scripts/build-guard.mjs`). 빌드를 잊으면 예전 코드를 검증하면서
-초록으로 통과하기 때문이다(고친 결함이 그대로인데 회귀는 통과한다). 원격 대상(`SMOKE_BASE`·`HEALTH_BASE`·`E2E_BASE`)일 때는 건너뛴다.
+초록으로 통과하기 때문이다(고친 결함이 그대로인데 회귀는 통과한다). 원격 대상(`SMOKE_BASE`·`HEALTH_BASE`·`E2E_BASE`·`LAYOUT_BASE`)일 때는 건너뛴다.
 
 `smoke` 는 서버 렌더 HTML만 보므로 클라이언트 하이드레이션 크래시를 못 잡는다. `health`(Playwright)가
 권한그룹 4종으로 각자 접근 가능한 화면을 실제 브라우저에서 열어 응답 상태·`pageerror`·클라이언트 예외를 잡는다(원격: `HEALTH_BASE`).
