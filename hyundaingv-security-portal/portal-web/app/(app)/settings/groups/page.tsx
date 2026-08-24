@@ -132,7 +132,7 @@ export default async function GroupsPage() {
   return (
     <>
       <ScreenHeader kicker="환경설정" title="사용자 그룹"
-        desc="4 고정 역할 위에 얹는 위임 — 그룹에 구성원과 부여 대상(화면 열람 · 특정 쓰기 기능)을 지정하면, 구성원은 자기 역할에 더해 부여된 화면을 열람하고 부여된 기능을 수행한다. 부여 대상은 운영 화면·등록된 쓰기 기능뿐 — ADMIN 전용 화면·관리 기능은 위임할 수 없다(옵트인 · 기본 없음)." />
+        desc="역할 외 화면·기능을 한시적으로 위임한다. 관리자 전용 화면은 위임 대상이 아니다." />
 
       <div className="stat-row">
         <Stat value={groups.length} label="그룹" />

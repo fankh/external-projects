@@ -33,24 +33,19 @@ export default function LoginPage() {
             <div className="wordmark">{PORTAL.productName}</div>
             <div className="sub">{PORTAL.productSub}</div>
           </div>
-          <h1>IT·보안 업무 통합 관리</h1>
+          <h1>전사 IT·보안 업무 포털</h1>
           <p>
-            IT 투자·비용, 인프라 운영, SR, 프로젝트, 보안 컴플라이언스(ISMS) 업무를 한 포털에서
-            처리합니다. 전 업무는 공통 전자결재와 메뉴·기능 권한관리 위에서 운영됩니다.
+            IT 투자·비용, 인프라 운영, 서비스요청(SR), 프로젝트, 보안 컴플라이언스 업무를
+            처리합니다. 사내망에서만 접속할 수 있습니다.
           </p>
-          <div className="tags">
-            <span>IT 투자/비용</span>
-            <span>IT Request (SR)</span>
-            <span>인프라 운영</span>
-            <span>프로젝트</span>
-            <span>보안서약·의식제고</span>
-            <span>보안교육·점검 (ISMS)</span>
-          </div>
+          <ul className="guide">
+            <li>사내 계정(SSO)으로 로그인합니다.</li>
+            <li>권한·계정 문의는 정보기획팀(내선 3300).</li>
+            <li>장애 신고는 IT운영팀(내선 3450).</li>
+          </ul>
         </div>
         <div className="foot">
-          <div>구성<b>On-Premises · Web</b></div>
-          <div>도메인<b>10대 업무 도메인</b></div>
-          <div>기반<b>전자결재 · 권한관리</b></div>
+          {PORTAL.productName} {PORTAL.version} · &copy; {new Date().getFullYear()} {PORTAL.customer}
         </div>
       </aside>
 
