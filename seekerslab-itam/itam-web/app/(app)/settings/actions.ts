@@ -145,11 +145,14 @@ export async function escalateSaasReview() {
   let n = 0
   for (const e of buildSaasReview().overdue) {
     if (sentToday.has(e.id)) continue
-    const age = saasReviewAgeDays(e) ?? 0
-    const subject = `SaaS 판정 기한 경과 — ${e.service} (데이터 등급 ${e.dataGrade} · 검토 ${age}일 경과) 인가/차단 판정 요망`
+    // 접수일이 없는 건도 에스컬레이션 대상이다(isSaasReviewOverdue fail safe) — 경과일을 0 으로 적으면
+    //  '오늘 접수'처럼 읽히므로 기록 없음을 그대로 말한다.
+    const age = saasReviewAgeDays(e)
+    const ageText = age === null ? '검토 접수일 미기록' : `검토 ${age}일 경과`
+    const subject = `SaaS 판정 기한 경과 — ${e.service} (데이터 등급 ${e.dataGrade} · ${ageText}) 인가/차단 판정 요망`
     if (e.dataGrade !== '일반') {
       // 기밀·민감 등급만 데이터 반출 위험이 커 문자(SMS)를 이메일과 병행한다. escalate 가 '[긴급]' 을 붙이므로 sms 문구엔 넣지 않는다.
-      escalate({ to: '보안담당', subject, kind: 'SaaS 판정 독촉', ref: e.id, sms: `${e.service} 미판정 ${age}일 (등급 ${e.dataGrade}) — 데이터 반출 위험, 즉시 판정` })
+      escalate({ to: '보안담당', subject, kind: 'SaaS 판정 독촉', ref: e.id, sms: `${e.service} 미판정 ${age === null ? '경과일 미상' : `${age}일`} (등급 ${e.dataGrade}) — 데이터 반출 위험, 즉시 판정` })
     } else {
       // 일반 등급은 이메일만 — escalate 는 sms 미지정 시에도 제목으로 문자를 보내므로, 일반 등급에 문자가 새지 않도록 dispatch 로 이메일만 발송한다.
       dispatch({ channel: '이메일', to: '보안담당', subject, kind: 'SaaS 판정 독촉', ref: e.id })

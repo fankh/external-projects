@@ -14,11 +14,15 @@ export function saasReviewAgeDays(e: SaasCatalogEntry): number | null {
   return -(daysUntil(e.reviewSince) ?? 0)
 }
 
-/** 판정 기한 경과 여부 — 검토중 + 경과일 > SLA */
+/** 판정 기한 경과 여부 — 검토중 + 경과일 > SLA. 접수일(reviewSince)이 없으면 경과일을 셀 수 없는데,
+ *  그 경우도 기한 경과로 본다(fail safe). 예전엔 age === null 이라 false 를 돌려줬는데, 그러면 '언제부터
+ *  기다렸는지도 모르는' 항목만 영영 에스컬레이션되지 않는다 — 가장 오래 방치됐을 법한 건이 큐에서 조용히
+ *  빠지는 셈이다(스캔 시간대 가드를 fail closed 로 돌린 것과 같은 판단). 등재 경로는 모두 접수일을 남기므로
+ *  실제로는 스냅샷·구버전 데이터에서만 생긴다. */
 export function isSaasReviewOverdue(e: SaasCatalogEntry): boolean {
   if (e.status !== '검토중') return false
   const age = saasReviewAgeDays(e)
-  return age !== null && age > SAAS_REVIEW_SLA_DAYS
+  return age === null || age > SAAS_REVIEW_SLA_DAYS
 }
 
 export function buildSaasReview(): {
