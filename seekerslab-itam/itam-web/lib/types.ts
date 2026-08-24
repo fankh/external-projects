@@ -1057,6 +1057,12 @@ export interface AiPolicy {
   feedbackLearning: boolean
 }
 
+/** 회수할 수 없는 AI 거버넌스 통제 — 질의 컨텍스트의 권한 범위 스코핑(buildContext)은 정책값이 아니라
+ *  코드가 항상 적용하는 최소권한 안전장치다. 토글을 내려도 동작은 그대로인데 AI 거버넌스·감사 대응
+ *  리포트만 '권한 범위 필터 미적용'으로 나가면 감사에 허위 진술이 되고, 운영자는 끈 적 없는 안전장치를
+ *  껐다고 믿는다. 권한 매트릭스의 isLocked(Admin 자기 잠금 방지)와 같은 규약으로 잠근다. */
+export const LOCKED_AI_POLICY_TOGGLES = ['scopeFilter'] as const
+
 export interface UserAccount {
   login: string
   name: string
