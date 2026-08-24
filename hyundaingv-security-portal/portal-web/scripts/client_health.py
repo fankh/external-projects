@@ -33,7 +33,7 @@ ROUTES = [
     '/compliance/education', '/compliance/inspection', '/compliance/security-review', '/compliance/risks', '/compliance/policies', '/compliance/dr',
     '/work/todo', '/work/approvals',
     '/settings/users', '/settings/menus', '/settings/permissions', '/settings/groups',
-    '/settings/codes', '/settings/forms', '/settings/audit',
+    '/settings/codes', '/settings/objects', '/settings/forms', '/settings/audit',
     '/platform/integrations',
 ]
 # 권한별 렌더 분기 커버 — 관리자 전 화면 + 사용자 대표 화면

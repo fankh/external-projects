@@ -39,7 +39,7 @@ ROUTES = [
     '/compliance/risks', '/compliance/policies', '/compliance/dr',
     '/work/todo', '/work/approvals',
     '/settings/users', '/settings/menus', '/settings/permissions', '/settings/groups',
-    '/settings/codes', '/settings/forms', '/settings/audit',
+    '/settings/codes', '/settings/objects', '/settings/forms', '/settings/audit',
     '/platform/integrations', '/search',
 ]
 
