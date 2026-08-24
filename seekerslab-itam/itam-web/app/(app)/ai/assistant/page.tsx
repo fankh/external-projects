@@ -1,6 +1,6 @@
 import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { aiStatus } from '@/lib/ai-status'
-import { getSession } from '@/lib/session'
+import { requireView } from '@/lib/authz'
 import { ChatView } from './ChatView'
 
 export const dynamic = 'force-dynamic'
@@ -9,7 +9,7 @@ export default async function AssistantPage() {
   // 키 존재가 아니라 마지막 호출 결과를 표시한다 — 크레딧 소진 등으로 매번 규칙 응답으로
   // 떨어지는 동안에도 '연결됨' 이라 주장하면 운영자가 폴백 사실을 알 수 없다
   const ai = aiStatus()
-  const session = await getSession()
+  const session = await requireView('/ai/assistant', 'USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const canReport = Boolean(session) && session!.role !== 'USER'
   return (
     <>

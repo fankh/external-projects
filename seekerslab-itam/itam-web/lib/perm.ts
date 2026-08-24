@@ -22,7 +22,7 @@ export const PERM_ACTIONS = ['조회', '저장', '삭제', '엑셀', '편입', '
  *  메뉴·기능 관리 화면 표시와 엑셀 반출이 같은 정의를 쓰도록 한 곳에 둔다. (제품안내서 §02) */
 export const ACTION_DEF: Record<PermAction, { desc: string; enforcedBy: string }> = {
   조회: { desc: '화면 진입과 목록·상세 조회', enforcedBy: '화면 가드 (lib/authz requireView — 매트릭스 조회 칸 + 라우트 역할)' },
-  저장: { desc: '신규 등록·수정 저장', enforcedBy: '화면 가드' },
+  저장: { desc: '신규 등록·수정 저장', enforcedBy: '서버 — 화면별 액션 가드(자산 대장·수명주기·계약·Shadow SaaS)' },
   삭제: { desc: '레코드 삭제·비활성화', enforcedBy: '화면 가드' },
   엑셀: { desc: '그리드 데이터 .xlsx 내보내기', enforcedBy: '서버 — /api/export/[kind]' },
   편입: { desc: '발견 자산을 대장으로 편입 요청', enforcedBy: '서버 — requestOnboard' },
@@ -47,7 +47,7 @@ export function isLocked(menu: PermMenu, action: PermAction, role: Role): boolea
  *  매핑되지 않은 화면(공지·QnA·연동 이력처럼 매트릭스에 대응 메뉴가 없는 것)은 라우트 역할 게이트만 적용한다.
  *  매트릭스는 필요조건이므로 이 매핑은 접근을 더 좁힐 뿐 넓히지 않는다. */
 export const ROUTE_MENU: Record<string, PermMenu> = {
-  '/dashboard': '대시보드',
+  // 대시보드는 매핑하지 않는다 — 진입 거부의 회귀 지점이라 여기까지 막으면 자기 자신으로 돌려보내는 고리가 된다.
   '/assets/register': '자산 대장',
   '/assets/lifecycle': '수명주기',
   '/assets/intake': '수명주기',

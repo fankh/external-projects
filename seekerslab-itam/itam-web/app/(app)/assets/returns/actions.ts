@@ -5,6 +5,7 @@ import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOv
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
+import { can } from '@/lib/perm'
 import { loanRemindTargets, repairRemindTargets } from '@/lib/reminders'
 import { reclaimLicenseSeats } from '@/lib/license'
 import type { ReturnCondition } from '@/lib/types'
@@ -13,7 +14,7 @@ import type { ReturnCondition } from '@/lib/types'
  *  (제품안내서 §03 PHASE 4: 반납 접수·상태 점검, 유휴 자산 풀 관리) */
 export async function receiveReturn(assetNo: string, condition: ReturnCondition, location: string, note: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '반납 접수 권한이 없습니다.' }
   }
 
@@ -88,7 +89,7 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
  *  감사만 일괄로 남긴다. 반납대기 건만 대상(멱등). 점검 결과에 따라 정상→유휴·수리 필요→수리중·폐기 권고→폐기예정(폐기 대장 편입). 자산담당·Admin. */
 export async function receiveReturnMany(assetNos: string[], condition: ReturnCondition, location: string, rawNote: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '반납 접수 권한이 없습니다.' }
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '반납 접수 권한이 없습니다.' }
   const s = getStore()
   const note = rawNote.trim()
   const loc = location.trim() || '본사 3F 자산창고'
@@ -129,7 +130,7 @@ export async function receiveReturnMany(assetNos: string[], condition: ReturnCon
  *  필독 미확인 안내 loop 39 와 같은 컴플라이언스 독촉의 대여판). 당일 중복 발송은 차단한다. 자산담당·Admin. */
 export async function remindLoans() {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '대여 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
   }
 
@@ -160,7 +161,7 @@ export async function remindLoans() {
  *  당일 중복 발송은 차단한다. 자산담당·Admin. */
 export async function remindRepairs() {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '수리 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
   }
 
@@ -197,7 +198,7 @@ export async function remindRepairs() {
  *  누구에게 언제까지 얼마에 맡겼는지 추적할 수 없었다(제품안내서 §03 유지보수). 자산담당·Admin. */
 export async function sendToRepair(assetNo: string, rawVendor: string, eta: string, estCost: number) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '수리 의뢰 권한이 없습니다 (자산담당·Admin).' }
   }
   const s = getStore()
@@ -217,7 +218,7 @@ export async function sendToRepair(assetNo: string, rawVendor: string, eta: stri
 
 export async function completeRepair(assetNo: string, outcome: '수리 완료' | '수리 불가', note: string, actualCost = 0, warrantyClaimed = false) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '수리 처리 권한이 없습니다 (자산담당·Admin).' }
   }
 

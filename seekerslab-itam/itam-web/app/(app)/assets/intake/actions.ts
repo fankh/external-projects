@@ -6,6 +6,7 @@ import { checklistFor } from '@/lib/intake'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo, nextId } from '@/lib/store'
+import { can } from '@/lib/perm'
 import { intakeRemindTargets } from '@/lib/reminders'
 import type { Asset, AssetCategory } from '@/lib/types'
 
@@ -13,7 +14,7 @@ import type { Asset, AssetCategory } from '@/lib/types'
  *  체크리스트를 초기화(전 항목 미체크)해 처음부터 재검수한다. 검수 반려 로트만 대상. 자산담당·Admin. */
 export async function reinspectIntakeLot(lotId: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '재검수 권한이 없습니다 (자산담당·Admin).' }
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '재검수 권한이 없습니다 (자산담당·Admin).' }
 
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
@@ -33,7 +34,7 @@ export async function reinspectIntakeLot(lotId: string) {
  *  교체품이 오지 않는 반려 로트를 '반품 완료'로 종결해 검수 반려 백로그(대시보드 큐)에서 뺀다. 검수 반려 로트만 대상. 자산담당·Admin. */
 export async function closeReturnedLot(lotId: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '반품 완료 처리 권한이 없습니다 (자산담당·Admin).' }
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '반품 완료 처리 권한이 없습니다 (자산담당·Admin).' }
 
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
@@ -51,7 +52,7 @@ export async function closeReturnedLot(lotId: string) {
  *  (그동안 검수는 합격(채번)만 있고 불합격 처리가 없었다.) 채번 전 로트만 대상. 자산담당·Admin. */
 export async function rejectIntakeLot(lotId: string, reason: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '검수 반려 권한이 없습니다 (자산담당·Admin).' }
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '검수 반려 권한이 없습니다 (자산담당·Admin).' }
 
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
@@ -81,7 +82,7 @@ export async function rejectIntakeLot(lotId: string, reason: string) {
  *  (제품안내서 §03: 발주 연계 입고 → 검수 체크리스트 → 채번 → 라벨) */
 export async function registerIntakeLot(contractId: string, model: string, category: AssetCategory, qty: number, unitCost = 0) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '입고 등록 권한이 없습니다 (자산담당·Admin).' }
   }
 
@@ -121,7 +122,7 @@ export async function registerIntakeLot(contractId: string, model: string, categ
  *  물리 입고 전 단계이므로 검수 체크리스트·채번은 아직 없다. 도착(markLotArrived) 시 입고 대기로 전환된다. 자산담당·Admin. */
 export async function preRegisterLot(input: { contractId: string; srNo: string; model: string; category: AssetCategory; qty: number; expectedDate: string; unitCost?: number }) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '도입 예정 등록 권한이 없습니다 (자산담당·Admin).' }
   }
 
@@ -152,7 +153,7 @@ export async function preRegisterLot(input: { contractId: string; srNo: string; 
  *  입고 대기로 전환하며 기본 검수 체크리스트를 부여한다(이후 검수→채번→대장). 자산담당·Admin. */
 export async function markLotArrived(lotId: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '입고 처리 권한이 없습니다 (자산담당·Admin).' }
   }
 
@@ -175,7 +176,7 @@ export async function markLotArrived(lotId: string) {
  *  방치하면 도착 예정일 경과 시 '입고 지연' 오알림·발주처 오독촉이 계속 뜬다(도착 후 반품(rejectIntakeLot)과 구분). 도입 예정 건만 대상. 자산담당·Admin. */
 export async function cancelPreRegisteredLot(lotId: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '도입 예정 취소 권한이 없습니다 (자산담당·Admin).' }
   }
   const s = getStore()
@@ -194,7 +195,7 @@ export async function cancelPreRegisteredLot(lotId: string) {
  *  당일 이미 독촉한 로트는 건너뛴다(ref = 입고번호). 자산담당·Admin. */
 export async function remindIntakeOverdue() {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
     return { ok: false, message: '입고 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
   }
 
@@ -214,7 +215,7 @@ export async function remindIntakeOverdue() {
 
 export async function toggleCheck(lotId: string, item: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
   const c = lot?.checklist.find((x) => x.item === item)
@@ -238,7 +239,7 @@ export async function toggleCheck(lotId: string, item: string) {
 /** 자산번호 채번 — 검수 완료분에 한해 대장에 등록하고 라벨 발행 대상이 된다 */
 export async function issueAssetNo(lotId: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '권한이 없습니다.' }
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '권한이 없습니다.' }
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
   if (!lot) return { ok: false, message: '입고 건을 찾을 수 없습니다.' }

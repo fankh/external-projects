@@ -6,7 +6,7 @@ import { hasDataIssue } from '@/lib/quality'
 import { criticalDependencies } from '@/lib/cmdb'
 import { replacementCandidates } from '@/lib/reports'
 import { compositeRiskAssetNos } from '@/lib/risk'
-import { getSession } from '@/lib/session'
+import { requireView } from '@/lib/authz'
 import { pendingDisposalNos } from '@/lib/stock'
 import { eolNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
 import { getStore } from '@/lib/store'
@@ -16,7 +16,7 @@ import { RegisterView } from './RegisterView'
 export const dynamic = 'force-dynamic'
 
 export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string; maint?: string; spof?: string; replace?: string; stale?: string; receipt?: string; loanext?: string; loanret?: string; risk?: string }> }) {
-  const session = (await getSession())!
+  const session = await requireView('/assets/register', 'USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const { q, sel, cat, status, warranty, dq, os, crit, maint, spof, replace, stale, receipt, loanext, loanret, risk } = await searchParams
   const s = getStore()
   // 자산 운영 권한 — 대장의 조작 컨트롤과 CSV 일괄 등록 패널이 같은 판정을 쓴다(서버 액션의 역할 집합과 일치).
