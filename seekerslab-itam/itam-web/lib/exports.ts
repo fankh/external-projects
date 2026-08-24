@@ -1,7 +1,7 @@
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf, repairTotalOf } from './cost'
 import { buildLicenseUsage } from './license-usage'
-import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
+import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isLoanOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { contractAssetCount, getStore } from './store'
 import { ASSET_CATEGORIES, type PermMenu, type Role } from './types'
@@ -61,6 +61,9 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         a.purchaseDate, a.warrantyEnd,
         ({ covered: '보증 내', soon: '만료 임박', expired: '보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())],
         a.lastVerifiedAt ?? '', a.maintenanceDue ?? '', a.contractId ?? '', a.discoveredVia ?? '',
+        // 대여 반환 기한 — 수리 의뢰 열과 짝. 반출본만 보면 대여중 자산이 언제 돌아오는지·연체인지 알 수 없어
+        //  결재 첨부·감사 대응에서 화면을 다시 열어야 했다(연체 판정은 화면·큐와 같은 lib/dates 판정).
+        a.status === '대여중' && a.loanDueDate ? `${a.loanDueDate}${isLoanOverdue(a) ? ' (연체)' : ''}` : '',
         a.repair ? `${a.repair.vendor}${a.repair.eta ? ` (예상반환 ${a.repair.eta})` : ''}` : '',
         repairTotalOf(a) > 0 ? repairTotalOf(a) : '',
         acquisitionCostOf(a) > 0 ? acquisitionCostOf(a) : '', acquisitionCostOf(a) > 0 ? assetTco(a) : '',
@@ -68,7 +71,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       ])
     return [{
       name: '자산 대장',
-      header: ['자산번호', '유형', '모델', 'S/N', '상태', '업무 중요도', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '보증상태', '최근 실측', '정기 점검 예정', '계약', '발견채널', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
+      header: ['자산번호', '유형', '모델', 'S/N', '상태', '업무 중요도', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '보증상태', '최근 실측', '정기 점검 예정', '계약', '발견채널', '대여 반환 기한', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
       rows,
     }]
   }
