@@ -129,7 +129,7 @@ export function PlanView(props: {
                         {r.status === '계획' && (
                           <>
                             <button className="btn sm" disabled={pending}
-                              onClick={() => startTransition(() => startRound(r.id))}>조사 개시</button>
+                              onClick={() => startTransition(async () => { const x = await startRound(r.id); setMsg({ ok: x.ok, text: x.message }) })}>조사 개시</button>
                             <button className="btn sm ghost" disabled={pending}
                               onClick={() => startTransition(async () => {
                                 const res = await cancelRound(r.id)

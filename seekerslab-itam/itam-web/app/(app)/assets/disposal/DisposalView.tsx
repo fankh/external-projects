@@ -107,7 +107,7 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
       <Card kicker="Disposal" title="폐기 처리 현황" pad={false}
         actions={
           <button className="btn sm pri" disabled={pending || selected.length === 0}
-            onClick={() => startTransition(() => raiseDisposalApproval())}>
+            onClick={() => startTransition(async () => { const x = await raiseDisposalApproval(); setMsg({ ok: x.ok, text: x.message }) })}>
             폐기 결재 상신 ({selected.length})
           </button>
         }>
