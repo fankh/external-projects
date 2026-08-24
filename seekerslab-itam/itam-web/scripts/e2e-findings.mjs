@@ -3095,6 +3095,45 @@ try {
   await pDOC3.goto(`${BASE}/assets/register?sel=${docUserAsset}`, { waitUntil: 'networkidle' })
   ok('자산 문서 게이트: 사용자 본인 자산 상세에도 문서 발급 링크 미노출', (await pDOC3.locator(docLinks).count()) === 0)
   await ctxDOC3.close()
+  // 근거 리포트 링크 ↔ 리포트 열람 권한 정합 — 리포트 열람(/api/reports)은 비사용자 전용인데, 결재함은 첨부된
+  //  근거 리포트를 역할 구분 없이 링크로 내줬다. 자산담당은 /ai/reports 의 '결재 첨부' 에서 대기 결재라면 무엇이든
+  //  고를 수 있어(사용자가 올린 자산 신청 포함) 사용자 결재에 리포트가 붙고, 사용자는 눌러야 403 이 나는 링크를 본다.
+  //  사용자에게는 첨부 사실(리포트 ID)만 텍스트로 남기고 링크는 내주지 않는다.
+  const rplNote = '근거 리포트 링크 회귀'
+  const ctxRPL = await browser.newContext(); await ctxRPL.addCookies([cookie(USER)]); const pRPL = await ctxRPL.newPage()
+  await pRPL.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await pRPL.locator('button', { hasText: /^신청하기$/ }).click()
+  await pRPL.locator('textarea[placeholder="신청 사유"]').fill(rplNote)
+  await pRPL.locator('button', { hasText: /^상신$/ }).click()
+  await pRPL.waitForTimeout(900)
+  const rplId = ((await pRPL.locator('tr', { hasText: rplNote }).first().locator('td').filter({ hasText: /^APR-/ }).first().textContent()) || '').trim()
+  ok(`근거 리포트 링크: 사용자 상신 결재 생성 (${rplId})`, /^APR-/.test(rplId))
+
+  // 자산담당이 그 사용자 결재에 근거 리포트를 첨부한다(리포트는 앞의 전수 생성 검사로 이미 쌓여 있다).
+  const ctxRPL2 = await browser.newContext(); await ctxRPL2.addCookies([cookie(ASSET)]); const pRPL2 = await ctxRPL2.newPage()
+  await pRPL2.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  await pRPL2.locator('button', { hasText: /^펼치기$/ }).first().click()
+  await pRPL2.waitForTimeout(400)
+  await pRPL2.locator('select').filter({ hasText: rplId }).first().selectOption(rplId)
+  await pRPL2.locator('button', { hasText: /^첨부$/ }).click()
+  await pRPL2.waitForTimeout(900)
+  ok('근거 리포트 링크: 사용자 결재에 리포트 첨부 성공(첨부 경로가 실재함)',
+    ((await pRPL2.textContent('body')) || '').includes('결재에 첨부했습니다'))
+
+  const rplLink = 'a[href^="/api/reports/"]'
+  await pRPL2.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const rplRowMgr = pRPL2.locator('tr', { hasText: rplNote }).first()
+  ok('근거 리포트 링크: 자산담당에게는 리포트 링크 노출(양성 대조)', (await rplRowMgr.locator(rplLink).count()) >= 1)
+  await ctxRPL2.close()
+
+  await pRPL.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const rplRowUser = pRPL.locator('tr', { hasText: rplNote }).first()
+  const rplRowText = (await rplRowUser.textContent()) || ''
+  ok('근거 리포트 링크: 사용자에게는 첨부 사실만 텍스트로(막다른 링크 제거)',
+    rplRowText.includes('근거 리포트') && (await rplRowUser.locator(rplLink).count()) === 0)
+  ok('근거 리포트 링크: 사용자의 리포트 열람 API 는 403 — 화면 게이트와 같은 집합',
+    (await pRPL.request.get(`${BASE}/api/reports/RPT-0001?format=md`)).status() === 403)
+  await ctxRPL.close()
   await browser.close()
 } catch (err) {
   fail++
