@@ -25,7 +25,7 @@ const ADM: Role[] = ['ADMIN']
 /** 메뉴 체계 — 10대 업무 도메인 (제품안내서 §01) × 권한그룹 매핑 */
 export const NAV: NavGroup[] = [
   {
-    label: 'Main',
+    label: '메인',
     hue: '#475569',
     items: [
       { href: '/dashboard', label: '개인별현황', ico: 'dashboard', roles: ALL },
@@ -35,7 +35,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'IT 투자/비용',
-    hue: '#0f766e',
+    hue: '#2f6b64',
     items: [
       { href: '/finance/invest', label: '투자 관리', ico: 'invest', roles: ALL },
       { href: '/finance/expense', label: '비용 관리', ico: 'expense', roles: ALL },
@@ -43,8 +43,8 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'IT Request',
-    hue: '#345b96',
+    label: '서비스요청',
+    hue: '#3c5a85',
     items: [
       { href: '/sr/new', label: 'SR 신청', ico: 'fileplus', roles: ALL },
       { href: '/sr/requests', label: '신청내역', ico: 'list', roles: ALL },
@@ -55,7 +55,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: '인프라 운영',
-    hue: '#5b5488',
+    hue: '#4a5568',
     items: [
       { href: '/infra/systems', label: '시스템 · 서버 현황', ico: 'server', roles: BIZ },
       { href: '/infra/racks', label: '랙 · H/W 관리', ico: 'harddrive', roles: BIZ },
@@ -66,7 +66,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: '프로젝트',
-    hue: '#b45309',
+    hue: '#8a6224',
     items: [
       { href: '/projects/status', label: '진행현황 · 인력투입', ico: 'chart', roles: BIZ },
       { href: '/projects/schedule', label: '일정 · 산출물 · 이슈', ico: 'calendar', roles: BIZ },
@@ -75,7 +75,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: '임직원 의식제고',
-    hue: '#a23a51',
+    hue: '#8a4a52',
     items: [
       { href: '/pledge/my', label: '보안서약서 제출', ico: 'pen', roles: ALL },
       { href: '/pledge/dept', label: '부서 서약 현황', ico: 'clipboardcheck', roles: DEPT },
@@ -88,7 +88,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: '보안 컴플라이언스',
-    hue: '#15803d',
+    hue: '#3a6b47',
     items: [
       { href: '/compliance/education', label: '보안교육', ico: 'cap', roles: ALL },
       { href: '/compliance/inspection', label: '보안점검 (ISMS)', ico: 'shieldcheck', roles: BIZ },
@@ -99,8 +99,8 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'My Work',
-    hue: '#0e7490',
+    label: '내 업무',
+    hue: '#3a6b7d',
     items: [
       { href: '/work/todo', label: '나의 할일', ico: 'checksquare', roles: ALL, badge: 'todos' },
       { href: '/work/approvals', label: '결재함', ico: 'filecheck', roles: ALL, badge: 'approvals' },
@@ -115,12 +115,13 @@ export const NAV: NavGroup[] = [
       { href: '/settings/permissions', label: '메뉴권한', ico: 'lock', roles: ADM },
       { href: '/settings/groups', label: '사용자 그룹', ico: 'usergroup', roles: ADM },
       { href: '/settings/codes', label: '공통코드', ico: 'hash', roles: ADM },
+      { href: '/settings/objects', label: '객체 관리', ico: 'layers', roles: ADM },
       { href: '/settings/forms', label: '엑셀양식 관리', ico: 'table', roles: ADM },
       { href: '/settings/audit', label: '감사 이력', ico: 'history', roles: ADM },
     ],
   },
   {
-    label: '기타 (기반)',
+    label: '기반관리',
     hue: '#52525b',
     items: [{ href: '/platform/integrations', label: '연동 · 인프라', ico: 'plug', roles: ADM }],
   },
@@ -170,6 +171,9 @@ export const SCREEN_ACTIONS: Record<string, Partial<Record<ActionKey, Role[]>>> 
   '/finance/expense': { confirm: ['BIZ_MGR', 'ADMIN'] },
   // SR 관리 저장 — CI 배정·접수·처리(ci)와 SR 진행·상신·중지/재개(manage)의 관리자 처리. 신청·재상신(본인 스코프)은
   // 별개로 기존 가드 유지. 한 화면의 저장 기능이 그 화면 관리 액션을 함께 통제한다.
+  // 보안준수 객체 삭제 — 점검 근거가 사라지는 행위라 관리자급으로 통제.
+  // 준수 기록이 있는 객체는 화면에서 별도로 삭제를 막는다(무결성 가드).
+  '/settings/objects': { delete: ['BIZ_MGR', 'ADMIN'] },
   '/sr/ci': { save: ['BIZ_MGR', 'ADMIN'] },
   '/sr/manage': { save: ['BIZ_MGR', 'ADMIN'] },
 }
