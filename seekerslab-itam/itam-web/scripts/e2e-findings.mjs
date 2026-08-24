@@ -184,18 +184,41 @@ async function aiFeedbackAccuracy(page) {
   ok('AI 정확도 환류: 판정 추가 시 환류 건수 증가(재학습 반영)', r1.n === r0.n + 1)
 }
 
+/** 어시스턴트 질의 — 답변 말풍선을 돌려준다.
+ *  두 가지 경주를 함께 막는다.
+ *   (1) 하이드레이션 전 fill 은 DOM 값만 바꾸고 React 상태(input)에 안 들어가, Enter 가 빈 질의를 보낸다.
+ *   (2) 답변 대기 중에는 "분석 중…"(.bub.mut) 자리표시자가 assistant 말풍선으로 하나 더 붙는다 —
+ *       말풍선 수만 세면 이 자리표시자를 답으로 읽어(내용이 비어) 검사만 무너뜨린다(플레이크로 스위트가 통째로 죽었다).
+ *  값이 붙었는지 확인하고 보낸 뒤, 내 질의 말풍선과 "분석 중"이 아닌 답변이 모두 뜰 때까지 기다린다. 한 번 실패하면 재시도. */
+async function askAssistant(page, q, timeout = 12000) {
+  const input = page.locator('.chat-in input')
+  await input.waitFor({ state: 'visible' })
+  const before = await page.locator('.msg.assistant .bub').count()
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await input.fill(q)
+    if (((await input.inputValue()) || '') !== q) { await page.waitForTimeout(250); continue }
+    await input.press('Enter')
+    try {
+      await page.waitForFunction(([n, text]) => {
+        const bubs = [...document.querySelectorAll('.msg.assistant .bub')]
+        const mine = [...document.querySelectorAll('.msg.user .bub')].some((b) => (b.textContent || '').includes(text))
+        const last = bubs[bubs.length - 1]
+        return mine && bubs.length > n && !!last && !last.classList.contains('mut')
+      }, [before, q], { timeout })
+      await page.waitForTimeout(150)
+      return (await page.locator('.msg.assistant .bub').last().textContent()) || ''
+    } catch {
+      await page.waitForTimeout(400)
+    }
+  }
+  return (await page.locator('.msg.assistant .bub').last().textContent()) || ''
+}
+
 /** AI 어시스턴트 기간 스코프 질의(§05 예시 "내년 1분기 보증 만료…") — 기간 파싱·창 필터.
  *  실행 시점에 독립적이도록, 헤드라인이 제시한 창 범위를 그대로 뽑아 나열 만료일이 전부 그 안에 드는지 자기검증한다. */
 async function aiPeriodQuery(page) {
   await page.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-  const ask = async (q) => {
-    const before = await page.locator('.msg.assistant .bub').count()
-    await page.locator('.chat-in input').fill(q)
-    await page.locator('.chat-in input').press('Enter')
-    await page.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, before, { timeout: 8000 })
-    await page.waitForTimeout(150)
-    return (await page.locator('.msg.assistant .bub').last().textContent()) || ''
-  }
+  const ask = (q) => askAssistant(page, q)
   const q1 = await ask('내년 1분기 보증 만료되는 자산 목록')
   const win = q1.match(/(\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})/)
   ok('AI 기간질의: 분기 창 범위 헤드라인', /보증 만료 예정/.test(q1) && !!win)
@@ -802,14 +825,7 @@ try {
   // AI 어시스턴트 스코핑(회귀) — 보안담당은 계약·라이선스·재고·수명주기 화면·전역 검색에서 막히므로 어시스턴트도 동일. 자산 도메인 질의는 데이터가 아니라 데모 안내(폴백)로 떨어져야 한다(!isUser 로 뭉뚱그려 유출하던 공백). Discovery·미인가 SaaS 등 보안 정당 도메인은 그대로 응답.
   {
     await page.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-    const secAsk = async (q) => {
-      const before = await page.locator('.msg.assistant .bub').count()
-      await page.locator('.chat-in input').fill(q)
-      await page.locator('.chat-in input').press('Enter')
-      await page.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, before, { timeout: 8000 })
-      await page.waitForTimeout(150)
-      return (await page.locator('.msg.assistant .bub').last().textContent()) || ''
-    }
+    const secAsk = (q) => askAssistant(page, q)
     const secLic = await secAsk('라이선스 초과 사용 현황')
     ok('AI 어시스턴트 스코핑: 보안담당 라이선스 질의는 데이터 미노출(데모 안내 폴백)', secLic.includes('데모 모드'))
     const secContract = await secAsk('만료 임박한 계약 목록')
@@ -911,12 +927,7 @@ try {
   //  바로 아래 '수리 불가' 검사가 이 자산을 폐기예정으로 바꾸므로 반드시 그 전에 본다.
   const ctxEOL = await browser.newContext(); await ctxEOL.addCookies([cookie(ASSET)]); const pEOL = await ctxEOL.newPage()
   await pEOL.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-  const eolBubbles = await pEOL.locator('.msg.assistant .bub').count()
-  await pEOL.locator('.chat-in input').fill('교체 대상 자산과 교체 예산 알려줘')
-  await pEOL.locator('.chat-in input').press('Enter')
-  await pEOL.waitForFunction((k) => document.querySelectorAll('.msg.assistant .bub').length > k, eolBubbles, { timeout: 8000 })
-  await pEOL.waitForTimeout(250)
-  const eolAns = (await pEOL.locator('.msg.assistant .bub').last().textContent()) || ''
+  const eolAns = await askAssistant(pEOL, '교체 대상 자산과 교체 예산 알려줘')
   const eolLine = eolAns.split('\n').find((l) => l.includes('OS 지원 종료(EOL) 자산')) || ''
   const eolAnswerN = Number((/OS 지원 종료\(EOL\) 자산 (\d+)건/.exec(eolLine) || [])[1] ?? -1)
   ok(`AI EOL질의 ↔ 대장 EOL 필터: 답변 ${eolAnswerN}건 = 목록 ${eolRows}건(같은 게이트)`, eolRows >= 1 && eolAnswerN === eolRows)
@@ -951,11 +962,7 @@ try {
   ok('대여 반환 독촉(중복 억제): 발송 직후 버튼 소멸', (await p2.locator('button', { hasText: /^반환 독촉 발송 \d+건$/ }).count()) === 0)
   // 월간 자산 현황 리포트가 보증 절감을 노출(비용 회피 가시화·숫자 투명성) — 무상 청구분은 자사 수리비 총계에서 빠지되 '보증 절감'으로 별도 명시(위 377 청구 350,000 반영). 리포트 생성은 키 무관 결정적 처리.
   await p2.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-  const beforeM = await p2.locator('.msg.assistant .bub').count()
-  await p2.locator('.chat-in input').fill('월간 자산 현황 리포트 생성해줘')
-  await p2.locator('.chat-in input').press('Enter')
-  await p2.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, beforeM, { timeout: 8000 })
-  await p2.waitForTimeout(200)
+  await askAssistant(p2, '월간 자산 현황 리포트 생성해줘')
   const warRHref = await p2.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
   const warRid = decodeURIComponent((warRHref?.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const warRtext = Buffer.from(await (await p2.request.get(`${BASE}/api/reports/${encodeURIComponent(warRid)}?format=xlsx`)).body()).toString('utf8')
@@ -1253,32 +1260,17 @@ try {
   ok('라이선스 카드: USER 접근 차단(403 · 자산담당·Admin 전용)', (await pU.request.get(`${BASE}/api/license-card/LIC-001`)).status() === 403)
   ok('계약 카드: USER 접근 차단(403 · 자산담당·Admin 전용)', (await pU.request.get(`${BASE}/api/contract-card/CT-2023-014`)).status() === 403)
   await pU.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-  const ub = await pU.locator('.msg.assistant .bub').count()
-  await pU.locator('.chat-in input').fill('내 자산 보증 언제 만료돼?')
-  await pU.locator('.chat-in input').press('Enter')
-  await pU.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, ub, { timeout: 8000 })
-  await pU.waitForTimeout(150)
-  const uAns = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
+  const uAns = await askAssistant(pU, '내 자산 보증 언제 만료돼?')
   // 본인 자산에 초점(전량 나열 catch-all 이 아니라 보증 현황) + 본인 자산번호 + 권한 필터(타인·서버 자산 미포함)
   ok('사용자 AI 질의: 본인 자산 보증 현황 초점 답변', uAns.includes('보증 현황') && uAns.includes('AST-2024-000015') && /D-|만료 경과/.test(uAns))
   ok('사용자 AI 질의: 권한 필터 — 타인·서버 자산 미포함', !uAns.includes('AST-2023-000561') && !uAns.includes('AST-2020-000883'))
   // 본인 대여 자산 반환 기한 질의 — 대여자 관점의 반환 마감(본인 대여중 자산에 스코프)
-  const ub2 = await pU.locator('.msg.assistant .bub').count()
-  await pU.locator('.chat-in input').fill('내 대여 자산 반환 기한')
-  await pU.locator('.chat-in input').press('Enter')
-  await pU.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, ub2, { timeout: 8000 })
-  await pU.waitForTimeout(150)
-  const uLoan = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
+  const uLoan = await askAssistant(pU, '내 대여 자산 반환 기한')
   // 본인 대여분(AST-2024-000230·반환 기한 2026-08-20)에 초점 + 타인 대여(AST-2023-000450·한지민) 미포함
   ok('사용자 AI 질의: 본인 대여 자산 반환 기한 초점 답변', uLoan.includes('대여 자산 반환 현황') && uLoan.includes('AST-2024-000230') && uLoan.includes('2026-08-20'))
   ok('사용자 AI 질의: 대여 권한 필터 — 타인 대여 자산 미포함', !uLoan.includes('AST-2023-000450'))
   // 본인 QnA 문의·답변 현황 질의 (김민준 QNA-03 답변 완료)
-  const ub3 = await pU.locator('.msg.assistant .bub').count()
-  await pU.locator('.chat-in input').fill('내 문의 답변 현황')
-  await pU.locator('.chat-in input').press('Enter')
-  await pU.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, ub3, { timeout: 8000 })
-  await pU.waitForTimeout(150)
-  const uQna = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
+  const uQna = await askAssistant(pU, '내 문의 답변 현황')
   // 본인 문의(JetBrains, 답변 완료)에 초점 + 타인 문의(NAS·이서연) 미포함(권한 필터)
   ok('사용자 AI 질의: 본인 QnA 답변 현황 초점 답변', uQna.includes('답변 완료') && uQna.includes('JetBrains') && uQna.includes('[답변]'))
   ok('사용자 AI 질의: QnA 권한 필터 — 타인 문의 미포함', !uQna.includes('NAS'))
@@ -1355,12 +1347,7 @@ try {
   await pU.waitForTimeout(700)
   // 내 수리 현황 질의 — 방금 신고한 자산이 사용자 수리 현황에 증상과 함께 뜬다(장애 신고 루프의 사용자 추적 접점).
   await pU.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-  const urc = await pU.locator('.msg.assistant .bub').count()
-  await pU.locator('.chat-in input').fill('내 수리 현황')
-  await pU.locator('.chat-in input').press('Enter')
-  await pU.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, urc, { timeout: 8000 })
-  await pU.waitForTimeout(150)
-  const uRepair = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
+  const uRepair = await askAssistant(pU, '내 수리 현황')
   ok('사용자 AI 질의: 내 수리 현황 — 장애 신고 자산·증상 초점(AST-2024-000015·전원 불량)', uRepair.includes('AST-2024-000015') && uRepair.includes('전원 불량'))
 
   // 반납 신청 셀프서비스(사용자) — 대여자가 대여를 마치고 반환하겠다고 자산담당에 알린다. 그동안 반환은 자산담당만 처리 가능했다. AST-2024-000230(김민준 대여중).
@@ -1472,12 +1459,7 @@ try {
   // 원가·감가상각(lib/cost bookValueOf): 장부가 ≤ 취득가 · 감가상각률 0~100%
   {
     await p3.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-    const b = await p3.locator('.msg.assistant .bub').count()
-    await p3.locator('.chat-in input').fill('자산 가치 현황')
-    await p3.locator('.chat-in input').press('Enter')
-    await p3.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, b, { timeout: 8000 })
-    await p3.waitForTimeout(150)
-    const vt = (await p3.locator('.msg.assistant .bub').last().textContent()) || ''
+    const vt = await askAssistant(p3, '자산 가치 현황')
     const acq = Number((vt.match(/총 취득가 ([\d,]+)원/) || [])[1]?.replace(/,/g, '') ?? '-1')
     const book = Number((vt.match(/총 잔존가치\(장부가\) ([\d,]+)원/) || [])[1]?.replace(/,/g, '') ?? '-1')
     const dep = Number((vt.match(/감가상각률 (\d+)%/) || [])[1] ?? '-1')
@@ -1583,11 +1565,7 @@ try {
   ok('운영 정책 다운스트림: 발견 처리 에스컬레이션 기한 5일 반영', (await p3.textContent('body')).includes('기한(5일)'))
   // 리포트도 운영 정책을 따른다 — 월간 자산 현황의 만료 임박 섹션이 60일 창으로 산출된다(하드코딩 90 제거)
   await p3.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-  const rb = await p3.locator('.msg.assistant .bub').count()
-  await p3.locator('.chat-in input').fill('월간 자산 현황 리포트 생성해줘')
-  await p3.locator('.chat-in input').press('Enter')
-  await p3.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, rb, { timeout: 8000 })
-  await p3.waitForTimeout(300)
+  await askAssistant(p3, '월간 자산 현황 리포트 생성해줘')
   const mh = await p3.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
   const mid = decodeURIComponent((mh.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const mmd = await (await p3.request.get(`${BASE}/api/reports/${encodeURIComponent(mid)}?format=md`)).text()
@@ -1627,22 +1605,14 @@ try {
   const lcSec = lcStart >= 0 ? mmd.slice(lcStart, lcEnd === -1 ? undefined : lcEnd) : ''
   ok('리포트(월간 자산 현황): 수명주기 처리 대상에 종결(폐기완료) 자산 미포함(화면 대기열 정합)', lcStart >= 0 && !lcSec.includes('AST-2018-000090') && !lcSec.includes('폐기완료'))
   // 감사 대응 자료 — '정책 이행'을 탐지 정책만이 아니라 운영·위험도·AI 거버넌스 기준 + SW·SaaS 정책 상태까지 증빙
-  const rb2 = await p3.locator('.msg.assistant .bub').count()
-  await p3.locator('.chat-in input').fill('감사 대응 자료 리포트 생성해줘')
-  await p3.locator('.chat-in input').press('Enter')
-  await p3.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, rb2, { timeout: 8000 })
-  await p3.waitForTimeout(300)
+  await askAssistant(p3, '감사 대응 자료 리포트 생성해줘')
   const ah = await p3.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
   const aid = decodeURIComponent((ah.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const amd = await (await p3.request.get(`${BASE}/api/reports/${encodeURIComponent(aid)}?format=md`)).text()
   ok('감사 대응 자료: 운영·거버넌스 정책 기준 섹션(운영·위험도·AI)', amd.includes('운영 · 거버넌스 정책 기준') && amd.includes('취약점 우선순위 P1') && amd.includes('AI 로그 보존'))
   ok('감사 대응 자료: SW·SaaS 정책 상태 섹션(화이트리스트·카탈로그)', amd.includes('SW · SaaS 정책 상태') && amd.includes('화이트리스트') && amd.includes('SaaS 카탈로그'))
   // 라이선스 컴플라이언스 — 중복 기능 SaaS 통합 후보(화면 v1.250)를 결재 첨부 리포트에도 담는다(§05 라이선스 최적화). 화면·리포트 동일 산출.
-  const rb3 = await p3.locator('.msg.assistant .bub').count()
-  await p3.locator('.chat-in input').fill('라이선스 컴플라이언스 리포트 생성해줘')
-  await p3.locator('.chat-in input').press('Enter')
-  await p3.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, rb3, { timeout: 8000 })
-  await p3.waitForTimeout(300)
+  await askAssistant(p3, '라이선스 컴플라이언스 리포트 생성해줘')
   const lh = await p3.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
   const lid = decodeURIComponent((lh.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const lmd = await (await p3.request.get(`${BASE}/api/reports/${encodeURIComponent(lid)}?format=md`)).text()
@@ -3335,11 +3305,7 @@ try {
   const ctxAE = await browser.newContext(); await ctxAE.addCookies([cookie(ASSET)]); const pAE = await ctxAE.newPage()
   const askAE = async (q) => {
     await pAE.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-    const before = await pAE.locator('.msg.assistant .bub').count()
-    await pAE.locator('.chat-in input').fill(q)
-    await pAE.locator('.chat-in input').press('Enter')
-    await pAE.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, before, { timeout: 8000 })
-    await pAE.waitForTimeout(300)
+    await askAssistant(pAE, q)
     return pAE.locator('.msg.assistant').last()
   }
   const aeMsg = await askAE('유휴(재배치 가능) 자산 목록 알려줘')
@@ -3533,13 +3499,7 @@ try {
   // 다가오는 일정 아젠다 — 대여 반환 기한은 연체·반환 임박 큐만 다루고 아젠다에는 빠져 있었다(도입 예정 입고도 같은 누락).
   //  '경과분은 반응형 큐, 예정분은 아젠다'라는 분담대로면 아직 도래 전인 반환 기한이 아젠다에 있어야 한다. 위에서 오늘+5일로 대여했다.
   await pLM2.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
-  const lmBefore = await pLM2.locator('.msg.assistant .bub').count() // 어시스턴트 입력은 .chat-in input · Enter 전송(위 ask 헬퍼와 동일 규약)
-  await pLM2.locator('.chat-in input').fill('다가오는 일정 알려줘')
-  await pLM2.locator('.chat-in input').press('Enter')
-  await pLM2.waitForFunction((n2) => document.querySelectorAll('.msg.assistant .bub').length > n2, lmBefore, { timeout: 8000 })
-  // 답변 말풍선은 '분석 중…' 자리표시자로 먼저 뜬다 — 실제 답으로 바뀔 때까지 기다린다(자리표시자를 읽으면 항상 실패한다)
-  await pLM2.waitForFunction(() => { const b = document.querySelectorAll('.msg.assistant .bub'); return b.length > 0 && !(b[b.length - 1].textContent || '').includes('분석 중') }, null, { timeout: 15000 })
-  const lmAgenda = (await pLM2.locator('.msg.assistant .bub').last().textContent()) || ''
+  const lmAgenda = await askAssistant(pLM2, '다가오는 일정 알려줘')
   ok('다가오는 일정: 대여 반환 기한이 아젠다에 편입(유형별 집계 포함)', /대여 반환 [1-9]/.test(lmAgenda))
   await ctxLM2.close()
   // 리포트 종류 전수 생성 — 17종 중 스위트가 실제로 만들어 보는 건 소수였다. 빌더가 특정 데이터 형태에서
