@@ -898,11 +898,17 @@ try {
   await p2.goto(`${BASE}/assets/register?os=eol`, { waitUntil: 'networkidle' })
   ok('EOL 필터: 운영 중 EOL 자산 노출(AST-2021-000432 유휴)', (await p2.locator('td', { hasText: 'AST-2021-000432' }).count()) > 0)
   ok('EOL 필터: 비운영(수리중) EOL 자산 제외(AST-2021-000556 · 교체 통보 오발송 방지)', (await p2.locator('td', { hasText: 'AST-2021-000556' }).count()) === 0)
+  const eolRows = await p2.locator('tbody tr.clickable').count()
+  // 취약점 우선순위(AI 기능 04)도 같은 EOL 판정을 써야 한다 — 여기만 폐기 두 상태로 좁게 걸러 수리중·분실·반납대기
+  //  자산이 P1/P2 목록에 남았다(같은 개념 두 정의). 실물이 없거나 업체에 가 있는 자산은 패치·교체 지시 대상이 아니다.
+  await p2.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  const vulnCard = p2.locator('.card', { hasText: '취약점 노출 우선순위' }).first()
+  ok('취약점 우선순위: 운영 중 EOL 자산 노출(AST-2021-000432 · 양성 대조)', (await vulnCard.locator('td', { hasText: 'AST-2021-000432' }).count()) > 0)
+  ok('취약점 우선순위: 비운영(수리중) EOL 자산 제외(대장 필터·AI 답변과 같은 판정)', (await vulnCard.locator('td', { hasText: 'AST-2021-000556' }).count()) === 0)
   // 어시스턴트 EOL 답변 ↔ 이 목록 정합 — 답변 바로 아래 근거 링크가 이 화면(?os=eol)이다. 어시스턴트는 폐기 경로만
   //  빼고 세어 비운영(수리중·분실·반납대기) EOL 자산까지 포함했고, 그래서 "N건입니다"를 읽고 그 답이 준 링크를 열면
   //  더 적게 나왔다(같은 질문에 두 답). 지금 시점의 AST-2021-000556 은 수리중이라 두 게이트가 갈리는 자산이다 —
   //  바로 아래 '수리 불가' 검사가 이 자산을 폐기예정으로 바꾸므로 반드시 그 전에 본다.
-  const eolRows = await p2.locator('tbody tr.clickable').count()
   const ctxEOL = await browser.newContext(); await ctxEOL.addCookies([cookie(ASSET)]); const pEOL = await ctxEOL.newPage()
   await pEOL.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
   const eolBubbles = await pEOL.locator('.msg.assistant .bub').count()

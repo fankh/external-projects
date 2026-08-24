@@ -3,7 +3,7 @@
  *  외부 노출 CVE·EOL OS 자산·미인가 SW·크리덴셜 노출을 한 축으로 모아 P1/P2/P3 로 순위화한다.
  *  읽기 전용 합성 뷰 — 각 항목은 기존 조치 화면(loops)으로 연결된다. */
 import { today } from './dates'
-import { eolOsOf } from './eol'
+import { eolOsOf, isEolTarget } from './eol'
 import { getStore } from './store'
 import type { Asset, BizCriticality, RiskLevel } from './types'
 
@@ -89,9 +89,11 @@ export function buildVulnPriority(): VulnPriority {
 
   // 2) EOL OS 자산 — 지원 종료 경과 자산(운영 중). 미패치 상시 노출로 심각도 높음.
   for (const a of s.assets) {
-    if (['폐기완료', '폐기예정'].includes(a.status)) continue
-    const eol = eolOsOf(a.os, t)
-    if (!eol) continue
+    // EOL 대상 판정은 lib/eol 의 isEolTarget 한 곳만 쓴다 — 대장 필터·대시보드 큐·AI 답변·EOL 통보가 모두 그것을
+    //  쓰는데 여기만 폐기 두 상태로 좁게 걸러, 분실·수리중·반납대기 자산이 취약점 우선순위에만 남았다(같은 개념 두 정의).
+    //  실물이 없거나 업체에 가 있는 자산은 패치·교체를 지시할 대상이 아니라 P1/P2 목록에서 실재 대상을 밀어낸다.
+    if (!isEolTarget(a.status, a.os, t)) continue
+    const eol = eolOsOf(a.os, t)!
     const criticality = assetCriticality({ asset: a })
     const score = scoreOf('높음', criticality)
     items.push({
