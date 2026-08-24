@@ -2,6 +2,7 @@ import { today } from '@/lib/dates'
 import { inNoticeAudience } from '@/lib/notice'
 import { assetHref, contractHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { getSession } from '@/lib/session'
+import { canViewMenu } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 
 /** 전역 통합 검색 — 자산·계약·발견·Shadow SaaS·위협·노출·사용자·결재·게시판·폐기·입고를 한 번에 훑어 해당 화면으로 점프한다.
@@ -28,10 +29,11 @@ export async function GET(req: Request) {
     .filter((a) => hit(a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId))
     .slice(0, LIMIT)
     .map((a) => ({ label: `${a.assetNo} · ${a.model}`, sub: `${a.owner} · ${a.dept} · ${a.status}`, href: assetHref(a.assetNo) }))
-  if (assets.length) groups.push({ kind: '자산', items: assets })
+  // 자산·결재는 전 권한그룹이 여는 화면이지만 매트릭스에서 조회를 회수할 수 있다 — 검색 결과도 같이 사라져야 한다.
+  if (assets.length && canViewMenu('/assets/register', role)) groups.push({ kind: '자산', items: assets })
 
   // 계약·라이선스 — 계약 화면 권한(자산담당·Admin)
-  if (can(['ASSET_MGR', 'ADMIN'])) {
+  if (can(['ASSET_MGR', 'ADMIN']) && canViewMenu('/inventory/contracts', role)) {
     const contracts = s.contracts.filter((c) => hit(c.id, c.name, c.vendor, c.ownerDept)).slice(0, LIMIT)
       .map((c) => ({ label: `${c.id} · ${c.name}`, sub: `${c.vendor} · ${c.ownerDept}${c.status === '해지' ? ' · 해지' : ''}`, href: contractHref(c.id) }))
     const lics = s.licenses.filter((l) => hit(l.id, l.name, l.vendor)).slice(0, LIMIT)
@@ -41,14 +43,14 @@ export async function GET(req: Request) {
   }
 
   // 발견 자산 — 발견 화면 권한(자산담당·보안담당·Admin)
-  if (can(['ASSET_MGR', 'SEC_MGR', 'ADMIN'])) {
+  if (can(['ASSET_MGR', 'SEC_MGR', 'ADMIN']) && canViewMenu('/discovery/found', role)) {
     const disc = s.discovered.filter((d) => hit(d.id, d.hostname, d.ip, d.mac, d.type)).slice(0, LIMIT)
       .map((d) => ({ label: `${d.id} · ${d.hostname}`, sub: `${d.type} · ${d.ip} · ${d.state}`, href: `/discovery/found?sel=${d.id}` }))
     if (disc.length) groups.push({ kind: '발견 자산', items: disc })
   }
 
   // Shadow SaaS — 발견 화면 권한(자산담당·보안담당·Admin). 서비스명·분류·부서로 찾아 Shadow SaaS 현황으로 점프.
-  if (can(['ASSET_MGR', 'SEC_MGR', 'ADMIN'])) {
+  if (can(['ASSET_MGR', 'SEC_MGR', 'ADMIN']) && canViewMenu('/discovery/saas', role)) {
     const saas = s.saas.filter((x) => hit(x.service, x.category, x.dept)).slice(0, LIMIT)
       .map((x) => ({ label: x.service, sub: `${x.category} · ${x.dept} · ${x.sanctioned ? '인가' : '미인가'}`, href: '/discovery/saas' }))
     if (saas.length) groups.push({ kind: 'Shadow SaaS', items: saas })
@@ -57,7 +59,7 @@ export async function GET(req: Request) {
   // 위협·노출 — 외부 공격표면·IOC 상관·크리덴셜 노출·다크웹 유출(외부 위협 화면 권한: 자산담당·보안담당·Admin).
   //  보안 분석가가 호스트·IOC 값·CVE 로 찾아 조치 화면으로 점프한다. 어시스턴트 컨텍스트(외부 위협)·전용 화면은 이미
   //  다루나 전역 검색만 이 도메인을 빠뜨렸던 정합 공백을 닫는다(발견·Shadow SaaS 는 검색되는데 위협만 누락됐던 부분 커버리지).
-  if (can(['ASSET_MGR', 'SEC_MGR', 'ADMIN'])) {
+  if (can(['ASSET_MGR', 'SEC_MGR', 'ADMIN']) && canViewMenu('/discovery/external', role)) {
     const ext = s.external.filter((e) => hit(e.host, e.ip, e.cve, e.method)).slice(0, LIMIT)
       .map((e) => ({ label: e.host, sub: `외부 노출 · ${e.method}${e.cve ? ` · ${e.cve}` : ''} · ${e.risk}`, href: '/discovery/external' }))
     const iocs = s.iocMatches.filter((i) => hit(i.id, i.iocValue, i.threatActor, i.matchedAsset)).slice(0, LIMIT)
@@ -71,14 +73,14 @@ export async function GET(req: Request) {
   }
 
   // 사용자 — 사용자 관리 화면 권한(Admin)
-  if (can(['ADMIN'])) {
+  if (can(['ADMIN']) && canViewMenu('/settings/users', role)) {
     const users = s.users.filter((u) => hit(u.login, u.name, u.dept, u.group)).slice(0, LIMIT)
       .map((u) => ({ label: `${u.name} (${u.login})`, sub: `${u.dept} · ${u.group}`, href: `/settings/users` }))
     if (users.length) groups.push({ kind: '사용자', items: users })
   }
 
   // 폐기·입고 — 자산관리 처리 권한(자산담당·Admin). 폐기는 자산·사유·확인서번호, 입고는 SR·발주·모델로 찾는다.
-  if (can(['ASSET_MGR', 'ADMIN'])) {
+  if (can(['ASSET_MGR', 'ADMIN']) && canViewMenu('/assets/disposal', role)) {
     const disp = s.disposals.filter((d) => hit(d.id, d.assetNo, d.model, d.reason, d.certNo)).slice(0, LIMIT)
       .map((d) => ({ label: `${d.id} · ${d.assetNo}`, sub: `${d.model} · ${d.status}`, href: '/assets/disposal' }))
     const lots = s.intakeLots.filter((l) => hit(l.id, l.model, l.srNo, l.contractId, l.vendor)).slice(0, LIMIT)
@@ -91,7 +93,7 @@ export async function GET(req: Request) {
   const aprs = (isUser ? s.approvals.filter((a) => a.requester === session.name || (a.kind === '소유자 확인' && a.dept === session.dept)) : s.approvals)
     .filter((a) => hit(a.id, a.title, a.requester, a.kind)).slice(0, LIMIT)
     .map((a) => ({ label: `${a.id} · ${a.title}`, sub: `${a.kind} · ${a.requester} · ${a.status}`, href: '/workflow/approvals' }))
-  if (aprs.length) groups.push({ kind: '결재', items: aprs })
+  if (aprs.length && canViewMenu('/workflow/approvals', role)) groups.push({ kind: '결재', items: aprs })
 
   // 게시판 — 공지·QnA (전 권한그룹 열람). 공지는 발행 도래분만(관리자는 예약분 포함), QnA 전체. 특정 게시글로 딥링크(?sel=).
   const t = today()

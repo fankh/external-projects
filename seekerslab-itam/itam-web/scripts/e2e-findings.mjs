@@ -3104,6 +3104,21 @@ try {
   ok('로그아웃: 세션 종료 후 로그인 화면 복귀', pLI.url().endsWith('/login'))
   await pLI2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   ok('로그아웃 기록: 감사 로그에 접근 종료 기록 적재', ((await pLI2.textContent('body')) || '').includes('로그아웃 — 보안담당'))
+  // 전역 검색도 매트릭스를 따라야 한다 — 조회를 회수한 화면의 레코드가 검색에는 그대로 떠 링크를 누르면
+  //  대시보드로 튕겼다(사이드바·화면 가드는 막는데 검색만 열려 있던 정합 공백).
+  const ctxSQP = await browser.newContext(); await ctxSQP.addCookies([cookie(ADMIN)]); const pSQP = await ctxSQP.newPage()
+  const searchAs = async (page, q) => (await page.request.get(`${BASE}/api/search?q=${encodeURIComponent(q)}`)).text()
+  const ctxSRCH = await browser.newContext(); await ctxSRCH.addCookies([cookie(ASSET)]); const pSRCH = await ctxSRCH.newPage()
+  ok('전역 검색(양성 대조): 자산담당에게 계약 결과 노출', (await searchAs(pSRCH, 'CT-2023')).includes('계약'))
+  await pSQP.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
+  const sqRow = pSQP.locator('tr', { has: pSQP.locator('td.strong', { hasText: '계약 · 라이선스' }) }).first()
+  const sqCell = sqRow.locator('td').nth(8) // 자산담당 × 조회
+  await sqCell.click(); await pSQP.waitForTimeout(500)
+  await sqCell.click(); await pSQP.waitForTimeout(800) // 허용 → 본인 → 불가
+  ok('전역 검색: 조회 회수 시 계약 결과가 검색에서도 사라진다(막다른 링크 방지)', !(await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
+  await sqCell.click(); await pSQP.waitForTimeout(800) // 복원
+  ok('전역 검색: 조회 복원 시 계약 결과 재노출(양성 대조)', (await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
+  await ctxSRCH.close(); await ctxSQP.close()
   await ctxLI2.close(); await ctxLI.close()
   await ctxUR.close()
   await ctxPM.close()
