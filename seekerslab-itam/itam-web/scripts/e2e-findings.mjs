@@ -3933,6 +3933,7 @@ try {
   const mtCandidates = [...new Set(((await pMT.locator('tbody').textContent()) || '').match(/AST-\d{4}-\d{6}/g) ?? [])]
   let mtAsset = ''
   for (const no of mtCandidates.slice(0, 25)) {
+    if (no === 'AST-2023-000561' || no === 'AST-2024-000618') continue // 아래 CMDB 저하 판정 블록이 쓰는 의존 쌍 — 상태를 건드리지 않는다
     await pMT.goto(`${BASE}/assets/register?sel=${no}`, { waitUntil: 'networkidle' })
     if ((await pMT.locator('button', { hasText: /^정기 점검 일정 등록$/ }).count()) > 0
       && (await pMT.locator('button', { hasText: /^분실 · 도난 신고$/ }).count()) > 0) { mtAsset = no; break }
@@ -3981,6 +3982,26 @@ try {
   ok(`정기 점검 예약 게이트: 비운영·미편성 자산에 등록 버튼 대신 사유 표기(${mtOff})`,
     /^AST-/.test(mtOff) && (await pMT.locator('button', { hasText: /^정기 점검 일정 등록$/ }).count()) === 0)
   await ctxMT.close()
+
+  // ── 상위 이탈(반납대기) 저하 판정(신규) — CMDB 저하 판정이 분실·폐기·수리중만 보고 반납대기를 빼,
+  //  회수돼 나가는 상위 자산에 물린 하위가 어디에서도 경고를 못 받았다(상세 위험 표기·영향 소스 큐·SPOF 정렬 모두).
+  //  회수는 오프보딩의 정상 경로라 자주 일어나고, 상위가 빠지는 것을 하위 담당자가 늦게 아는 것이 사고로 이어진다.
+  const ctxDG2 = await browser.newContext(); await ctxDG2.addCookies([cookie(ASSET)]); const pDG2 = await ctxDG2.newPage()
+  await pDG2.goto(`${BASE}/assets/register?sel=AST-2024-000618`, { waitUntil: 'networkidle' })
+  const dgBefore = (await pDG2.locator('body').textContent()) || ''
+  ok('상위 이탈 저하: 상위가 운영 중이면 경고 없음(양성 대조 · AST-2024-000618 ← AST-2023-000561)',
+    dgBefore.includes('AST-2023-000561') && !dgBefore.includes('저하된 상위'))
+  await pDG2.goto(`${BASE}/assets/register?sel=AST-2023-000561`, { waitUntil: 'networkidle' })
+  await pDG2.locator('button', { hasText: /^자산 회수 \(반납 처리\)$/ }).first().click()
+  await pDG2.waitForTimeout(300)
+  await pDG2.locator('input[placeholder*="회수 사유"]').first().fill('회귀 — 상위 이탈 저하 판정')
+  await pDG2.locator('button', { hasText: /^회수 확정$/ }).first().click()
+  await pDG2.waitForTimeout(900)
+  await pDG2.goto(`${BASE}/assets/register?sel=AST-2024-000618`, { waitUntil: 'networkidle' })
+  const dgAfter = (await pDG2.locator('body').textContent()) || ''
+  ok('상위 이탈 저하: 반납대기(회수) 상위가 하위 상세에 저하 경고로 노출(분실·수리중과 같은 판정)',
+    dgAfter.includes('저하된 상위') && dgAfter.includes('AST-2023-000561'))
+  await ctxDG2.close()
   await browser.close()
 } catch (err) {
   fail++

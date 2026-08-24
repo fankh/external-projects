@@ -748,7 +748,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       role: 'assistant',
       text: spofs.length === 0
         ? '영향 범위 2대 이상인 단일 장애점(SPOF)이 없습니다.'
-        : `단일 장애점(SPOF) 자산은 ${spofs.length}건입니다 (CMDB 의존 그래프상 장애 시 영향 범위 2대 이상 · 영향 큰 순).\n\n${spofs.slice(0, 8).map((x) => `· ${x.asset.assetNo} — ${x.asset.model} (${x.asset.category}) · 장애 시 영향 ${x.blastRadius.length}대${x.degraded ? ' · ⚠ 현재 저하 상태 — 하위 위험 전이 중' : ''}`).join('\n')}${spofs.length > 8 ? `\n… 외 ${spofs.length - 8}건` : ''}${degradedN ? `\n\n현재 저하(분실·폐기·수리) 상태로 하위에 위험을 주는 상위 자산 ${degradedN}건 — 우선 복구·이중화 검토.` : ''}\n\n영향 범위가 큰 자산일수록 이중화·우선 복구 대상입니다.`,
+        : `단일 장애점(SPOF) 자산은 ${spofs.length}건입니다 (CMDB 의존 그래프상 장애 시 영향 범위 2대 이상 · 영향 큰 순).\n\n${spofs.slice(0, 8).map((x) => `· ${x.asset.assetNo} — ${x.asset.model} (${x.asset.category}) · 장애 시 영향 ${x.blastRadius.length}대${x.degraded ? ' · ⚠ 현재 저하 상태 — 하위 위험 전이 중' : ''}`).join('\n')}${spofs.length > 8 ? `\n… 외 ${spofs.length - 8}건` : ''}${degradedN ? `\n\n현재 저하·이탈(분실·폐기·수리·반납대기) 상태로 하위에 위험을 주는 상위 자산 ${degradedN}건 — 우선 복구·이중화 검토.` : ''}\n\n영향 범위가 큰 자산일수록 이중화·우선 복구 대상입니다.`,
       evidence: [{ label: '자산 대장 (단일 장애점 필터)', href: '/assets/register?spof=1' }],
     }
   }

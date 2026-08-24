@@ -1,11 +1,14 @@
 /** CMDB 의존 그래프 — 순수 함수(스토어 비의존). 클라이언트·서버 공용.
  *  assets 배열만 받아 상위 의존·하위·전이적 영향 범위(blast radius)를 산출한다.
  *  (lib/cmdb.ts 는 이 순수 코어를 getStore 로 감싼 서버용 래퍼. node:fs 를 쓰는 store 를 클라이언트에 끌어들이지 않도록 분리.) */
+import { NON_OPERATIONAL_STATUSES } from './types'
 import type { Asset } from './types'
 
 /** 자산 운영 저하/이탈 상태 — 상위가 이 상태면 하위가 영향받는다(장애·이탈·정비). */
 export function isDegraded(a: Asset): boolean {
-  return ['분실', '폐기예정', '폐기완료', '수리중'].includes(a.status)
+  // 판정은 lib/types 의 비운영 상태 한 곳만 쓴다 — 그전에는 여기만 반납대기를 빼, 회수돼 나가는 상위 자산(반납대기)에
+  //  물린 하위가 '저하된 상위' 경고·영향 소스 큐·SPOF 정렬 어디에도 안 잡혔다(상위 이탈을 하위가 모르는 사각).
+  return NON_OPERATIONAL_STATUSES.includes(a.status)
 }
 
 export interface AssetDeps {
