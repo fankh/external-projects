@@ -1,6 +1,7 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
+import { openableRoutes } from '@/lib/perm'
 import { AuditLog } from './AuditLog'
 import { ConnectorTable } from './ConnectorTable'
 import { NotificationLog } from './NotificationLog'
@@ -53,14 +54,14 @@ export default async function IntegrationsPage() {
         <ConnectorTable integrations={s.integrations} canManage={canManage} />
       </Card>
 
-      <AuditLog logs={s.auditLogs} canExport={canManage} role={session.role} />
+      <AuditLog logs={s.auditLogs} canExport={canManage} role={session.role} openable={openableRoutes(session.role)} />
 
       <div className="callout" style={{ marginBottom: 14 }}>
         <b>긴급 보안 에스컬레이션은 문자(SMS) 병행.</b> NAC 격리 집행·외부 노출 차단·IOC 위협 차단·침해 조사·도난 데이터 유출처럼
         시간 임계 조치는 상세 근거를 이메일로, 즉시 알림을 <span className="chip warn bare">문자</span>로 이중 발송해 야간·현장 대응 지연을 줄입니다. 두 발송 모두 발송 이력에 남습니다.
       </div>
 
-      <NotificationLog dispatches={s.dispatches} canExport={canManage} canManage={canManage} role={session.role} />
+      <NotificationLog dispatches={s.dispatches} canExport={canManage} canManage={canManage} role={session.role} openable={openableRoutes(session.role)} />
 
       <div className="cols c2">
         <div className="callout"><b>인증.</b> SAML 기반 SSO — 그룹웨어 IdP 어설션으로 로그인하며, 부여된 메뉴·기능만 렌더링됩니다.</div>

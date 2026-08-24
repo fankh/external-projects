@@ -7,7 +7,7 @@ import type { Role } from '@/lib/types'
 const KIND_TONE = { '미인가 SW 설치': 'err', '유휴 자산 사용': 'warn', '서버 비정상 외부 통신': 'err', 'USB 대용량 반출': 'err' } as const
 
 /** 이상 자산 행위 탐지 — 프로파일 대비 이탈(설치 SW·상태·데이터 반출)(§05 AI 기능 02). 읽기 전용 합성 뷰. */
-export function AnomalyDetection({ role }: { role: Role }) {
+export function AnomalyDetection({ role, openable }: { role: Role; openable?: string[] }) {
   const { items, byKind } = buildAnomalies()
   const top = items.slice(0, 12)
   const high = items.filter((i) => i.severity === '높음').length
@@ -44,7 +44,7 @@ export function AnomalyDetection({ role }: { role: Role }) {
                 <td className="c"><RiskChip risk={a.severity} /></td>
                 {/* 조치 화면을 열 수 없는 권한그룹에는 링크를 내주지 않는다 — 눌러도 대시보드로 튕긴다(유휴 자산 사용 축은
                     재물조사 화면으로 가는데 보안담당은 그 화면 권한이 없다). 신호 자체는 그대로 보여준다. */}
-                <td className="c">{canOpenRoute(a.href, role)
+                <td className="c">{canOpenRoute(a.href, role) && (openable ?? []).includes(a.href.split('?')[0])
                   ? <Link className="btn sm ghost" href={a.href}>조치</Link>
                   : <span className="mut" style={{ fontSize: 11 }}>자산담당 조치</span>}</td>
               </tr>

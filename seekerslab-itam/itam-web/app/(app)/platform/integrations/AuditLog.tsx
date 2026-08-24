@@ -8,7 +8,7 @@ import type { AuditLog as AuditLogEntry } from '@/lib/types'
 
 /** 감사 로그 — 액션마다 쌓이므로 그대로 나열하면 스캔이 불가능하다.
  *  수행자·동작·대상 검색 + 수행자·결과 필터로 컴플라이언스 추적을 실사용 가능하게 한다. */
-export function AuditLog({ logs, canExport, role }: { logs: AuditLogEntry[]; canExport?: boolean; role: Role }) {
+export function AuditLog({ logs, canExport, role, openable }: { logs: AuditLogEntry[]; canExport?: boolean; role: Role; openable?: string[] }) {
   const [q, setQ] = useState('')
   const [result, setResult] = useState<'전체' | '성공' | '실패'>('전체')
   const [actor, setActor] = useState('전체')
@@ -73,7 +73,7 @@ export function AuditLog({ logs, canExport, role }: { logs: AuditLogEntry[]; can
                     const link = entityHref(l.target)
                         // 열 수 없는 화면으로 가는 참조는 링크로 내주지 않는다 — 보안담당이 감사 로그의 계약 참조를 누르면
                         //  계약 화면 권한이 없어 대시보드로 튕긴다. 참조 번호는 텍스트로 그대로 남긴다(증적 가치 유지).
-                        if (link && !link.external && !canOpenRoute(link.href, role)) return l.target ?? '-'
+                        if (link && !link.external && (!canOpenRoute(link.href, role) || !(openable ?? []).includes(link.href.split('?')[0]))) return l.target ?? '-'
                     if (!link) return l.target
                     return (
                       <a href={link.href} title="대상으로 이동" style={{ color: 'var(--accent-deep)' }}
