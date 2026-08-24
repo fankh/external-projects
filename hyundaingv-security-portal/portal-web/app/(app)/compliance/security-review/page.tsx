@@ -96,7 +96,7 @@ export default async function SecurityReviewPage() {
   return (
     <>
       <ScreenHeader kicker="보안 컴플라이언스" title="보안성 검토"
-        desc="시큐어코딩·취약점 점검·모의해킹의 계획 → 발견 → 조치 → 완료를 추적하고 증적을 제출한다." />
+        desc="시큐어코딩·취약점 점검·모의해킹 발견사항의 조치 추적과 증적 관리." />
 
       <div className="stat-row">
         <Stat value={rows.length} label="전체 검토" note={`진행중 ${open.length}건`} />
