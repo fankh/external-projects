@@ -439,12 +439,13 @@ async function aiPeriodQuery(page) {
   ok('AI 자산조회: CMDB 의존/영향(blast radius) 노출 — 단일 장애점의 전이 영향·상위 의존(변경·정비 사전 통지)', a3.includes('AST-2022-000641') && a3.includes('CMDB 의존') && a3.includes('blast radius'))
 
   // 결재 질의 역할 인지 — 전체 대기 중 '내가 결재할 수 있는 건'을 대시보드와 동일 게이트로 함께 제시.
-  //  ADMIN 은 전 단계 오버라이드라 '내 결재 = 전체'(본인 상신분은 시드상 없음)
+  //  ADMIN 은 전 단계 오버라이드라 대기 건 전부를 결재할 수 있다 — 단 소유자 확인(APR-2607-114·109)은 결재(decide)가 아니라
+  //  요청받은 부서의 응답(answerOwnerConfirm)이라 제외된다. 세면 '결재할 수 있는 건'이 결재함에서 처리 못 하는 건까지 세게 된다.
   const ap = await ask('결재 대기 현황 알려줘')
   const apTotal = Number((ap.match(/현재 결재 대기 (\d+)건/) || [])[1] ?? -1)
   const apMine = Number((ap.match(/지금 결재할 수 있는 건 (\d+)건/) || [])[1] ?? -2)
   ok('AI 결재질의: 역할 인지(내 결재 가능 수 표기)', ap.includes('지금 결재할 수 있는 건') && apMine >= 0 && apMine <= apTotal)
-  ok('AI 결재질의: ADMIN 은 전 단계 결재 가능(내 결재 = 전체)', apTotal > 0 && apMine === apTotal)
+  ok('AI 결재질의: ADMIN 은 소유자 확인 제외 전 단계 결재 가능(내 결재 = 전체 − 소유자 확인 2건)', apTotal > 0 && apMine === apTotal - 2)
 
   // 미인가 SaaS 부서 스코프 — 대장엔 있으나 SaaS 기록 없는 부서는 '해당 없음'으로 정확히(전체로 미확장)
   const sInfra = await ask('인프라운영팀에서 쓰는 미인가 SaaS 알려줘')
@@ -2732,6 +2733,29 @@ try {
   ok('폐기 필수 결재선: 2차(IT기획팀장) 승인 → 소거 대기 전환(2단계 완료 후 효과 적용)', ((await pDL.locator('tr', { has: pDL.locator('td', { hasText: 'AST-2021-000432' }) }).first().textContent()) || '').includes('소거 대기'))
   await ctxDL.close()
 
+  // 결재 버튼이 권한 매트릭스를 따르는지(라운드트립) — 서버 decide 는 can('신청 · 결재','결재')를 강제하고 대시보드 큐·상단 배지도 그 판정을 쓰는데,
+  //  결재함 버튼만 코드 역할 규칙(단계 역할·ADMIN 오버라이드)만 보고 있었다. 매트릭스에서 결재를 회수해도 승인·반려가 남아 눌러야 거부됐다.
+  //  자산담당 × 결재 를 허용 → 본인 → 불가 로 돌린 뒤 결재함을 확인하고, 다시 허용으로 복원한다(스위트 상태 불변).
+  const ctxPM = await browser.newContext(); await ctxPM.addCookies([cookie(ADMIN)]); const pPM = await ctxPM.newPage()
+  await pPM.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
+  const pmRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '신청 · 결재' }) }).first()
+  const pmCell = pmRow.locator('td').nth(14) // 라벨(0) + 자산담당(역할 2번째) × 결재(기능 7번째) = 1*7 + 6 + 1
+  await pmCell.click(); await pPM.waitForTimeout(600) // 허용 → 본인
+  await pmCell.click(); await pPM.waitForTimeout(800) // 본인 → 불가
+  ok('권한 매트릭스: 자산담당 × 결재 회수(불가) 반영', ((await pmCell.textContent()) || '').includes('·'))
+  const ctxAM = await browser.newContext(); await ctxAM.addCookies([cookie(ASSET)]); const pAM = await ctxAM.newPage()
+  await pAM.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  // 행(td) 안의 결재 버튼만 센다 — 목록 상단 상태 필터에도 '승인'·'반려' 버튼이 있어 page 전체로 세면 항상 >0 이다(양성 대조는 복원 후).
+  ok('결재함: 매트릭스 결재 회수 시 승인 버튼 미노출(서버 decide 게이트와 정합)', (await pAM.locator('td button', { hasText: /^승인$/ }).count()) === 0)
+  await ctxAM.close()
+  await pmCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
+  ok('권한 매트릭스: 결재 권한 복원(허용)', ((await pmCell.textContent()) || '').includes('✓'))
+  // 양성 대조 — 복원하면 결재 버튼이 돌아온다(위 단언이 '버튼이 원래 없었다'로 통과하는 위양성 방지)
+  const ctxAM2 = await browser.newContext(); await ctxAM2.addCookies([cookie(ASSET)]); const pAM2 = await ctxAM2.newPage()
+  await pAM2.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  ok('결재함: 결재 권한 복원 시 승인 버튼 재노출(양성 대조)', (await pAM2.locator('td button', { hasText: /^승인$/ }).count()) > 0)
+  await ctxAM2.close()
+  await ctxPM.close()
   await browser.close()
 } catch (err) {
   fail++

@@ -1,6 +1,7 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
+import { can } from '@/lib/perm'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ApprovalList } from './ApprovalList'
@@ -61,7 +62,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       <RequestForm myAssets={myAssets} locations={locations} loanable={loanable} />
 
       <Card pad={false}>
-        <ApprovalList approvals={visibleApprovals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} initialSel={sel} today={today()} slaDays={s.opsPolicy.approvalSlaDays} />
+        <ApprovalList approvals={visibleApprovals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} canApprove={can('신청 · 결재', '결재', session.role)} initialSel={sel} today={today()} slaDays={s.opsPolicy.approvalSlaDays} />
       </Card>
 
       <div className="callout">

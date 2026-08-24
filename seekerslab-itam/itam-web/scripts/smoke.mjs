@@ -278,6 +278,10 @@ try {
   check('대시보드 최근 공지: 부서 지정 공지가 대상 밖 사용자에게 미노출(유출 방지)', !dashUserHtml.includes('ZZMKTGSCOPE'))
   const dashAdminHtml = await (await get('/dashboard', 'ADMIN')).text()
   check('대시보드 최근 공지: 부서 지정 공지가 Admin 에겐 노출(스코핑이지 소실 아님 · 양성 대조)', dashAdminHtml.includes('ZZMKTGSCOPE'))
+  // '내 결재 차례'·결재함 배지는 실제로 결재함에서 처리할 수 있는 건만 세야 한다 — 소유자 확인은 결재(decide)가 아니라
+  //  요청받은 부서의 응답(answerOwnerConfirm)이라 서버가 거부하고 결재함도 승인 버튼을 내주지 않는다.
+  //  Admin 은 역할 오버라이드로 전부 통과하므로 시드의 대기 소유자 확인 2건(APR-2607-114·109)이 그대로 큐에 섞여 13건으로 보였다(→ 11).
+  check('대시보드: 결재 큐가 소유자 확인(결재 아님)을 세지 않음 — 들어가도 처리 못 하는 건 제외', dashAdminHtml.includes('결재함 <!-- -->11<!-- --> →'))
   // 운영 대기 우선순위 — 큐가 화면마다 흩어져 20여 개로 늘어, 긴급(err)을 주의(warn)보다 위로 정렬하고 헤더에 긴급·주의 집계를 노출.
   check('대시보드: 운영 대기 긴급·주의 요약 헤더', dashHtml.includes('긴급 ') && dashHtml.includes('주의 '))
   // 긴급 우선 정렬 검증 — err 큐(라이선스 초과 사용)가 warn 큐(입고 검수 대기)보다 앞. 삽입 순서(입고가 먼저)와 반대여야 정렬이 동작.
@@ -1226,6 +1230,12 @@ try {
   check('공통코드: 명칭 수정 · 미사용 관리 컨트롤 렌더', codeHtml.includes('수정') && /class="[^"]*btn[^"]*sm/.test(codeHtml))
   // 참조 무결성 — 코드별 참조 수(사용 중 N건)를 표기해 미사용 전환 가드의 근거를 드러낸다. 기본 그룹 ASSET_CATEGORY 의 단말은 다수 자산이 참조.
   check('공통코드: 참조 수 표기(사용 중 N건 · 미사용 전환 가드 근거)', codeHtml.includes('건 사용 중') && codeHtml.includes('참조'))
+  // 참조 집계 커버리지 — 화면은 '사용 중 N건'을 이관 기준으로 제시하므로, 참조 필드를 하나라도 빠뜨리면
+  //  그 N건만 옮겨도 가드가 열리고 세지 않은 레코드가 사라진 코드를 붙든 채 남는다(드롭다운 재선택 불가 사각지대).
+  //  자산 유형은 대장 말고도 도입 로트(채번 전)·AI 자동분류 확정/제안 유형·자산 신청 희망 유형이 참조한다 —
+  //  시드 단말 28건(대장 21 + 로트·분류·희망 유형 7), 주변기기 6건(대장 3 + 3). 대장만 세면 21·3 이었다.
+  const usedCount = (n) => codeHtml.includes(`>${n}<!-- -->건 사용 중`) // React SSR 은 {used}건 사용 중 을 텍스트 노드 둘로 쪼갠다
+  check('공통코드: 유형 참조 수에 대장 밖 참조(도입 로트·AI 분류·신청 희망 유형) 포함', usedCount(28) && usedCount(6))
   const aiHtml = await (await get('/settings/ai-policy', 'ADMIN')).text()
   check('AI 정책: 실행 환경·거버넌스 렌더', aiHtml.includes('온프레미스 LLM') && aiHtml.includes('권한 범위 필터'))
   // 외부 반출 통제(§05 실행 환경) — 온프레미스는 외부 반출 차단, 외부 API 연계는 비식별 처리 후 반출. 표시가 아니라 강제.
