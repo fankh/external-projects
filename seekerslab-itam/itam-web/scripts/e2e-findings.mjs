@@ -4001,6 +4001,23 @@ try {
   const dgAfter = (await pDG2.locator('body').textContent()) || ''
   ok('상위 이탈 저하: 반납대기(회수) 상위가 하위 상세에 저하 경고로 노출(분실·수리중과 같은 판정)',
     dgAfter.includes('저하된 상위') && dgAfter.includes('AST-2023-000561'))
+  // 하위 의존 담당 부서 통지(로75) — 그동안 의존 그래프는 "변경·정비 시 사전 통지 대상"이라고 말만 하고 통지 경로가 없었다.
+  await pDG2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const impactBtn = pDG2.locator('button', { hasText: /^의존 영향 통지 \(\d+\)$/ })
+  ok('의존 영향 통지: 저하·이탈 상위가 생기면 통지 버튼 노출(대상 건수 표기)', (await impactBtn.count()) > 0)
+  await impactBtn.first().click()
+  await pDG2.waitForTimeout(900)
+  const impactBody = (await pDG2.locator('body').textContent()) || ''
+  ok('의존 영향 통지: 발송 성공 메시지(하위 담당 부서 점검 요청)', /의존 영향 통지 \d+건 발송/.test(impactBody))
+  await pDG2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  // 발송 이력 행만 고른다 — 같은 화면의 감사 로그 행도 '…의존 영향 통지 발송'을 포함해 종류 문자열만으로는 안 갈린다.
+  const impactRow = pDG2.locator('tr', { hasText: '상위 의존 자산 이탈' }).first()
+  const impactRowText = (await impactRow.textContent()) || ''
+  ok('의존 영향 통지: 발송 이력에 상위·영향 하위 자산이 함께 남는다(감사 추적)',
+    impactRowText.includes('AST-2023-000561') && impactRowText.includes('AST-2024-000618'))
+  await pDG2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  ok('의존 영향 통지: 당일 중복 발송 차단 — 발송 뒤 버튼 소멸(화면 건수 = 액션 결과)',
+    (await pDG2.locator('button', { hasText: /^의존 영향 통지 \(\d+\)$/ }).count()) === 0)
   await ctxDG2.close()
   await browser.close()
 } catch (err) {

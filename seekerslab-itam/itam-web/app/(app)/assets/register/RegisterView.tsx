@@ -11,7 +11,7 @@ import { assetDependenciesFrom } from '@/lib/cmdb-graph'
 import { TopologyDiagram } from './TopologyDiagram'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, notifyEolUpgrade, reassignAsset, reassignAssetMany, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, releaseQuarantine, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, requestReturn, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
+import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, notifyDependencyImpact, notifyEolUpgrade, reassignAsset, reassignAssetMany, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, releaseQuarantine, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, requestReturn, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -35,7 +35,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -116,6 +116,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [rcptRemindMsg, setRcptRemindMsg] = useState<string | null>(null)
   const [maintRemindMsg, setMaintRemindMsg] = useState<string | null>(null)
   const [eolNoticeMsg, setEolNoticeMsg] = useState<string | null>(null)
+  const [impactMsg, setImpactMsg] = useState<string | null>(null)
   const [recoverOpen, setRecoverOpen] = useState(false)
   const [recoverReason, setRecoverReason] = useState('')
   const [recoverMsg, setRecoverMsg] = useState<string | null>(null)
@@ -355,6 +356,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             EOL 업그레이드 통보 ({props.eolNoticeCount})
           </button>
         )}
+        {props.canManage && (props.impactNoticeCount ?? 0) > 0 && (
+          <button className="btn sm danger" disabled={pending}
+            onClick={() => startTransition(async () => setImpactMsg((await notifyDependencyImpact()).message))}
+            title="회수·분실·수리·폐기 절차로 운영에서 빠진 상위 자산에 물린 하위 자산의 담당 부서에 영향을 통지한다 (당일 중복 발송 차단)">
+            의존 영향 통지 ({props.impactNoticeCount})
+          </button>
+        )}
         <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
         {props.canExport && (
           <a className="btn sm" style={{ marginLeft: 'auto' }} download
@@ -372,6 +380,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       {rcptRemindMsg && <div className="callout" style={{ marginBottom: 10 }}>{rcptRemindMsg}</div>}
       {maintRemindMsg && <div className="callout" style={{ marginBottom: 10 }}>{maintRemindMsg}</div>}
       {eolNoticeMsg && <div className="callout" style={{ marginBottom: 10 }}>{eolNoticeMsg}</div>}
+      {impactMsg && <div className="callout" style={{ marginBottom: 10 }}>{impactMsg}</div>}
 
       {(views.length > 0 || filterActive) && (
         <div className="hstack" style={{ gap: 6, padding: '8px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>

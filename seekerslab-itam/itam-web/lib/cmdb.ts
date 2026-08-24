@@ -1,6 +1,8 @@
 /** CMDB 의존 관계(서버) — 순수 그래프 코어(cmdb-graph)를 현재 스토어로 감싼다.
  *  상위 장애 시 영향받는 하위(blast radius)·저하 상위를 대장 스냅샷에서 산출한다(§ CMDB). 읽기 전용 합성 뷰. */
 import { assetDependenciesFrom, isDegraded } from './cmdb-graph'
+import { today } from './dates'
+import { dispatch } from './notify'
 import { getStore } from './store'
 import type { Asset } from './types'
 
@@ -26,6 +28,41 @@ export function clearDependencyRefs(assetNo: string): string[] {
     cleared.push(a.assetNo)
   }
   return cleared
+}
+
+/** 상위 자산 이탈 통지 — 상위(이 자산)가 저하·이탈 상태로 바뀌거나 대장에서 사라질 때, 그 자산에 직접 의존하는
+ *  하위 자산의 소유 부서에 영향 사실을 알린다(제품안내서 §04 CMDB 의존·영향 분석 — "변경·정비 시 사전 통지 대상").
+ *  그전에는 의존 그래프가 화면·AI 답변에서 '사전 통지 대상'이라고 말만 하고 실제로 통지를 보내는 경로가 없어,
+ *  상위가 회수·수리·분실·폐기로 빠져도 하위 담당 부서는 자기 자산 상세를 열어 보기 전에는 알 수 없었다.
+ *  부서 단위로 한 통씩(자산번호 열거) 보내고 같은 상위·같은 부서에 대한 당일 중복 발송은 막는다(독촉 규약과 동일).
+ *  반환: 통지한 부서 목록. 서버 전용. */
+export function notifyDependents(assetNo: string, reason: string): string[] {
+  const s = getStore()
+  const upstream = s.assets.find((a) => a.assetNo === assetNo)
+  const deps = s.assets.filter((a) => (a.dependsOn ?? []).includes(assetNo))
+  if (!upstream || deps.length === 0) return []
+  const t = today()
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === '의존 영향 통지' && m.ref === assetNo && m.at.startsWith(t)).map((m) => m.to),
+  )
+  const byDept = new Map<string, string[]>()
+  for (const d of deps) {
+    const dept = d.dept || '자산관리팀'
+    byDept.set(dept, [...(byDept.get(dept) ?? []), `${d.assetNo} ${d.model}`])
+  }
+  const notified: string[] = []
+  for (const [dept, rows] of byDept) {
+    if (sentToday.has(dept)) continue
+    dispatch({
+      channel: '이메일',
+      to: dept,
+      subject: `상위 의존 자산 이탈 — ${upstream.assetNo} ${upstream.model} ${reason} · 영향 자산 ${rows.length}대(${rows.join(', ')}) 점검 요청`,
+      kind: '의존 영향 통지',
+      ref: assetNo,
+    })
+    notified.push(dept)
+  }
+  return notified
 }
 
 /** 영향 소스 — 저하/이탈 상태이면서 하위 의존 자산이 있는 자산(장애 시 blast radius > 0). 운영 리스크 큐용. */

@@ -1,4 +1,5 @@
 import { isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceOverdue, isQnaOverdue, isRepairEtaMissing, isRepairOverdue, today } from './dates'
+import { impactSources } from './cmdb'
 import { missingContractDocs } from './contract'
 import { isEolTarget } from './eol'
 import { buildMaintenance } from './maintenance'
@@ -54,6 +55,24 @@ export function loanRemindTargets(): Asset[] {
 export function repairRemindTargets(): Asset[] {
   const sent = sentTodayRefs('수리 독촉')
   return getStore().assets.filter((a) => !!a.repair && (isRepairOverdue(a) || isRepairEtaMissing(a)) && !sent.has(a.assetNo))
+}
+
+/** 하위 의존 영향 통지 대상 — 저하·이탈(분실·폐기·수리중·반납대기) 상태이면서 하위 의존 자산이 있는 상위 자산 중,
+ *  아직 오늘 통지하지 않은 담당 부서가 남아 있는 것. 화면 버튼 건수와 액션 결과가 같은 집합을 보도록 여기 한 곳에서 센다
+ *  (수령·정기 점검·EOL 통보와 같은 규약 — 보낸 뒤에도 버튼이 같은 건수로 남는 유령 컨트롤 방지). */
+export function impactNoticeTargets(): { asset: Asset; depts: string[]; dependents: string[] }[] {
+  const s = getStore()
+  const t = today()
+  return impactSources()
+    .map(({ asset }) => {
+      const dependents = s.assets.filter((a) => (a.dependsOn ?? []).includes(asset.assetNo))
+      const sent = new Set(
+        s.dispatches.filter((m) => m.kind === '의존 영향 통지' && m.ref === asset.assetNo && m.at.startsWith(t)).map((m) => m.to),
+      )
+      const depts = [...new Set(dependents.map((d) => d.dept || '자산관리팀'))].filter((d) => !sent.has(d))
+      return { asset, depts, dependents: dependents.map((d) => d.assetNo) }
+    })
+    .filter((x) => x.depts.length > 0)
 }
 
 /** QnA 답변 독촉 대상 — SLA 경과 미답변 문의(오늘 발송분 제외). */
