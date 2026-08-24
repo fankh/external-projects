@@ -506,7 +506,8 @@ export default async function DashboardPage() {
           )}
 
           <Card kicker="AI Intelligence" title="AI 제안 Top 3"
-            actions={<Link className="btn sm ghost" href="/ai/insights">전체</Link>}>
+            /* 사용자 권한그룹은 AI 제안 화면을 열 수 없다 — 카드(요약)는 그대로 두되 '전체' 링크는 내주지 않는다(막다른 길 방지) */
+            actions={session.role !== 'USER' ? <Link className="btn sm ghost" href="/ai/insights">전체</Link> : undefined}>
             <div className="vstack" style={{ gap: 12 }}>
               {topInsights.map((i) => (
                 <div key={i.id}>

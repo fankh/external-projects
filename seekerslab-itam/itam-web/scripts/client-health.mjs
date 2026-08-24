@@ -65,6 +65,7 @@ try {
   const browser = await chromium.launch({ executablePath: EXE, headless: true })
 
   const checkRoutes = async (acct, routes, tag) => {
+    const badLinks = []
     const ctx = await browser.newContext()
     await ctx.addCookies([cookie(acct)])
     for (const route of routes) {
@@ -82,12 +83,28 @@ try {
         httpStatus = res ? res.status() : 0
         await page.waitForTimeout(400)
         crashed = (await page.content()).includes('client-side exception')
+      // 화면에 놓인 내부 링크가 이 권한그룹이 열 수 있는 화면을 가리키는지 — 못 여는 화면으로 보내는 링크는
+      //  눌러야 대시보드로 튕기는 막다른 길이다(권한 없으면 컨트롤을 내주지 않는다는 규약의 링크판).
+      //  내비 정의(menus.ts)에 있는 경로만 판정한다 — /login·/api·외부 링크는 대상이 아니다.
+      try {
+        const hrefs = await page.$$eval('a[href^="/"]', (as) => as.map((a) => a.getAttribute('href') || ''))
+        for (const raw of hrefs) {
+          const path0 = raw.split('?')[0].split('#')[0]
+          const allowed = ROUTE_ROLES[path0]
+          if (!allowed || allowed.includes(acct.role)) continue
+          badLinks.push(`${route} → ${path0}`)
+        }
+      } catch (e) { badLinks.push(`${route} → 링크 수집 실패: ${e.message}`) }
       } catch (e) { errs.push('GOTO: ' + e.message) }
       const ok = errs.length === 0 && !crashed && httpStatus < 400
       ok ? pass++ : fail++
       console.log(`${ok ? '✓' : '✗'} [${tag}] ${route}${ok ? '' : ' — ' + (httpStatus >= 400 ? `HTTP ${httpStatus}; ` : '') + (crashed ? 'client-side exception; ' : '') + errs.slice(0, 2).join(' | ')}`)
       await page.close()
     }
+    // 역할당 한 건으로 집계 — 링크마다 세면 화면 구성이 바뀔 때 검사 수가 흔들린다.
+    const linkOk = badLinks.length === 0
+    linkOk ? pass++ : fail++
+    console.log(`${linkOk ? '✓' : '✗'} [${tag}] 링크 권한 정합 — 접근 불가 화면으로 가는 링크 없음${linkOk ? '' : ' — ' + [...new Set(badLinks)].slice(0, 6).join(', ')}`)
     await ctx.close()
   }
 

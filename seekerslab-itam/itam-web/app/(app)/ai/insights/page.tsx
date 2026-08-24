@@ -81,7 +81,7 @@ export default async function InsightsPage() {
 
       <AutoClassify />
 
-      <AnomalyDetection />
+      <AnomalyDetection role={session.role} />
 
       <LifecyclePrediction canNotify={['ASSET_MGR', 'ADMIN'].includes(session.role)} />
 

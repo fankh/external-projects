@@ -2,13 +2,15 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { entityHref } from '@/lib/reflink'
+import { canOpenRoute } from '@/components/chrome/menus'
+import type { Role } from '@/lib/types'
 import type { Dispatch } from '@/lib/types'
 import { resendDispatch } from './actions'
 
 /** 알림 발송 이력 — 발송이 쌓이므로 그대로 나열하면 스캔이 불가능하다.
  *  수신·제목·연결문서 검색 + 종류·채널 필터로 발송 증적 추적을 실사용 가능하게 한다.
  *  전달 실패(반송·게이트웨이 오류) 건은 상태로 드러내고 재발송으로 닫는다(§06 이메일·문자 발송 신뢰성). */
-export function NotificationLog({ dispatches, canExport, canManage }: { dispatches: Dispatch[]; canExport?: boolean; canManage?: boolean }) {
+export function NotificationLog({ dispatches, canExport, canManage, role }: { dispatches: Dispatch[]; canExport?: boolean; canManage?: boolean; role: Role }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const resend = (id: string) => startTransition(async () => setMsg((await resendDispatch(id)).message))
@@ -81,6 +83,9 @@ export function NotificationLog({ dispatches, canExport, canManage }: { dispatch
                     <td className="code">
                       {(() => {
                         const link = entityHref(m.ref)
+                        // 열 수 없는 화면으로 가는 참조는 링크로 내주지 않는다 — 보안담당이 감사 로그의 계약 참조를 누르면
+                        //  계약 화면 권한이 없어 대시보드로 튕긴다. 참조 번호는 텍스트로 그대로 남긴다(증적 가치 유지).
+                        if (link && !link.external && !canOpenRoute(link.href, role)) return m.ref ?? '-'
                         if (!link) return m.ref ?? '-'
                         return (
                           <a href={link.href} title="연결 문서 열기" style={{ color: 'var(--accent-deep)' }}
