@@ -56,7 +56,11 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId].some((f) => f?.toLowerCase().includes(q))
       })
       .map((a) => [
-        a.assetNo, a.category, a.model, a.serial, a.status, a.criticality ?? '일반', a.owner, a.dept, a.location,
+        a.assetNo, a.category, a.model, a.serial, a.status,
+        // NAC 격리 — 화면(대장 목록·상세)은 상태 칩 옆에 '격리' 칩을 세우는데 반출본에는 없어, 엑셀만 보면
+        //  망이 끊긴 자산이 '사용중' 정상 자산으로 읽혔다(재고 가용·재배정·대여는 이미 격리를 빼는데 반출만 몰랐다).
+        a.quarantinedAt ? `격리 ${a.quarantinedAt}` : '',
+        a.criticality ?? '일반', a.owner, a.dept, a.location,
         a.os ?? '', a.cpu ?? '', a.memory ?? '', a.ip ?? '', a.mac ?? '',
         a.purchaseDate, a.warrantyEnd,
         ({ covered: '보증 내', soon: '만료 임박', expired: '보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())],
@@ -71,7 +75,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       ])
     return [{
       name: '자산 대장',
-      header: ['자산번호', '유형', '모델', 'S/N', '상태', '업무 중요도', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '보증상태', '최근 실측', '정기 점검 예정', '계약', '발견채널', '대여 반환 기한', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
+      header: ['자산번호', '유형', '모델', 'S/N', '상태', 'NAC 격리', '업무 중요도', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '보증상태', '최근 실측', '정기 점검 예정', '계약', '발견채널', '대여 반환 기한', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
       rows,
     }]
   }
