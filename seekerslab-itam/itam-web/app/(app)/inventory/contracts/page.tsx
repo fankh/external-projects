@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
@@ -19,13 +20,25 @@ import { UsageCollect } from './UsageCollect'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string; lic?: string }> }) {
+export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string; lic?: string; maint?: string; seat?: string }> }) {
   const session = await requireView('/inventory/contracts', 'ASSET_MGR', 'ADMIN')
-  const { sel, lic } = await searchParams
+  const { sel, lic, maint: maintFilter, seat: seatFilter } = await searchParams
   const s = getStore()
   const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
   const usage = buildLicenseUsage()
   const maint = buildMaintenance()
+  // 대시보드 유지보수·좌석 큐의 드릴다운 — 큐가 "SLA 위반 1건"이라 말하면 링크가 여는 화면도 그 1건을 보여야 한다.
+  //  그동안 이 네 큐(예산 초과·소진 임박 / 미집행 / SLA 위반 / 미설치 좌석)만 필터 없이 계약 화면 맨 위로 보내,
+  //  담당자가 긴 표에서 해당 계약을 눈으로 찾아야 했다(라이선스 큐는 ?lic= 로 이미 좁혀서 연다).
+  const MAINT_FILTER: Record<string, { label: string; hit: (r: (typeof maint.rows)[number]) => boolean }> = {
+    budget: { label: '예산 초과 · 소진 임박', hit: (r) => r.status === '예산 초과' || r.status === '소진 임박' },
+    exec: { label: '미집행 (이행 확인)', hit: (r) => r.status === '미집행' },
+    sla: { label: 'SLA 위반 (대응 시한 초과)', hit: (r) => r.slaBreach > 0 },
+  }
+  const maintPick = maintFilter ? MAINT_FILTER[maintFilter] : undefined
+  const maintRows = maintPick ? maint.rows.filter(maintPick.hit) : maint.rows
+  const seatPick = seatFilter === 'unused'
+  const usageRows = seatPick ? usage.rows.filter((r) => r.unusedSeat.length > 0) : usage.rows
   const proc = buildProcurement()
   const canEditLicense = ['ASSET_MGR', 'ADMIN'].includes(session.role)
 
@@ -66,6 +79,11 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <MaintenanceSlaButton alert={maintenanceSlaTargets().length} />
         </span>}
       >
+        {maintPick && (
+          <div className="callout" style={{ margin: 14 }}>
+            <b>{maintPick.label} 필터</b> — {maintRows.length}건 표시 (전체 {maint.rows.length}건) · <Link href="/inventory/contracts">전체 보기</Link>
+          </div>
+        )}
         <div className="stat-row" style={{ margin: 14 }}>
           <Stat value={`${ratioPct(maint.totalSpent, maint.totalAmount)}%`} label="전체 집행률" delta={{ text: `잔여 ${fmtAmount(maint.totalAmount - maint.totalSpent)}원`, dir: 'flat' }} />
           <Stat value={maint.rows.length} label="유지보수 계약" />
@@ -83,7 +101,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
               </tr>
             </thead>
             <tbody>
-              {maint.rows.map((r) => (
+              {maintRows.map((r) => (
                 <tr key={r.id}>
                   <td className="strong">{r.name}</td>
                   <td className="mute">{r.vendor}</td>
@@ -100,7 +118,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="c"><Chip tone={r.status === '예산 초과' ? 'err' : r.status === '소진 임박' || r.status === '미집행' ? 'warn' : 'ok'}>{r.status}</Chip></td>
                 </tr>
               ))}
-              {maint.rows.length === 0 && <tr><td colSpan={10}><div className="empty">유지보수 계약이 없습니다</div></td></tr>}
+              {maintRows.length === 0 && <tr><td colSpan={10}><div className="empty">{maintPick ? `${maintPick.label} 대상 계약이 없습니다` : '유지보수 계약이 없습니다'}</div></td></tr>}
             </tbody>
           </table>
         </div>
@@ -194,6 +212,11 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         pad={false}
         actions={<UsageCollect lastCollectedAt={usage.lastCollectedAt} canEdit={canEditLicense} />}
       >
+        {seatPick && (
+          <div className="callout" style={{ margin: 14 }}>
+            <b>미설치 좌석(회수 후보) 필터</b> — 라이선스 {usageRows.length}건 표시 · 좌석 {usage.totalUnusedSeat}석 · <Link href="/inventory/contracts">전체 보기</Link>
+          </div>
+        )}
         <div className="stat-row" style={{ margin: 14 }}>
           <Stat value={usage.totalInstalls} label="설치 관측 (EDR 인벤토리)" />
           <Stat value={usage.totalOffSeat} label="배정 밖 설치 — 무단 사용" tone={usage.totalOffSeat ? 'err' : 'ok'} />
@@ -209,7 +232,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
               </tr>
             </thead>
             <tbody>
-              {usage.rows.map((r) => (
+              {usageRows.map((r) => (
                 <tr key={r.id}>
                   <td className="strong">{r.name}</td>
                   <td className="num tnum">{r.purchased}</td>
@@ -221,7 +244,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="tnum">{r.collectedAt ?? <span className="dim">미수집</span>}</td>
                 </tr>
               ))}
-              {usage.rows.length === 0 && <tr><td colSpan={8}><div className="empty">대사 대상 라이선스가 없습니다</div></td></tr>}
+              {usageRows.length === 0 && <tr><td colSpan={8}><div className="empty">{seatPick ? '미설치 좌석(회수 후보)이 있는 라이선스가 없습니다' : '대사 대상 라이선스가 없습니다'}</div></td></tr>}
             </tbody>
           </table>
         </div>
