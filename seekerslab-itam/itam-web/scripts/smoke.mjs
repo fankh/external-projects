@@ -1927,6 +1927,18 @@ try {
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.
+  // 재배치 대기 풀(유휴·반납대기)도 같은 규약 — 재고 집계 칸·리포트 서술·실사 위치 판정이 함께 쓰는 한 묶음이라
+  //  각자 배열을 적으면 상태가 늘 때 한쪽만 세는 갈림이 생긴다. 수명주기 단계표는 화면 구성(단계 그룹)이라 제외한다.
+  const idleLiteral = sourceFiles
+    .filter((f) => {
+      const rel = path.relative(ROOT, f).split(path.sep).join("/")
+      return rel !== "lib/types.ts" && rel !== "app/(app)/assets/lifecycle/page.tsx"
+    })
+    .filter((f) => readFileSync(f, "utf8").includes("['유휴', '반납대기'].includes("))
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check("재배치 대기 풀 판정: 상태 묶음을 코드에 직접 적은 곳이 없다(IDLE_POOL_STATUSES 단일 정의)",
+    idleLiteral.length === 0, `직접 목록=${idleLiteral.join(", ")}`)
+
   // 목록을 직접 적은 곳이 새로 생기는지도 훑는다 — 참조 파일 목록만 검사하면 새 파일이 조용히 자기 목록을 갖는다
   //  (재물조사 마감 가드가 그렇게 상태 셋을 직접 적고 있었다). 배열 리터럴 형태로만 잡아 상태 드롭다운 전체 목록은 건드리지 않는다.
   const goneLiteral = sourceFiles
