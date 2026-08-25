@@ -32,6 +32,11 @@ export const GONE_STATUSES: AssetStatus[] = ['분실', '폐기예정', '폐기�
  *  분실은 되찾을 수 있어 여기 넣지 않는다 — 분실까지 합친 상위 개념이 GONE_STATUSES 다. */
 export const DISPOSAL_STATUSES: AssetStatus[] = ['폐기예정', '폐기완료']
 
+/** 종료(터미널) 상태 — 실물이 확정적으로 사라진 자산(분실·폐기완료). 계약 일괄 연계·라이선스 좌석 배정이
+ *  "여기엔 더 붙이지 않는다"는 같은 규칙을 쓴다. 폐기예정·반납대기는 각각 소거·반납 접수 때 좌석을 회수하는
+ *  트리거가 남아 있어 제외한다(영구 누수가 아니다). 서버 가드와 화면 컨트롤이 이 한 판정을 공유한다. */
+export const TERMINAL_STATUSES: AssetStatus[] = ['분실', '폐기완료']
+
 export interface AssetHistoryItem {
   date: string
   kind: '등록' | '불출' | '이동' | '구성변경' | '점검' | '반납' | '폐기' | '편입' | '보증연장' | '수리' | '분실' | '대여'

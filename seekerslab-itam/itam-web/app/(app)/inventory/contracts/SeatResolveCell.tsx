@@ -1,4 +1,5 @@
 'use client'
+import { TERMINAL_STATUSES } from '@/lib/types'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { assignLicenseSeat, requestOffSeatRemoval, unassignLicenseSeat } from './actions'
@@ -32,7 +33,7 @@ export function SeatResolveCell({ licenseId, assets, kind, canEdit }: { licenseI
           <span className="dim">{a.assetNo} ({a.label})</span>
           {/* 종료 상태(분실·폐기완료) 자산은 서버가 좌석 배정을 거부한다 — 버튼 대신 이유를 적는다.
               제거 요청도 의미가 없다(실물이 없어 소거할 대상이 없다). 설치 기록은 폐기 소거 시 정리된다. */}
-          {canEdit && a.status && ['분실', '폐기완료'].includes(a.status)
+          {canEdit && a.status && (TERMINAL_STATUSES as string[]).includes(a.status)
             ? <span className="mut">{a.status} — 좌석 배정 불가</span>
             : <>
           {canEdit && <button className="btn sm ghost" disabled={pending}

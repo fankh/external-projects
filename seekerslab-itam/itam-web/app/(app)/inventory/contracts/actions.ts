@@ -1,4 +1,5 @@
 'use server'
+import { TERMINAL_STATUSES } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { missingContractDocs } from '@/lib/contract'
@@ -540,7 +541,7 @@ export async function assignLicenseSeat(licenseId: string, rawAssetNo: string) {
   // 종료(터미널) 상태 자산에는 좌석을 배정할 수 없다 — 좌석 자동 회수(reclaimLicenseSeats)는 이탈 '시점'에만 돌므로,
   // 이미 분실·폐기 확정된 자산에 새로 배정하면 회수 트리거가 다시 돌지 않아 좌석이 영구히 물려 보유 초과·사용량 과대·SAM 배정 대장 오기록으로 샌다(로56 좌석 생애주기 무결성).
   // (폐기예정은 recordWipe 시, 반납대기는 반납 접수 시 좌석을 회수하므로 영구 누수가 아니다 — 종료 확정 상태만 막는다.)
-  if (['분실', '폐기완료'].includes(asset.status)) {
+  if (TERMINAL_STATUSES.includes(asset.status)) {
     return { ok: false, message: `종료 상태(${asset.status}) 자산에는 좌석을 배정할 수 없습니다 — ${assetNo} (좌석 누수 방지).` }
   }
   lic.seats ??= []

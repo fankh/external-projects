@@ -1927,6 +1927,15 @@ try {
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.
+  // 종료(터미널) 상태(분실·폐기완료)도 같은 규약 — 계약 일괄 연계·좌석 배정 가드와 그 화면 컨트롤이 함께 쓰는
+  //  판정이라, 각자 적으면 서버는 거절하는데 화면은 버튼을 내주는(또는 그 반대) 갈림이 생긴다.
+  const terminalLiteral = sourceFiles
+    .filter((f) => path.relative(ROOT, f).split(path.sep).join("/") !== "lib/types.ts")
+    .filter((f) => readFileSync(f, "utf8").includes("['분실', '폐기완료'].includes("))
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check("종료 상태 판정: 상태 묶음을 코드에 직접 적은 곳이 없다(TERMINAL_STATUSES 단일 정의)",
+    terminalLiteral.length === 0, `직접 목록=${terminalLiteral.join(", ")}`)
+
   // 사용자 상신 종류(자산 신청·반납·이동·대여·SaaS 인가)도 같은 규약 — 재상신·상신 취소·결과 통보가 함께 쓰는
   //  묶음이라 각자 적으면 종류가 늘 때 어떤 경로에선 취소되고 어떤 경로에선 조용히 막히는 갈림이 생긴다.
   const kindLiteral = sourceFiles
