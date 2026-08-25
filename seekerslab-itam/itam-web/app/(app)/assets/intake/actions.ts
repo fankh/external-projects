@@ -213,16 +213,25 @@ export async function remindIntakeOverdue() {
   return { ok: true, message: `입고 지연 독촉 ${n}건 발송 — 발주처에 납기 확인 요청 (발송 이력 적재)` }
 }
 
-export async function toggleCheck(lotId: string, item: string) {
+export async function toggleCheck(lotId: string, item: string): Promise<{ ok: boolean; message: string }> {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return
+  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '검수 권한이 없습니다 (자산담당·Admin).' }
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
   const c = lot?.checklist.find((x) => x.item === item)
-  if (!lot || !c) return
-  // 검수 진행 중인 로트만 체크리스트를 조작할 수 있다 — 검수 반려·반품 완료된 로트(체크리스트가 그대로 남음)를
-  // 재토글해 '검수 완료'로 되돌린 뒤 채번하면 이미 반품한 물품이 대장에 유령 자산으로 등록된다(재검수는 reinspectIntakeLot 로).
-  if (!['입고 대기', '검수 중'].includes(lot.status)) return
+  if (!lot || !c) return { ok: false, message: '검수 항목을 찾을 수 없습니다.' }
+  // 검수 반려·반품 완료된 로트(체크리스트가 그대로 남는다)를 재토글해 '검수 완료'로 되돌린 뒤 채번하면
+  // 이미 반품한 물품이 대장에 유령 자산으로 등록된다 — 되돌리려면 재검수(reinspectIntakeLot)를 거쳐야 한다.
+  // 거절은 화면이 읽을 수 있게 사유로 돌려준다(그동안 void 로 조용히 무시해, 눌러도 아무 일이 없었다).
+  if (['검수 반려', '반품 완료'].includes(lot.status)) {
+    return { ok: false, message: `${lot.status} 로트는 체크리스트를 조작할 수 없습니다 — 재검수로 입고 대기에 되돌린 뒤 진행하세요.` }
+  }
+  // 채번이 시작된 로트는 되돌리지 않는다 — 이미 대장에 오른 자산의 근거(검수 완료)를 사후에 무를 수 없다.
+  //  아직 채번 전이라면 검수 완료여도 되돌릴 수 있어야 한다(오검수 정정). 그동안은 검수 완료를 통째로 막아
+  //  아래 '완료 → 검수 중' 되돌림 분기가 닿지 않는 죽은 코드였고, 화면은 눌리는 체크박스를 계속 내줬다.
+  if (lot.issued.length > 0) {
+    return { ok: false, message: `이미 ${lot.issued.length}건 채번된 로트는 검수 결과를 되돌릴 수 없습니다.` }
+  }
   c.checked = !c.checked
   lot.inspector = session.name
   if (lot.status === '입고 대기') lot.status = '검수 중'
@@ -234,6 +243,7 @@ export async function toggleCheck(lotId: string, item: string) {
     appendAudit({ actor: session.name, action: `검수 완료 — ${lot.model} (로트 ${lot.id}) 체크리스트 전항목 확인 · 채번 가능`, target: lot.id })
   }
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${item} ${c.checked ? '확인' : '확인 해제'} — ${lot.checklist.filter((x) => x.checked).length}/${lot.checklist.length} (${lot.status})` }
 }
 
 /** 자산번호 채번 — 검수 완료분에 한해 대장에 등록하고 라벨 발행 대상이 된다 */

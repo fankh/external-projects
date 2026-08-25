@@ -1928,6 +1928,18 @@ try {
     expSrc.includes("'NAC 격리'") && expSrc.includes("a.quarantinedAt") && cardSrc.includes("a.quarantinedAt"),
     `엑셀 열=${expSrc.includes("'NAC 격리'")} 카드=${cardSrc.includes("a.quarantinedAt")}`)
 
+  // 조용한 거절 금지(입고 검수) — 서버가 값 없이 거절하면 화면은 거절 사실을 알 수 없어, 눌러도 아무 일이
+  //  없는 체크박스를 계속 내준다. 검수 토글은 사유가 있는 응답을 돌려주고, 화면은 같은 판정으로 잠근다.
+  const intakeSrc = readFileSync(path.join(ROOT, "app", "(app)", "assets", "intake", "actions.ts"), "utf8")
+  const intakeViewSrc = readFileSync(path.join(ROOT, "app", "(app)", "assets", "intake", "IntakeView.tsx"), "utf8")
+  const toggleAt = intakeSrc.indexOf("export async function toggleCheck")
+  const toggleEnd = toggleAt === -1 ? -1 : intakeSrc.indexOf("\n}", toggleAt)
+  const toggleBody = toggleAt === -1 ? "" : intakeSrc.slice(toggleAt, toggleEnd)
+  const silentReturn = toggleBody.split("\n").some((line) => line.trimEnd().endsWith("return"))
+  check("입고 검수 토글: 거절이 사유로 돌아오고 화면이 같은 판정으로 잠근다(조용한 거절 금지)",
+    !silentReturn && toggleBody.includes("ok: false") && intakeViewSrc.includes("checkLock"),
+    `값 없는 거절=${silentReturn} 사유 응답=${toggleBody.includes("ok: false")} 화면 잠금=${intakeViewSrc.includes("checkLock")}`)
+
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')
