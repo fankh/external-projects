@@ -956,6 +956,17 @@ try {
   check('자산 카드: 폐기 절차 아닌 자산에는 미표기(양성 대조)', !cardBody.includes('폐기 절차'))
   const assetsXlsx = Buffer.from(await (await get('/api/export/assets', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
   check('자산 대장 엑셀: 폐기 절차 열 + 진행 단계 반출', assetsXlsx.includes('폐기 절차') && assetsXlsx.includes('대상 선정'))
+  // 반환 기한 표기 — 날짜만 찍으면 인쇄물에서 연체인지 알 수 없다. 화면·대여 대장 엑셀·대여 확인서가 모두
+  //  연체·D-day 를 함께 밝히는데 카드만 맨 날짜였다(시드 AST-2023-000450 은 기한 경과분).
+  const cardLoanOver = await (await get('/api/asset-card/AST-2023-000450', 'ASSET_MGR')).text()
+  check('자산 카드: 연체 대여 자산의 반환 기한에 연체 표기', cardLoanOver.includes('반환 기한') && cardLoanOver.includes('연체'))
+  const cardLoanOk = await (await get('/api/asset-card/AST-2024-000995', 'ASSET_MGR')).text()
+  check('자산 카드: 기한 내 대여 자산은 D-day 표기(연체 아님)', cardLoanOk.includes('D-') && !cardLoanOk.includes('연체'))
+  // 최근 실측도 같은 문제였다 — 화면은 '장기 미실측' 칩·필터로 세는데 카드는 맨 날짜만 찍어, 인쇄물만으로는
+  //  이 자산이 실사 대상인지 알 수 없었다(시드 AST-2020-000883 은 실측 9개월 경과).
+  const cardStale = await (await get('/api/asset-card/AST-2020-000883', 'ASSET_MGR')).text()
+  check('자산 카드: 장기 미실측 자산의 최근 실측에 미실측 표기', cardStale.includes('최근 실측') && cardStale.includes('장기 미실측'))
+  check('자산 카드: 최근 실측이 최신인 자산에는 미표기(양성 대조)', !cardBody.includes('장기 미실측'))
   // 데이터 스코핑 — USER 는 본인 자산 카드만
   check('자산 카드: USER 본인 자산은 발급 (200)', (await get('/api/asset-card/AST-2023-000112', 'USER')).status === 200)
   check('자산 카드: USER 타인 자산은 차단 (403)', (await get('/api/asset-card/AST-2023-000561', 'USER')).status === 403)
