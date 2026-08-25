@@ -2840,15 +2840,15 @@ try {
   await p4.locator('button', { hasText: /^반품 완료 \(교체 없음\)$/ }).click()
   await p4.waitForTimeout(800)
   ok('도입·검수: 검수 반려 → 반품 완료 종결', (await p4.textContent('body')).includes('반품 완료'))
-  // 반품 완료 로트 체크리스트 재토글 가드 — 반품된 로트의 체크리스트를 전부 체크해도 '검수 완료'로 되돌아가 채번되면 안 된다
-  //  (이미 반품한 물품이 대장에 유령 자산으로 등록되는 것 방지). 채번 버튼이 계속 비활성이어야 한다.
+  // 반품 완료 로트 체크리스트 가드 — 반품된 로트를 다시 체크해 '검수 완료'로 되돌린 뒤 채번하면 이미 반품한 물품이
+  //  대장에 유령 자산으로 오른다. 서버는 이 토글을 거절했지만 화면은 눌리는 체크박스를 그대로 내줘, 눌러도 아무 일이
+  //  없는 '조용한 거절'이었다(사유도 없다). 이제 화면이 서버와 같은 판정으로 잠그고 왜 잠겼는지 밝힌다.
   {
     const insCard = p4.locator('.card', { hasText: '검수 체크리스트' })
     const items = insCard.locator('.vstack').first().locator(':scope > button')
-    const n = await items.count()
-    for (let i = 0; i < n; i++) { await items.nth(i).click(); await p4.waitForTimeout(60) }
-    await p4.waitForTimeout(300)
-    ok('도입·검수 가드: 반품 완료 로트 체크리스트 재토글해도 채번 불가(유령 자산 방지)', await insCard.locator('button', { hasText: /^자산번호 채번/ }).isDisabled())
+    ok('도입·검수 가드: 반품 완료 로트는 체크리스트가 잠기고 사유가 표기된다(조용한 거절 제거)',
+      (await items.first().isDisabled()) && ((await insCard.textContent()) || '').includes('재검수로 입고 대기에 되돌린 뒤'))
+    ok('도입·검수 가드: 반품 완료 로트 채번 불가 유지(유령 자산 방지)', await insCard.locator('button', { hasText: /^자산번호 채번/ }).isDisabled())
   }
   // 검수 완료 감사 — toggleCheck 가 검수 완료(채번 게이트) 전이를 감사에 안 남기던 공백. 입고 대기 로트(IN-2607-02)를 검수 완료하면 감사 로그에 '검수 완료 — 로트'가 남아야 한다(누가 QC 를 통과시켰는지 추적).
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
@@ -2860,6 +2860,15 @@ try {
     const n02 = await items02.count()
     for (let i = 0; i < n02; i++) { await items02.nth(i).click(); await p4.waitForTimeout(60) }
     await p4.waitForTimeout(300)
+    // 양성 대조 — 채번 전(issued 0) 검수 완료 로트는 오검수 정정을 위해 되돌릴 수 있어야 한다.
+    //  그동안 가드가 '검수 완료'까지 통째로 막아 화면의 체크박스는 눌러도 반응이 없었고, 서버의 '완료 → 검수 중'
+    //  되돌림 분기는 닿지 않는 죽은 코드였다(반려 컨트롤이 같은 이유로 먼저 열렸다).
+    await items02.first().click()
+    await p4.waitForTimeout(700)
+    ok('도입·검수: 채번 전 검수 완료 로트는 체크 해제로 검수 중 복귀(오검수 정정)',
+      ((await p4.locator('tr.clickable', { has: p4.locator('td', { hasText: 'IN-2607-02' }) }).first().textContent()) || '').includes('검수 중'))
+    await items02.first().click()  // 원복 — 뒤 검사(검수 완료 로트 반려 게이트)가 이 로트를 검수 완료 상태로 쓴다
+    await p4.waitForTimeout(700)
   }
   await p4.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   await p4.locator('input[placeholder="수행자·동작·대상 검색"]').fill('IN-2607-02')
@@ -3483,6 +3492,12 @@ try {
   await pWB.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   await pWB.locator('tr', { has: pWB.locator('td', { hasText: 'IN-2606-42' }) }).first().click()
   await pWB.waitForTimeout(300)
+  // 채번 직전 화면을 하나 더 열어 둔다 — 채번 뒤 이 스테일 화면의 체크리스트를 눌러, 화면 잠금과 무관하게
+  //  서버가 같은 판정으로 거절하는지 본다(화면 게이트만 있으면 열어 둔 탭 하나로 검수 근거가 뒤집힌다).
+  const ctxIQ = await browser.newContext(); await ctxIQ.addCookies([cookie(ASSET)]); const pIQ = await ctxIQ.newPage()
+  await pIQ.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  await pIQ.locator('tr', { has: pIQ.locator('td', { hasText: 'IN-2606-42' }) }).first().click()
+  await pIQ.waitForTimeout(300)
   await pWB.locator('button', { hasText: '자산번호 채번' }).first().click()
   await pWB.waitForTimeout(900)
   const wbMsg = (await pWB.textContent('body')) || ''
@@ -3492,6 +3507,18 @@ try {
   const wbBody = (await pWB.textContent('body')) || ''
   ok('채번 보증 기산: 도입일(입고일 2026-06-20)이 대장에 기록', wbBody.includes('2026-06-20'))
   ok('채번 보증 기산: 보증 만료 = 입고일 +3년(2029-06-20) — 채번일 기준으로 부풀리지 않음', wbBody.includes('2029-06-20'))
+  // 채번 시작 로트의 검수 근거 잠금 — 이미 대장에 오른 자산의 근거(검수 완료)를 사후에 무를 수 없다.
+  await pIQ.locator('.card', { hasText: '검수 체크리스트' }).locator('.vstack').first().locator(':scope > button').first().click()
+  await pIQ.waitForTimeout(800)
+  ok('입고 검수 잠금: 채번 시작 로트는 스테일 화면에서 눌러도 서버가 사유와 함께 거절',
+    ((await pIQ.textContent('body')) || '').includes('채번된 로트는 검수 결과를 되돌릴 수 없습니다'))
+  await pIQ.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  await pIQ.locator('tr', { has: pIQ.locator('td', { hasText: 'IN-2606-42' }) }).first().click()
+  await pIQ.waitForTimeout(300)
+  ok('입고 검수 잠금: 채번 시작 로트는 화면도 체크리스트를 잠그고 사유를 표기(막다른 컨트롤 방지)',
+    (await pIQ.locator('.card', { hasText: '검수 체크리스트' }).locator('.vstack').first().locator(':scope > button').first().isDisabled())
+    && ((await pIQ.locator('.card', { hasText: '검수 체크리스트' }).textContent()) || '').includes('채번 완료'))
+  await ctxIQ.close()
   await ctxWB.close()
   // 일괄 소거의 매각 제외 — 매각 대금은 건별이라 일괄로 받으면 대금 0 인 매각이 대장에 확정되고, 소거 완료 뒤에는
   //  대금을 기록할 경로가 없다(recordWipe 는 '소거 대기' 건만 받는다) → 회수 대금이 리포트·증적 대장에서 영구히 빠진다.

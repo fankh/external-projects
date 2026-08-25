@@ -64,6 +64,13 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: 
   const sel = arrivedLots.find((l) => l.id === selId) ?? arrivedLots[0]
   const selLabels = labels.filter((l) => sel?.issued.includes(l.assetNo))
   const done = sel ? sel.checklist.filter((c) => c.checked).length : 0
+  // 체크리스트 조작 가능 여부 — 서버(toggleCheck)와 같은 판정. 반려·반품 로트는 재검수 전까지, 채번이 시작된
+  //  로트는 영구히 잠긴다. 화면이 이 판정을 몰라 눌리는 체크박스를 계속 내주면 눌러도 아무 일이 없는
+  //  '조용한 거절'이 된다(막다른 컨트롤 방지 규약).
+  const checkLock = !sel ? null
+    : ['검수 반려', '반품 완료'].includes(sel.status) ? `${sel.status} 로트 — 재검수로 입고 대기에 되돌린 뒤 체크리스트를 진행합니다.`
+    : sel.issued.length > 0 ? `${sel.issued.length}건 채번 완료 — 검수 결과를 되돌릴 수 없습니다.`
+    : null
 
   return (
     <>
@@ -192,9 +199,10 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: 
           <Card kicker="Inspection" title={`검수 체크리스트 — ${sel.model}`}
             actions={<Chip tone={done === sel.checklist.length ? 'ok' : 'warn'}>{done}/{sel.checklist.length} 완료</Chip>}>
             <div className="vstack" style={{ gap: 7 }}>
+              {checkLock && <div className="mut" style={{ fontSize: 11.5 }}>{checkLock}</div>}
               {sel.checklist.map((c) => (
-                <button key={c.item} disabled={pending}
-                  onClick={() => startTransition(() => toggleCheck(sel.id, c.item))}
+                <button key={c.item} disabled={pending || !!checkLock} title={checkLock ?? undefined}
+                  onClick={() => startTransition(async () => { const r = await toggleCheck(sel.id, c.item); setMsg({ ok: r.ok, text: r.message }) })}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
                     padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, cursor: 'pointer',
