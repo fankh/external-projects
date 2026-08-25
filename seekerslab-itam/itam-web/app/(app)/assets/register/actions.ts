@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
+import { hasHolder, isPlaceholder } from '@/lib/quality'
 import { notifyDependents } from '@/lib/cmdb'
 import { addYears, isMaintenanceOverdue, isValidDate, today } from '@/lib/dates'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
@@ -198,8 +199,7 @@ export async function correctField(assetNo: string, field: StewardField, rawValu
   // 자리표시자는 값이 아니다 — 정합성 판정(lib/quality)이 보유자 미지정·위치 실사 확인 필요를 "없는 값"으로 보므로
   //  보정 경로도 같은 규약을 써야 한다. 판정은 미흡이라 하면서 보정은 "이미 값이 있다"고 거절하면, 화면이 내준
   //  보정 입력이 눌러야 막히는 막다른 컨트롤이 된다(값이 실재하는 변경만 이동·불출 결재로 보낸다).
-  const PLACEHOLDER_VALUES = ['-', '미지정', '실사 확인 필요']
-  if (before && !PLACEHOLDER_VALUES.includes(before)) return { ok: false, message: `${field} 은 이미 값이 있습니다 — 실물 변경은 이동·불출 결재로 처리하세요.` }
+  if (before && !isPlaceholder(before)) return { ok: false, message: `${field} 은 이미 값이 있습니다 — 실물 변경은 이동·불출 결재로 처리하세요.` }
 
   asset[key] = value
   // 소유자를 채우면 부서도 그 사람의 부서로 맞춘다 — 보유자와 부서가 갈리면 비용 배분·통지가 엉뚱한 부서로 간다
@@ -549,7 +549,7 @@ export async function returnLoan(assetNo: string, condition: ReturnCondition = '
   }
   asset.history.push({ date: today(), kind: condition === '폐기 권고' ? '폐기' : condition === '수리 필요' ? '수리' : '반납', detail: `대여 반환 접수 · 상태 점검 ${condition}${note ? ` — ${note}` : ''} (대여자 ${borrower}${overdue ? ' · 연체 반환' : ''})${freedSeats.length ? ` · 라이선스 좌석 ${freedSeats.length}석 회수` : ''}`, actor: session.name })
   // 대여자에게 반환 접수 결과를 통보한다(반납 접수 통보의 대여판) — 특히 수리 필요·폐기 권고는 파손 책임 안내가 필요하다.
-  const notified = borrower && borrower !== '미지정' && borrower !== '-'
+  const notified = hasHolder(borrower)
   if (notified) {
     dispatch({ channel: '이메일', to: borrower, subject: `대여 반환 접수 완료 — ${asset.assetNo} ${asset.model} · 점검 결과 ${condition}${note ? ` (${note})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
   }
@@ -578,7 +578,7 @@ export async function reportFault(assetNo: string, rawNote: string) {
   const note = rawNote.trim()
   if (!note) return { ok: false, message: '장애 증상을 입력해 주세요.' }
 
-  const reporter = asset.owner && asset.owner !== '미지정' && asset.owner !== '-' ? `${asset.owner}·${asset.dept}` : session.name
+  const reporter = hasHolder(asset.owner) ? `${asset.owner}·${asset.dept}` : session.name
   asset.status = '수리중'
   asset.faultNote = note // 수리 대기 화면에서 자산담당이 증상을 보고 업체·조치를 정하게 한다
   asset.history.push({ date: today(), kind: '수리', detail: `장애 신고 — ${note} (신고 ${session.name}, 보유 ${reporter})`, actor: session.name })
@@ -642,7 +642,7 @@ export async function recoverFromUser(assetNo: string, rawReason: string) {
   if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (오프보딩)`, actor: session.name })
   asset.receiptPending = undefined // 미확인 수령 대기 해제 — 보유자를 떠난 자산은 인수 대기 대상이 아니다(스테일 수령 미확인 방지)
   // 회수 통보 — 보유자(부서)에게 회수 사실을 알린다
-  if (holder && holder !== '미지정' && holder !== '-') {
+  if (hasHolder(holder)) {
     dispatch({ channel: '이메일', to: recipientOf(holder, asset.dept), subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
   }
   appendAudit({ actor: session.name, action: `자산 회수(반납 처리) — ${asset.model} (${holder})`, target: assetNo })
@@ -704,7 +704,7 @@ export async function recoverManyFromUser(assetNos: string[], rawReason: string)
     const freed = reclaimLicenseSeats(no, session.name, '오프보딩 일괄 회수')
     if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (오프보딩)`, actor: session.name })
     asset.receiptPending = undefined // 미확인 수령 대기 해제 (스테일 수령 미확인 방지)
-    if (holder && holder !== '미지정' && holder !== '-') {
+    if (hasHolder(holder)) {
       dispatch({ channel: '이메일', to: recipientOf(holder, asset.dept), subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
     }
     n += 1
@@ -991,7 +991,7 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
   const note = rawNote.trim()
   if (!note) return { ok: false, message: '분실·도난 정황(마지막 확인 위치·경위)을 입력해 주세요.' }
 
-  const holder = asset.owner && asset.owner !== '미지정' && asset.owner !== '-' ? `${asset.owner}·${asset.dept}` : asset.dept
+  const holder = hasHolder(asset.owner) ? `${asset.owner}·${asset.dept}` : asset.dept
   asset.status = '분실'
   asset.history.push({ date: today(), kind: '분실', detail: `${type} 신고 — ${note} (최종 보유 ${holder})`, actor: session.name })
   // 실물이 사라진 자산의 배정 라이선스 좌석을 회수한다(로56) — 폐기·반납과 같은 처리. 대체 기기에 좌석을 재배정할 수 있게 여유석으로 되돌린다.
@@ -1006,7 +1006,7 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
 
   // 보유자에게 신고 사실을 통보한다 — 회수(recoverFromUser)·반납·재배정처럼 '보유 이탈'은 당사자에게 알린다.
   // 분실·도난으로 배정 자산이 회수되고 라이선스 좌석이 회수됐음을 보유자가 알아야 한다(도난의 보안운영팀 통보와 별개로 당사자 통보).
-  if (asset.owner && asset.owner !== '미지정' && asset.owner !== '-') {
+  if (hasHolder(asset.owner)) {
     dispatch({ channel: '이메일', to: recipientOf(asset.owner, asset.dept), subject: `자산 ${type} 신고 — ${asset.assetNo} ${asset.model} 분실 처리 (${note})${freed.length ? ` · 라이선스 좌석 ${freed.length}건 회수` : ''}`, kind: '분실 신고', ref: asset.assetNo })
   }
 
@@ -1016,7 +1016,7 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
   }
   appendAudit({ actor: session.name, action: `${type} 신고 — ${asset.model} · ${note}`, target: assetNo })
   revalidatePath('/', 'layout')
-  const notified = Boolean(asset.owner && asset.owner !== '미지정' && asset.owner !== '-')
+  const notified = Boolean(hasHolder(asset.owner))
   return {
     ok: true,
     message: type === '도난'

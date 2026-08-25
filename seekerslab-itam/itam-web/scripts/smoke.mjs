@@ -1855,6 +1855,17 @@ try {
   check(`통지 중복 억제: 독촉·통보 ${dispatchKinds.length}종이 모두 당일 발송분을 거른다`,
     dispatchKinds.length >= 15 && dedupeMissing.length === 0, `누락=${dedupeMissing.join(", ")}`)
 
+  // 자리표시자 판정 단일 정의 — 보유자 미지정·위치 실사 확인 필요·- 는 "값이 아니다"라는 한 규약을 쓴다.
+  //  액션마다 `x !== '미지정' && x !== '-'` 를 따로 적으면 자리표시자가 하나 늘 때 일부만 고쳐지고,
+  //  통지가 아무에게도 아닌 이름으로 나가거나 정합성 큐에서 자산이 빠진다(lib/quality 의 isPlaceholder·hasHolder).
+  const holderInline = sourceFiles
+    .filter((f) => f.endsWith(".ts") || f.endsWith(".tsx"))
+    .filter((f) => !f.endsWith(["lib", "quality.ts"].join(path.sep)))
+    .filter((f) => new RegExp("!== '미지정' && ").test(readFileSync(f, "utf8")))
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check(`자리표시자 판정: 보유자 검사를 액션이 따로 적지 않는다(lib/quality 단일 정의)`,
+    holderInline.length === 0, `직접 판정=${holderInline.join(", ")}`)
+
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.

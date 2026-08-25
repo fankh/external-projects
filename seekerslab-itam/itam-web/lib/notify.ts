@@ -1,3 +1,4 @@
+import { hasHolder } from './quality'
 import { nowMinute } from './dates'
 import { getStore } from './store'
 import type { Dispatch } from './types'
@@ -7,7 +8,7 @@ import type { Dispatch } from './types'
  *  아무도 읽지 않는다(유휴·검수중 자산의 통지가 그렇게 샜다). 수신자를 만드는 곳은 이 함수 하나로 모은다. */
 export function recipientOf(owner: string | undefined, dept: string): string {
   const o = (owner ?? '').trim()
-  return o && o !== '-' && o !== '미지정' ? `${o} (${dept})` : dept
+  return hasHolder(o) ? `${o} (${dept})` : dept
 }
 
 /** 알림 발송 — 그룹웨어 메일·문자 채널로 나가는 통지의 단일 진입점.

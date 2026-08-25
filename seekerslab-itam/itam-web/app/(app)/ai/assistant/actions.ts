@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
+import { isPlaceholder } from '@/lib/quality'
 import { externalQueryAllowed, deidentify } from '@/lib/ai-egress'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
@@ -607,7 +608,8 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       bySite.set(si, cur)
     }
     // 특정 사이트를 지목했으면(예: "IDC-A 장비", "판교 자산") 그 위치의 자산 목록, 아니면 전체 분포.
-    const named = [...bySite.keys()].find((si) => si !== '미지정' && q.includes(si.toLowerCase()))
+    // 자리표시자 사이트('미지정')는 지목 대상이 아니다 — 판정은 lib/quality 한 곳(isPlaceholder).
+    const named = [...bySite.keys()].find((si) => !isPlaceholder(si) && q.includes(si.toLowerCase()))
     if (named) {
       const here = live.filter((a) => siteOf(a.location) === named)
       return {

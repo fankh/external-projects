@@ -1,4 +1,5 @@
 import { acquisitionCostOf, bookValueOf } from '@/lib/cost'
+import { hasHolder } from '@/lib/quality'
 import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -26,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const detail = lossEv?.detail ?? ''
   const type = detail.startsWith('도난') ? '도난' : '분실'
   const circumstance = detail.replace(/^(분실|도난) 신고 — /, '').replace(/ \(최종 보유 [^)]*\)$/, '') || '-'
-  const holder = a.owner && a.owner !== '미지정' && a.owner !== '-' ? `${a.owner} · ${a.dept}` : a.dept
+  const holder = hasHolder(a.owner) ? `${a.owner} · ${a.dept}` : a.dept
   const t = today()
   const book = acquisitionCostOf(a) > 0 ? bookValueOf(a, t).toLocaleString() : '-'
   const acq = acquisitionCostOf(a) > 0 ? acquisitionCostOf(a).toLocaleString() : '-'
