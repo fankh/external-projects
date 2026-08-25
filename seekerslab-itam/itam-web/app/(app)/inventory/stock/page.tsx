@@ -86,7 +86,7 @@ export default async function StockPage() {
                 </span>
               </Link>
             ))}
-            <div style={{ marginTop: 4 }}><ReorderButton /></div>
+            <div style={{ marginTop: 4 }}><ReorderButton sentToday={s.dispatches.some((d) => d.kind === '발주 요청' && d.at.startsWith(t))} /></div>
           </div>
         </Card>
       )}

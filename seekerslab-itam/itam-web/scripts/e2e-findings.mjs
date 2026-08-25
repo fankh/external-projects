@@ -1246,12 +1246,23 @@ try {
   await p2.goto(`${BASE}/inventory/stock`, { waitUntil: 'networkidle' })
   const reorderBtn = p2.locator('button', { hasText: /^발주 요청 발송$/ })
   ok('안전재고 발주 요청: 재고 경보 카드에 발주 요청 버튼 노출(자산담당)', (await reorderBtn.count()) > 0)
+  // 낡은 화면(발송 전 상태)을 하나 띄워 둔다 — 화면 상태와 별개로 서버 가드가 당일 중복을 거절하는지 본다.
+  const ctxRO = await browser.newContext(); await ctxRO.addCookies([cookie(ASSET)]); const pRO = await ctxRO.newPage()
+  await pRO.goto(`${BASE}/inventory/stock`, { waitUntil: 'networkidle' })
   await reorderBtn.click()
   await p2.waitForTimeout(700)
   ok('안전재고 발주 요청: 발송 성공(구매·IT기획팀 통지·발송 이력)', ((await p2.locator('body').textContent()) || '').includes('발주 요청 발송 —') && ((await p2.locator('body').textContent()) || '').includes('통지'))
-  await reorderBtn.click()
-  await p2.waitForTimeout(700)
-  ok('안전재고 발주 요청: 당일 중복 발송 차단', ((await p2.locator('body').textContent()) || '').includes('당일 중복 발송 차단'))
+  // 당일 중복 억제가 화면에도 보여야 한다 — 서버는 거절하는데 버튼만 그대로면 눌러야 막히는 컨트롤이 된다.
+  await p2.goto(`${BASE}/inventory/stock`, { waitUntil: 'networkidle' })
+  const reorderAfter = p2.locator('button', { hasText: /^발주 요청 발송/ }).first()
+  ok('안전재고 발주 요청(중복 억제): 발송 직후 버튼 비활성·완료 표기(경보 카드는 유지)',
+    (await reorderAfter.isDisabled()) && ((await reorderAfter.textContent()) || '').includes('완료')
+    && ((await p2.locator('body').textContent()) || '').includes('안전재고 경보'))
+  // 낡은 화면에서 눌러도 서버가 사유와 함께 거절한다(화면 상태는 편의일 뿐 통제 수단이 아니다).
+  await pRO.locator('button', { hasText: /^발주 요청 발송$/ }).click()
+  await pRO.waitForTimeout(700)
+  ok('안전재고 발주 요청: 당일 중복 발송 차단(낡은 화면도 서버가 거절)', ((await pRO.locator('body').textContent()) || '').includes('당일 중복 발송 차단'))
+  await ctxRO.close()
   await ctx2.close()
 
   // ── 사용자: AI 어시스턴트 본인 자산 자연어 질의(§01 사용자 본인 자산 조회 · §05 권한 필터) ──
@@ -2552,13 +2563,23 @@ try {
   // 기한 미도래·진행중 회차(INV-2026-H2 · 기한 08-29)에는 독촉 버튼이 없다(오발송 방지)
   const futureRow = p4.locator('tr', { has: p4.locator('td', { hasText: '2026 하반기 정기 재물조사' }) }).first()
   ok('재물조사 회차: 기한 미도래 회차에 독촉 버튼 없음', (await futureRow.locator('button', { hasText: /^독촉$/ }).count()) === 0)
+  // 낡은 화면(발송 전 상태)을 하나 띄워 둔다 — 화면 상태와 별개로 서버 가드가 당일 중복을 거절하는지 본다.
+  const ctxSR = await browser.newContext(); await ctxSR.addCookies([cookie(ASSET)]); const pSR = await ctxSR.newPage()
+  await pSR.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
   await overdueRow.locator('button', { hasText: /^독촉$/ }).click()
   await p4.waitForTimeout(800)
   ok('재물조사 회차: 독촉 발송(담당자 최지원 · 발송 이력 적재)', ((await p4.textContent('body')) || '').includes('최지원') && ((await p4.textContent('body')) || '').includes('재물조사 독촉 발송'))
-  // 당일 중복 발송 차단(수령·반환 독촉과 같은 컴플라이언스 독촉)
-  await overdueRow.locator('button', { hasText: /^독촉$/ }).click()
-  await p4.waitForTimeout(700)
-  ok('재물조사 회차: 당일 중복 독촉 차단', ((await p4.textContent('body')) || '').includes('오늘 이미 독촉'))
+  // 같은 규약 — 오늘 보낸 회차는 버튼 대신 상태를 보여 준다(서버가 당일 중복을 거절하므로).
+  await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  const remindedRow = p4.locator('tr', { hasText: '기한 경과' }).first()
+  ok('재물조사 독촉(중복 억제): 발송 직후 오늘 독촉함 표기·독촉 버튼 소멸',
+    ((await p4.locator('body').textContent()) || '').includes('오늘 독촉함')
+    && (await remindedRow.locator('button', { hasText: /^독촉$/ }).count()) === 0)
+  // 당일 중복 발송 차단(수령·반환 독촉과 같은 컴플라이언스 독촉) — 낡은 화면에서 눌러도 서버가 거절한다.
+  await pSR.locator('tr', { has: pSR.locator('td', { hasText: '판교 사무소 수시 조사' }) }).first().locator('button', { hasText: /^독촉$/ }).click()
+  await pSR.waitForTimeout(700)
+  ok('재물조사 회차: 당일 중복 독촉 차단(낡은 화면도 서버가 거절)', ((await pSR.textContent('body')) || '').includes('오늘 이미 독촉'))
+  await ctxSR.close()
   // 대시보드 운영 대기 큐에 기한 경과 회차를 끌어올린다(신호를 담당자 일과 시작점으로 · 재물조사 계획 딥링크)
   await p4.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   const roundQueue = p4.locator('a', { hasText: '재물조사 기한 경과' }).first()
