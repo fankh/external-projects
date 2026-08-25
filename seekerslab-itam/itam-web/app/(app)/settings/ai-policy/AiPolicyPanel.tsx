@@ -41,7 +41,7 @@ export function AiPolicyPanel({ policy }: { policy: AiPolicy }) {
           <div className="seg">
             {DEPLOYMENTS.map((d) => (
               <button key={d} className={policy.deployment === d ? 'on' : ''} disabled={pending}
-                onClick={() => startTransition(() => setAiDeployment(d))}>{d}</button>
+                onClick={() => startTransition(async () => setToggleMsg((await setAiDeployment(d)).message))}>{d}</button>
             ))}
           </div>
           <div className="kicker mute" style={{ margin: '14px 0 7px' }}>모델 · 프롬프트 버전 관리</div>
