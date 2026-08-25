@@ -31,6 +31,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const row = (k: string, v?: string) => (v && v !== '-') ? `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>` : ''
   const fields = [
     row('유형', a.category), row('시리얼', a.serial), row('상태', a.status),
+    // NAC 격리 — 상태는 '사용중' 그대로인데 망이 끊긴 자산이다(화면은 상태 칩 옆에 격리 칩을 세운다).
+    //  인쇄 카드에만 빠지면 현장에서 정상 장비로 읽혀 조사 중인 단말을 그대로 쓰게 된다.
+    row('NAC 격리', a.quarantinedAt ? `${a.quarantinedAt} · 보안 조사 중(망 차단)` : undefined),
     row('업무 중요도', a.criticality ?? '일반'),
     row('소유자', a.owner), row('부서', a.dept), row('위치', a.location),
     row('OS', a.os), row('CPU', a.cpu), row('메모리', a.memory),
@@ -140,6 +143,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
           const st: Record<string, string> = { 분실: 'background:#fdecea;color:#c23934', 폐기예정: 'background:#fdecea;color:#c23934', 수리중: 'background:#fdf2e0;color:#b25e09', 반납대기: 'background:#fdf2e0;color:#b25e09', 사용중: 'background:#e4f5ee;color:#12805c' }
           return st[a.status] ? ` style="${st[a.status]}"` : ''
         })()}>${esc(a.category)} · ${esc(a.status)}</span>
+        ${a.quarantinedAt ? `<span class="badge" style="background:#fdecea;color:#c23934">NAC 격리</span>` : ''}
       </div>
     </div>
     <div class="kv">${fields}</div>

@@ -1918,6 +1918,16 @@ try {
   check("상위 이탈 판정: NAC 격리 상위도 저하로 보고 통지 사유에 격리를 밝힌다",
     degBody.includes("a.quarantinedAt") && notifyBody.includes("asset.quarantinedAt") && notifyBody.includes("NAC 격리"),
     `isDegraded 격리 반영=${degBody.includes("a.quarantinedAt")} 통지 사유 격리 표기=${notifyBody.includes("NAC 격리")}`)
+  // 격리 표시의 반출·문서 전파 — 화면(대장 목록·상세)은 상태 칩 옆에 격리 칩을 세우는데 자산 대장 엑셀과
+  //  인쇄 자산 카드에는 그 열·항목이 없어, 결재 첨부본·현장 실사 인쇄물만 보면 망이 끊긴 자산이 '사용중'
+  //  정상 장비로 읽혔다(판정은 이미 격리를 반영하는데 표기만 빠진 반만 적용된 규칙).
+  //  시드에 격리 자산이 없어 스모크(SSR)에서는 런타임 재현이 안 되므로 구조 검사로 두고, 실제 표기는 e2e 가 본다.
+  const expSrc = readFileSync(path.join(ROOT, "lib", "exports.ts"), "utf8")
+  const cardSrc = readFileSync(path.join(ROOT, "app", "api", "asset-card", "[assetNo]", "route.ts"), "utf8")
+  check("격리 표기 전파: 자산 대장 엑셀 열 · 인쇄 자산 카드가 quarantinedAt 을 반영",
+    expSrc.includes("'NAC 격리'") && expSrc.includes("a.quarantinedAt") && cardSrc.includes("a.quarantinedAt"),
+    `엑셀 열=${expSrc.includes("'NAC 격리'")} 카드=${cardSrc.includes("a.quarantinedAt")}`)
+
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')

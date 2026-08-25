@@ -3078,6 +3078,15 @@ try {
   ok('격리 자산 게이트: 서버가 격리 자산 재배정을 거절(화면 우회 방어)',
     ((await pQG.locator('body').textContent()) || '').includes('재배정 대상(사용 중·다른 보유자)이 없습니다'))
   await ctxQG.close()
+  // 격리 표시가 반출·인쇄물까지 따라가는가(신규) — 화면은 상태 칩 옆에 '격리' 칩을 세우는데 자산 대장 엑셀과
+  //  인쇄 자산 카드에는 그 표시가 없어, 결재 첨부·현장 실사에서 망이 끊긴 자산이 '사용중' 정상 장비로 읽혔다.
+  //  (재고 가용·재배정·대여·CMDB 저하 판정은 이미 격리를 반영한다 — 반출·문서만 몰랐던 부분 적용.)
+  const qxText = Buffer.from(await (await pQB.request.get(`${BASE}/api/export/assets`)).body()).toString('utf8')
+  ok('격리 반출 정합: 자산 대장 엑셀에 NAC 격리 열 + 격리 자산 표기', qxText.includes('NAC 격리') && qxText.includes(`격리 ${dPlus(0)}`))
+  const qcard = await (await pQB.request.get(`${BASE}/api/asset-card/AST-2024-000377`)).text()
+  ok('격리 문서 정합: 인쇄 자산 카드에 NAC 격리 표기(보안 조사 중)', qcard.includes('NAC 격리') && qcard.includes('보안 조사 중(망 차단)'))
+  const qcardPlain = await (await pQB.request.get(`${BASE}/api/asset-card/AST-2023-000112`)).text()
+  ok('격리 문서 정합(음성 대조): 격리 아닌 자산 카드에는 격리 표기 없음', !qcardPlain.includes('NAC 격리'))
   await ctxQB.close()
   // 격리 집행 후 이상 행위 목록 정합 — 나머지 세 축(미인가 SW·USB·유휴 자산 사용)은 모두 미조치분만 세는데,
   //  이상탐지 제안만 '반려 아님' 기준이라 NAC 차단이 집행된 뒤에도 이탈 목록·심각도 집계에 영구히 남았다.
