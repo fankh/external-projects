@@ -12,6 +12,8 @@ const STATUS_TONE: Record<InventoryRound['status'], 'ok' | 'info' | 'neutral'> =
 
 export function PlanView(props: {
   rounds: InventoryRound[]
+  /** 오늘 이미 독촉을 보낸 회차 id — 버튼 대신 상태를 보여 준다(당일 중복 발송 차단과 같은 판정) */
+  remindedToday?: string[]
   /** 대상 범위 후보 — 공통코드 LOCATION 그룹 (환경설정 › 공통코드가 원천) */
   scopes: string[]
   /** 조사 담당자 후보 — 자산담당 권한 계정 */
@@ -29,6 +31,8 @@ export function PlanView(props: {
   staleVerifyDays: number
 }) {
   const [open, setOpen] = useState(false)
+  // 오늘 발송분은 서버가 거절한다 — 화면도 같은 집합을 보고 버튼 대신 상태를 낸다.
+  const remindedSet = new Set(props.remindedToday ?? [])
   const [name, setName] = useState('')
   const [kind, setKind] = useState<RoundKind>('연간')
   const [scope, setScope] = useState('전사')
@@ -140,14 +144,16 @@ export function PlanView(props: {
                         {r.status === '진행중' && (
                           <Link className="btn sm" href={`/inventory/survey?round=${r.id}`}>실사 화면</Link>
                         )}
-                        {overdue && (
+                        {overdue && (remindedSet.has(r.id)
+                          ? <span className="mut" style={{ fontSize: 11 }} title="오늘 독촉 발송 완료 (당일 중복 발송 차단)">오늘 독촉함</span>
+                          : (
                           <button className="btn sm warn" disabled={pending}
                             title={`${r.assignee} 담당자에게 재물조사 완료 촉구 (당일 중복 발송 차단)`}
                             onClick={() => startTransition(async () => {
                               const res = await remindRound(r.id)
                               setMsg({ ok: res.ok, text: res.message })
                             })}>독촉</button>
-                        )}
+                          ))}
                       </span>
                     </td>
                   </tr>

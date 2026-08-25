@@ -68,6 +68,8 @@ export default async function SurveyPlanPage() {
       </div>
 
       <PlanView
+        // 오늘 이미 독촉을 보낸 회차 — 서버가 당일 중복을 거절하므로 화면도 같은 판정을 보여 준다(눌러야 막히는 버튼 방지).
+        remindedToday={s.dispatches.filter((m) => m.kind === '재물조사 독촉' && m.at.startsWith(t)).map((m) => m.ref ?? '')}
         rounds={rounds.filter((r) => r.status !== '완료')}
         scopes={scopes}
         assignees={assignees}
