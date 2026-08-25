@@ -2055,6 +2055,37 @@ try {
     usersPageSrc.includes("GONE_STATUSES.includes(") && usersViewSrc.includes("&live=1"),
     `집계 단일 정의=${usersPageSrc.includes("GONE_STATUSES.includes(")} 링크 live=1=${usersViewSrc.includes("&live=1")}`)
 
+  // 유지보수·좌석 큐의 드릴다운 정합 — 대시보드가 "SLA 위반 1건"이라 말하면 링크가 여는 화면도 그 1건만 보여야 한다.
+  //  그동안 이 네 큐만 필터 없이 계약 화면 맨 위로 보내, 담당자가 긴 표에서 눈으로 찾아야 했다(라이선스 큐는 ?lic= 로 이미 좁혔다).
+  //  화면이 "N건 표시 (전체 M건)"을 스스로 적으므로 큐 숫자와 그 N 을 맞대어 본다.
+  const dashMgr = await (await get('/dashboard', 'ASSET_MGR')).text()
+  const queueCount = (label) => {
+    const at = dashMgr.indexOf(label)
+    if (at === -1) return -1
+    const chip = /<span class="chip[^"]*">(?:<!-- -->)*([0-9]+)/.exec(dashMgr.slice(at, at + 900))
+    return chip ? Number(chip[1]) : -1
+  }
+  const drillCount = async (qs) => {
+    const html = await (await get(`/inventory/contracts${qs}`, 'ASSET_MGR')).text()
+    const m = /([0-9]+)건 표시/.exec(html.replace(/<!-- -->/g, ""))
+    return m ? Number(m[1]) : -1
+  }
+  const drillPairs = [
+    ['유지보수 SLA 위반 (대응 시한 초과 · 이행 독촉)', '?maint=sla'],
+    ['유지보수 미집행 (이행 확인·독촉)', '?maint=exec'],
+    ['유지보수 예산 초과·소진 임박 (재협상·집행 점검)', '?maint=budget'],
+  ]
+  const drillBad = []
+  for (const [label, qs] of drillPairs) {
+    const want = queueCount(label)
+    const got = await drillCount(qs)
+    if (want < 0 || want !== got) drillBad.push(`${label}: 큐 ${want} ≠ 표시 ${got}`)
+  }
+  check("계약 화면 드릴다운: 유지보수 큐 건수 = 필터 화면 표시 건수", drillBad.length === 0, drillBad.join(" / "))
+  const seatHtml = await (await get('/inventory/contracts?seat=unused', 'ASSET_MGR')).text()
+  check("계약 화면 드릴다운: 미설치 좌석 큐가 회수 후보만 여는 필터로 연결",
+    dashMgr.includes('/inventory/contracts?seat=unused') && seatHtml.includes('미설치 좌석(회수 후보) 필터'))
+
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')
