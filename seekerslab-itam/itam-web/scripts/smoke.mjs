@@ -2034,6 +2034,14 @@ try {
     expSrc.includes("'NAC 격리'") && expSrc.includes("a.quarantinedAt") && cardSrc.includes("a.quarantinedAt"),
     `엑셀 열=${expSrc.includes("'NAC 격리'")} 카드=${cardSrc.includes("a.quarantinedAt")}`)
 
+  // 테스트 하네스의 날짜 만들기 단일화 — e2e 가 UTC 로 날짜를 만들면 서버 기준일(KST)과 자정~09시에 하루 어긋난다
+  //  (실제로 00:19 실행에서 '격리 반출 정합'이 그렇게 깨졌다). 날짜는 dPlus() 하나로만 만든다 —
+  //  헬퍼 본문의 한 번을 빼면 스크립트 어디에도 toISOString 으로 날짜를 자르는 곳이 없어야 한다.
+  const e2eSrc = readFileSync(path.join(ROOT, "scripts", "e2e-findings.mjs"), "utf8")
+  const isoDateUses = e2eSrc.split("toISOString().slice(0, 10)").length - 1
+  check("e2e 날짜 하네스: 기준일 파생을 dPlus() 하나로 모은다(UTC 직접 사용 없음)",
+    isoDateUses === 1 && e2eSrc.includes("timeZone: TZ"), `toISOString 날짜 절단 ${isoDateUses}회(헬퍼 1회만 허용)`)
+
   // 공통코드도 같은 규약 — 참조가 있는 사용 중 코드는 서버가 미사용 전환·명칭 변경을 모두 거절한다.
   //  화면이 그 판정을 모르면 눌러야 막히는 버튼을 계속 내준다(참조 수는 이미 화면이 알고 있다).
   const codesViewSrc = readFileSync(path.join(ROOT, "app", "(app)", "settings", "codes", "CodeGroups.tsx"), "utf8")
