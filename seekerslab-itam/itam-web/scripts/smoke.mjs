@@ -2034,6 +2034,7 @@ try {
     expSrc.includes("'NAC 격리'") && expSrc.includes("a.quarantinedAt") && cardSrc.includes("a.quarantinedAt"),
     `엑셀 열=${expSrc.includes("'NAC 격리'")} 카드=${cardSrc.includes("a.quarantinedAt")}`)
 
+
   // 테스트 하네스의 날짜 만들기 단일화 — e2e 가 UTC 로 날짜를 만들면 서버 기준일(KST)과 자정~09시에 하루 어긋난다
   //  (실제로 00:19 실행에서 '격리 반출 정합'이 그렇게 깨졌다). 날짜는 dPlus() 하나로만 만든다 —
   //  헬퍼 본문의 한 번을 빼면 스크립트 어디에도 toISOString 으로 날짜를 자르는 곳이 없어야 한다.
@@ -2205,6 +2206,21 @@ try {
   const seatHtml = await (await get('/inventory/contracts?seat=unused', 'ASSET_MGR')).text()
   check("계약 화면 드릴다운: 미설치 좌석 큐가 회수 후보만 여는 필터로 연결",
     dashMgr.includes('/inventory/contracts?seat=unused') && seatHtml.includes('미설치 좌석(회수 후보) 필터'))
+  // QnA 큐 드릴다운 — 대시보드가 '답변 대기 N건'·'SLA 경과 M건'이라 말하면서 링크는 문의 목록 전체를 열었다.
+  //  목록은 답변 완료분까지 쌓이므로 담당자가 답변할 건을 눈으로 골라야 했다. 이제 큐가 센 집합으로 연다.
+  const qnaWaitHtml = await (await get('/board/qna?status=' + encodeURIComponent('대기'), 'ASSET_MGR')).text()
+  const qnaOverHtml = await (await get('/board/qna?overdue=1', 'ASSET_MGR')).text()
+  const qnaAllHtml = await (await get('/board/qna', 'ASSET_MGR')).text()
+  // QnA 목록은 "N건 / 전체 M건" 형태로 적는다(발송 이력의 "N / M건" 과 형식이 달라 따로 읽는다).
+  const qnaShown = (html) => { const plain = html.replace(/<!-- -->/g, ""); const at = plain.indexOf("문의 목록"); return Number((new RegExp("([0-9]+)건 \\/ 전체").exec(at === -1 ? plain : plain.slice(at)) || [])[1] ?? -1) }
+  const qnaPlain = dashMgr.replace(/<!-- -->/g, "")
+  const qnaWaitAt = qnaPlain.indexOf("답변 대기")
+  const qnaWaitQueue = Number((new RegExp("<b>([0-9]+)").exec(qnaWaitAt === -1 ? "" : qnaPlain.slice(qnaWaitAt, qnaWaitAt + 400)) || [])[1] ?? -1)
+  check("QnA 큐: 답변 대기 건수 = 대기 필터 목록 건수",
+    qnaWaitQueue > 0 && qnaWaitQueue === qnaShown(qnaWaitHtml), `큐 ${qnaWaitQueue} · 표시 ${qnaShown(qnaWaitHtml)}`)
+  check("QnA 큐: SLA 경과 필터가 미답변 지연분만 연다(전체보다 작음)",
+    qnaShown(qnaOverHtml) > 0 && qnaShown(qnaOverHtml) <= qnaShown(qnaWaitHtml) && qnaShown(qnaWaitHtml) < qnaShown(qnaAllHtml),
+    `경과 ${qnaShown(qnaOverHtml)} · 대기 ${qnaShown(qnaWaitHtml)} · 전체 ${qnaShown(qnaAllHtml)}`)
 
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
