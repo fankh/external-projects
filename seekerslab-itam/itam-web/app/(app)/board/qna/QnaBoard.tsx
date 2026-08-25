@@ -6,7 +6,7 @@ import { answerQuestion, askQuestion, deleteQuestion, editQuestion, recordPostVi
 
 const CATEGORIES: QnaCategory[] = ['자산 신청·반납', '장애·수리', '라이선스', '보안·Discovery', '기타']
 
-export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdueDays = {}, remindCount = 0 }: { posts: BoardPost[]; canAnswer: boolean; canModerate: boolean; me: string; initialSel?: string; overdueDays?: Record<string, number>; remindCount?: number }) {
+export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdueDays = {}, remindCount = 0, initialStatus, initialOverdue }: { posts: BoardPost[]; canAnswer: boolean; canModerate: boolean; me: string; initialSel?: string; overdueDays?: Record<string, number>; remindCount?: number; initialStatus?: '대기' | '완료'; initialOverdue?: boolean }) {
   const overdueCount = Object.keys(overdueDays).length
   const [remindMsg, setRemindMsg] = useState<string | null>(null)
   // 딥링크(?sel=QNA-…) — 알림 로그(‘QnA 답변’ 통지)·대시보드에서 특정 문의로 진입. 없으면 첫 미답변→최신 폴백.
@@ -27,7 +27,10 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
   // 목록 필터 — 검색·분류·답변 상태·내 문의 (감사·발송 이력 필터와 동일 패턴)
   const [fq, setFq] = useState('')
   const [fcat, setFcat] = useState<QnaCategory | '전체'>('전체')
-  const [fstatus, setFstatus] = useState<'전체' | '대기' | '완료'>('전체')
+  const [fstatus, setFstatus] = useState<'전체' | '대기' | '완료'>(initialStatus ?? '전체')
+  // SLA 경과만 보기 — 대시보드 'SLA 경과 미답변 지연' 큐의 드릴다운. 문의 목록은 답변 완료분까지 함께 쌓이므로,
+  //  큐가 말한 건수를 화면에서 다시 세어야 했다(답변 독촉 버튼의 대상 수와도 같은 집합).
+  const [fOverdue, setFOverdue] = useState(Boolean(initialOverdue))
   const [fmine, setFmine] = useState(false)
   const [pending, startTransition] = useTransition()
   const rows = useMemo(() => {
@@ -36,11 +39,12 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
       if (fcat !== '전체' && (p.category ?? '기타') !== fcat) return false
       if (fstatus === '대기' && p.answer) return false
       if (fstatus === '완료' && !p.answer) return false
+      if (fOverdue && !(!p.answer && overdueDays[p.id])) return false
       if (fmine && p.author !== me) return false
       if (needle && ![p.title, p.body, p.author].some((f) => f?.toLowerCase().includes(needle))) return false
       return true
     })
-  }, [posts, fq, fcat, fstatus, fmine, me])
+  }, [posts, fq, fcat, fstatus, fmine, fOverdue, overdueDays, me])
   const open = posts.find((p) => p.id === openId) ?? null
   const select = (id: string) => {
     setEditingAnswer(false); setAnswer(''); setEditingQ(false)
@@ -100,6 +104,12 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
               </button>
             ))}
           </div>
+          {overdueCount > 0 && (
+            <button className={`btn sm ${fOverdue ? 'err' : 'ghost'}`} onClick={() => setFOverdue((o) => !o)}
+              title="답변 SLA가 지난 미답변 문의만 — 대시보드 지연 큐·답변 독촉과 같은 집합">
+              {fOverdue ? '✓ ' : ''}SLA 경과만 {overdueCount}
+            </button>
+          )}
           <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
             <input type="checkbox" checked={fmine} onChange={(e) => setFmine(e.target.checked)} /> 내 문의만
           </label>

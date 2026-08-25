@@ -540,12 +540,12 @@ export default async function DashboardPage() {
                     const overdue = waiting.filter((p) => isQnaOverdue(p))
                     return waiting.length > 0 ? (
                       <>
-                        <Link href="/board/qna" className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                        <Link href="/board/qna?status=대기" className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
                           <span className="hstack" style={{ gap: 6 }}><Chip tone="warn" bare>답변 대기</Chip> 사용자 문의</span>
                           <span><b>{waiting.length}</b>건 →</span>
                         </Link>
                         {overdue.length > 0 && (
-                          <Link href="/board/qna" className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none', borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+                          <Link href="/board/qna?overdue=1" className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none', borderTop: '1px solid var(--line)', paddingTop: 8 }}>
                             <span className="hstack" style={{ gap: 6 }}><Chip tone="err" bare>SLA 경과</Chip> 미답변 지연 (답변 독촉)</span>
                             <span><b>{overdue.length}</b>건 →</span>
                           </Link>
