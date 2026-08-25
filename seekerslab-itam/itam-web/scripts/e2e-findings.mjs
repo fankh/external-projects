@@ -2295,23 +2295,20 @@ try {
   await p3.waitForTimeout(300)
   const locUsedRow = p3.locator('tr', { has: p3.locator('td', { hasText: '본사 3F 자산창고' }) }).first()
   ok('공통코드: 참조 수 표기(사용 중 N건)', ((await locUsedRow.textContent()) || '').includes('건 사용 중'))
-  await locUsedRow.locator('button', { hasText: /^미사용$/ }).click()
-  await p3.waitForTimeout(600)
-  ok('공통코드: 참조 있는 코드 미사용 전환 차단(가드)', ((await p3.textContent('body')) || '').includes('사용 중인 코드는 미사용 전환할 수 없습니다'))
-  ok('공통코드: 차단 후 코드 사용 상태 유지(미사용 버튼 잔존)', (await locUsedRow.locator('button', { hasText: /^미사용$/ }).count()) > 0)
+  // 서버는 참조 있는 코드의 미사용 전환을 거절한다 — 화면도 같은 판정으로 잠그고 사유를 밝혀야 한다
+  //  (버튼을 살려 두면 눌러야 막히는 컨트롤이 된다). 잠금과 사유 표기를 함께 본다.
+  const locUsedToggle = locUsedRow.locator('button', { hasText: /^미사용$/ })
+  ok('공통코드: 참조 있는 코드는 미사용 버튼이 잠기고 사유가 붙는다(막다른 컨트롤 방지)',
+    (await locUsedToggle.isDisabled()) && ((await locUsedToggle.getAttribute('title')) || '').includes('이관 후 미사용 전환 가능'))
+  ok('공통코드: 차단 상태에서 코드 사용 상태 유지(미사용 버튼 잔존)', (await locUsedToggle.count()) > 0)
   // rename 가드 — 참조는 label 로 저장되므로, 사용 중 코드 명칭을 바꾸면 옛 label 참조가 고아가 되고 새 label 은 참조 0 으로
   //  집계돼 미사용 가드까지 우회된다. rename 도 toggle 과 동일하게 '이관 후 변경'으로 잠기는지 검증(그동안 rename 은 무가드였다).
   //  행 앵커는 코드값(HQ_3F_WH)으로 잡는다 — 수정 진입 시 label td 텍스트가 input 으로 바뀌어 사라지므로 label 텍스트로는 재조회 실패.
   const locCodeRow = p3.locator('tr', { has: p3.locator('td.code', { hasText: 'HQ_3F_WH' }) }).first()
-  await locCodeRow.locator('button', { hasText: /^수정$/ }).click()
-  await p3.waitForTimeout(250)
-  await locCodeRow.locator('input').fill('본사 3층 창고')
-  await locCodeRow.locator('button', { hasText: /^저장$/ }).click()
-  await p3.waitForTimeout(600)
-  ok('공통코드: 참조 있는 코드 명칭 변경 차단(rename 도 미사용과 동일 가드)', ((await p3.textContent('body')) || '').includes('사용 중인 코드는 명칭을 바꿀 수 없습니다'))
-  await locCodeRow.locator('button', { hasText: /^취소$/ }).click()
-  await p3.waitForTimeout(200)
-  ok('공통코드: 차단 후 원 명칭 유지(변경 미반영)', ((await locCodeRow.textContent()) || '').includes('본사 3F 자산창고'))
+  const locEditBtn = locCodeRow.locator('button', { hasText: /^수정$/ })
+  ok('공통코드: 참조 있는 코드는 수정 버튼도 잠긴다(rename 도 미사용과 동일 가드)',
+    (await locEditBtn.isDisabled()) && ((await locEditBtn.getAttribute('title')) || '').includes('명칭 변경 불가'))
+  ok('공통코드: 잠금 상태에서 원 명칭 유지(변경 경로 없음)', ((await locCodeRow.textContent()) || '').includes('본사 3F 자산창고'))
   // 명칭 유일성 — 참조가 label 로 저장되므로 같은 그룹에 중복 명칭 금지(add·rename 공통 · label 이 사실상 참조 키). 기존 명칭으로 신규 추가 차단.
   await p3.locator('input[placeholder="코드 (예: IDC-C-01)"]').fill('HQ_DUP_T')
   await p3.locator('input[placeholder="명칭"]').fill('본사 3F 자산창고')
