@@ -30,15 +30,18 @@ async function requireSaasPolicy() {
 }
 
 /** 탐지 채널 on/off — 비활성 채널은 수집을 중단하고 상태바 커넥터 수에 반영된다 */
-export async function toggleScanChannel(channel: Channel) {
+/** 거절은 사유로 돌려준다 — void 로 조용히 무시하면 화면은 거절 사실을 알 수 없어, 눌러도 아무 일이 없는
+ *  컨트롤이 된다(입고 검수·공통코드와 같은 규약). */
+export async function toggleScanChannel(channel: Channel): Promise<{ ok: boolean; message: string }> {
   const session = await requireAdmin()
-  if (!session) return
+  if (!session) return { ok: false, message: '탐지 채널 설정 권한이 없습니다 (Admin).' }
   const s = getStore()
   const p = s.scanPolicies.find((x) => x.channel === channel)
-  if (!p) return
+  if (!p) return { ok: false, message: `채널 정책을 찾을 수 없습니다 — ${channel}` }
   p.enabled = !p.enabled
   audit(session.name, `탐지 채널 ${p.enabled ? '활성화' : '비활성화'}`, channel)
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${channel} ${p.enabled ? '수집 재개' : '수집 중지'}` }
 }
 
 /** STEP2 기능 부여/회수 — 화면이 선언하는 기능(menuDefs.actions)을 편집한다. 부여하면 권한 매트릭스에서
@@ -61,15 +64,16 @@ export async function toggleMenuAction(code: string, action: PermAction) {
 }
 
 /** 스캔 강도 조정 — 능동 스캔의 운영망 영향 통제 (스캔 안전장치) */
-export async function setScanIntensity(channel: Channel, intensity: '낮음' | '보통' | '높음') {
+export async function setScanIntensity(channel: Channel, intensity: '낮음' | '보통' | '높음'): Promise<{ ok: boolean; message: string }> {
   const session = await requireAdmin()
-  if (!session) return
+  if (!session) return { ok: false, message: '스캔 강도 조정 권한이 없습니다 (Admin).' }
   const s = getStore()
   const p = s.scanPolicies.find((x) => x.channel === channel)
-  if (!p) return
+  if (!p) return { ok: false, message: `채널 정책을 찾을 수 없습니다 — ${channel}` }
   p.intensity = intensity
   audit(session.name, `스캔 강도 변경 → ${intensity}`, channel)
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${channel} 스캔 강도 → ${intensity}` }
 }
 
 /** 재탐지 주기 조정 — 도메인별 재탐지 스케줄(제품안내서 §04 "재탐지는 도메인별 주기(스케줄러)로 자동 반복").
@@ -232,13 +236,14 @@ export async function toggleAiPolicy(field: 'scopeFilter' | 'autoApprove' | 'fee
 }
 
 /** AI 실행 환경 변경 — 온프레미스/외부 API/하이브리드 */
-export async function setAiDeployment(deployment: '온프레미스 LLM' | '외부 API 연계' | '하이브리드') {
+export async function setAiDeployment(deployment: '온프레미스 LLM' | '외부 API 연계' | '하이브리드'): Promise<{ ok: boolean; message: string }> {
   const session = await requireAdmin()
-  if (!session) return
+  if (!session) return { ok: false, message: 'AI 실행 환경 변경 권한이 없습니다 (Admin).' }
   const s = getStore()
   s.aiPolicy.deployment = deployment
   audit(session.name, `AI 실행 환경 변경 → ${deployment}`, 'AI 정책')
   revalidatePath('/', 'layout')
+  return { ok: true, message: `AI 실행 환경 → ${deployment}` }
 }
 
 /** AI 감사 로그 보존 기간 관리 — 규제·컴플라이언스에 따른 로그 보존 정책(제품안내서 §05 AI 거버넌스: "제안·질의·응답 전체 감사 로그 보존", §07 감사 추적성).

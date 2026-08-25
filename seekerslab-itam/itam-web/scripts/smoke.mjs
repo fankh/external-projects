@@ -2053,6 +2053,16 @@ try {
     && codesActionsSrc.includes("사용 중인 코드는 명칭을 바꿀 수 없습니다"),
     `화면 잠금=${codesViewSrc.includes("disabled={pending || (v.active && used > 0)}")}`)
 
+  // 조용한 거절 금지(전역) — 서버 액션이 값 없이 거절하면(bare return) 화면은 거절 사실을 알 수 없어,
+  //  눌러도 아무 일이 없는 컨트롤이 된다. 입고 검수·공통코드·스캔 정책에서 같은 자리를 닫았으므로
+  //  이제 어떤 액션 파일에도 값 없는 return 이 남지 않아야 한다(새로 생기면 여기서 걸린다).
+  const serverActionFiles = sourceFiles.filter((f) => path.basename(f) === "actions.ts")
+  const silentActions = serverActionFiles.filter((f) => readFileSync(f, "utf8").split(new RegExp("\\r?\\n"))
+    .some((line) => line.trimEnd().endsWith(" return") && !line.includes("//")))
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check("서버 액션: 값 없이 거절하는 곳이 없다(조용한 거절 금지)",
+    silentActions.length === 0, `값 없는 거절=${silentActions.join(", ")}`)
+
   // 조용한 거절 금지(입고 검수) — 서버가 값 없이 거절하면 화면은 거절 사실을 알 수 없어, 눌러도 아무 일이
   //  없는 체크박스를 계속 내준다. 검수 토글은 사유가 있는 응답을 돌려주고, 화면은 같은 판정으로 잠근다.
   const intakeSrc = readFileSync(path.join(ROOT, "app", "(app)", "assets", "intake", "actions.ts"), "utf8")

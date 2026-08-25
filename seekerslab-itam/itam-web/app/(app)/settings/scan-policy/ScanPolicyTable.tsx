@@ -75,7 +75,7 @@ export function ScanPolicyTable({ policies }: { policies: ScanPolicy[] }) {
                       <span className="seg" style={{ transform: 'scale(.92)' }}>
                         {LEVELS.map((lv) => (
                           <button key={lv} className={p.intensity === lv ? 'on' : ''} disabled={pending || !p.enabled}
-                            onClick={() => startTransition(() => setScanIntensity(p.channel, lv))}>{lv}</button>
+                            onClick={() => startTransition(async () => setMsg((await setScanIntensity(p.channel, lv)).message))}>{lv}</button>
                         ))}
                       </span>
                     ) : (
@@ -96,7 +96,7 @@ export function ScanPolicyTable({ policies }: { policies: ScanPolicy[] }) {
                   </td>
                   <td className="c">
                     <button className={`btn sm ${p.enabled ? '' : 'pri'}`} disabled={pending}
-                      onClick={() => startTransition(() => toggleScanChannel(p.channel))}>
+                      onClick={() => startTransition(async () => setMsg((await toggleScanChannel(p.channel)).message))}>
                       {p.enabled ? '중지' : '시작'}
                     </button>
                   </td>
