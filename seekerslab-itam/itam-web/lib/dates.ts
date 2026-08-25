@@ -42,9 +42,6 @@ export function nowMinute(): string {
   return `${today()} ${timeFmt.format(new Date()).slice(0, 5)}`
 }
 
-/** 시드 데이터가 작성된 기준일 — 시드와 실제 날짜의 간격을 안내할 때 쓴다 */
-export const SEED_BASE_DATE = '2026-07-29'
-
 /** 자연어 기간 표현 → 날짜 창 `{start,end}` (YYYY-MM-DD, 경계 포함).
  *  AI 어시스턴트가 "내년 1분기", "올해 하반기", "2027년 3월", "다음 분기"처럼 시점을 좁히는
  *  질의를 실제 기간으로 해석하도록 한다 (제품안내서 §05 예시 질의 "내년 1분기 보증 만료…").
