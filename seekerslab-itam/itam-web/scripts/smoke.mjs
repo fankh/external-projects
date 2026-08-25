@@ -123,6 +123,21 @@ try {
     }
   }
 
+  // 표기 무결성 — 계산이 깨지면 화면에 NaN·Infinity·[object Object] 가 그대로 찍힌다(빈 목록에 Math.max,
+  //  0 으로 나눈 비율, 객체를 문자열로 이어붙인 자리). 담당자는 그 숫자를 보고 판단하므로 조용히 새는 게 가장 나쁘다.
+  //  권한이 열어 주는 모든 화면을 한 번씩 훑어 흔적을 찾는다(라우트 × 권한그룹 매트릭스와 같은 집합).
+  const renderBad = []
+  for (const [route, allowed] of Object.entries(ROUTES)) {
+    for (const role of allowed) {
+      const html = await (await get(route, role)).text()
+      for (const bad of ['NaN', 'Infinity', '[object Object]']) {
+        if (html.includes(bad)) renderBad.push(`${role} ${route} → ${bad}`)
+      }
+    }
+  }
+  check('표기 무결성: 모든 화면에 NaN·Infinity·[object Object] 없음',
+    renderBad.length === 0, renderBad.slice(0, 4).join(' / '))
+
   console.log('\n[데이터 스코핑 — 자산 대장]')
   const userHtml = await (await get('/assets/register', 'USER')).text()
   check('USER: 본인 자산(AST-2023-000112) 표시', userHtml.includes('AST-2023-000112'))

@@ -54,7 +54,7 @@ export default async function ExternalPage() {
       <div className="stat-row">
         <Stat value={ext.length} label="외부 노출 자산 (지문 통합 후)" />
         <Stat value={unreg.length} label="미등록 — 대장에 없음" tone="err" />
-        <Stat value={withCve.length} label="CVE 확인 자산" tone="warn" delta={{ text: `최고 CVSS ${Math.max(...withCve.map((e) => e.cvss ?? 0)).toFixed(1)}`, dir: 'up' }} />
+        <Stat value={withCve.length} label="CVE 확인 자산" tone="warn" delta={{ text: withCve.length ? `최고 CVSS ${Math.max(...withCve.map((e) => e.cvss ?? 0)).toFixed(1)}` : 'CVE 확인 자산 없음', dir: 'up' }} />
         <Stat value={credOpen} label="크리덴셜 노출 — 미조치" tone={credOpen ? 'err' : 'ok'} />
         <Stat value={iocOpen} label="IOC 상관 — 미조치" tone={iocOpen ? 'err' : 'ok'} delta={{ text: '위협 행위자 귀속', dir: 'flat' }} />
         <Stat value={s.leaks.length} label="유출 · 침해 수집 건" tone="warn" />
