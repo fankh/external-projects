@@ -2190,6 +2190,17 @@ try {
   check("미판정 SaaS 큐: 건수 = 검토 대기만 보기 표시 건수", saasQueue > 0 && saasQueue === saasShown, `큐 ${saasQueue} · 표시 ${saasShown}`)
   const saasAll = cardShown(await (await get('/settings/saas-catalog', 'SEC_MGR')).text(), '서비스 목록 · 판정')
   check("SaaS 카탈로그: 필터 없이 열면 판정 완료분까지 표시(필터 실효 확인)", saasAll > saasShown, `전체 ${saasAll} · 검토중 ${saasShown}`)
+  // 판정 기한 경과 큐 — 검토 대기(?status=review)보다 좁은 집합인데 필터가 없어 대장 전체로 떨어졌다.
+  //  경과 판정은 lib/saas-review 가 낸다: 접수일이 없는 항목도 fail safe 로 경과로 보는데, 표는 그 경우 배지를
+  //  아예 안 그려 큐와 갈릴 수 있었다 — 이제 표도 같은 집합을 받아 쓴다.
+  const saasOverHtml = (await (await get('/settings/saas-catalog?status=overdue', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  const saasOverShown = cardShown(saasOverHtml, '서비스 목록 · 판정')
+  const saasOverQueue = secQueueCount('미판정 SaaS 판정 기한 경과 (')
+  check("SaaS 판정 기한 경과 큐: 건수 = 기한 경과만 보기 표시 건수",
+    saasOverQueue > 0 && saasOverQueue === saasOverShown, `큐 ${saasOverQueue} · 표시 ${saasOverShown}`)
+  check("SaaS 판정 기한 경과 큐: 링크가 그 필터를 켠 채 연다", dashSec.includes('/settings/saas-catalog?status=overdue'))
+  // 기한 경과는 검토 대기의 부분집합이어야 한다 — 두 필터가 각자 판정하면 이 관계가 깨진다.
+  check("SaaS 필터: 기한 경과는 검토 대기의 부분집합", saasOverShown <= saasShown, `경과 ${saasOverShown} · 검토중 ${saasShown}`)
   // 정례 리포트 배포 기한 경과 큐 — 스케줄 표는 정상 주기 항목까지 함께 보여 주므로, 큐가 말한 '기한 도래 N건'을
   //  화면에서 다시 세어야 했다. 큐 링크가 기한 도래만 보기를 켠 채 연다.
   const repDueHtml = await (await get('/ai/reports?due=1', 'ASSET_MGR')).text()
