@@ -18,7 +18,7 @@ import { criticalDependencies, impactSources } from './cmdb'
 // 양쪽 모두 함수 본문에서만 서로를 호출(모듈 최상위 미참조)해 순환이 안전하다.
 import { compositeRiskAssetNos, riskSignals } from './risk'
 import type { CellValue, Sheet } from './xlsx'
-import { IDLE_POOL_STATUSES } from './types'
+import { DISPOSAL_STATUSES, IDLE_POOL_STATUSES } from './types'
 import type { DiscoveredAsset, ReportKind, ReportSchedule, ReportSection, SaasUsage, SwLicense } from './types'
 
 /** 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 대상
@@ -133,7 +133,7 @@ export function replacementCandidates() {
   const cutoff = addYears(t, -5)
   // 하드웨어 교체 계획 — 실물 자산만 대상. SW(라이선스 만료·최적화로 다룸)·가상자원(클라우드·사용량 과금)은
   //  내용연수·보증 경과 기반 하드웨어 교체 대상이 아니다(lib/cost ACQ_COST 도 SW·가상자원=0으로 같은 전제).
-  const active = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.category !== 'SW' && a.category !== '가상자원')
+  const active = s.assets.filter((a) => !DISPOSAL_STATUSES.includes(a.status) && a.category !== 'SW' && a.category !== '가상자원')
   const cands = active
     .map((a) => {
       const warr = a.warrantyEnd !== '-' && a.warrantyEnd < t

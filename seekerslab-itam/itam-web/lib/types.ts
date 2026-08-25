@@ -27,6 +27,11 @@ export const NON_OPERATIONAL_STATUSES: AssetStatus[] = ['폐기완료', '폐기�
  *  위치·연계가 여전히 유효하기 때문이다. 서버 액션 파일은 상수를 내보낼 수 없어('use server') 여기에 둔다. */
 export const GONE_STATUSES: AssetStatus[] = ['분실', '폐기예정', '폐기완료']
 
+/** 폐기 경로 상태 — 폐기 절차에 오른(예정) · 이미 폐기된(완료) 자산. 보증·EOL·취약점·이상행위 판정이 모두
+ *  "폐기로 간 자산은 대상이 아니다"라는 같은 규칙을 쓰는데, 열두 곳이 각자 배열을 적고 있었다.
+ *  분실은 되찾을 수 있어 여기 넣지 않는다 — 분실까지 합친 상위 개념이 GONE_STATUSES 다. */
+export const DISPOSAL_STATUSES: AssetStatus[] = ['폐기예정', '폐기완료']
+
 export interface AssetHistoryItem {
   date: string
   kind: '등록' | '불출' | '이동' | '구성변경' | '점검' | '반납' | '폐기' | '편입' | '보증연장' | '수리' | '분실' | '대여'

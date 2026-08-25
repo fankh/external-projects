@@ -1,6 +1,7 @@
 /** 이상 자산 행위 탐지 — 자산별 평시 프로파일(설치 SW·상태·데이터 반출 패턴) 대비 이탈을 산출한다.
  *  (제품안내서 §05 AI 기능 02: "비지도 이상탐지 — 미인가 SW 설치, 휴면 자산의 갑작스런 활동, 서버의 비정상 외부 통신")
  *  취약점 우선순위(기능 04·정적 노출도)와 달리 '행위 이탈'을 한 축으로 모은 읽기 전용 합성 뷰. 각 항목은 조치 화면으로 연결된다. */
+import { DISPOSAL_STATUSES } from './types'
 import { getStore } from './store'
 import type { RiskLevel } from './types'
 
@@ -34,7 +35,7 @@ export function buildAnomalies(): AnomalyResult {
   //  (취약점 조치 우선순위의 EOL·미인가 SW 축이 쓰는 기준과 동일). 위반 기록 자체는 각 화면에 그대로 남는다.
   //  네 축(미인가 SW·유휴 자산 사용·비정상 외부 통신·USB 반출)에 모두 적용한다 — 두 축에만 걸어 두면 같은 자산이
   //  축에 따라 사라졌다 남았다 해서, '조치할 수 없는 건은 뺀다'는 규칙이 목록 안에서 반쪽만 지켜진다.
-  const disposedAsset = new Set(s.assets.filter((a) => ['폐기완료', '폐기예정'].includes(a.status)).map((a) => a.assetNo))
+  const disposedAsset = new Set(s.assets.filter((a) => DISPOSAL_STATUSES.includes(a.status)).map((a) => a.assetNo))
 
   // 1) 미인가 SW 설치 — 평시 설치 SW 프로파일 대비 이탈(EDR 인벤토리). 미조치분.
   for (const w of s.unauthorizedSw.filter((x) => !x.action && !disposedAsset.has(x.assetNo))) {

@@ -8,7 +8,7 @@ import { classifyDiscoveredType } from '@/lib/classify'
 import { reclaimLicenseSeats } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextAssetNo, nextId } from '@/lib/store'
-import { approvalRoute, approvalStepIndex , GONE_STATUSES } from '@/lib/types'
+import { approvalRoute, approvalStepIndex , DISPOSAL_STATUSES, GONE_STATUSES } from '@/lib/types'
 import type { ApprovalKind, AssetCategory } from '@/lib/types'
 
 /** 신청 상신 — 사용자가 직접 올리는 3종 (자산 신청 / 반납 / 이동).
@@ -64,7 +64,7 @@ export async function raiseRequest(input: {
     if (session.role === 'USER' && asset.owner !== session.name) {
       return { ok: false, message: '본인 명의 자산만 신청할 수 있습니다.' }
     }
-    if (['폐기예정', '폐기완료'].includes(asset.status)) {
+    if (DISPOSAL_STATUSES.includes(asset.status)) {
       return { ok: false, message: `폐기 절차 중인 자산입니다 — ${asset.assetNo}` }
     }
     const dup = s.approvals.find(

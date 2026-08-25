@@ -12,7 +12,7 @@ import { getStore, nextAssetNo, nextId } from '@/lib/store'
 import { requiresApproval } from '@/lib/approval'
 import { can } from '@/lib/perm'
 import { eolNoticeTargets, impactNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
-import { GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
+import { DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
 const CRITICALITY_LEVELS: BizCriticality[] = ['핵심', '중요', '일반']
@@ -256,7 +256,7 @@ export async function extendWarrantyMany(assetNos: string[], termYears: number) 
   let skipped = 0
   for (const no of assetNos) {
     const asset = s.assets.find((a) => a.assetNo === no)
-    if (!asset || asset.warrantyEnd === '-' || ['폐기완료', '폐기예정'].includes(asset.status)) { skipped += 1; continue }
+    if (!asset || asset.warrantyEnd === '-' || DISPOSAL_STATUSES.includes(asset.status)) { skipped += 1; continue }
     const base = asset.warrantyEnd >= t ? asset.warrantyEnd : t
     const newEnd = addYears(base, termYears)
     const oldEnd = asset.warrantyEnd

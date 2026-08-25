@@ -10,6 +10,7 @@
  *  시연에서 특정 날짜를 재현하려면 `ITAM_TODAY=YYYY-MM-DD`, 표준시를 바꾸려면 `ITAM_TZ`.
  *  서버 전용 모듈 — 클라이언트에서 쓰면 하이드레이션 불일치가 생긴다.
  */
+import { DISPOSAL_STATUSES } from './types'
 import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, IntakeLot } from '@/lib/types'
 
@@ -261,7 +262,7 @@ export function isIntakeOverdue(l: IntakeLot): boolean {
  *  관리자가 만료창을 줄이면 '보증 만료 임박 자산 N건' 통지와 화면의 보증 임박 집합이 서로 다른 것을 가리켰다.
  */
 export function isWarrantyExpiring(a: Asset, windowDays: number): boolean {
-  if (!a.warrantyEnd || a.warrantyEnd === '-' || ['폐기완료', '폐기예정'].includes(a.status)) return false
+  if (!a.warrantyEnd || a.warrantyEnd === '-' || DISPOSAL_STATUSES.includes(a.status)) return false
   return (daysUntil(a.warrantyEnd) ?? 999) <= windowDays
 }
 

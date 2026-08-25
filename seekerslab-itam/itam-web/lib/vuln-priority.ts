@@ -2,6 +2,7 @@
  *  (제품안내서 §05 AI 기능 04: "발견된 노출 서비스·EOL OS·미패치 SW를 자산 중요도와 결합해 조치 우선순위 산출")
  *  외부 노출 CVE·EOL OS 자산·미인가 SW·크리덴셜 노출을 한 축으로 모아 P1/P2/P3 로 순위화한다.
  *  읽기 전용 합성 뷰 — 각 항목은 기존 조치 화면(loops)으로 연결된다. */
+import { DISPOSAL_STATUSES } from './types'
 import { today } from './dates'
 import { eolOsOf, isEolTarget } from './eol'
 import { getStore } from './store'
@@ -110,7 +111,7 @@ export function buildVulnPriority(): VulnPriority {
     const asset = s.assets.find((x) => x.assetNo === w.assetNo)
     // 폐기 경로 자산의 미인가 SW 는 조치 우선순위가 아니다 — 같은 함수의 EOL OS 축이 이미 쓰는 기준을 맞춘다.
     //  장비가 소거·처분되면 SW 제거를 요청할 대상이 없고, P1/P2 목록에 남으면 실재하는 조치 대상을 밀어낸다.
-    if (asset && ['폐기완료', '폐기예정'].includes(asset.status)) continue
+    if (asset && DISPOSAL_STATUSES.includes(asset.status)) continue
     const criticality = assetCriticality({ asset })
     const score = scoreOf(w.risk, criticality)
     items.push({
