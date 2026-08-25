@@ -13,14 +13,28 @@ function reviewAge(reviewSince: string | undefined, today: string): number | nul
   return Math.floor((Date.parse(today) - Date.parse(reviewSince)) / 86_400_000)
 }
 
-export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, reviewOnly: reviewOnlyParam }: { entries: SaasCatalogEntry[]; today: string; slaDays: number; approveNeedsApproval?: boolean; reviewOnly?: boolean }) {
+export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, reviewOnly: reviewOnlyParam, overdueIds, overdueOnly: overdueOnlyParam }: {
+  entries: SaasCatalogEntry[]; today: string; slaDays: number; approveNeedsApproval?: boolean; reviewOnly?: boolean
+  /** 판정 기한 경과 항목 id — 대시보드 큐·에스컬레이션 안내와 같은 lib/saas-review 판정(서버 산출).
+   *  화면이 경과일을 다시 재면 접수일(reviewSince)이 없는 항목에서 갈린다: 그 경우 lib 은 fail safe 로 경과로 보는데
+   *  화면은 배지 자체를 안 그려, 가장 오래 방치됐을 법한 건이 표에서만 정상으로 보였다. */
+  overdueIds?: string[]
+  /** 대시보드 '판정 기한 경과' 큐의 드릴다운으로 진입할 때 그 필터를 켠 채 연다 (?status=overdue) */
+  overdueOnly?: boolean
+}) {
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<string | null>(null)
   // 검토 대기만 보기 — 대시보드 '미판정 SaaS' 큐의 드릴다운. 판정이 끝난 인가·차단 항목까지 함께 쌓이는
   //  대장이라, 큐가 말한 건수를 화면에서 다시 세어야 했다. 큐 링크는 이 필터를 켠 채 화면을 연다.
   const [reviewOnly, setReviewOnly] = useState(Boolean(reviewOnlyParam))
+  // 기한 경과만 보기 — 검토 대기(위 필터)보다 좁은 집합이다. 에스컬레이션 안내가 대상 서비스명을 나열하긴 했지만
+  //  표를 그 집합으로 좁힐 수단이 없어, 큐가 말한 건을 대장에서 눈으로 골라야 했다.
+  const overdueSet = new Set(overdueIds ?? [])
+  const [overdueOnly, setOverdueOnly] = useState(Boolean(overdueOnlyParam) && overdueSet.size > 0)
   const reviewCount = entries.filter((e) => e.status === '검토중').length
-  const shown = reviewOnly ? entries.filter((e) => e.status === '검토중') : entries
+  const shown = overdueOnly ? entries.filter((e) => overdueSet.has(e.id))
+    : reviewOnly ? entries.filter((e) => e.status === '검토중')
+    : entries
   // 신규 SaaS 등록 — 발견 이전이라도 조달·온보딩으로 알게 된 서비스를 검토중으로 카탈로그에 올린다
   const [adding, setAdding] = useState(false)
   const [service, setService] = useState('')
@@ -59,10 +73,16 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, re
     )}
     {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
     <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
-      <button className={`btn sm ${reviewOnly ? 'pri' : 'ghost'}`} onClick={() => setReviewOnly((r) => !r)}
+      <button className={`btn sm ${reviewOnly ? 'pri' : 'ghost'}`} onClick={() => { setReviewOnly((r) => !r); setOverdueOnly(false) }}
         title="아직 인가·차단 판정이 나지 않은 항목만 — 대시보드 미판정 SaaS 큐와 같은 집합">
         {reviewOnly ? '✓ ' : ''}검토 대기만 {reviewCount}
       </button>
+      {overdueSet.size > 0 && (
+        <button className={`btn sm ${overdueOnly ? 'err' : 'ghost'}`} onClick={() => { setOverdueOnly((v) => !v); setReviewOnly(false) }}
+          title={`접수 후 ${slaDays}일이 지나도 판정이 안 난 항목만 — 대시보드 판정 기한 경과 큐와 같은 집합`}>
+          {overdueOnly ? '✓ ' : ''}기한 경과만 {overdueSet.size}
+        </button>
+      )}
       <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {entries.length}건</span>
     </div>
     <div className="tbl-wrap">
@@ -90,12 +110,13 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, re
               </td>
               <td className="c"><Chip tone={TONE[e.status]}>{e.status}</Chip></td>
               <td className="mute tnum">
-                {e.status === '검토중' && e.reviewSince ? (() => {
-                  const age = reviewAge(e.reviewSince, today) ?? 0
-                  const over = age > slaDays
+                {e.status === '검토중' ? (() => {
+                  const age = e.reviewSince ? reviewAge(e.reviewSince, today) ?? 0 : null
+                  // 경과 판정은 서버(lib/saas-review)가 준 집합을 쓴다 — 여기서 임계값을 다시 재면 큐와 갈린다.
+                  const over = overdueSet.has(e.id)
                   return (
                     <span className="hstack" style={{ gap: 5, alignItems: 'baseline' }}>
-                      <span>검토 {age}일</span>
+                      <span>{age === null ? '접수일 미상' : `검토 ${age}일`}</span>
                       {over && <Chip tone="err" bare>기한 경과</Chip>}
                     </span>
                   )

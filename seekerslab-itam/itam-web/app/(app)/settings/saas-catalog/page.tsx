@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function SaasCatalogPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const session = await requireView('/settings/saas-catalog', 'SEC_MGR', 'ADMIN')
-  // status=review — 대시보드 '미판정 SaaS' 큐의 드릴다운(검토 대기만 보기로 연다).
+  // status=review|overdue — 대시보드 '미판정 SaaS'·'판정 기한 경과' 큐의 드릴다운(해당 필터를 켠 채 연다).
   const { status: statusParam } = await searchParams
   const s = getStore()
   const c = s.saasCatalog
@@ -52,7 +52,8 @@ export default async function SaasCatalogPage({ searchParams }: { searchParams: 
       )}
 
       <Card kicker="Catalog" title="서비스 목록 · 판정" pad={false}>
-        <CatalogTable entries={c} today={today()} slaDays={review.slaDays} approveNeedsApproval={requiresApproval('SaaS 인가')} reviewOnly={statusParam === 'review'} />
+        <CatalogTable entries={c} today={today()} slaDays={review.slaDays} approveNeedsApproval={requiresApproval('SaaS 인가')} reviewOnly={statusParam === 'review'}
+          overdueIds={review.overdue.map((e) => e.id)} overdueOnly={statusParam === 'overdue'} />
       </Card>
     </>
   )
