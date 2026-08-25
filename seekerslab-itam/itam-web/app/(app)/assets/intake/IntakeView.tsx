@@ -1,6 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
+import { ASSET_CATEGORIES } from '@/lib/types'
 import type { AssetCategory, IntakeLot } from '@/lib/types'
 import { cancelPreRegisteredLot, closeReturnedLot, issueAssetNo, markLotArrived, preRegisterLot, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, remindIntakeOverdue, toggleCheck } from './actions'
 
@@ -8,7 +9,8 @@ interface Label { assetNo: string; model: string; qr: string; barcode: string }
 interface PC { id: string; name: string; vendor: string }
 
 const STATUS_TONE = { '도입 예정': 'info', '입고 대기': 'neutral', '검수 중': 'warn', '검수 완료': 'ok', '검수 반려': 'err', '반품 완료': 'neutral' } as const
-const CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
+// 자산 유형 목록은 lib/types 의 ASSET_CATEGORIES 하나만 쓴다 — 여기에 다시 적으면 유형이 하나 늘 때
+//  대장 필터·집계는 새 유형을 아는데 이 화면의 드롭다운·업로드 검증만 옛 목록이라 등록이 막힌다.
 
 /** 도입 예정 입고 지연 경과일 — 도착 예정일 대비 기준일(YYYY-MM-DD 파싱, Date.now 미사용) */
 function intakeLateDays(expectedDate: string | undefined, today: string): number {
@@ -97,7 +99,7 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: 
             </select>
             <input className="input" style={{ width: 180 }} placeholder="모델" value={pmodel} disabled={pending} onChange={(e) => setPmodel(e.target.value)} />
             <select aria-label="도입 예정 자산 유형" className="select" value={pcat} disabled={pending} onChange={(e) => setPcat(e.target.value as AssetCategory)}>
-              {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+              {ASSET_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <input className="input" type="number" min={1} max={1000} style={{ width: 76 }} value={pqty} disabled={pending} onChange={(e) => setPqty(e.target.value)} />
             <input className="input" type="number" min={0} style={{ width: 110 }} placeholder="발주 단가(원)" value={punit} disabled={pending} onChange={(e) => setPunit(e.target.value)} />
@@ -160,7 +162,7 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: 
             </select>
             <input className="input" style={{ width: 190 }} placeholder="모델 (예: ThinkPad T14 Gen4)" value={rmodel} disabled={pending} onChange={(e) => setRmodel(e.target.value)} />
             <select aria-label="입고 등록 자산 유형" className="select" value={rcat} disabled={pending} onChange={(e) => setRcat(e.target.value as AssetCategory)}>
-              {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+              {ASSET_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <input className="input" type="number" min={1} max={1000} style={{ width: 80 }} value={rqty} disabled={pending} onChange={(e) => setRqty(e.target.value)} />
             <input className="input" type="number" min={0} style={{ width: 110 }} placeholder="발주 단가(원)" value={runit} disabled={pending} onChange={(e) => setRunit(e.target.value)} />

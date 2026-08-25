@@ -12,7 +12,7 @@ import { getStore, nextAssetNo, nextId } from '@/lib/store'
 import { requiresApproval } from '@/lib/approval'
 import { can } from '@/lib/perm'
 import { eolNoticeTargets, impactNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
-import { DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
+import { ASSET_CATEGORIES, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
 const CRITICALITY_LEVELS: BizCriticality[] = ['핵심', '중요', '일반']
@@ -120,7 +120,8 @@ export async function setAssetContractMany(assetNos: string[], rawContractId: st
   return { ok: true, message: `${targets.length}건 → ${contractId} (${c.name}) 계약 일괄 연계 완료${skippedC > 0 ? ` (이미 연계·종료 상태 ${skippedC}건 제외)` : ''}` }
 }
 
-const IMPORT_CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
+// 자산 유형 목록은 lib/types 의 ASSET_CATEGORIES 하나만 쓴다 — 여기에 다시 적으면 유형이 하나 늘 때
+//  대장 필터·집계는 새 유형을 아는데 이 화면의 드롭다운·업로드 검증만 옛 목록이라 등록이 막힌다.
 
 async function guard() {
   const session = await getSession()
@@ -152,7 +153,7 @@ export async function recordConfigChange(assetNo: string, field: ConfigField, ra
 
   if (field === '유형') {
     // 유형 재분류 — AI 자동분류 오분류 정정·용도 변경(제안→담당자 확인·정정, §05 제안 환류). 유효 유형만 허용.
-    if (!IMPORT_CATS.includes(value as AssetCategory)) return { ok: false, message: '올바른 자산 유형을 선택하세요.' }
+    if (!ASSET_CATEGORIES.includes(value as AssetCategory)) return { ok: false, message: '올바른 자산 유형을 선택하세요.' }
     const before = asset.category
     if (before === value && !note) return { ok: false, message: '변경 내용이 이전과 같습니다.' }
     asset.category = value as AssetCategory
@@ -1087,7 +1088,7 @@ export async function bulkRegisterAssets(rows: { category: string; model: string
     const category = (r.category ?? '').trim()
     const model = (r.model ?? '').trim()
     const serial = (r.serial ?? '').trim()
-    if (!IMPORT_CATS.includes(category as AssetCategory)) { skipped.push({ line, reason: `유형 오류 '${category || '-'}'` }); return }
+    if (!ASSET_CATEGORIES.includes(category as AssetCategory)) { skipped.push({ line, reason: `유형 오류 '${category || '-'}'` }); return }
     if (!model) { skipped.push({ line, reason: '모델 누락' }); return }
     if (serial && (existingSerials.has(serial) || batchSerials.has(serial))) { skipped.push({ line, reason: `시리얼 중복 '${serial}'` }); return }
 
