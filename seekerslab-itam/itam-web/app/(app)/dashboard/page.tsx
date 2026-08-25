@@ -1,3 +1,4 @@
+import { USER_REQUEST_KINDS } from '@/lib/types'
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
@@ -64,7 +65,7 @@ export default async function DashboardPage() {
   const myOwnerConfirms = s.approvals.filter((a) => a.kind === '소유자 확인' && a.status === '대기' && a.dept === session.dept)
   // 반려된 내 신청 — 아직 재상신하지 않은 반려 건. 사용자가 로그인 시 사유를 보고 재상신할지 스스로 판단하게 한다(결재함까지 안 가도 드러남).
   const myRejected = s.approvals.filter(
-    (a) => a.requester === session.name && a.status === '반려' && !a.resubmitted && ['자산 신청', '반납', '이동', '대여', 'SaaS 인가'].includes(a.kind),
+    (a) => a.requester === session.name && a.status === '반려' && !a.resubmitted && USER_REQUEST_KINDS.includes(a.kind),
   )
   // 수령 확인 대기 — 불출로 배정받았으나 아직 인수 확인을 안 한 본인 자산. 불출 시 안내 메일은 가지만
   // 대시보드에서도 상기시켜 사용자가 직접 수령 확인(체인 오브 커스터디)하게 한다(로54 수령 확인 루프의 사용자 측 능동 접점).

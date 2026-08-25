@@ -1927,6 +1927,15 @@ try {
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.
+  // 사용자 상신 종류(자산 신청·반납·이동·대여·SaaS 인가)도 같은 규약 — 재상신·상신 취소·결과 통보가 함께 쓰는
+  //  묶음이라 각자 적으면 종류가 늘 때 어떤 경로에선 취소되고 어떤 경로에선 조용히 막히는 갈림이 생긴다.
+  const kindLiteral = sourceFiles
+    .filter((f) => path.relative(ROOT, f).split(path.sep).join("/") !== "lib/types.ts")
+    .filter((f) => readFileSync(f, "utf8").includes("['자산 신청', '반납', '이동', '대여', 'SaaS 인가']"))
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check("사용자 상신 종류: 코드에 직접 적은 곳이 없다(USER_REQUEST_KINDS 단일 정의)",
+    kindLiteral.length === 0, `직접 목록=${kindLiteral.join(", ")}`)
+
   // 자산 유형 목록도 마찬가지 — 입고 등록 드롭다운·대량 등록 검증이 각자 목록을 들고 있으면 유형이 하나 늘 때
   //  대장 필터·집계는 새 유형을 아는데 등록 경로만 옛 목록이라 그 유형 자산을 아예 넣을 수 없다.
   const catLiteral = sourceFiles
