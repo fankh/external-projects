@@ -16,9 +16,11 @@ import { UsbTable } from './UsbTable'
 
 export const dynamic = 'force-dynamic'
 
-export default async function FoundPage({ searchParams }: { searchParams: Promise<{ state?: string; sel?: string }> }) {
+export default async function FoundPage({ searchParams }: { searchParams: Promise<{ state?: string; sel?: string; open?: string }> }) {
   const session = await requireView('/discovery/found', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
-  const { state, sel } = await searchParams
+  // open=accounts|localvm — 대시보드 '휴면 계정 미처리'·'로컬 VM 위반 미조치' 큐의 드릴다운.
+  //  해당 표를 미조치만 보기로 열어 큐가 말한 건수와 화면이 같은 집합을 보여 준다.
+  const { state, sel, open } = await searchParams
   // CMDB 대사 화면에서 상태별 드릴다운(?state=)으로 진입 — 유효한 대사 상태만 초기 필터로 반영
   const initialState = RECONCILE_STATES.includes(state as ReconcileState) ? (state as ReconcileState) : undefined
   const s = getStore()
@@ -106,7 +108,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
       </Card>
 
       <Card kicker="Account Hygiene · Channel 06" title="휴면 계정 — AD/IdP·SSO 계정 위생" pad={false}>
-        <AccountTable accounts={s.accounts} canAct={canAccount} />
+        <AccountTable accounts={s.accounts} canAct={canAccount} openOnly={open === 'accounts'} />
       </Card>
 
       <Card kicker="Unauthorized Software · Channel 04 (EDR)" title="미인가 SW — 설치 SW 정책 위반" pad={false}>
@@ -122,7 +124,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
       </Card>
 
       <Card kicker="Local VM · Channel 04 (EDR)" title="로컬 가상머신 — 엔드포인트 VM 정책 위반" pad={false}>
-        <LocalVmTable items={s.localVms} canAct={canAccount} />
+        <LocalVmTable items={s.localVms} canAct={canAccount} openOnly={open === 'localvm'} />
       </Card>
 
       <Card kicker="Cloud Governance · Channel 05 (CSP API)" title="미관리 클라우드 리소스 — 태그·소유·통제 위반" pad={false}>

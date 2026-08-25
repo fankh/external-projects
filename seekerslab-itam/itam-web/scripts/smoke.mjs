@@ -2082,6 +2082,7 @@ try {
     if (want < 0 || want !== got) drillBad.push(`${label}: 큐 ${want} ≠ 표시 ${got}`)
   }
   check("계약 화면 드릴다운: 유지보수 큐 건수 = 필터 화면 표시 건수", drillBad.length === 0, drillBad.join(" / "))
+
   // 알림 전달 실패 큐 — 재발송 대상 건만 열어야 한다. 그동안 이력 화면 맨 위로만 보내, 긴 발송 이력에서
   //  실패 건을 눈으로 찾아야 했다(전달 상태 필터 자체가 없었다). 반출본도 같은 필터를 받는다.
   const dispFailHtml = await (await get('/platform/integrations?dispatch=failed', 'SEC_MGR')).text()
@@ -2102,6 +2103,25 @@ try {
   check("알림 발송 이력: 전달 실패 필터 컨트롤 렌더(재발송 대상 좁히기)", dispFailHtml.includes('전달 실패'))
   const dispXlsx = Buffer.from(await (await get('/api/dispatch-export?delivery=' + encodeURIComponent('실패'), 'SEC_MGR')).arrayBuffer()).toString('utf8')
   check("알림 발송 이력 반출: 전달 상태 필터 반영(화면과 같은 집합)", dispXlsx.includes('전달 상태') && !dispXlsx.includes('발송 완료'))
+  // 발견 화면의 조치 표(휴면 계정·로컬 VM)는 조치가 끝난 건까지 함께 쌓인다 — 큐가 말한 '미조치 N건'을
+  //  화면에서 다시 세어야 했다. 큐 링크가 미조치만 보기를 켠 채 열고, 표가 그 집합의 건수를 스스로 적는다.
+  const cardShown = (html, cardTitle) => {
+    const plain = html.replace(/<!-- -->/g, "")
+    const at = plain.indexOf(cardTitle)
+    return Number((new RegExp("([0-9]+) \/ ([0-9]+)건").exec(at === -1 ? "" : plain.slice(at)) || [])[1] ?? -1)
+  }
+  const acctHtml = await (await get('/discovery/found?open=accounts', 'SEC_MGR')).text()
+  const vmHtml = await (await get('/discovery/found?open=localvm', 'SEC_MGR')).text()
+  const acctQueue = secQueueCount('휴면 계정 미처리 (AD/IdP 계정 위생)')
+  const vmQueue = secQueueCount('로컬 VM 위반 미조치 (엔드포인트 가상머신)')
+  const acctShown = cardShown(acctHtml, '휴면 계정 — AD/IdP')
+  const vmShown = cardShown(vmHtml, '로컬 가상머신 — 엔드포인트 VM')
+  check("휴면 계정 큐: 건수 = 미조치만 보기 표시 건수", acctQueue > 0 && acctQueue === acctShown, `큐 ${acctQueue} · 표시 ${acctShown}`)
+  check("로컬 VM 큐: 건수 = 미조치만 보기 표시 건수", vmQueue > 0 && vmQueue === vmShown, `큐 ${vmQueue} · 표시 ${vmShown}`)
+  // 필터 없이 열면 조치 완료분까지 포함한다 — 시드는 전건 미조치라 두 수가 같고, 조치가 쌓이면 전체가 커진다.
+  //  (필터가 실제로 걸러 내는지는 e2e 가 조치 후 두 수를 비교해 확인한다.)
+  const acctAll = cardShown(await (await get('/discovery/found', 'SEC_MGR')).text(), '휴면 계정 — AD/IdP')
+  check("발견 조치 표: 필터 없는 화면은 미조치 이상을 표시(집합 포함 관계)", acctAll >= acctShown && acctShown > 0, `전체 ${acctAll} · 미조치 ${acctShown}`)
 
   // 분석 패널로만 보내던 두 큐 — 교체 대상·미사용 라이선스는 대장(?replace=1)·계약 화면(?lic=under)에 같은 판정의
   //  필터가 이미 있는데도 /ai/insights 로만 보내, 큐가 말한 14건·2건을 화면에서 다시 찾아야 했다(패널은 상위 N만 보여 준다).
