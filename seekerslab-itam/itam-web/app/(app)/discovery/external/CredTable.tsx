@@ -6,13 +6,18 @@ import { reopenCredential, respondToCredential, respondToCredentialMany } from '
 
 const SEV_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
 
-export function CredTable({ credentials, canRespond }: { credentials: CredentialFinding[]; canRespond: boolean }) {
+export function CredTable({ credentials, canRespond, openOnly: openOnlyParam }: { credentials: CredentialFinding[]; canRespond: boolean; openOnly?: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [bulkNote, setBulkNote] = useState('대량 노출 일괄 대응 — 계정 재설정·세션 무효화·외부 접근 차단')
   const [pending, startTransition] = useTransition()
+  // 미조치만 보기 — 대시보드 '크리덴셜 노출 미조치' 큐의 드릴다운. 조치 완료분까지 함께 쌓이는 표라 큐가 말한 건수를
+  //  화면에서 다시 세어야 했다(발견 자산 화면의 네 조치 표와 같은 규약).
+  const [openOnly, setOpenOnly] = useState(Boolean(openOnlyParam))
+  const openCount = credentials.filter((x) => x.status !== '조치 완료').length
+  const shown = openOnly ? credentials.filter((x) => x.status !== '조치 완료') : credentials
 
   // 미조치 건만 선택 대상 — 크리덴셜 스터핑·대량 유출 점검에서 다수 노출을 같은 표준 조치로 한 번에 처리한다
   const selectable = credentials.filter((c) => c.status !== '조치 완료')
@@ -41,6 +46,13 @@ export function CredTable({ credentials, canRespond }: { credentials: Credential
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className={`btn sm ${openOnly ? 'pri' : 'ghost'}`} onClick={() => setOpenOnly((v) => !v)}
+          title="조치가 끝나지 않은 건만 — 대시보드 '크리덴셜 노출 미조치' 큐와 같은 집합">
+          {openOnly ? '✓ ' : ''}미조치만 {openCount}
+        </button>
+        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {credentials.length}건</span>
+      </div>
       {canRespond && checked.size > 0 && (
         <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 대응:</span>
@@ -62,7 +74,7 @@ export function CredTable({ credentials, canRespond }: { credentials: Credential
             </tr>
           </thead>
           <tbody>
-            {credentials.map((c) => (
+            {shown.map((c) => (
               <tr key={c.id}>
                 {canRespond && <td className="c" onClick={(e) => e.stopPropagation()}>
                   {c.status !== '조치 완료' && <input type="checkbox" checked={checked.has(c.id)} disabled={pending} aria-label={`${c.service} ${c.host} 선택`} onChange={() => toggle(c.id)} />}

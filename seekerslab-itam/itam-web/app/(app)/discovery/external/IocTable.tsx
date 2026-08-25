@@ -6,11 +6,16 @@ import { reopenIoc, respondToIoc, respondToIocMany } from './actions'
 
 const CONF_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
 
-export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: boolean }) {
+export function IocTable({ iocs, canRespond, openOnly: openOnlyParam }: { iocs: IocMatch[]; canRespond: boolean; openOnly?: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+  // 미조치만 보기 — 대시보드 'IOC 상관 미조치' 큐의 드릴다운. 조치 완료분까지 함께 쌓이는 표라 큐가 말한 건수를
+  //  화면에서 다시 세어야 했다(발견 자산 화면의 네 조치 표와 같은 규약).
+  const [openOnly, setOpenOnly] = useState(Boolean(openOnlyParam))
+  const openCount = iocs.filter((x) => !x.action).length
+  const shown = openOnly ? iocs.filter((x) => !x.action) : iocs
 
   // 미조치 건만 선택 대상 — 위협 인텔 피드 갱신으로 다수 IOC가 한꺼번에 상관되면 선택해 한 번에 차단/조사한다
   const selectable = iocs.filter((i) => !i.action)
@@ -38,6 +43,13 @@ export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: b
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className={`btn sm ${openOnly ? 'pri' : 'ghost'}`} onClick={() => setOpenOnly((v) => !v)}
+          title="조치가 끝나지 않은 건만 — 대시보드 'IOC 상관 미조치' 큐와 같은 집합">
+          {openOnly ? '✓ ' : ''}미조치만 {openCount}
+        </button>
+        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {iocs.length}건</span>
+      </div>
       {canRespond && checked.size > 0 && (
         <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 대응:</span>
@@ -60,7 +72,7 @@ export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: b
             </tr>
           </thead>
           <tbody>
-            {iocs.map((i) => (
+            {shown.map((i) => (
               <tr key={i.id}>
                 {canRespond && <td className="c" onClick={(e) => e.stopPropagation()}>
                   {!i.action && <input type="checkbox" checked={checked.has(i.id)} disabled={pending} aria-label={`${i.iocValue} 선택`} onChange={() => toggle(i.id)} />}

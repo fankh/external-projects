@@ -6,13 +6,18 @@ import { reopenLeak, respondToLeak, respondToLeakMany } from './actions'
 
 const CONF_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
 
-export function LeakTable({ leaks, canRespond }: { leaks: LeakFinding[]; canRespond: boolean }) {
+export function LeakTable({ leaks, canRespond, openOnly: openOnlyParam }: { leaks: LeakFinding[]; canRespond: boolean; openOnly?: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [bulkNote, setBulkNote] = useState('대량 유출 사고 일괄 대응 — 계정 재설정·시크릿 로테이션·침해 점검')
   const [pending, startTransition] = useTransition()
+  // 미조치만 보기 — 대시보드 '유출 · 침해 미조치' 큐의 드릴다운. 조치 완료분까지 함께 쌓이는 표라 큐가 말한 건수를
+  //  화면에서 다시 세어야 했다(발견 자산 화면의 네 조치 표와 같은 규약).
+  const [openOnly, setOpenOnly] = useState(Boolean(openOnlyParam))
+  const openCount = leaks.filter((x) => x.status !== '조치 완료').length
+  const shown = openOnly ? leaks.filter((x) => x.status !== '조치 완료') : leaks
 
   // 미조치 건만 선택 대상 — 대량 유출 사고(다크웹 덤프 등)에서 다수 건을 같은 표준 조치로 한 번에 처리한다
   const selectable = leaks.filter((l) => l.status !== '조치 완료')
@@ -41,6 +46,13 @@ export function LeakTable({ leaks, canRespond }: { leaks: LeakFinding[]; canResp
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className={`btn sm ${openOnly ? 'pri' : 'ghost'}`} onClick={() => setOpenOnly((v) => !v)}
+          title="조치가 끝나지 않은 건만 — 대시보드 '유출 · 침해 미조치' 큐와 같은 집합">
+          {openOnly ? '✓ ' : ''}미조치만 {openCount}
+        </button>
+        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {leaks.length}건</span>
+      </div>
       {canRespond && checked.size > 0 && (
         <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 대응:</span>
@@ -62,7 +74,7 @@ export function LeakTable({ leaks, canRespond }: { leaks: LeakFinding[]; canResp
             </tr>
           </thead>
           <tbody>
-            {leaks.map((l) => (
+            {shown.map((l) => (
               <tr key={l.id}>
                 {canRespond && <td className="c" onClick={(e) => e.stopPropagation()}>
                   {l.status !== '조치 완료' && <input type="checkbox" checked={checked.has(l.id)} disabled={pending} aria-label={`${l.kind} 선택`} onChange={() => toggle(l.id)} />}

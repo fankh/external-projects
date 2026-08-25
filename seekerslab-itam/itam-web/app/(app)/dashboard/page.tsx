@@ -160,10 +160,10 @@ export default async function DashboardPage() {
     const p1 = buildVulnPriority().p1
     opsQueues.push(
       { label: '취약점 우선순위 P1 (즉시 조치)', count: p1, href: '/ai/insights', tone: 'err' },
-      { label: '유출 · 침해 미조치', count: s.leaks.filter((l) => l.status !== '조치 완료').length, href: '/discovery/external', tone: 'err' },
-      { label: '크리덴셜 노출 미조치 (인증 취약점)', count: s.credentials.filter((c) => c.status !== '조치 완료').length, href: '/discovery/external', tone: 'err' },
-      { label: 'IOC 상관 미조치 (위협 인텔·침해 징후)', count: s.iocMatches.filter((i) => !i.action).length, href: '/discovery/external', tone: 'err' },
-      { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external', tone: 'err' },
+      { label: '유출 · 침해 미조치', count: s.leaks.filter((l) => l.status !== '조치 완료').length, href: '/discovery/external?open=leaks', tone: 'err' },
+      { label: '크리덴셜 노출 미조치 (인증 취약점)', count: s.credentials.filter((c) => c.status !== '조치 완료').length, href: '/discovery/external?open=creds', tone: 'err' },
+      { label: 'IOC 상관 미조치 (위협 인텔·침해 징후)', count: s.iocMatches.filter((i) => !i.action).length, href: '/discovery/external?open=ioc', tone: 'err' },
+      { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external?open=exposure', tone: 'err' },
       { label: '휴면 계정 미처리 (AD/IdP 계정 위생)', count: s.accounts.filter((a) => !a.action).length, href: '/discovery/found?open=accounts', tone: 'warn' },
       // 소유자 확인 미응답 — 기한(운영 정책) 경과한 확인 요청은 격리 에스컬레이션 대상. 방치하면 미확인 자산이 계속 사내망에 남는다.
       { label: `소유자 확인 미응답 (${s.opsPolicy.confirmDeadlineDays}일 경과 · 격리 에스컬레이션)`, count: s.discovered.filter((d) => d.action === '확인요청' && d.confirmRequestedAt && -(daysUntil(d.confirmRequestedAt) ?? 0) >= s.opsPolicy.confirmDeadlineDays).length, href: '/discovery/found', tone: 'err' },

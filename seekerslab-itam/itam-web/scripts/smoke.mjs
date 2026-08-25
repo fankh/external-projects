@@ -2206,6 +2206,22 @@ try {
   const seatHtml = await (await get('/inventory/contracts?seat=unused', 'ASSET_MGR')).text()
   check("계약 화면 드릴다운: 미설치 좌석 큐가 회수 후보만 여는 필터로 연결",
     dashMgr.includes('/inventory/contracts?seat=unused') && seatHtml.includes('미설치 좌석(회수 후보) 필터'))
+  // 외부 위협 네 큐(유출·크리덴셜·IOC·외부 노출)도 조치 완료분까지 쌓이는 표를 통째로 열던 것을 미조치만 보기로 연다.
+  const extPairs = [
+    ['유출 · 침해 미조치', 'leaks', '위협 인텔리전스 · 유출 수집'],
+    ['크리덴셜 노출 미조치 (인증 취약점)', 'creds', '인증 취약점 점검'],
+    ['IOC 상관 미조치 (위협 인텔·침해 징후)', 'ioc', '위협 인텔리전스 — IOC 상관'],
+    ['외부 노출 미조치', 'exposure', '외부 노출 자산'],
+  ]
+  const extBad = []
+  for (const [label, key, cardTitle] of extPairs) {
+    const html = await (await get(`/discovery/external?open=${key}`, 'SEC_MGR')).text()
+    const shown = cardShown(html, cardTitle)
+    const want = secQueueCount(label)
+    if (want < 0 || want !== shown) extBad.push(`${label}: 큐 ${want} ≠ 표시 ${shown}`)
+  }
+  check("외부 위협 큐: 건수 = 미조치만 보기 표시 건수(4종)", extBad.length === 0, extBad.join(" / "))
+
   // 필독 공지 확인 미달 큐 — 공지 목록은 확인이 끝난 공지·일반 공지까지 함께 쌓이므로, 큐가 말한 건수를
   //  화면에서 다시 세어야 했다. 큐 링크가 확인 미달만 보기를 켠 채 연다(판정은 큐와 같다).
   const noticeGapHtml = await (await get('/board/notices?gap=1', 'ADMIN')).text()
