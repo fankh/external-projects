@@ -94,7 +94,7 @@ export function UsersView(props: {
                       </select>
                     </td>
                     <td className="num tnum">{props.owned[u.name] > 0
-                      ? <a href={`/assets/register?q=${encodeURIComponent(u.name)}`} title={`${u.name} 보유 자산 보기`} style={{ color: 'var(--accent-deep)' }}>{props.owned[u.name]}</a>
+                      ? <a href={`/assets/register?q=${encodeURIComponent(u.name)}&live=1`} title={`${u.name} 보유 자산 보기 (손 떠난 자산 제외 — 집계와 같은 집합)`} style={{ color: 'var(--accent-deep)' }}>{props.owned[u.name]}</a>
                       : <span className="mut">0</span>}</td>
                     <td className="c">
                       {u.mfa ? <Chip tone="ok">적용</Chip> : (

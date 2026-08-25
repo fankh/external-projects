@@ -1966,6 +1966,15 @@ try {
     !silentReturn && toggleBody.includes("ok: false") && intakeViewSrc.includes("checkLock"),
     `값 없는 거절=${silentReturn} 사유 응답=${toggleBody.includes("ok: false")} 화면 잠금=${intakeViewSrc.includes("checkLock")}`)
 
+  // 사용자별 보유 자산 수 ↔ 드릴다운 — 집계는 손 떠난 자산을 빼는데 링크가 전체를 열면 "보유 3" 을 눌렀는데
+  //  목록이 4건이 된다(재고 경보 드릴다운과 같은 계열). 집계는 GONE_STATUSES 단일 정의를, 링크는 같은 판정의
+  //  live=1 을 쓴다 — 시드에는 분실·폐기예정 보유자가 없어 SSR 로는 재현되지 않으므로 구조로 고정한다.
+  const usersPageSrc = readFileSync(path.join(ROOT, "app", "(app)", "settings", "users", "page.tsx"), "utf8")
+  const usersViewSrc = readFileSync(path.join(ROOT, "app", "(app)", "settings", "users", "UsersView.tsx"), "utf8")
+  check("사용자 보유 자산 수: 집계(GONE_STATUSES) 와 드릴다운(live=1) 이 같은 집합",
+    usersPageSrc.includes("GONE_STATUSES.includes(") && usersViewSrc.includes("&live=1"),
+    `집계 단일 정의=${usersPageSrc.includes("GONE_STATUSES.includes(")} 링크 live=1=${usersViewSrc.includes("&live=1")}`)
+
   // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
   // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
   const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')
