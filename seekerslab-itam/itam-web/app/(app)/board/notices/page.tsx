@@ -1,6 +1,7 @@
 import { Card, ScreenHeader } from '@/components/ui'
 import { today } from '@/lib/dates'
 import { inNoticeAudience } from '@/lib/notice'
+import { noticeRemindTargets } from '@/lib/reminders'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { NoticeBoard } from './NoticeBoard'
@@ -20,6 +21,10 @@ export default async function NoticesPage({ searchParams }: { searchParams: Prom
     .filter((p) => isAdmin || inNoticeAudience(p, session?.dept))
     .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.createdAt.localeCompare(a.createdAt))
   const depts = [...new Set(s.users.map((u) => u.dept))].sort()
+  // 공지별 '오늘 보낼 미확인자 수' — 버튼 건수와 액션이 같은 집합을 보게 한다(lib/reminders 단일 소스).
+  const remindPending: Record<string, number> = {}
+  for (const p of notices) remindPending[p.id] = noticeRemindTargets(p.id).length
+
 
   return (
     <>
@@ -30,7 +35,7 @@ export default async function NoticesPage({ searchParams }: { searchParams: Prom
       />
       {notices.length === 0
         ? <Card><div className="empty">등록된 공지가 없습니다</div></Card>
-        : <NoticeBoard posts={notices} canWrite={isAdmin} me={session?.name ?? ''} allUsers={s.users.map((u) => ({ name: u.name, dept: u.dept }))} depts={depts} today={t} initialSel={sel} />}
+        : <NoticeBoard posts={notices} remindPending={remindPending} canWrite={isAdmin} me={session?.name ?? ''} allUsers={s.users.map((u) => ({ name: u.name, dept: u.dept }))} depts={depts} today={t} initialSel={sel} />}
     </>
   )
 }
