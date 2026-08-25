@@ -26,6 +26,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   // CMDB 의존 관계 — 상위 의존·영향 범위(blast radius)·저하 상위. 이 자산 장애 시 무엇이 영향받는지 dossier 에 남긴다.
   const deps = assetDependencies(a.assetNo)
   const asById = new Map(getStore().assets.map((x) => [x.assetNo, x]))
+  // 진행 중 폐기 절차 단계(완료 제외) — 재고 가용·불출 가드가 쓰는 판정과 같은 원천(스토어 폐기 대장).
+  const disposalStage = getStore().disposals.find((d) => d.assetNo === a.assetNo && d.status !== '완료')?.status
   const nameOf = (no: string) => { const x = asById.get(no); return x ? `${no}(${x.model})` : no }
   const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const row = (k: string, v?: string) => (v && v !== '-') ? `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>` : ''
@@ -34,6 +36,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     // NAC 격리 — 상태는 '사용중' 그대로인데 망이 끊긴 자산이다(화면은 상태 칩 옆에 격리 칩을 세운다).
     //  인쇄 카드에만 빠지면 현장에서 정상 장비로 읽혀 조사 중인 단말을 그대로 쓰게 된다.
     row('NAC 격리', a.quarantinedAt ? `${a.quarantinedAt} · 보안 조사 중(망 차단)` : undefined),
+    // 폐기 절차(완료 제외) — 상태는 유휴·사용중 그대로인데 파기 예정으로 잡힌 자산이다. 화면 상세는 재불출·대여를
+    //  막으며 사유를 밝히지만 인쇄 카드에는 흔적이 없어, 현장에서 평범한 재고로 다시 배정될 수 있다.
+    row('폐기 절차', disposalStage ? `${disposalStage} · 재불출·대여 대상 아님` : undefined),
     row('업무 중요도', a.criticality ?? '일반'),
     row('소유자', a.owner), row('부서', a.dept), row('위치', a.location),
     row('OS', a.os), row('CPU', a.cpu), row('메모리', a.memory),

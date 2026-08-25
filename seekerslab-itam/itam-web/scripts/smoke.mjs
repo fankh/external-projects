@@ -948,6 +948,14 @@ try {
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
   // 배정 라이선스 좌석 섹션 — 이 자산이 물고 있는 SW 라이선스(로56·57)를 dossier 에 남긴다(인수인계·감사·회수 대상). 시드 AST-2023-000112 는 LIC-004 AutoCAD 좌석.
   check('자산 카드: 배정 라이선스 좌석 섹션(인수인계·감사 dossier)', cardBody.includes('배정 라이선스 좌석') && cardBody.includes('AutoCAD LT'))
+  // 폐기 절차 표기 — 상태는 유휴·사용중 그대로인데 파기 예정으로 잡힌 자산이다(가용 재고·불출 가드는 이미 제외).
+  //  화면 상세는 재불출·대여를 막으며 사유를 밝히지만 인쇄 카드·엑셀에는 흔적이 없어, 반출본만 보면 평범한 재고로
+  //  읽혀 현장에서 다시 배정될 수 있다(격리 표기 전파와 같은 규약). 시드 DSP-02(AST-2021-000432 · 대상 선정).
+  const cardDisp = await (await get('/api/asset-card/AST-2021-000432', 'ASSET_MGR')).text()
+  check('자산 카드: 폐기 절차 진행 자산에 단계 표기(재불출·대여 대상 아님)', cardDisp.includes('폐기 절차') && cardDisp.includes('대상 선정'))
+  check('자산 카드: 폐기 절차 아닌 자산에는 미표기(양성 대조)', !cardBody.includes('폐기 절차'))
+  const assetsXlsx = Buffer.from(await (await get('/api/export/assets', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
+  check('자산 대장 엑셀: 폐기 절차 열 + 진행 단계 반출', assetsXlsx.includes('폐기 절차') && assetsXlsx.includes('대상 선정'))
   // 데이터 스코핑 — USER 는 본인 자산 카드만
   check('자산 카드: USER 본인 자산은 발급 (200)', (await get('/api/asset-card/AST-2023-000112', 'USER')).status === 200)
   check('자산 카드: USER 타인 자산은 차단 (403)', (await get('/api/asset-card/AST-2023-000561', 'USER')).status === 403)

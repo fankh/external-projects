@@ -37,6 +37,9 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
   const s = getStore()
 
   if (kind === 'assets') {
+    // 진행 중인 폐기 절차(완료 제외) 단계 — 화면 상세는 대여·재불출을 막으며 사유를 밝히는데 반출본에는 흔적이
+    //  없어, 엑셀만 보면 파기 예정 자산이 평범한 '유휴' 재고로 읽힌다(가용 재고·불출 가드는 이미 제외한다).
+    const disposalStage = new Map(s.disposals.filter((d) => d.status !== '완료').map((d) => [d.assetNo, d.status]))
     // 화면(자산 대장)의 검색·유형·상태·장기 미실측·보증 임박 필터를 그대로 반영 — 좁혀 본 그 집합을 반출한다.
     // nos(선택 자산번호)가 주어지면 그 선택분만 반출한다(다중 선택 → 선택 내보내기).
     const q = (filter?.q ?? '').trim().toLowerCase()
@@ -60,6 +63,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         // NAC 격리 — 화면(대장 목록·상세)은 상태 칩 옆에 '격리' 칩을 세우는데 반출본에는 없어, 엑셀만 보면
         //  망이 끊긴 자산이 '사용중' 정상 자산으로 읽혔다(재고 가용·재배정·대여는 이미 격리를 빼는데 반출만 몰랐다).
         a.quarantinedAt ? `격리 ${a.quarantinedAt}` : '',
+        disposalStage.get(a.assetNo) ?? '',
         a.criticality ?? '일반', a.owner, a.dept, a.location,
         a.os ?? '', a.cpu ?? '', a.memory ?? '', a.ip ?? '', a.mac ?? '',
         a.purchaseDate, a.warrantyEnd,
@@ -75,7 +79,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       ])
     return [{
       name: '자산 대장',
-      header: ['자산번호', '유형', '모델', 'S/N', '상태', 'NAC 격리', '업무 중요도', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '보증상태', '최근 실측', '정기 점검 예정', '계약', '발견채널', '대여 반환 기한', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
+      header: ['자산번호', '유형', '모델', 'S/N', '상태', 'NAC 격리', '폐기 절차', '업무 중요도', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '보증상태', '최근 실측', '정기 점검 예정', '계약', '발견채널', '대여 반환 기한', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
       rows,
     }]
   }
