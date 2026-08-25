@@ -2181,6 +2181,13 @@ try {
   const usbQueue = secQueueCount('USB 정책 위반 미조치 (이동식 매체 DLP)')
   check("미인가 SW 큐: 건수 = 미조치만 보기 표시 건수", swQueue > 0 && swQueue === swShown, `큐 ${swQueue} · 표시 ${swShown}`)
   check("USB 위반 큐: 건수 = 미조치만 보기 표시 건수", usbQueue > 0 && usbQueue === usbShown, `큐 ${usbQueue} · 표시 ${usbShown}`)
+  // 미관리 클라우드 리소스 표만 이 필터가 없었다 — 같은 화면의 네 조치 표는 이미 미조치만 보기를 갖고 있는데,
+  //  이 표는 조치 완료분이 섞인 전체를 통째로 열어 큐가 말한 건수를 눈으로 세어야 했다.
+  const cloudHtml = await (await get('/discovery/found?open=cloud', 'SEC_MGR')).text()
+  const cloudShown = cardShown(cloudHtml, '미관리 클라우드 리소스 — 태그·소유·통제 위반')
+  const cloudQueue = secQueueCount('미관리 클라우드 리소스 미조치 (태그·소유·회수 · SAM/거버넌스)')
+  check("미관리 클라우드 큐: 건수 = 미조치만 보기 표시 건수", cloudQueue > 0 && cloudQueue === cloudShown, `큐 ${cloudQueue} · 표시 ${cloudShown}`)
+  check("미관리 클라우드 큐: 링크가 미조치만 보기를 켠 채 연다", dashSec.includes('/discovery/found?open=cloud'))
   // CMDB 대사 화면의 상태별 건수 ↔ 발견 처리 화면 드릴다운 — 대사 표가 "미등록 8건"이라 말하면 그 링크가 여는
   //  목록도 8건이어야 한다. 두 화면이 각자 집계하므로(대사는 s.discovered 직접, 발견 화면은 필터 상태) 조용히 갈릴 수 있다.
   const recPlain = (await (await get('/discovery/reconcile', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
