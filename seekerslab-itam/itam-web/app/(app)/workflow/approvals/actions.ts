@@ -378,7 +378,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       //  (a) 이탈: 분실·폐기로 대장을 떠남 → 되살리면 분실/폐기 루프와 어긋난다.
       //  (b) 재확인: 상신 후 자산이 다시 능동 보유로 확정됨(수령 대기=재배정·재불출 · 대여중 · 수리중). 스테일 미확인 조정을 적용하면
       //      재배정을 무효화하고 좌석을 회수해 대장·SAM 이 어긋난다(이탈 방어의 반대 방향 — 재확인된 자산을 유휴로 강제).
-      const departed = asset && ['분실', '폐기예정', '폐기완료'].includes(asset.status)
+      const departed = asset && GONE_STATUSES.includes(asset.status)
       const reConfirmed = asset && (!!asset.receiptPending || ['대여중', '수리중'].includes(asset.status))
       if ((departed || reConfirmed) && d.kind !== '대장 미등록') {
         d.resolution = '미적용'
@@ -540,7 +540,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         // 스테일 반납 방어 — 상신 후 자산이 이탈(분실·폐기)했거나 다른 보유자로 재확정(재배정·대여·수리)되었으면
         //  반납대기로 되돌리지 않는다(대여 승인·차이 조정과 동형). 안 그러면 분실 자산을 손실 루프에서 빼내거나,
         //  재배정된 자산을 반납대기로 뒤엎고 새 보유자의 좌석을 회수해 대장·SAM 이 어긋난다.
-        const departed = ['분실', '폐기예정', '폐기완료'].includes(asset.status)
+        const departed = GONE_STATUSES.includes(asset.status)
         const reConfirmed = asset.owner !== a.requester || ['대여중', '수리중'].includes(asset.status)
         const inDisposal = s.disposals.some((dp) => dp.assetNo === asset.assetNo && dp.status !== '완료')
         if (departed || reConfirmed || inDisposal) {

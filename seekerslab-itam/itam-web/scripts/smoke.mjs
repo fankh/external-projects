@@ -1927,6 +1927,18 @@ try {
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.
+  // 목록을 직접 적은 곳이 새로 생기는지도 훑는다 — 참조 파일 목록만 검사하면 새 파일이 조용히 자기 목록을 갖는다
+  //  (재물조사 마감 가드가 그렇게 상태 셋을 직접 적고 있었다). 배열 리터럴 형태로만 잡아 상태 드롭다운 전체 목록은 건드리지 않는다.
+  const goneLiteral = sourceFiles
+    .filter((f) => path.relative(ROOT, f).split(path.sep).join("/") !== "lib/types.ts")
+    .filter((f) => {
+      const src = readFileSync(f, "utf8")
+      return src.includes("['분실', '폐기예정', '폐기완료']") || src.includes("['폐기예정', '폐기완료', '분실']")
+    })
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check("손 떠난 자산 판정: 상태 목록을 코드에 직접 적은 곳이 없다(GONE_STATUSES 단일 정의)",
+    goneLiteral.length === 0, `직접 목록=${goneLiteral.join(", ")}`)
+
   const goneUsers = [
     ["lib/upcoming.ts", "upcoming"],
     ["lib/store.ts", "store"],

@@ -7,6 +7,7 @@ import { createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import { can } from '@/lib/perm'
+import { GONE_STATUSES } from '@/lib/types'
 import type { SurveyDiffKind } from '@/lib/types'
 
 /** 스캔 시각 — 표준시 처리는 lib/dates 에 위임한다 (프로세스 TZ 에 의존하지 않도록) */
@@ -142,7 +143,9 @@ export async function completeRound(roundId: string) {
   const unaccounted = (round.targets ?? []).filter((no) => {
     if (scanned.has(no)) return false
     const a = s.assets.find((x) => x.assetNo === no)
-    return a !== undefined && !['분실', '폐기예정', '폐기완료'].includes(a.status)
+    // 손 떠난 자산 판정은 lib/types 한 곳에서 온다 — 여기에 상태 목록을 다시 적으면 상태가 늘 때
+    //  마감 가드만 옛 목록을 보고 새 상태 자산을 미실사로 잡아, 회차를 영원히 닫지 못하게 된다.
+    return a !== undefined && !GONE_STATUSES.includes(a.status)
   })
   if (unaccounted.length > 0) {
     return { ok: false, message: `미실사 대상 ${unaccounted.length}건이 남아 있어 마감할 수 없습니다 — 실사 스캔 또는 분실 신고로 처리하세요.` }
