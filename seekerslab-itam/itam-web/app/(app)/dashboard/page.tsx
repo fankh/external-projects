@@ -145,7 +145,7 @@ export default async function DashboardPage() {
       // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.
       { label: '대장 정합성 미흡 (필드 누락·불일치)', count: s.assets.filter((a) => hasDataIssue(a, deptOfOwner(s.users))).length, href: '/assets/register?dq=1', tone: 'warn' },
       // 정례 리포트 배포 기한 경과 — 가동 스케줄의 예약 실행일이 지났는데 미배포(§05 리포트 자동화 정례 증적). 자동 생성 밀림.
-      { label: '정례 리포트 배포 기한 경과 (자동 생성 밀림)', count: s.reportSchedules.filter(isScheduleOverdue).length, href: '/ai/reports', tone: 'warn' },
+      { label: '정례 리포트 배포 기한 경과 (자동 생성 밀림)', count: s.reportSchedules.filter(isScheduleOverdue).length, href: '/ai/reports?due=1', tone: 'warn' },
     )
     // 안전재고 미달 — 불출형 유형(단말·주변기기) 가용 재고가 안전재고 미만. 신규 배정 수요 스톡아웃 예방(발주 검토). 재고 화면과 같은 판정.
     const lowStock = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
