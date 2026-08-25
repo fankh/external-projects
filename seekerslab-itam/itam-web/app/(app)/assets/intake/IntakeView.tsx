@@ -18,14 +18,20 @@ function intakeLateDays(expectedDate: string | undefined, today: string): number
   return Math.floor((Date.parse(today) - Date.parse(expectedDate)) / 86_400_000)
 }
 
-export function IntakeView({ lots, labels, contracts, today, remindCount = 0, initialFilter }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[]; today: string; remindCount?: number; /** 대시보드 입고 큐의 드릴다운 — 검수 대기·검수 반려만 보기로 연다 */ initialFilter?: 'inspect' | 'rejected' }) {
+export function IntakeView({ lots, labels, contracts, today, remindCount = 0, initialFilter }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[]; today: string; remindCount?: number; /** 대시보드 입고 큐의 드릴다운 — 검수 대기·검수 반려만 보기로 연다 */ initialFilter?: 'inspect' | 'rejected' | 'overdue' }) {
   // 도입 예정(사전 등록) 건과 실제 입고 건을 분리한다 — 도입 예정은 아직 검수 대상이 아니다
   const plannedLots = lots.filter((l) => l.status === '도입 예정')
   const arrivedLots = lots.filter((l) => l.status !== '도입 예정')
   const [selId, setSelId] = useState(arrivedLots[0]?.id ?? '')
   // 대시보드 '입고 검수 대기'·'검수 반려' 큐의 드릴다운 — 입고 목록은 검수 완료·반품까지 함께 쌓이므로,
   //  큐가 말한 건수를 화면에서 다시 세어야 했다. 판정은 큐와 같은 상태값을 쓴다.
-  const [lotFilter, setLotFilter] = useState<'전체' | 'inspect' | 'rejected'>(initialFilter ?? '전체')
+  const [lotFilter, setLotFilter] = useState<'전체' | 'inspect' | 'rejected'>(initialFilter === 'overdue' ? '전체' : (initialFilter ?? '전체'))
+  // 지연만 보기 — 대시보드 '도입 예정 입고 지연' 큐의 드릴다운. 이 큐가 세는 로트는 아래 검수 표가 아니라
+  //  '도입 예정' 표에 살아 있어, 검수 필터(?lot=inspect·rejected)로는 좁혀지지 않았다. 도착 예정일이 남은
+  //  로트까지 함께 쌓이는 표라 큐가 말한 건수를 화면에서 다시 세어야 했다.
+  const [plannedOverdueOnly, setPlannedOverdueOnly] = useState(initialFilter === 'overdue')
+  const plannedOverdueCount = plannedLots.filter((l) => intakeLateDays(l.expectedDate, today) > 0).length
+  const shownPlanned = plannedOverdueOnly ? plannedLots.filter((l) => intakeLateDays(l.expectedDate, today) > 0) : plannedLots
   const inspectCount = arrivedLots.filter((l) => l.status === '입고 대기' || l.status === '검수 중').length
   const rejectedCount = arrivedLots.filter((l) => l.status === '검수 반려').length
   const shownLots = lotFilter === 'inspect' ? arrivedLots.filter((l) => l.status === '입고 대기' || l.status === '검수 중')
@@ -117,8 +123,17 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0, in
             <button className="btn sm pri" disabled={pending || !psr.trim() || !pmodel.trim() || !pdate} onClick={preRegister}>등록</button>
           </div>
         )}
-        {plannedLots.length === 0 ? (
-          <div className="empty">도입 예정 자산이 없습니다 — ITSM SR·발주 정보로 도착 전 자산을 사전 등록하면 여기에 표시됩니다.</div>
+        {plannedLots.length > 0 && (
+          <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className={`btn sm ${plannedOverdueOnly ? 'err' : 'ghost'}`} onClick={() => setPlannedOverdueOnly((v) => !v)}
+              title="도착 예정일이 지난 발주 로트만 — 대시보드 '도입 예정 입고 지연' 큐와 같은 집합">
+              {plannedOverdueOnly ? '✓ ' : ''}지연만 {plannedOverdueCount}
+            </button>
+            <span className="mut" style={{ fontSize: 12 }}>{shownPlanned.length} / {plannedLots.length}건</span>
+          </div>
+        )}
+        {shownPlanned.length === 0 ? (
+          <div className="empty">{plannedLots.length === 0 ? '도입 예정 자산이 없습니다 — ITSM SR·발주 정보로 도착 전 자산을 사전 등록하면 여기에 표시됩니다.' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div>
         ) : (
           <div className="tbl-wrap">
             <table className="tbl">
@@ -126,7 +141,7 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0, in
                 <tr><th>입고번호</th><th>SR·발주</th><th>계약</th><th>모델</th><th>공급사</th><th className="num">수량</th><th>도착 예정</th><th className="c">납기</th><th className="c">처리</th></tr>
               </thead>
               <tbody>
-                {plannedLots.map((l) => {
+                {shownPlanned.map((l) => {
                   const late = intakeLateDays(l.expectedDate, today)
                   return (
                   <tr key={l.id}>
