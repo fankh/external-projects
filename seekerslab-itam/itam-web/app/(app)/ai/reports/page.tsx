@@ -8,8 +8,10 @@ import { ReportsView } from './ReportsView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ReportsPage() {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ due?: string }> }) {
   await requireView('/ai/reports', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  // due=1 — 대시보드 '정례 리포트 배포 기한 경과' 큐의 드릴다운(기한 도래만 보기로 연다).
+  const { due } = await searchParams
   const s = getStore()
   const ai = aiStatus()
   const DAY = ['', '월', '화', '수', '목', '금', '토', '일']
@@ -46,7 +48,7 @@ export default async function ReportsPage() {
         <Stat value={s.aiPolicy.auditRetentionDays} label="리포트·AI 로그 보존 (일)" />
       </div>
 
-      <ScheduleCard rows={schedules} adhoc={adhoc} />
+      <ScheduleCard rows={schedules} adhoc={adhoc} dueOnly={due === '1'} />
 
       <div className="callout">
         <b>수치는 데이터, 서술은 AI.</b> 표 항목은 자산 대장·발견 저장소·계약에서 결정적으로 산출하므로 화면

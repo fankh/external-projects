@@ -2130,6 +2130,14 @@ try {
   check("미판정 SaaS 큐: 건수 = 검토 대기만 보기 표시 건수", saasQueue > 0 && saasQueue === saasShown, `큐 ${saasQueue} · 표시 ${saasShown}`)
   const saasAll = cardShown(await (await get('/settings/saas-catalog', 'SEC_MGR')).text(), '서비스 목록 · 판정')
   check("SaaS 카탈로그: 필터 없이 열면 판정 완료분까지 표시(필터 실효 확인)", saasAll > saasShown, `전체 ${saasAll} · 검토중 ${saasShown}`)
+  // 정례 리포트 배포 기한 경과 큐 — 스케줄 표는 정상 주기 항목까지 함께 보여 주므로, 큐가 말한 '기한 도래 N건'을
+  //  화면에서 다시 세어야 했다. 큐 링크가 기한 도래만 보기를 켠 채 연다.
+  const repDueHtml = await (await get('/ai/reports?due=1', 'ASSET_MGR')).text()
+  const repDueShown = cardShown(repDueHtml, '자동 생성 스케줄')
+  const repDueQueue = queueCount('정례 리포트 배포 기한 경과 (자동 생성 밀림)')
+  check("정례 리포트 기한 경과 큐: 건수 = 기한 도래만 보기 표시 건수", repDueQueue > 0 && repDueQueue === repDueShown, `큐 ${repDueQueue} · 표시 ${repDueShown}`)
+  const repAll = cardShown(await (await get('/ai/reports', 'ASSET_MGR')).text(), '자동 생성 스케줄')
+  check("리포트 스케줄: 필터 없이 열면 정상 주기 항목까지 표시(필터 실효 확인)", repAll > repDueShown, `전체 ${repAll} · 기한 도래 ${repDueShown}`)
 
   // 분석 패널로만 보내던 두 큐 — 교체 대상·미사용 라이선스는 대장(?replace=1)·계약 화면(?lic=under)에 같은 판정의
   //  필터가 이미 있는데도 /ai/insights 로만 보내, 큐가 말한 14건·2건을 화면에서 다시 찾아야 했다(패널은 상위 N만 보여 준다).

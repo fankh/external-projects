@@ -12,7 +12,7 @@ type Row = {
   lastRunAt?: string; nextRun: string | null; overdue: boolean
 }
 
-export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: ReportKind; desc: string; period: '주간' | '월간' | '수시' }[] }) {
+export function ScheduleCard({ rows, adhoc, dueOnly: dueOnlyParam }: { rows: Row[]; adhoc: { kind: ReportKind; desc: string; period: '주간' | '월간' | '수시' }[]; dueOnly?: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [editing, setEditing] = useState<ReportKind | null>(null)
   const [er, setEr] = useState('')
@@ -20,6 +20,10 @@ export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: Repo
   const [ed, setEd] = useState(1)
   const [pending, startTransition] = useTransition()
   const dueCount = rows.filter((r) => r.enabled && r.overdue).length
+  // 기한 도래만 보기 — 대시보드 '정례 리포트 배포 기한 경과' 큐의 드릴다운. 스케줄 표는 정상 주기 항목까지 함께
+  //  보여 주므로, 큐가 말한 건수를 화면에서 다시 세어야 했다. 큐 링크는 이 필터를 켠 채 화면을 연다.
+  const [dueOnly, setDueOnly] = useState(Boolean(dueOnlyParam))
+  const shown = dueOnly ? rows.filter((r) => r.enabled && r.overdue) : rows
   const editRow = rows.find((r) => r.kind === editing) ?? null
 
   const openEdit = (r: Row) => {
@@ -52,13 +56,20 @@ export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: Repo
       }
     >
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className={`btn sm ${dueOnly ? 'pri' : 'ghost'}`} disabled={dueCount === 0} onClick={() => setDueOnly((d) => !d)}
+          title="배포 기한이 도래했는데 아직 생성되지 않은 정례 리포트만 — 대시보드 큐와 같은 집합">
+          {dueOnly ? '✓ ' : ''}기한 도래만 {dueCount}
+        </button>
+        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {rows.length}건</span>
+      </div>
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
             <tr><th>리포트</th><th className="c">주기</th><th>실행 시점</th><th className="c">마지막 실행</th><th className="c">다음 실행</th><th>수신자</th><th className="c">상태</th><th className="c">가동</th></tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {shown.map((r) => (
               <tr key={r.kind}>
                 <td className="strong">{r.kind}</td>
                 <td className="c"><Chip tone={r.period === '주간' ? 'info' : 'neutral'}>{r.period}</Chip></td>
