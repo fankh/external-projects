@@ -91,6 +91,21 @@ try {
       for (const hit of await page.evaluate(PROBE)) {
         failures.push(`w=${width} ${route}: ${hit.t} 이 카드 밖 ${hit.by}px (스크롤 조상 없음)`)
       }
+      // 상세 패널까지 훑는다 — 목록 화면의 문서 발급·처리 버튼줄은 행을 선택해야 나타나므로,
+      //  로드 직후만 재면 컨트롤이 가장 빽빽한 영역이 통째로 사각으로 남는다(헬스 스위트가 같은 이유로
+      //  행 선택 후 링크를 다시 훑는다). 이탈이 실제로 나는 좁은 폭에서만 본다 — 넓은 폭까지 늘리면
+      //  스윕 시간만 배로 들고 새로 잡히는 것은 없다.
+      if (width > 1024) continue
+      const firstRow = page.locator('tbody tr.clickable').first()
+      if ((await firstRow.count()) === 0) continue
+      try {
+        await firstRow.click()
+        await page.waitForTimeout(400)
+      } catch { continue } // 선택이 없는 표(읽기 전용)는 건너뛴다
+      checks++
+      for (const hit of await page.evaluate(PROBE)) {
+        failures.push(`w=${width} ${route}(상세): ${hit.t} 이 카드 밖 ${hit.by}px (스크롤 조상 없음)`)
+      }
     }
     await ctx.close()
   }
@@ -103,7 +118,7 @@ try {
 
 for (const f of failures) console.log('✗ ' + f)
 if (failures.length === 0) {
-  console.log(`✓ layout: ${ROUTES.length}화면 x ${WIDTHS.length}폭 (${checks}건) 카드 이탈 컨트롤 없음`)
+  console.log(`✓ layout: ${ROUTES.length}화면 x ${WIDTHS.length}폭 + 좁은 폭 상세 패널 (${checks}건) 카드 이탈 컨트롤 없음`)
 } else {
   console.log(`✗ layout: ${checks}건 중 ${failures.length}건 도달 불가 이탈`)
 }
