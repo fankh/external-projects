@@ -111,6 +111,7 @@ export function LeakTable({ leaks, canRespond, openOnly: openOnlyParam }: { leak
                 </td>
               </tr>
             ))}
+            {shown.length === 0 && <tr><td colSpan={canRespond ? 7 : 6}><div className="empty">{leaks.length === 0 ? '수집된 유출 정보가 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>

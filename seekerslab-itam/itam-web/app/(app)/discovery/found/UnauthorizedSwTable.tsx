@@ -99,7 +99,7 @@ export function UnauthorizedSwTable({ items, canAct, openOnly: openOnlyParam }: 
                 )}
               </tr>
             ))}
-            {items.length === 0 && <tr><td colSpan={canAct ? 9 : 7}><div className="empty">검출된 미인가 SW가 없습니다</div></td></tr>}
+            {shown.length === 0 && <tr><td colSpan={canAct ? 9 : 7}><div className="empty">{items.length === 0 ? '검출된 미인가 SW가 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>

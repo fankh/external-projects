@@ -104,7 +104,7 @@ export function IocTable({ iocs, canRespond, openOnly: openOnlyParam }: { iocs: 
                 )}
               </tr>
             ))}
-            {iocs.length === 0 && <tr><td colSpan={canRespond ? 9 : 7}><div className="empty">상관된 IOC 가 없습니다</div></td></tr>}
+            {shown.length === 0 && <tr><td colSpan={canRespond ? 9 : 7}><div className="empty">{iocs.length === 0 ? '상관된 IOC 가 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>

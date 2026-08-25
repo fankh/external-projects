@@ -106,7 +106,7 @@ export function LocalVmTable({ items, canAct, openOnly: openOnlyParam }: { items
                 )}
               </tr>
             ))}
-            {items.length === 0 && <tr><td colSpan={canAct ? 10 : 8}><div className="empty">검출된 로컬 VM 정책 위반이 없습니다</div></td></tr>}
+            {shown.length === 0 && <tr><td colSpan={canAct ? 10 : 8}><div className="empty">{items.length === 0 ? '검출된 로컬 VM 정책 위반이 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>

@@ -139,6 +139,7 @@ export function ExposedTable({ externals, canAct, openOnly: openOnlyParam }: { e
                 )}
               </tr>
             )})}
+            {shown.length === 0 && <tr><td colSpan={canAct ? 13 : 11}><div className="empty">{externals.length === 0 ? '외부에서 관측된 노출 자산이 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>

@@ -121,6 +121,7 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, re
               </td>
             </tr>
           ))}
+          {shown.length === 0 && <tr><td colSpan={8}><div className="empty">{entries.length === 0 ? '등록된 SaaS 가 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
         </tbody>
       </table>
     </div>
