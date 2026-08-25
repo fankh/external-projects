@@ -1,8 +1,10 @@
 'use client'
+import { ASSET_CATEGORIES } from '@/lib/types'
 import { useMemo, useState, useTransition } from 'react'
 import { bulkRegisterAssets } from './actions'
 
-const CATS = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
+// 자산 유형 목록은 lib/types 의 ASSET_CATEGORIES 하나만 쓴다 — 여기에 다시 적으면 유형이 하나 늘 때
+//  대장 필터·집계는 새 유형을 아는데 이 화면의 드롭다운·업로드 검증만 옛 목록이라 등록이 막힌다.
 type Row = { category: string; model: string; serial: string; owner: string; dept: string; location: string }
 
 /** CSV 일괄 자산 등록 — 기존 자산을 대장으로 온보딩. 붙여넣기 → 미리보기(클라 검증) → 등록(서버 재검증·중복 차단).
@@ -50,7 +52,7 @@ function splitCsvLine(line: string): string[] {
       if (c[0] === '유형' && (c[1] === '모델' || c[1] === '')) continue
       const row: Row = { category: c[0] ?? '', model: c[1] ?? '', serial: c[2] ?? '', owner: c[3] ?? '', dept: c[4] ?? '', location: c[5] ?? '' }
       let reason = ''
-      if (!CATS.includes(row.category)) reason = `유형 오류 '${row.category || '-'}'`
+      if (!(ASSET_CATEGORIES as string[]).includes(row.category)) reason = `유형 오류 '${row.category || '-'}'`
       else if (!row.model) reason = '모델 누락'
       out.push({ row, valid: !reason, reason })
     }
@@ -73,7 +75,7 @@ function splitCsvLine(line: string): string[] {
       {open && (
         <div className="vstack" style={{ gap: 8, padding: '0 14px 14px' }}>
           <div className="hstack" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="mut" style={{ fontSize: 11.5, flex: 1, minWidth: 180 }}>형식: <span className="mono">유형,모델,시리얼,소유자,부서,위치</span> (유형·모델 필수 · 헤더 자동 무시 · 시리얼 비우면 자동 채번). 유형: {CATS.join(' · ')}</span>
+            <span className="mut" style={{ fontSize: 11.5, flex: 1, minWidth: 180 }}>형식: <span className="mono">유형,모델,시리얼,소유자,부서,위치</span> (유형·모델 필수 · 헤더 자동 무시 · 시리얼 비우면 자동 채번). 유형: {ASSET_CATEGORIES.join(' · ')}</span>
             <a className="btn sm ghost" href="/api/asset-template.csv" download title="작성용 CSV 템플릿 내려받기">⤓ 샘플 CSV</a>
             <label className="btn sm" title="CSV 파일 불러오기" style={{ cursor: 'pointer' }}>
               📁 CSV 파일

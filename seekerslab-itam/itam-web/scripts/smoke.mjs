@@ -1927,6 +1927,15 @@ try {
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.
+  // 자산 유형 목록도 마찬가지 — 입고 등록 드롭다운·대량 등록 검증이 각자 목록을 들고 있으면 유형이 하나 늘 때
+  //  대장 필터·집계는 새 유형을 아는데 등록 경로만 옛 목록이라 그 유형 자산을 아예 넣을 수 없다.
+  const catLiteral = sourceFiles
+    .filter((f) => path.relative(ROOT, f).split(path.sep).join("/") !== "lib/types.ts")
+    .filter((f) => readFileSync(f, "utf8").includes("['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']"))
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check("자산 유형 목록: 코드에 직접 적은 곳이 없다(ASSET_CATEGORIES 단일 정의)",
+    catLiteral.length === 0, `직접 목록=${catLiteral.join(", ")}`)
+
   // 폐기 경로 상태(폐기예정·폐기완료)도 같은 규약 — 보증·EOL·취약점·이상행위 판정이 모두 "폐기로 간 자산은 대상이
   //  아니다"라는 한 규칙을 쓰는데 열두 곳이 각자 배열을 적고 있었다. 수명주기 단계표는 화면 구성이라 제외한다.
   const disposalLiteral = sourceFiles
