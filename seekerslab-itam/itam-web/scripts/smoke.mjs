@@ -1838,6 +1838,23 @@ try {
   check(`API 매트릭스 게이트: 스토어를 읽는 라우트 ${apiRoutes.length}개가 모두 매트릭스 판정을 거친다`,
     apiUngated.length === 0, `미적용=${apiUngated.join(", ")}`)
 
+  // 독촉·통보는 당일 발송분을 뺀다 — 같은 사람에게 하루에 여러 통이 가면 알림이 무력해진다.
+  //  실제로 MFA 등록 요구·공지 미확인자 안내가 이 규약에서 빠져 누를 때마다 다시 나갔다.
+  //  종류가 하나 늘 때 같은 누락이 반복되지 않게, 독촉·통보·요구 계열 발송 종류마다
+  //  같은 날 발송분을 거르는 참조(sentTodayRefs 또는 kind 비교 + at.startsWith)가 있는지 본다.
+  //  면제는 집행 1회성 이벤트 통지뿐이다(격리 통보 — 차단 집행 시 한 번 나가고 반복 발송 개념이 없다).
+  const remindExempt = ["격리 통보"]
+  const dispatchKinds = [...new Set(sourceFiles
+    .filter((f) => f.endsWith(".ts"))
+    .flatMap((f) => [...readFileSync(f, "utf8").matchAll(/kind: '([^']*(?:독촉|통보|요구))'/g)].map((m) => m[1])))]
+  const dedupeMissing = dispatchKinds.filter((k) => {
+    if (remindExempt.includes(k)) return false
+    return !sourceFiles.some((f) => readFileSync(f, "utf8").split(/\r?\n/).some((line) =>
+      line.includes(k) && (line.includes("sentTodayRefs") || line.includes("at.startsWith"))))
+  })
+  check(`통지 중복 억제: 독촉·통보 ${dispatchKinds.length}종이 모두 당일 발송분을 거른다`,
+    dispatchKinds.length >= 15 && dedupeMissing.length === 0, `누락=${dedupeMissing.join(", ")}`)
+
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.
