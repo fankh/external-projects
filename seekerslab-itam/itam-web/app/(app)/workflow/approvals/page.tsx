@@ -1,3 +1,4 @@
+import { DISPOSAL_STATUSES } from '@/lib/types'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
@@ -26,7 +27,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 
   // 반납·이동 신청 대상 — 사용자는 본인 명의 자산만, 관리자는 운영 중인 자산 전체
   const myAssets = s.assets
-    .filter((a) => !['폐기예정', '폐기완료'].includes(a.status))
+    .filter((a) => !DISPOSAL_STATUSES.includes(a.status))
     .filter((a) => (session.role === 'USER' ? a.owner === session.name : true))
     .map((a) => ({ assetNo: a.assetNo, model: a.model, location: a.location }))
 

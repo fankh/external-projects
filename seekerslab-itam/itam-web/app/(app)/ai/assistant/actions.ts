@@ -20,7 +20,7 @@ import { getSession } from '@/lib/session'
 import { canViewMenu } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 import { canDecideApproval } from '@/lib/approval'
-import { ASSET_CATEGORIES } from '@/lib/types'
+import { ASSET_CATEGORIES, DISPOSAL_STATUSES } from '@/lib/types'
 import type { ChatMessage, ReportKind, Role } from '@/lib/types'
 
 /** 리포트 생성 인텐트 — 어시스턴트가 실제로 리포트를 만든다 (제품안내서 §05 리포트 자동화:
@@ -393,7 +393,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     // 기간 스코프 — "내년 1분기 보증 만료…"처럼 시점을 좁히면 그 기간 안에 만료되는 것만 답한다(안내서 §05 예시 질의)
     const period = parsePeriodWindow(q, today())
     const scoped = s.assets
-      .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (!cat || a.category === cat))
+      .filter((a) => !DISPOSAL_STATUSES.includes(a.status) && a.warrantyEnd !== '-' && (!cat || a.category === cat))
       .filter((a) => !period || (a.warrantyEnd >= period.start && a.warrantyEnd <= period.end))
       .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
     // '임박' 판정 창은 운영 정책(만료창)을 따른다 — 화면 필터(?warranty=soon)·대시보드 큐·통지가 모두 같은 창을 쓰므로
@@ -825,7 +825,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   // 담당자용 보증 인텐트(위)는 !isUser 라 사용자는 여기서 본인 자산만 대상으로 초점 답변을 받는다(전량 나열 catch-all 앞).
   if (isUser && (q.includes('보증') || q.includes('만료') || q.includes('워런티') || q.includes('warranty'))) {
     const owned = s.assets
-      .filter((a) => a.owner === userName && !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-')
+      .filter((a) => a.owner === userName && !DISPOSAL_STATUSES.includes(a.status) && a.warrantyEnd !== '-')
       .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
     const uWin = s.opsPolicy.expiryWindowDays // 담당자 답변·대장 필터와 같은 만료창(운영 정책)
     const soon = owned.filter((a) => isWarrantyExpiring(a, uWin))

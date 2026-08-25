@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { ASSET_CATEGORIES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
+import { ASSET_CATEGORIES, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus, BizCriticality } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
@@ -588,7 +588,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <td className="tnum">
                     {a.warrantyEnd}
                     {a.warrantyEnd !== '-' && warrantyState(a.warrantyEnd, props.today!) === 'expired'
-                      && !['폐기완료', '폐기예정'].includes(a.status) && <> <Chip tone="err" bare>경과</Chip></>}
+                      && !DISPOSAL_STATUSES.includes(a.status) && <> <Chip tone="err" bare>경과</Chip></>}
                   </td>
                 </tr>
               ))}

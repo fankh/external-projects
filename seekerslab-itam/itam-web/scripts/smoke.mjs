@@ -1927,6 +1927,21 @@ try {
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.
+  // 폐기 경로 상태(폐기예정·폐기완료)도 같은 규약 — 보증·EOL·취약점·이상행위 판정이 모두 "폐기로 간 자산은 대상이
+  //  아니다"라는 한 규칙을 쓰는데 열두 곳이 각자 배열을 적고 있었다. 수명주기 단계표는 화면 구성이라 제외한다.
+  const disposalLiteral = sourceFiles
+    .filter((f) => {
+      const rel = path.relative(ROOT, f).split(path.sep).join("/")
+      return rel !== "lib/types.ts" && rel !== "app/(app)/assets/lifecycle/page.tsx"
+    })
+    .filter((f) => {
+      const src = readFileSync(f, "utf8")
+      return src.includes("['폐기완료', '폐기예정'].includes(") || src.includes("['폐기예정', '폐기완료'].includes(")
+    })
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check("폐기 경로 판정: 상태 묶음을 코드에 직접 적은 곳이 없다(DISPOSAL_STATUSES 단일 정의)",
+    disposalLiteral.length === 0, `직접 목록=${disposalLiteral.join(", ")}`)
+
   // 재배치 대기 풀(유휴·반납대기)도 같은 규약 — 재고 집계 칸·리포트 서술·실사 위치 판정이 함께 쓰는 한 묶음이라
   //  각자 배열을 적으면 상태가 늘 때 한쪽만 세는 갈림이 생긴다. 수명주기 단계표는 화면 구성(단계 그룹)이라 제외한다.
   const idleLiteral = sourceFiles
