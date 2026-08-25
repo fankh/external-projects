@@ -25,6 +25,9 @@ const cookie = (acct) => ({ name: 'itam_session', value: encodeURIComponent(JSON
 
 let pass = 0, fail = 0
 const ok = (name, cond) => { if (cond) { pass++; console.log('  ✓ ' + name) } else { fail++; console.log('  ✗ ' + name) } }
+/** 실행일 + n일 (YYYY-MM-DD) — 폼이 미래 날짜를 요구하는 입력에 고정 날짜를 박으면 그 날이 지난 뒤
+ *  스위트가 스스로 무너진다(반환 기한·점검 예정일·예약 발행일…). 기준일 파생 규약을 테스트에도 적용한다. */
+const dPlus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
 // 빌드 신선도 — 예전 빌드로 회귀를 돌리면 고친 결함이 그대로인 채 초록으로 통과한다(scripts/build-guard.mjs)
 assertFreshBuild(ROOT, { remote: REMOTE })
@@ -1176,7 +1179,8 @@ try {
   const loanCtl = p2.locator('span').filter({ has: p2.locator('button', { hasText: /^대여$/ }) }).first()
   await loanCtl.locator('input[placeholder="대여자"]').fill('김강사')
   await loanCtl.locator('input[placeholder="부서"]').fill('인재개발팀')
-  await loanCtl.locator('input[type="date"]').fill('2026-09-30')
+  const bulkLoanDue = dPlus(36)
+  await loanCtl.locator('input[type="date"]').fill(bulkLoanDue)
   await loanCtl.locator('button', { hasText: /^대여$/ }).click()
   await p2.waitForTimeout(800)
   ok('자산 일괄 대여: 선택 유휴 2건 일괄 대여(대여중 전환·반환 기한 공유)', ((await p2.locator('body').textContent()) || '').includes('2건 대여 처리'))
@@ -1189,7 +1193,7 @@ try {
   const loanCtl2 = p2.locator('span').filter({ has: p2.locator('button', { hasText: /^대여$/ }) }).first()
   await loanCtl2.locator('input[placeholder="대여자"]').fill('김강사')
   await loanCtl2.locator('input[placeholder="부서"]').fill('인재개발팀')
-  await loanCtl2.locator('input[type="date"]').fill('2026-09-30')
+  await loanCtl2.locator('input[type="date"]').fill(bulkLoanDue)
   await loanCtl2.locator('button', { hasText: /^대여$/ }).click()
   await p2.waitForTimeout(700)
   ok('폐기 절차 자산 대여 가드: 폐기 대상 선정 유휴 자산 대여 제외(파기 예정 재순환 방지)', ((await p2.locator('body').textContent()) || '').includes('폐기 절차 자산 제외'))
@@ -1199,12 +1203,13 @@ try {
   await p2.locator('input[aria-label="AST-2023-000112 선택"]').check()
   await p2.locator('input[aria-label="AST-2023-000113 선택"]').check()
   const maintBulk = p2.locator('span').filter({ hasText: '정기 점검 일괄 예약' }).first()
-  await maintBulk.locator('input[type="date"]').fill('2026-12-15')
+  const maintBulkDue = dPlus(112)
+  await maintBulk.locator('input[type="date"]').fill(maintBulkDue)
   await maintBulk.locator('button', { hasText: /^예약$/ }).click()
   await p2.waitForTimeout(700)
-  ok('정기 점검 일괄 예약: 선택 자산에 점검 예정일 일괄 등록', ((await p2.locator('body').textContent()) || '').includes('예정 2026-12-15'))
+  ok('정기 점검 일괄 예약: 선택 자산에 점검 예정일 일괄 등록', ((await p2.locator('body').textContent()) || '').includes(`예정 ${maintBulkDue}`))
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000112`, { waitUntil: 'networkidle' })
-  ok('정기 점검 일괄 예약 → 개별 자산에 예정일 반영', ((await p2.locator('body').textContent()) || '').includes('2026-12-15'))
+  ok('정기 점검 일괄 예약 → 개별 자산에 예정일 반영', ((await p2.locator('body').textContent()) || '').includes(maintBulkDue))
 
   // 정기 점검 예약 취소 — 잘못 잡은 예약을 완료 처리 없이 해제한다(하지도 않은 점검을 완료 처리해 가짜 이력을 남기던 문제 해소 · 장애 신고 취소와 동형). 위 일괄 예약분 AST-2023-000113 취소.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000113`, { waitUntil: 'networkidle' })
@@ -1230,12 +1235,13 @@ try {
   ok('정기 점검 일정 등록: 예방 정비 미편성 자산에 등록 액션 노출(자산담당)', (await schedBtn.count()) > 0)
   await schedBtn.click()
   await p2.waitForTimeout(200)
-  await p2.locator('input[title*="점검 예정일"]').fill('2027-03-15')
+  const maintSchedDue = dPlus(202)
+  await p2.locator('input[title*="점검 예정일"]').fill(maintSchedDue)
   await p2.locator('button', { hasText: /^일정 등록$/ }).click()
   await p2.waitForTimeout(700)
   const schedBody = (await p2.locator('body').textContent()) || ''
   // 등록 성공 시 자산에 maintenanceDue 가 잡혀 상세가 '정기 점검 예정 …' + 완료 액션 블록으로 전환된다(등록 콜아웃은 게이트가 뒤집혀 사라지므로 결과 상태로 검증).
-  ok('정기 점검 일정 등록: 예정일 반영 → 점검 예정 상태 전환(2027-03-15)', schedBody.includes('정기 점검 예정 2027-03-15') && schedBody.includes('정기 점검 완료'))
+  ok(`정기 점검 일정 등록: 예정일 반영 → 점검 예정 상태 전환(${maintSchedDue})`, schedBody.includes(`정기 점검 예정 ${maintSchedDue}`) && schedBody.includes('정기 점검 완료'))
   // 안전재고 발주 요청(루프 57 조치) — 재고 경보 카드에서 부족 유형 보충 발주를 구매·IT기획팀에 요청. 재고 경보(검출)를 조치로 잇는다. 당일 중복 발송 차단.
   await p2.goto(`${BASE}/inventory/stock`, { waitUntil: 'networkidle' })
   const reorderBtn = p2.locator('button', { hasText: /^발주 요청 발송$/ })
@@ -1369,8 +1375,6 @@ try {
 
   // 대여 반환 기한 연장 요청(사용자 셀프서비스) — 대여자가 본인 대여 자산의 연장을 자산담당에 신청. 그동안 연장은 자산담당만 가능했다. AST-2024-000230(김민준 대여중).
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
-  // 날짜는 실행일에서 파생한다 — 고정 날짜를 박으면 그 날이 지난 뒤 스위트가 스스로 무너진다(기준일 파생 규약).
-  const dPlus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const extWanted = dPlus(36)
   await pU.locator('button', { hasText: /^반환 기한 연장 요청$/ }).click()
   await pU.waitForTimeout(200)
@@ -2014,7 +2018,7 @@ try {
   await p3.locator('input[placeholder="공지 제목"]').fill('e2e 예약 발행 필독 공지')
   await p3.locator('textarea[placeholder="공지 내용"]').fill('발행 예정 공지 — e2e')
   await p3.locator('label', { hasText: '상단 고정 (필독)' }).locator('input[type="checkbox"]').check()
-  await p3.locator('input[type="date"]').first().fill('2027-01-15')
+  await p3.locator('input[type="date"]').first().fill(dPlus(143))
   await p3.waitForTimeout(150)
   await p3.locator('button', { hasText: /^예약 등록$/ }).click()
   await p3.waitForTimeout(800)
@@ -2377,7 +2381,7 @@ try {
   await p4.waitForTimeout(200)
   await p4.locator('input[placeholder="대여자 (성명)"]').fill('e2e 대여자')
   await p4.locator('input[placeholder="부서"]').fill('영업2팀')
-  await p4.locator('input[type="date"]').first().fill('2027-06-30')
+  await p4.locator('input[type="date"]').first().fill(dPlus(309))
   await p4.locator('button', { hasText: /^대여 확정$/ }).click()
   await p4.waitForTimeout(800)
   await p4.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
@@ -2622,7 +2626,7 @@ try {
   await p4.waitForTimeout(200)
   await p4.locator('input[placeholder*="회차명"]').fill('2027 판교 범위 정기 재물조사')
   await p4.locator('select', { has: p4.locator('option', { hasText: '판교 사무소' }) }).selectOption('판교 사무소')
-  await p4.locator('input[type="date"]').fill('2026-09-30')
+  await p4.locator('input[type="date"]').fill(dPlus(36))
   await p4.locator('button', { hasText: /^등록$/ }).click()
   await p4.waitForTimeout(900)
   const scopeRow = p4.locator('tr', { has: p4.locator('td', { hasText: '2027 판교 범위 정기 재물조사' }) }).first()
@@ -2782,7 +2786,7 @@ try {
   await p4.waitForTimeout(200)
   await p4.locator('input[placeholder*="SR·발주번호"]').fill('SR-E2E-999')
   await p4.locator('input[placeholder="모델"]').fill('e2e 취소 검증 노트북')
-  await p4.locator('input[type="date"]').fill('2026-09-30')
+  await p4.locator('input[type="date"]').fill(dPlus(36))
   await p4.locator('button', { hasText: /^등록$/ }).click()
   await p4.waitForTimeout(800)
   ok('도입 예정 사전 등록: 신규 도입 예정 건 표시', ((await p4.textContent('body')) || '').includes('e2e 취소 검증 노트북'))
@@ -3084,7 +3088,7 @@ try {
   const loanVal = await loanSel.locator('option').first().getAttribute('value')
   ok('직무 분리(전제): 대여 가능한 유휴 재고 존재', !!loanVal && /^AST-/.test(loanVal))
   await loanSel.selectOption(loanVal)
-  await sdForm.locator('input[type="date"]').fill('2026-12-31')
+  await sdForm.locator('input[type="date"]').fill(dPlus(128))
   await sdForm.locator('[placeholder="신청 사유"]').fill('직무분리 검증 대여')
   await sdForm.locator('button', { hasText: /^상신$/ }).click()
   await pSD.waitForTimeout(900)
@@ -3480,7 +3484,7 @@ try {
   const lmAssetSel = lmForm.locator('select').nth(1)
   const lmAssetNo = ((await lmAssetSel.inputValue()) || '').trim()
   ok('대여 승인 미집행: 대여 신청 대상 유휴 자산 확보', /^AST-/.test(lmAssetNo))
-  await lmForm.locator('input[type="date"]').first().fill('2026-12-31')
+  await lmForm.locator('input[type="date"]').first().fill(dPlus(128))
   await lmForm.locator('textarea[placeholder="신청 사유"]').first().fill('e2e — 대여 승인 미집행 통보 회귀')
   await lmForm.locator('button', { hasText: /^상신$/ }).first().click()
   await pLM.waitForTimeout(900)
@@ -3741,7 +3745,7 @@ try {
   await pAMT.locator('input[placeholder="주관부서"]').fill('자산관리팀')
   const amtDates = pAMT.locator('input[placeholder="YYYY-MM-DD"]')
   await amtDates.nth(0).fill('2026-01-02')
-  await amtDates.nth(1).fill('2027-01-01')
+  await amtDates.nth(1).fill(dPlus(365))
   await pAMT.locator('input[type="number"]').first().fill('99999999')
   await pAMT.locator('button', { hasText: /^등록$/ }).first().click()
   await pAMT.waitForTimeout(900)
