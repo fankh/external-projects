@@ -8,9 +8,10 @@ import { NoticeBoard } from './NoticeBoard'
 
 export const dynamic = 'force-dynamic'
 
-export default async function NoticesPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
+export default async function NoticesPage({ searchParams }: { searchParams: Promise<{ sel?: string; gap?: string }> }) {
   const session = await getSession()
-  const { sel } = await searchParams
+  // gap=1 — 대시보드 '필독 공지 확인 미달' 큐의 드릴다운(확인 미달만 보기로 연다).
+  const { sel, gap } = await searchParams
   const s = getStore()
   const t = today()
   const isAdmin = session?.role === 'ADMIN'
@@ -35,7 +36,7 @@ export default async function NoticesPage({ searchParams }: { searchParams: Prom
       />
       {notices.length === 0
         ? <Card><div className="empty">등록된 공지가 없습니다</div></Card>
-        : <NoticeBoard posts={notices} remindPending={remindPending} canWrite={isAdmin} me={session?.name ?? ''} allUsers={s.users.map((u) => ({ name: u.name, dept: u.dept }))} depts={depts} today={t} initialSel={sel} />}
+        : <NoticeBoard posts={notices} remindPending={remindPending} canWrite={isAdmin} me={session?.name ?? ''} allUsers={s.users.map((u) => ({ name: u.name, dept: u.dept }))} depts={depts} today={t} initialSel={sel} initialGap={gap === '1'} />}
     </>
   )
 }
