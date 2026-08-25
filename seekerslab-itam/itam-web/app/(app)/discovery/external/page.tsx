@@ -27,8 +27,11 @@ const ACTIVE = [
   { m: '존 트랜스퍼 · 레코드 분석', tech: '네임서버 확인 후 AXFR 시도, 거부 시 A/AAAA/CNAME/MX/NS/TXT/SRV/SOA/CAA 질의로 대체. 레코드 값에 포함된 범위 내 호스트명 추출. 와일드카드 DNS 탐지로 오탐 억제' },
 ]
 
-export default async function ExternalPage() {
+export default async function ExternalPage({ searchParams }: { searchParams: Promise<{ open?: string }> }) {
   const session = await requireView('/discovery/external', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  // open=exposure|creds|ioc|leaks — 대시보드 위협 큐의 드릴다운. 해당 표를 미조치만 보기로 열어
+  //  큐가 말한 건수와 화면이 같은 집합을 보여 준다(발견 자산 화면과 같은 규약).
+  const { open } = await searchParams
   const s = getStore()
   // 유출 대응은 보안 업무 — 보안담당·Admin 만 조치 가능
   const canRespond = ['SEC_MGR', 'ADMIN'].includes(session.role)
@@ -133,19 +136,19 @@ export default async function ExternalPage() {
       </div>
 
       <Card kicker="Exposed Assets" title="외부 노출 자산" pad={false}>
-        <ExposedTable externals={ext} canAct={canRespond} />
+        <ExposedTable externals={ext} canAct={canRespond} openOnly={open === 'exposure'} />
       </Card>
 
       <Card kicker="Credential Exposure" title="인증 취약점 점검 — 기본·취약 크리덴셜 노출" pad={false}>
-        <CredTable credentials={s.credentials} canRespond={canRespond} />
+        <CredTable credentials={s.credentials} canRespond={canRespond} openOnly={open === 'creds'} />
       </Card>
 
       <Card kicker="Threat Intel · IOC Correlation" title="위협 인텔리전스 — IOC 상관·행위자 귀속" pad={false}>
-        <IocTable iocs={s.iocMatches} canRespond={canRespond} />
+        <IocTable iocs={s.iocMatches} canRespond={canRespond} openOnly={open === 'ioc'} />
       </Card>
 
       <Card kicker="Threat Intel · Dark Web" title="위협 인텔리전스 · 유출 수집" pad={false}>
-        <LeakTable leaks={s.leaks} canRespond={canRespond} />
+        <LeakTable leaks={s.leaks} canRespond={canRespond} openOnly={open === 'leaks'} />
       </Card>
     </>
   )

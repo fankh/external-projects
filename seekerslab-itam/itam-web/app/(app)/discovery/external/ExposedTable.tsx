@@ -9,19 +9,26 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
 }
 
-export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]; canAct: boolean }) {
+export function ExposedTable({ externals, canAct, openOnly: openOnlyParam }: { externals: ExternalAsset[]; canAct: boolean; openOnly?: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [acceptId, setAcceptId] = useState<string | null>(null)
   const [acceptReason, setAcceptReason] = useState('')
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+  const [openOnly, setOpenOnly] = useState(Boolean(openOnlyParam))
 
   // 미조치·생존 확인된 건만 선택 대상 — 재탐지·CVE 스윕으로 다수 노출 호스트가 잡히면 선택해 한 번에 편입/차단한다(미확인은 생존 확인이 먼저)
   const selectable = externals.filter((e) => !e.action && e.alive)
   // 노출 위험 높은 순 — CVSS 높은 순 → 위험도(높음 먼저) → 미조치·생존 우선(제품안내서 §04 위험도 분류 → 우선 처리). 보안담당이 최고 노출부터 조치.
   const rw = (r: ExternalAsset['risk']) => (r === '높음' ? 0 : r === '중간' ? 1 : 2)
   const sorted = [...externals].sort((a, b) => (b.cvss ?? 0) - (a.cvss ?? 0) || rw(a.risk) - rw(b.risk) || ((!a.action && a.alive ? 0 : 1) - (!b.action && b.alive ? 0 : 1)))
+  // 미조치만 보기 — 대시보드 '외부 노출 미조치' 큐의 드릴다운. 조치 완료분까지 함께 쌓이는 표라 큐가 말한 건수를
+  //  화면에서 다시 세어야 했다(발견 자산 화면의 네 조치 표와 같은 규약).
+  // 미조치 판정은 대시보드 큐와 같다 — 이미 대장과 일치(등록·일치)로 대사된 노출은 조치 대상이 아니다.
+  const isOpenExposure = (x: ExternalAsset) => !x.action && x.state !== '등록·일치'
+  const openCount = sorted.filter(isOpenExposure).length
+  const shown = openOnly ? sorted.filter(isOpenExposure) : sorted
   const toggle = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const allSel = selectable.length > 0 && selectable.every((e) => checked.has(e.id))
 
@@ -45,6 +52,13 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className={`btn sm ${openOnly ? 'pri' : 'ghost'}`} onClick={() => setOpenOnly((v) => !v)}
+          title="조치가 끝나지 않은 건만 — 대시보드 '외부 노출 미조치' 큐와 같은 집합">
+          {openOnly ? '✓ ' : ''}미조치만 {openCount}
+        </button>
+        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {sorted.length}건</span>
+      </div>
       {canAct && checked.size > 0 && (
         <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 조치:</span>
@@ -67,7 +81,7 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
             </tr>
           </thead>
           <tbody>
-            {sorted.map((e) => {
+            {shown.map((e) => {
               const cl = certLiveness(e.certValidUntil)
               return (
               <tr key={e.id}>
