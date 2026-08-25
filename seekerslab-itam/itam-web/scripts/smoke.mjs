@@ -2206,6 +2206,19 @@ try {
   const seatHtml = await (await get('/inventory/contracts?seat=unused', 'ASSET_MGR')).text()
   check("계약 화면 드릴다운: 미설치 좌석 큐가 회수 후보만 여는 필터로 연결",
     dashMgr.includes('/inventory/contracts?seat=unused') && seatHtml.includes('미설치 좌석(회수 후보) 필터'))
+  // 필독 공지 확인 미달 큐 — 공지 목록은 확인이 끝난 공지·일반 공지까지 함께 쌓이므로, 큐가 말한 건수를
+  //  화면에서 다시 세어야 했다. 큐 링크가 확인 미달만 보기를 켠 채 연다(판정은 큐와 같다).
+  const noticeGapHtml = await (await get('/board/notices?gap=1', 'ADMIN')).text()
+  const noticeAllHtml = await (await get('/board/notices', 'ADMIN')).text()
+  const noticeShown = (html) => { const plain = html.replace(/<!-- -->/g, ''); const at = plain.indexOf('공지 목록'); return Number((new RegExp('([0-9]+)건 \/ 전체').exec(at === -1 ? plain : plain.slice(at)) || [])[1] ?? -1) }
+  const dashAdmin = (await (await get('/dashboard', 'ADMIN')).text()).replace(/<!-- -->/g, '')
+  const noticeQueueAt = dashAdmin.indexOf('필독 공지 확인 미달')
+  const noticeQueue = Number((new RegExp('<span class="chip[^"]*">([0-9]+)').exec(noticeQueueAt === -1 ? "" : dashAdmin.slice(noticeQueueAt, noticeQueueAt + 900)) || [])[1] ?? -1)
+  check("필독 공지 확인 미달 큐: 건수 = 확인 미달만 보기 표시 건수",
+    noticeQueue > 0 && noticeQueue === noticeShown(noticeGapHtml), `큐 ${noticeQueue} · 표시 ${noticeShown(noticeGapHtml)}`)
+  check("공지 목록: 필터 없이 열면 확인 완료·일반 공지까지 표시(필터 실효 확인)",
+    noticeShown(noticeAllHtml) > noticeShown(noticeGapHtml), `전체 ${noticeShown(noticeAllHtml)} · 미달 ${noticeShown(noticeGapHtml)}`)
+
   // QnA 큐 드릴다운 — 대시보드가 '답변 대기 N건'·'SLA 경과 M건'이라 말하면서 링크는 문의 목록 전체를 열었다.
   //  목록은 답변 완료분까지 쌓이므로 담당자가 답변할 건을 눈으로 골라야 했다. 이제 큐가 센 집합으로 연다.
   const qnaWaitHtml = await (await get('/board/qna?status=' + encodeURIComponent('대기'), 'ASSET_MGR')).text()

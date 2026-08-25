@@ -5,7 +5,7 @@ import { noticeAudienceLabel, noticeTargets } from '@/lib/notice'
 import { NOTICE_CATEGORIES, type BoardPost, type NoticeCategory } from '@/lib/types'
 import { acknowledgeNotice, deleteNotice, editNotice, postNotice, recordPostView, remindNoticeUnacked, toggleNoticePin } from '../actions'
 
-export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initialSel, remindPending }: { posts: BoardPost[]; canWrite: boolean; me: string; allUsers: { name: string; dept: string }[]; depts: string[]; today: string; initialSel?: string; /** 공지별 오늘 보낼 미확인자 수 — 버튼 건수 = 발송 건수(lib/reminders 단일 소스) */ remindPending?: Record<string, number> }) {
+export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initialSel, remindPending, initialGap }: { posts: BoardPost[]; canWrite: boolean; me: string; allUsers: { name: string; dept: string }[]; depts: string[]; today: string; initialSel?: string; /** 공지별 오늘 보낼 미확인자 수 — 버튼 건수 = 발송 건수(lib/reminders 단일 소스) */ remindPending?: Record<string, number>; /** 대시보드 '필독 공지 확인 미달' 큐의 드릴다운 — 확인 미달만 보기로 연다 */ initialGap?: boolean }) {
   // 딥링크(?sel=NTC-…) — 알림 로그·대시보드에서 특정 공지로 진입. 목록에 없으면(비공개·예약) 최신 공지로 폴백.
   const [openId, setOpenId] = useState<string | null>(
     (initialSel && posts.some((p) => p.id === initialSel) ? initialSel : posts[0]?.id) ?? null,
@@ -31,16 +31,26 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
   const [fcat, setFcat] = useState('전체')
   const [pending, startTransition] = useTransition()
   const open = posts.find((p) => p.id === openId) ?? null
+  // 확인 미달만 보기 — 대시보드 '필독 공지 확인 미달' 큐의 드릴다운. 공지 목록은 확인이 끝난 공지·일반 공지까지
+  //  함께 쌓이므로, 큐가 말한 건수를 화면에서 다시 세어야 했다. 판정은 큐와 같다(발행 도래한 필독 중 대상자 미확인 존재).
+  const [fgap, setFgap] = useState(Boolean(initialGap))
+  const hasAckGap = (p: BoardPost) => {
+    if (!p.pinned || (p.publishAt && p.publishAt > today)) return false
+    const acked = new Set((p.acks ?? []).map((a) => a.by))
+    return noticeTargets(p, allUsers).some((u) => !acked.has(u.name))
+  }
+  const gapCount = posts.filter(hasAckGap).length
   const rows = useMemo(() => {
     const needle = fq.trim().toLowerCase()
     return posts.filter((p) => {
+      if (fgap && !hasAckGap(p)) return false
       if (fpinned && !p.pinned) return false
       if (fscheduled && !(p.publishAt && p.publishAt > today)) return false
       if (fcat !== '전체' && (p.category ?? '일반') !== fcat) return false
       if (needle && ![p.title, p.body, p.author].some((f) => f?.toLowerCase().includes(needle))) return false
       return true
     })
-  }, [posts, fq, fpinned, fscheduled, fcat, today])
+  }, [posts, fq, fpinned, fscheduled, fcat, fgap, allUsers, today])
   // 다른 공지로 넘어가면 편집 모드 해제. 새 공지를 여는 경우 조회수를 올린다(닫기·같은 글 토글은 제외).
   const select = (id: string) => {
     setEditing(null)
@@ -94,6 +104,12 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
           <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
             <input type="checkbox" checked={fpinned} onChange={(e) => setFpinned(e.target.checked)} /> 필독만
           </label>
+          {gapCount > 0 && (
+            <button className={`btn sm ${fgap ? 'warn' : 'ghost'}`} onClick={() => setFgap((g) => !g)}
+              title="발행된 필독 공지 중 대상자가 아직 확인하지 않은 것만 — 대시보드 확인 미달 큐와 같은 집합">
+              {fgap ? '✓ ' : ''}확인 미달만 {gapCount}
+            </button>
+          )}
           {canWrite && (
             <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }} title="발행일이 미래인 예약 공지만">
               <input type="checkbox" checked={fscheduled} onChange={(e) => setFscheduled(e.target.checked)} /> 예약만

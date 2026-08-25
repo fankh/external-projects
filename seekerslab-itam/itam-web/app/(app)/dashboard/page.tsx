@@ -195,7 +195,7 @@ export default async function DashboardPage() {
       const acked = new Set((p.acks ?? []).map((a) => a.by))
       return targets.some((u) => !acked.has(u.name))
     }).length
-    opsQueues.push({ label: '필독 공지 확인 미달 (대상 독려 · 정책 전파 증적)', count: noticeGap, href: '/board/notices', tone: 'warn' })
+    opsQueues.push({ label: '필독 공지 확인 미달 (대상 독려 · 정책 전파 증적)', count: noticeGap, href: '/board/notices?gap=1', tone: 'warn' })
   }
   // 운영 대기 우선순위 — 긴급(err)을 주의(warn)보다 위로, 같은 등급은 적체 규모(count) 큰 순. 화면마다 흩어진 큐를
   //  담당자 일과 시작점에서 '무엇부터'가 바로 보이게 정렬한다(삽입 순서 그대로면 긴급·주의가 뒤섞인다).
