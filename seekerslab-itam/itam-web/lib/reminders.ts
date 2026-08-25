@@ -1,6 +1,7 @@
 import { isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceOverdue, isQnaOverdue, isRepairEtaMissing, isRepairOverdue, today } from './dates'
 import { impactSources } from './cmdb'
 import { missingContractDocs } from './contract'
+import { noticeTargets } from './notice'
 import { isEolTarget } from './eol'
 import { buildMaintenance } from './maintenance'
 import { buildProcurement } from './procurement'
@@ -73,6 +74,23 @@ export function impactNoticeTargets(): { asset: Asset; depts: string[]; dependen
       return { asset, depts, dependents: dependents.map((d) => d.assetNo) }
     })
     .filter((x) => x.depts.length > 0)
+}
+
+/** 공지 미확인자 안내 대상 — 필독 공지의 대상 집단 중 아직 읽음 확인을 안 했고, 오늘 안내를 받지 않은 사람.
+ *  수신자 단위로 당일 중복을 막는다(같은 공지로 하루에 두 번 받지 않게). 화면 버튼 건수와 액션이 이 집합을 공유한다.
+ *  발행 예정(publishAt 미래) 공지는 대상이 없다 — 공개 전 조기 독촉 금지(화면·서버 게이트와 같은 판정). */
+export function noticeRemindTargets(postId: string): { name: string; dept: string }[] {
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
+  if (!post || !post.pinned) return []
+  if (post.publishAt && post.publishAt > today()) return []
+  const acked = new Set((post.acks ?? []).map((a) => a.by))
+  const sent = new Set(
+    s.dispatches.filter((m) => m.kind === '공지 독촉' && m.ref === postId && m.at.startsWith(today())).map((m) => m.to),
+  )
+  return noticeTargets(post, s.users)
+    .filter((u) => !acked.has(u.name) && !sent.has(`${u.name} (${u.dept})`))
+    .map((u) => ({ name: u.name, dept: u.dept }))
 }
 
 /** MFA 등록 요구 대상 — MFA 미적용 계정 중 오늘 아직 요구 통지를 보내지 않은 계정.

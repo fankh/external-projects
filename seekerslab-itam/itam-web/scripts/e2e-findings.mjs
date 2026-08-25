@@ -2037,6 +2037,22 @@ try {
   await p3.waitForTimeout(400)
   const schedNtcBody = (await p3.textContent('body')) || ''
   ok('예약 발행 공지: 발행 전 확인 집계·미확인자 독촉 미노출(조기 노출/독촉 방지)', schedNtcBody.includes('발행 후 확인 집계') && !schedNtcBody.includes('안내 발송'))
+  // 필독 공지 미확인자 안내(신규) — 다른 독촉은 모두 당일 발송분을 빼는데 이 경로만 누를 때마다 같은 사람에게
+  //  다시 나갔다(하루에 여러 통 · 알림 피로). 버튼 건수도 미확인 인원을 그대로 세어 보낸 뒤에도 그대로였다.
+  const ctxNR = await browser.newContext(); await ctxNR.addCookies([cookie(ADMIN)]); const pNR = await ctxNR.newPage()
+  // 딥링크로 발행된 필독 공지를 연다 — 목록 기본 선택은 방금 만든 예약 발행 공지(발행 전)라 독촉 접점이 없다.
+  await pNR.goto(`${BASE}/board/notices?sel=NTC-01`, { waitUntil: 'networkidle' })
+  const nrBtn = () => pNR.locator('button', { hasText: /미확인자 \d+명 안내 발송/ }).first()
+  ok('필독 공지 미확인자 안내: 대상이 있으면 건수와 함께 노출', (await nrBtn().count()) > 0)
+  await nrBtn().click()
+  await pNR.waitForTimeout(900)
+  ok('필독 공지 미확인자 안내: 발송 성공(발송 이력 적재)',
+    /미확인 \d+명에게 필독 확인 안내를 발송/.test((await pNR.locator('body').textContent()) || ''))
+  await pNR.goto(`${BASE}/board/notices?sel=NTC-01`, { waitUntil: 'networkidle' })
+  const nrBody = (await pNR.locator('body').textContent()) || ''
+  ok('필독 공지 미확인자 안내(중복 억제): 발송 직후 오늘 안내함 표기 · 확인 집계·미확인자 명단은 유지',
+    nrBody.includes('오늘 안내함') && (await nrBtn().count()) === 0 && nrBody.includes('필독 확인') && nrBody.includes('미확인자'))
+  await ctxNR.close()
 
   // 필독 공지 내용 변경 → 읽음 확인 초기화 — 바뀐 내용을 다시 확인받아야 커버리지가 무결하다(대상만 바꾼 편집과 달리 본문 편집은 이전 확인을 무효화·재확인 필요). 그동안 편집은 이전 확인을 그대로 둬 '바뀐 내용을 확인했다'는 허위 커버리지가 남았다.
   await p3.goto(`${BASE}/board/notices`, { waitUntil: 'networkidle' })

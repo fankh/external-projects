@@ -5,7 +5,7 @@ import { noticeAudienceLabel, noticeTargets } from '@/lib/notice'
 import { NOTICE_CATEGORIES, type BoardPost, type NoticeCategory } from '@/lib/types'
 import { acknowledgeNotice, deleteNotice, editNotice, postNotice, recordPostView, remindNoticeUnacked, toggleNoticePin } from '../actions'
 
-export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initialSel }: { posts: BoardPost[]; canWrite: boolean; me: string; allUsers: { name: string; dept: string }[]; depts: string[]; today: string; initialSel?: string }) {
+export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initialSel, remindPending }: { posts: BoardPost[]; canWrite: boolean; me: string; allUsers: { name: string; dept: string }[]; depts: string[]; today: string; initialSel?: string; /** 공지별 오늘 보낼 미확인자 수 — 버튼 건수 = 발송 건수(lib/reminders 단일 소스) */ remindPending?: Record<string, number> }) {
   // 딥링크(?sel=NTC-…) — 알림 로그·대시보드에서 특정 공지로 진입. 목록에 없으면(비공개·예약) 최신 공지로 폴백.
   const [openId, setOpenId] = useState<string | null>(
     (initialSel && posts.some((p) => p.id === initialSel) ? initialSel : posts[0]?.id) ?? null,
@@ -178,6 +178,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
                 const totalUsers = targets.length
                 const ackedBy = new Set((open.acks ?? []).map((a) => a.by))
                 const acks = (open.acks ?? []).filter((a) => targets.some((t) => t.name === a.by))
+                const pendingRemind = remindPending?.[open.id] ?? (targets.length - acks.length)
                 const mine = (open.acks ?? []).find((a) => a.by === me)
                 // 발행 예정(publishAt 미래) 공지는 아직 대상자에게 공개 전 — 확인 집계·미확인자 독촉을 노출하지 않는다(서버 독촉 가드와 동일).
                 const published = !open.publishAt || open.publishAt <= today
@@ -195,13 +196,17 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
                       </button>
                     )}
                     <span className="right" />
-                    {canWrite && published && acks.length < totalUsers && (
+                    {/* 발송 대상은 "미확인"이 아니라 "미확인이면서 오늘 미발송"이다(lib/reminders 단일 소스) —
+                        확인 집계·미확인자 명단은 그대로 두고 버튼 건수만 대상 수로 말한다. 대상이 없으면 상태를 보여 준다. */}
+                    {canWrite && published && acks.length < totalUsers && (pendingRemind > 0 ? (
                       <button className="btn sm" disabled={pending}
-                        title="아직 읽음 확인하지 않은 사용자에게 필독 확인 요청 통보"
+                        title="아직 읽음 확인하지 않은 사용자에게 필독 확인 요청 통보 (오늘 발송분 제외)"
                         onClick={() => startTransition(async () => setMsg((await remindNoticeUnacked(open.id)).message))}>
-                        미확인자 {totalUsers - acks.length}명 안내 발송
+                        미확인자 {pendingRemind}명 안내 발송
                       </button>
-                    )}
+                    ) : (
+                      <span className="mut" style={{ fontSize: 11.5 }} title="오늘 미확인자 안내 발송 완료 (당일 중복 발송 차단)">오늘 안내함</span>
+                    ))}
                     <span className="mut" style={{ fontSize: 11.5 }} title="필독 확인 커버리지 (대상 집단 기준)">
                       {published
                         ? <>필독 확인 {acks.length}/{totalUsers}명 <span className="dim">· 대상 {noticeAudienceLabel(open)}</span></>

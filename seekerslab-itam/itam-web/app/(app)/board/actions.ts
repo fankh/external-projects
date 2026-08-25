@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { isQnaOverdue, isValidDate, qnaAgeDays, today } from '@/lib/dates'
 import { noticeTargets } from '@/lib/notice'
+import { noticeRemindTargets } from '@/lib/reminders'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -307,9 +308,18 @@ export async function remindNoticeUnacked(postId: string) {
   if (post.publishAt && post.publishAt > today()) return { ok: false, message: '발행 예정 공지는 발행 후에 미확인자 안내를 보낼 수 있습니다.' }
 
   const acked = new Set((post.acks ?? []).map((a) => a.by))
-  // 대상 부서로 좁힌 미확인자 — 전사 공지면 전 사용자, 부서 공지면 그 부서 사용자만 독촉한다.
-  const unacked = noticeTargets(post, s.users).filter((u) => !acked.has(u.name))
-  if (unacked.length === 0) return { ok: false, message: `${post.audienceDept ?? '전사'} 대상 전원이 이미 읽음 확인했습니다.` }
+  // 대상 부서로 좁힌 미확인자 중 오늘 아직 안 보낸 사람 — 다른 독촉과 같은 규약(lib/reminders 단일 소스).
+  //  그전에는 누를 때마다 같은 사람에게 다시 나가, 하루에 여러 통을 받는 알림 피로가 생겼다.
+  const unacked = noticeRemindTargets(postId)
+  if (unacked.length === 0) {
+    const stillUnacked = noticeTargets(post, s.users).some((u) => !acked.has(u.name))
+    return {
+      ok: false,
+      message: stillUnacked
+        ? '오늘 미확인자 안내를 이미 발송했습니다 (당일 중복 발송 차단).'
+        : `${post.audienceDept ?? '전사'} 대상 전원이 이미 읽음 확인했습니다.`,
+    }
+  }
 
   for (const u of unacked) {
     dispatch({ channel: '이메일', to: `${u.name} (${u.dept})`, subject: `[필독 확인 요청] ${post.title} — 미확인 안내`, kind: '공지 독촉', ref: post.id })
