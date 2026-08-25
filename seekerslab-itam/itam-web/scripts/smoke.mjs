@@ -1148,6 +1148,9 @@ try {
   check('재물조사 계획: 미확인 자산 자동 편성 진입점', planHtml.includes('미확인(유령) 자산 자동 편성') && planHtml.includes('자동 편성'))
   // 장기 미실측(실사 기반) 자동 편성 — 대장 최근 실측일에 근거한 유령 후보를 수시 조사로 편성
   check('재물조사 계획: 장기 미실측 자산 자동 편성 진입점', planHtml.includes('장기 미실측') && planHtml.includes('실사 기반 유령'))
+  // '대장에서 보기'는 이 카드가 센 집합을 열어야 한다 — 필터 없이 전체 대장으로 보내면 담당자가 미실측 자산을
+  //  수백 건 중에서 눈으로 찾아야 한다(대장에 ?stale=1 필터가 이미 있는데 쓰지 않았다).
+  check('재물조사 계획: 장기 미실측 카드가 대장 미실측 필터(?stale=1)로 드릴다운', planHtml.includes('/assets/register?stale=1'))
   // 완료 회차 이력 — 지난 재물조사 실적(대상·실사·차이)이 감사 추적용으로 보존된다. 그동안 완료 회차는 어디에도 안 보였다.
   check('재물조사 계획: 완료 회차 이력 렌더 (감사 추적)', planHtml.includes('완료 회차 이력') && planHtml.includes('INV-2026-H1') && planHtml.includes('2026 상반기 정기 재물조사'))
   const recHtml2 = await (await get('/discovery/reconcile', 'ASSET_MGR')).text()
@@ -2103,6 +2106,8 @@ try {
     ['유지보수 SLA 위반 (대응 시한 초과 · 이행 독촉)', '?maint=sla'],
     ['유지보수 미집행 (이행 확인·독촉)', '?maint=exec'],
     ['유지보수 예산 초과·소진 임박 (재협상·집행 점검)', '?maint=budget'],
+    // 발주 미이행 큐도 같은 규약으로 — 그전엔 필터 없이 계약 화면 맨 위로만 보냈다.
+    ['구매 계약 발주 미이행 · 만료 임박 (이행 점검)', '?proc=risk'],
   ]
   const drillBad = []
   for (const [label, qs] of drillPairs) {
@@ -2213,6 +2218,18 @@ try {
   check("분석 큐 드릴다운: 교체 대상 큐가 대장 교체 필터(?replace=1)로 연결",
     dashMgr.includes('/assets/register?replace=1'))
 
+  // 배정 밖 설치(무단 사용) 큐 — 큐는 '설치 건수'를 세므로 화면 필터 문구도 같은 축(설치 N건)을 적어야 한다
+  //  (라이선스 건수와 다르다: 한 라이선스에 배정 밖 설치가 여럿 붙는다).
+  const offSeatHtml = (await (await get('/inventory/contracts?seat=off', 'ASSET_MGR')).text()).replace(/<!-- -->/g, "")
+  const offSeatQueue = queueCount('라이선스 배정 밖 설치 (무단 사용 · SAM 리스크)')
+  const offSeatAt = offSeatHtml.indexOf('배정 밖 설치(무단 사용) 필터')
+  const offSeatShown = Number((/· 설치 ([0-9]+)건/.exec(offSeatAt === -1 ? '' : offSeatHtml.slice(offSeatAt, offSeatAt + 600)) || [])[1] ?? -1)
+  check("계약 화면 드릴다운: 배정 밖 설치 큐가 무단 사용 필터로 연결",
+    dashMgr.includes('/inventory/contracts?seat=off') && offSeatHtml.includes('배정 밖 설치(무단 사용) 필터'))
+  check("계약 화면 드릴다운: 배정 밖 설치 큐 건수 = 필터 화면 표시 설치 건수",
+    offSeatQueue > 0 && offSeatQueue === offSeatShown, `큐 ${offSeatQueue} · 표시 ${offSeatShown}`)
+  check("계약 화면 드릴다운: 발주 미이행 큐가 이행 위험 필터(?proc=risk)로 연결",
+    dashMgr.includes('/inventory/contracts?proc=risk'))
   const seatHtml = await (await get('/inventory/contracts?seat=unused', 'ASSET_MGR')).text()
   check("계약 화면 드릴다운: 미설치 좌석 큐가 회수 후보만 여는 필터로 연결",
     dashMgr.includes('/inventory/contracts?seat=unused') && seatHtml.includes('미설치 좌석(회수 후보) 필터'))

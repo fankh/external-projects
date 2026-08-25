@@ -200,7 +200,7 @@ export function PlanView(props: {
               <Chip tone={props.pendingStaleCompose ? 'warn' : 'ok'}>
                 {props.pendingStaleCompose ? `편성 대기 ${props.pendingStaleCompose}건` : '편성 완료'}
               </Chip>
-              <Link className="btn sm ghost" href="/assets/register">대장에서 보기</Link>
+              <Link className="btn sm ghost" href="/assets/register?stale=1">대장에서 보기</Link>
             </div>
           </div>
           <button className="btn pri" disabled={pending || props.pendingStaleCompose === 0}

@@ -20,9 +20,9 @@ import { UsageCollect } from './UsageCollect'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string; lic?: string; maint?: string; seat?: string }> }) {
+export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string; lic?: string; maint?: string; seat?: string; proc?: string }> }) {
   const session = await requireView('/inventory/contracts', 'ASSET_MGR', 'ADMIN')
-  const { sel, lic, maint: maintFilter, seat: seatFilter } = await searchParams
+  const { sel, lic, maint: maintFilter, seat: seatFilter, proc: procFilter } = await searchParams
   const s = getStore()
   const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
   const usage = buildLicenseUsage()
@@ -38,8 +38,17 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   const maintPick = maintFilter ? MAINT_FILTER[maintFilter] : undefined
   const maintRows = maintPick ? maint.rows.filter(maintPick.hit) : maint.rows
   const seatPick = seatFilter === 'unused'
-  const usageRows = seatPick ? usage.rows.filter((r) => r.unusedSeat.length > 0) : usage.rows
+  // ?seat=off / ?proc=risk — 계약 화면에 남아 있던 마지막 두 큐의 드릴다운. '배정 밖 설치'와 '발주 미이행'은
+  //  필터 없이 화면 맨 위로만 보내, 큐가 말한 건을 담당자가 긴 표에서 눈으로 찾아야 했다(유지보수·좌석 큐와 같은 규약).
+  const offSeatPick = seatFilter === 'off'
+  const usageRows = seatPick
+    ? usage.rows.filter((r) => r.unusedSeat.length > 0)
+    : offSeatPick
+      ? usage.rows.filter((r) => r.offSeat.length > 0)
+      : usage.rows
   const proc = buildProcurement()
+  const procPick = procFilter === 'risk'
+  const procRows = procPick ? proc.rows.filter((r) => r.atRisk) : proc.rows
   const canEditLicense = ['ASSET_MGR', 'ADMIN'].includes(session.role)
 
   // 만료 임박 신규 통지 대상 — 발송 액션과 같은 lib/expiry 단일 소스(오늘 이미 보낸 대상 제외).
@@ -139,6 +148,11 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <ProcurementSettleButton settleable={proc.settleable.length} />
         </span>}
       >
+        {procPick && (
+          <div className="callout" style={{ margin: 14 }}>
+            <b>발주 미이행 · 만료 임박 필터</b> — 구매 계약 {procRows.length}건 표시 · 전체 {proc.rows.length}건 · <Link href="/inventory/contracts">전체 보기</Link>
+          </div>
+        )}
         <div className="stat-row" style={{ margin: 14 }}>
           <Stat value={`${ratioPct(proc.totalOrdered, proc.totalAmount)}%`} label="전체 발주 소진률" delta={{ text: `발주 여력 ${fmtAmount(proc.totalAmount - proc.totalOrdered)}원`, dir: 'flat' }} />
           <Stat value={proc.rows.length} label="구매 계약 (발주 대상)" />
@@ -155,7 +169,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
               </tr>
             </thead>
             <tbody>
-              {proc.rows.map((r) => (
+              {procRows.map((r) => (
                 <tr key={r.id}>
                   <td className="strong">{r.name}</td>
                   <td className="mute">{r.vendor}</td>
@@ -169,7 +183,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="c">{r.settled ? <Chip tone="neutral">정산 완료 {r.settledAt}</Chip> : r.atRisk ? <Chip tone="err">발주 미이행</Chip> : r.settleable ? <Chip tone="warn">정산 종결 가능</Chip> : r.pendingInspection > 0 ? <Chip tone="warn">검수 진행</Chip> : <Chip tone="ok">정상</Chip>}</td>
                 </tr>
               ))}
-              {proc.rows.length === 0 && <tr><td colSpan={10}><div className="empty">등록된 구매 계약이 없습니다</div></td></tr>}
+              {procRows.length === 0 && <tr><td colSpan={10}><div className="empty">{procPick ? '발주 미이행 · 만료 임박 계약이 없습니다 — 필터를 해제하면 전체가 보입니다' : '등록된 구매 계약이 없습니다'}</div></td></tr>}
             </tbody>
           </table>
         </div>
@@ -217,6 +231,11 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
             <b>미설치 좌석(회수 후보) 필터</b> — 라이선스 {usageRows.length}건 표시 · 좌석 {usage.totalUnusedSeat}석 · <Link href="/inventory/contracts">전체 보기</Link>
           </div>
         )}
+        {offSeatPick && (
+          <div className="callout" style={{ margin: 14 }}>
+            <b>배정 밖 설치(무단 사용) 필터</b> — 라이선스 {usageRows.length}건 표시 · 설치 {usage.totalOffSeat}건 · <Link href="/inventory/contracts">전체 보기</Link>
+          </div>
+        )}
         <div className="stat-row" style={{ margin: 14 }}>
           <Stat value={usage.totalInstalls} label="설치 관측 (EDR 인벤토리)" />
           <Stat value={usage.totalOffSeat} label="배정 밖 설치 — 무단 사용" tone={usage.totalOffSeat ? 'err' : 'ok'} />
@@ -244,7 +263,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="tnum">{r.collectedAt ?? <span className="dim">미수집</span>}</td>
                 </tr>
               ))}
-              {usageRows.length === 0 && <tr><td colSpan={8}><div className="empty">{seatPick ? '미설치 좌석(회수 후보)이 있는 라이선스가 없습니다' : '대사 대상 라이선스가 없습니다'}</div></td></tr>}
+              {usageRows.length === 0 && <tr><td colSpan={8}><div className="empty">{seatPick ? '미설치 좌석(회수 후보)이 있는 라이선스가 없습니다' : offSeatPick ? '배정 밖 설치(무단 사용)가 있는 라이선스가 없습니다' : '대사 대상 라이선스가 없습니다'}</div></td></tr>}
             </tbody>
           </table>
         </div>
