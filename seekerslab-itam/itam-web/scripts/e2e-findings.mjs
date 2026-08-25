@@ -26,8 +26,15 @@ const cookie = (acct) => ({ name: 'itam_session', value: encodeURIComponent(JSON
 let pass = 0, fail = 0
 const ok = (name, cond) => { if (cond) { pass++; console.log('  ✓ ' + name) } else { fail++; console.log('  ✗ ' + name) } }
 /** 실행일 + n일 (YYYY-MM-DD) — 폼이 미래 날짜를 요구하는 입력에 고정 날짜를 박으면 그 날이 지난 뒤
- *  스위트가 스스로 무너진다(반환 기한·점검 예정일·예약 발행일…). 기준일 파생 규약을 테스트에도 적용한다. */
-const dPlus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+ *  스위트가 스스로 무너진다(반환 기한·점검 예정일·예약 발행일…). 기준일 파생 규약을 테스트에도 적용한다.
+ *  날짜는 서버 기준일(lib/dates today() — 기본 Asia/Seoul)과 같은 표준시로 만든다. toISOString() 은 UTC 라
+ *  KST 자정~09시에 하루 뒤처져, 서버가 오늘로 찍은 값(격리일 등)을 테스트가 어제로 기대하며 실패했다. */
+const TZ = process.env.ITAM_TZ || 'Asia/Seoul'
+const dateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
+const dPlus = (n) => {
+  const [y, m, d] = dateFmt.format(new Date()).split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
 
 // 빌드 신선도 — 예전 빌드로 회귀를 돌리면 고친 결함이 그대로인 채 초록으로 통과한다(scripts/build-guard.mjs)
 assertFreshBuild(ROOT, { remote: REMOTE })
