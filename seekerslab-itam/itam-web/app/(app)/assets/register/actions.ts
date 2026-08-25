@@ -381,8 +381,17 @@ export async function requestLoanExtension(assetNo: string, rawNewDueDate: strin
   // 연장과 반납은 상반된 처분 — 반납 신청 중이면 연장 요청 불가(모순 상태·이중 큐 방지). 반납 신청을 먼저 취소해야 한다.
   if (asset.returnRequest) return { ok: false, message: '반납 신청 중인 자산입니다 — 반납 신청을 취소한 뒤 연장 요청하세요.' }
   const newDueDate = rawNewDueDate.trim()
-  if (!isValidDate(newDueDate) || newDueDate <= (asset.loanDueDate ?? today())) {
-    return { ok: false, message: `연장 기한은 현재 반환 기한(${asset.loanDueDate ?? '-'}) 이후로 지정하세요.` }
+  // 기준은 '현재 반환 기한'과 '오늘' 중 늦은 쪽 — 이미 연체된 대여는 현재 기한만 넘겨서는 의미가 없다.
+  //  그전에는 연체 자산(기한 경과)에 과거 날짜로 '연장'을 걸 수 있었고, 승인해도 여전히 연체라
+  //  화면은 '요청대로 연장'이라 말하는데 큐에는 연체로 남았다(연장이 아무것도 풀지 못하는 상태).
+  const extFloor = (asset.loanDueDate && asset.loanDueDate > today()) ? asset.loanDueDate : today()
+  if (!isValidDate(newDueDate) || newDueDate <= extFloor) {
+    return {
+      ok: false,
+      message: extFloor === today()
+        ? `연장 기한은 오늘(${today()}) 이후로 지정하세요 — 현재 반환 기한 ${asset.loanDueDate ?? '-'} 은 이미 지났습니다.`
+        : `연장 기한은 현재 반환 기한(${asset.loanDueDate ?? '-'}) 이후로 지정하세요.`,
+    }
   }
   const reason = rawReason.trim()
   if (!reason) return { ok: false, message: '연장 사유를 입력하세요.' }
@@ -405,6 +414,11 @@ export async function grantLoanExtension(assetNo: string) {
   // 요청 기한이 현재 반환 기한 이후인지 재확인 — 오래된(스테일) 요청으로 현재 대여가 단축되지 않게 한다.
   if (req.newDueDate <= (asset.loanDueDate ?? today())) {
     return { ok: false, message: `연장 요청 기한(${req.newDueDate})이 현재 반환 기한(${asset.loanDueDate ?? '-'}) 이후가 아닙니다 — 반려 후 재요청하세요.` }
+  }
+  // 결재가 늦어져 요청 기한 자체가 지나갔으면 집행하지 않는다 — 승인하자마자 연체인 대여가 되고,
+  //  화면은 '요청대로 연장'이라 말하는데 연체 큐에는 그대로 남는다(스테일 이동·반납 가드와 같은 자리).
+  if (req.newDueDate < today()) {
+    return { ok: false, message: `요청 기한(${req.newDueDate})이 이미 지났습니다 — 대여자에게 새 기한으로 다시 요청하도록 안내하거나 반려하세요.` }
   }
   const cur = asset.loanDueDate ?? '-'
   asset.loanDueDate = req.newDueDate

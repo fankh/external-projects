@@ -1369,14 +1369,24 @@ try {
 
   // 대여 반환 기한 연장 요청(사용자 셀프서비스) — 대여자가 본인 대여 자산의 연장을 자산담당에 신청. 그동안 연장은 자산담당만 가능했다. AST-2024-000230(김민준 대여중).
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
+  // 날짜는 실행일에서 파생한다 — 고정 날짜를 박으면 그 날이 지난 뒤 스위트가 스스로 무너진다(기준일 파생 규약).
+  const dPlus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+  const extWanted = dPlus(36)
   await pU.locator('button', { hasText: /^반환 기한 연장 요청$/ }).click()
   await pU.waitForTimeout(200)
-  await pU.locator('dd input[type="date"]').last().fill('2026-09-30')
+  // 연체 대여(기한 경과)에 과거 날짜로 연장을 걸면 승인해도 여전히 연체다 — 서버가 오늘 이후를 요구해야 한다.
+  await pU.locator('dd input[type="date"]').last().fill(dPlus(-1))
+  await pU.locator('input[placeholder="연장 사유"]').fill('e2e — 과거 날짜 연장 시도')
+  await pU.locator('button', { hasText: /^요청$/ }).click()
+  await pU.waitForTimeout(600)
+  ok('대여 연장 요청: 연체 자산의 과거 날짜 연장은 사유와 함께 거절(연장해도 연체인 상태 방지)',
+    ((await pU.locator('body').textContent()) || '').includes('이후로 지정하세요'))
+  await pU.locator('dd input[type="date"]').last().fill(extWanted)
   await pU.locator('input[placeholder="연장 사유"]').fill('e2e — 프로젝트 연장으로 반환 지연')
   await pU.locator('button', { hasText: /^요청$/ }).click()
   await pU.waitForTimeout(700)
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
-  ok('대여 연장 요청(사용자): 요청 접수 표시(연장 요청·요청 날짜)', ((await pU.locator('body').textContent()) || '').includes('연장 요청') && ((await pU.locator('body').textContent()) || '').includes('2026-09-30'))
+  ok(`대여 연장 요청(사용자): 요청 접수 표시(연장 요청·요청 날짜 ${extWanted})`, ((await pU.locator('body').textContent()) || '').includes('연장 요청') && ((await pU.locator('body').textContent()) || '').includes(extWanted))
   // 반납·연장 상호배제(모순 상태·이중 큐 방지) — 연장 요청 중이면 반납 신청이 서버에서 차단된다(대칭 가드). 상태 변화 없이 차단만.
   await pU.locator('button', { hasText: /^반납 신청$/ }).click()
   await pU.waitForTimeout(500)
@@ -1388,7 +1398,7 @@ try {
   ok('대여 연장 요청 취소(사용자): 요청 철회 후 재신청 버튼 복귀', (await pU.locator('button', { hasText: /^반환 기한 연장 요청$/ }).count()) > 0)
   await pU.locator('button', { hasText: /^반환 기한 연장 요청$/ }).click()
   await pU.waitForTimeout(200)
-  await pU.locator('dd input[type="date"]').last().fill('2026-09-30')
+  await pU.locator('dd input[type="date"]').last().fill(extWanted)
   await pU.locator('input[placeholder="연장 사유"]').fill('e2e — 프로젝트 연장으로 반환 지연(재신청)')
   await pU.locator('button', { hasText: /^요청$/ }).click()
   await pU.waitForTimeout(700)
@@ -1413,13 +1423,13 @@ try {
   ok('대시보드(비사용자): Shadow IT KPI 가 발견 화면 링크', (await p3.locator('a[href="/discovery/found"]').filter({ hasText: '미등록 신규 발견' }).count()) > 0)
   // 신청·결재 뱃지(결재자) — 결재 권한자에겐 내 결재 차례 건수가 사이드바 워크플로 뱃지로 뜬다(전사 총계 아님).
   ok('결재자 사이드바: 워크플로 결재 뱃지 노출(내 결재 차례 ≥ 1)', (await p3.locator('nav.menubar button').filter({ hasText: '워크플로' }).locator('.bdg').count()) > 0)
-  // 대여 연장 요청 승인(자산담당 측) — 사용자가 올린 연장 요청을 자산담당이 요청대로 반영한다. 위 pU 가 AST-2024-000230 에 2026-09-30 연장 요청.
+  // 대여 연장 요청 승인(자산담당 측) — 사용자가 올린 연장 요청을 자산담당이 요청대로 반영한다. 위 pU 가 AST-2024-000230 에 실행일 파생 날짜로 연장 요청.
   await p3.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
   ok('대여 연장 요청 승인: 자산담당에 요청대로 연장 버튼 노출', (await p3.locator('button', { hasText: /^요청대로 연장$/ }).count()) > 0)
   await p3.locator('button', { hasText: /^요청대로 연장$/ }).click()
   await p3.waitForTimeout(700)
   await p3.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
-  ok('대여 연장 승인 → 반환 기한 요청 날짜로 연장(2026-09-30)', ((await p3.locator('body').textContent()) || '').includes('2026-09-30') && (await p3.locator('button', { hasText: /^요청대로 연장$/ }).count()) === 0)
+  ok(`대여 연장 승인 → 반환 기한 요청 날짜로 연장(${extWanted})`, ((await p3.locator('body').textContent()) || '').includes(extWanted) && (await p3.locator('button', { hasText: /^요청대로 연장$/ }).count()) === 0)
 
   // 결재 지연 → 결재 독촉 발송(검출→조치). 결재 상태를 바꾸지 않으므로(발송만) 다른 검증에 영향 없음.
   await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
