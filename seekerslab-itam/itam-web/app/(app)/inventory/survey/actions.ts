@@ -7,7 +7,7 @@ import { createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import { can } from '@/lib/perm'
-import { GONE_STATUSES } from '@/lib/types'
+import { GONE_STATUSES, IDLE_POOL_STATUSES } from '@/lib/types'
 import type { SurveyDiffKind } from '@/lib/types'
 
 /** 스캔 시각 — 표준시 처리는 lib/dates 에 위임한다 (프로세스 TZ 에 의존하지 않도록) */
@@ -46,7 +46,7 @@ export async function scanAsset(roundId: string, rawCode: string, location: stri
     diffKind = '위치 불일치'
     expected = asset.location
     message = `위치 불일치 — 대장 ${asset.location} / 실사 ${location}`
-  } else if (['유휴', '반납대기'].includes(asset.status) && location !== '본사 3F 자산창고') {
+  } else if (IDLE_POOL_STATUSES.includes(asset.status) && location !== '본사 3F 자산창고') {
     result = '차이'
     diffKind = '상태 불일치'
     expected = `${asset.status} (창고 보관)`

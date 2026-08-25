@@ -18,6 +18,7 @@ import { criticalDependencies, impactSources } from './cmdb'
 // 양쪽 모두 함수 본문에서만 서로를 호출(모듈 최상위 미참조)해 순환이 안전하다.
 import { compositeRiskAssetNos, riskSignals } from './risk'
 import type { CellValue, Sheet } from './xlsx'
+import { IDLE_POOL_STATUSES } from './types'
 import type { DiscoveredAsset, ReportKind, ReportSchedule, ReportSection, SaasUsage, SwLicense } from './types'
 
 /** 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 대상
@@ -289,8 +290,9 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           return [
             c, String(list.length),
             String(list.filter((a) => a.status === '사용중').length),
-            String(list.filter((a) => ['유휴', '반납대기'].includes(a.status)).length),
-            String(list.filter((a) => !['사용중', '유휴', '반납대기'].includes(a.status)).length),
+            String(list.filter((a) => IDLE_POOL_STATUSES.includes(a.status)).length),
+            // 기타 = 사용중도 재배치 대기도 아닌 나머지 — 앞 두 칸과 같은 판정에서 파생시킨다(반출본 '기타' 칸과 동형).
+            String(list.filter((a) => a.status !== '사용중' && !IDLE_POOL_STATUSES.includes(a.status)).length),
           ]
         }),
       },
@@ -1220,7 +1222,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   if (kind === '월간 자산 현황') {
     const totalRepair = s.assets.reduce((t, a) => t + repairTotalOf(a), 0)
     const proceeds = s.disposals.filter((d) => d.status === '완료').reduce((t, d) => t + (d.proceeds ?? 0), 0)
-    return `총 등록 자산은 ${s.assets.length}대이며 사용중 ${s.assets.filter((a) => a.status === '사용중').length}대, 유휴·반납 ${s.assets.filter((a) => ['유휴', '반납대기'].includes(a.status)).length}대입니다. `
+    return `총 등록 자산은 ${s.assets.length}대이며 사용중 ${s.assets.filter((a) => a.status === '사용중').length}대, 유휴·반납 ${s.assets.filter((a) => IDLE_POOL_STATUSES.includes(a.status)).length}대입니다. `
       + `${s.opsPolicy.expiryWindowDays}일 내 만료 계약이 ${n('만료 임박')}건 있어 갱신 검토가 필요하며, Discovery를 통해 대장에 편입된 자산은 ${s.assets.filter((a) => a.discoveredVia).length}대입니다. `
       + `당월까지 누적 유지보수(수리) 비용은 총 ${fmtAmount(totalRepair)}원이며, 자산 처분(매각) 대금 회수는 ${fmtAmount(proceeds)}원입니다.`
   }

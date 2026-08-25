@@ -4,7 +4,7 @@ import { buildLicenseUsage } from './license-usage'
 import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { contractAssetCount, getStore } from './store'
-import { ASSET_CATEGORIES, type PermMenu, type Role } from './types'
+import { ASSET_CATEGORIES, IDLE_POOL_STATUSES, type PermMenu, type Role } from './types'
 import type { Sheet } from './xlsx'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
@@ -104,7 +104,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         const cur = m.get(k) ?? { total: 0, inUse: 0, idle: 0 }
         cur.total += 1
         if (a.status === '사용중') cur.inUse += 1
-        if (['유휴', '반납대기'].includes(a.status)) cur.idle += 1
+        if (IDLE_POOL_STATUSES.includes(a.status)) cur.idle += 1
         m.set(k, cur)
       }
       const rows: (string | number)[][] = [...m.entries()]
