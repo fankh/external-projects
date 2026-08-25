@@ -1815,6 +1815,18 @@ try {
   check(`필터 재계산: 화면 필터 ${onlyStates.length}개가 모두 목록 메모 의존성에 포함`,
     memoDeps.length > 0 && depMissing.length === 0, `누락=${depMissing.join(", ")}`)
 
+  // 저장된 뷰 ↔ 화면 필터 — 뷰는 "그때 좁혀 본 집합"을 이름으로 되살리는 기능이다. 필터가 늘 때 뷰 저장·적용에
+  //  넣지 않으면 조건이 저장되지 않고, 적용해도 켜져 있던 다른 필터가 남아 같은 이름이 매번 다른 목록을 연다.
+  const viewTypeAt = regViewSrc.indexOf("type SavedView = {")
+  const viewTypeBlock = viewTypeAt === -1 ? "" : regViewSrc.slice(viewTypeAt, regViewSrc.indexOf("}", regViewSrc.indexOf("liveOnly", viewTypeAt)) + 1)
+  const applyAt = regViewSrc.indexOf("const applyView = (v: SavedView)")
+  const applyBlock = applyAt === -1 ? "" : regViewSrc.slice(applyAt, regViewSrc.indexOf("const saveCurrentView", applyAt))
+  const saveAt = regViewSrc.indexOf("const v: SavedView = {")
+  const saveBlock = saveAt === -1 ? "" : regViewSrc.slice(saveAt, saveAt + 400)
+  const viewMissing = onlyStates.filter((f) => !viewTypeBlock.includes(f) || !applyBlock.includes(f) || !saveBlock.includes(f))
+  check(`저장된 뷰: 화면 필터 ${onlyStates.length}개가 모두 뷰 저장·적용에 포함`,
+    viewTypeBlock.length > 0 && applyBlock.length > 0 && viewMissing.length === 0, `누락=${viewMissing.join(", ")}`)
+
   // 데이터 API 도 권한 매트릭스를 본다 — 화면 가드(requireView)는 매트릭스 조회 칸을 보는데 인쇄 문서·리포트 API 가
   //  역할만 보면, 조회를 회수한 뒤에도 같은 데이터가 문서로 그대로 나간다(실제로 12곳이 그랬다).
   //  스토어를 읽는 API 라우트는 매트릭스 판정(can·canExport·canViewMenu) 중 하나를 반드시 거쳐야 한다.
