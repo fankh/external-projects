@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { ASSET_CATEGORIES, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
+import { ASSET_CATEGORIES, CRITICALITY_LEVELS, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus, BizCriticality } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
@@ -682,7 +682,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
                   <Chip tone={sel.criticality === '핵심' ? 'err' : sel.criticality === '중요' ? 'warn' : 'neutral'}>{sel.criticality ?? '일반'}</Chip>
                   {props.canManage && <span className="mut" style={{ fontSize: 11 }}>변경:</span>}
-                  {props.canManage && (['핵심', '중요', '일반'] as const).map((lv) => (
+                  {props.canManage && CRITICALITY_LEVELS.map((lv) => (
                     (sel.criticality ?? '일반') !== lv && (
                       <button key={lv} className="btn sm ghost" style={{ padding: '1px 8px', fontSize: 11 }} disabled={pending}
                         title={`업무 중요도를 ${lv}으로 지정 — 취약점 우선순위 스코어링에 반영`}

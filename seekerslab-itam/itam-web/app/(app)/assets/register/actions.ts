@@ -12,10 +12,9 @@ import { getStore, nextAssetNo, nextId } from '@/lib/store'
 import { requiresApproval } from '@/lib/approval'
 import { can } from '@/lib/perm'
 import { eolNoticeTargets, impactNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
-import { ASSET_CATEGORIES, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES, TERMINAL_STATUSES } from '@/lib/types'
+import { ASSET_CATEGORIES, CRITICALITY_LEVELS, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES, TERMINAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
-const CRITICALITY_LEVELS: BizCriticality[] = ['핵심', '중요', '일반']
 
 /** 업무 중요도 지정 — 자산이 담당하는 업무의 중요도를 운영자가 설정한다(제품안내서 §05 취약점 우선순위의 '자산 중요도' 축).
  *  취약점 노출 우선순위 스코어링에 반영되어, 같은 취약점이라도 핵심 자산일수록 조치 우선순위가 높아진다. 자산담당·Admin. */

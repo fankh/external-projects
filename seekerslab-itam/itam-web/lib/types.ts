@@ -48,6 +48,10 @@ export interface AssetHistoryItem {
  *  미지정 자산은 '일반'으로 간주. 핵심(업무 중단 직결)·중요(부서 업무 영향)·일반. */
 export type BizCriticality = '핵심' | '중요' | '일반'
 
+/** 업무 중요도 선택지 — 화면의 지정 버튼과 서버 검증이 같은 목록을 써야 한다. 각자 적으면 화면이 내주는
+ *  값을 서버가 "올바르지 않은 값"으로 거절하는 막다른 컨트롤이 된다(취약점 우선순위 스코어링의 자산 중요도 축). */
+export const CRITICALITY_LEVELS: BizCriticality[] = ['핵심', '중요', '일반']
+
 export interface Asset {
   assetNo: string
   category: AssetCategory
