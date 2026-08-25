@@ -11,7 +11,7 @@ interface Candidate {
   assetNo: string; model: string; status: string; warrantyEnd: string; overdue: number; reason: string
 }
 
-export function DisposalView({ candidates, records }: { candidates: Candidate[]; records: DisposalRecord[] }) {
+export function DisposalView({ candidates, records, initialStatus }: { candidates: Candidate[]; records: DisposalRecord[]; /** 대시보드 '데이터 소거 대기' 큐의 드릴다운 — 소거 집행 대상만 보기로 연다 */ initialStatus?: '소거 대기' }) {
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [method, setMethod] = useState<Record<string, WipeMethod>>({})
@@ -27,11 +27,14 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
   const [photoNote, setPhotoNote] = useState('')
   const selected = records.filter((d) => d.status === '대상 선정')
   // 폐기 처리 현황 필터 — 완료분이 쌓이면 진행 중 건을 훑기 어렵다(다른 목록 화면과 동일한 상태·검색 필터 패턴).
-  const [fstatus, setFstatus] = useState<'전체' | '진행중' | '완료'>('전체')
+  // '소거 대기'는 결재를 받고 집행만 남은 건 — 대시보드 큐가 세는 그 집합이다. 그전엔 '진행중'(완료가 아닌 전부)에
+  //  대상 선정 단계까지 섞여, 큐가 말한 건수를 화면에서 다시 세어야 했다.
+  const [fstatus, setFstatus] = useState<'전체' | '진행중' | '소거 대기' | '완료'>(initialStatus ?? '전체')
   const [fq, setFq] = useState('')
   const shown = records.filter((d) => {
     if (fstatus === '완료' && d.status !== '완료') return false
     if (fstatus === '진행중' && d.status === '완료') return false
+    if (fstatus === '소거 대기' && d.status !== '소거 대기') return false
     const n = fq.trim().toLowerCase()
     if (!n) return true
     return [d.id, d.assetNo, d.model, d.reason].some((f) => (f ?? '').toLowerCase().includes(n))
@@ -124,8 +127,11 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
           </button>
         }>
         <div className="hstack" style={{ gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>
-          {(['전체', '진행중', '완료'] as const).map((st) => (
-            <button key={st} className={`btn sm ${fstatus === st ? 'pri' : 'ghost'}`} onClick={() => setFstatus(st)}>{st}</button>
+          {(['전체', '진행중', '소거 대기', '완료'] as const).map((st) => (
+            <button key={st} className={`btn sm ${fstatus === st ? (st === '소거 대기' ? 'err' : 'pri') : 'ghost'}`} onClick={() => setFstatus(st)}
+              title={st === '소거 대기' ? "결재 승인 후 소거 집행만 남은 건 — 대시보드 '데이터 소거 대기' 큐와 같은 집합" : undefined}>
+              {st}{st === '소거 대기' ? ` ${records.filter((d) => d.status === '소거 대기').length}` : ''}
+            </button>
           ))}
           <input className="input" style={{ flex: 1, minWidth: 180, height: 30 }}
             placeholder="폐기번호·자산번호·모델·사유 검색"
@@ -152,7 +158,7 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
             </thead>
             <tbody>
               {shown.length === 0 && (
-                <tr><td colSpan={7} className="dim c" style={{ padding: 18 }}>조건에 맞는 폐기 건이 없습니다.</td></tr>
+                <tr><td colSpan={7} className="dim c" style={{ padding: 18 }}>{records.length === 0 ? '폐기 처리 건이 없습니다.' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</td></tr>
               )}
               {shown.map((d) => (
                 <Fragment key={d.id}>

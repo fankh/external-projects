@@ -7,8 +7,11 @@ import { DisposalView } from './DisposalView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DisposalPage() {
+export default async function DisposalPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const session = await requireView('/assets/disposal', 'ASSET_MGR', 'ADMIN')
+  // status=wipe — 대시보드 '데이터 소거 대기' 큐의 드릴다운. 화면의 상태 필터에는 '진행중'까지만 있어
+  //  결재를 받고 소거를 기다리는 건(집행 대상)을 좁힐 수단이 없었다.
+  const { status: statusParam } = await searchParams
   const s = getStore()
 
   // 폐기 후보 — 보증 만료 경과 + 현재 폐기 절차에 없는 자산
@@ -49,7 +52,7 @@ export default async function DisposalPage() {
         표시되어 재사용·불출 대상에서 제외됩니다.
       </div>
 
-      <DisposalView candidates={candidates} records={s.disposals} />
+      <DisposalView candidates={candidates} records={s.disposals} initialStatus={statusParam === 'wipe' ? '소거 대기' : undefined} />
     </>
   )
 }

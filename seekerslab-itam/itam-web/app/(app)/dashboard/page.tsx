@@ -112,7 +112,7 @@ export default async function DashboardPage() {
       { label: '하위 의존 영향 통지 대상 (상위 이탈·격리 · 미통지)', count: impactNoticeTargets().length, href: '/assets/register?impact=1', tone: 'warn' },
       // 복합 위험 자산 — 정합성·EOL·보증·점검·SPOF·교체·미실측 중 2개 이상이 겹치는 다중 이슈 자산. 개별 신호 큐가 놓치는 '한 자산에 문제가 몰린' 우선 조치 대상을 사전에 드러낸다(?risk=1 드릴다운 → 상세 '위험 신호' 요약).
       { label: '복합 위험 자산 (≥2 신호 · 다중 이슈 우선 조치)', count: compositeRiskNos.length, href: compositeRiskNos.length ? '/assets/register?risk=1' : '/assets/register', tone: 'warn' },
-      { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal', tone: 'err' },
+      { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal?status=wipe', tone: 'err' },
       { label: '분실 · 도난 자산 (회수·폐기 확정)', count: s.assets.filter((a) => a.status === '분실').length, href: '/assets/register?status=분실', tone: 'err' },
       { label: '대여 반환 연체 (반환 독촉)', count: s.assets.filter(isLoanOverdue).length, href: '/assets/returns?loan=연체', tone: 'err' },
       { label: '대여 반환 임박 (D-7 · 사전 안내)', count: s.assets.filter(isLoanDueSoon).length, href: '/assets/returns?loan=임박', tone: 'warn' },
