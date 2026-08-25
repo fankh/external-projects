@@ -2,17 +2,21 @@ import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { openableRoutes } from '@/lib/perm'
+import { DEGRADED_CONNECTOR_STATUSES } from '@/lib/types'
 import { AuditLog } from './AuditLog'
 import { ConnectorTable } from './ConnectorTable'
 import { NotificationLog } from './NotificationLog'
 
 export const dynamic = 'force-dynamic'
 
-export default async function IntegrationsPage({ searchParams }: { searchParams: Promise<{ dispatch?: string }> }) {
+export default async function IntegrationsPage({ searchParams }: { searchParams: Promise<{ dispatch?: string; conn?: string }> }) {
   const session = await requireView('/platform/integrations', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   // 대시보드 재발송 큐(?dispatch=failed)의 드릴다운 — 큐가 말한 실패 건만 열어 준다.
-  const { dispatch: dispatchParam } = await searchParams
+  const { dispatch: dispatchParam, conn: connParam } = await searchParams
   const s = getStore()
+  // ?conn=degraded — 대시보드 '수집 커넥터 지연·오류' 큐의 드릴다운. 그전엔 필터 없이 화면 맨 위로만 보냈고,
+  //  KPI 는 지연만 세어 큐가 말한 수와 화면이 보여 주는 수가 갈렸다.
+  const degraded = s.integrations.filter((i) => DEGRADED_CONNECTOR_STATUSES.includes(i.status))
   const canManage = ['SEC_MGR', 'ADMIN'].includes(session.role)
   const live = s.integrations.filter((i) => i.status !== '미연동')
   const total24h = s.integrations.reduce((n, i) => n + i.volume24h, 0)
@@ -28,7 +32,8 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
       <div className="stat-row">
         <Stat value={`${live.length}/${s.integrations.length}`} label="연동 커넥터" tone="ok" delta={{ text: '표준 커넥터 (REST · 로그 · DB · SAML)', dir: 'flat' }} />
         <Stat value={total24h.toLocaleString()} label="24시간 수집 건수" />
-        <Stat value={s.integrations.filter((i) => i.status === '지연').length} label="지연 커넥터" tone="warn" />
+        <Stat value={degraded.length} label="저하 커넥터 — 지연 · 오류" tone={degraded.length ? 'warn' : 'ok'}
+          delta={{ text: degraded.length ? `${DEGRADED_CONNECTOR_STATUSES.map((st) => `${st} ${degraded.filter((i) => i.status === st).length}`).join(' · ')} — 재연동 대상` : '수집 지연·오류 없음', dir: degraded.length ? 'up' : 'flat' }} />
         <Stat value={s.integrations.filter((i) => i.role !== '수집').length} label="조치 채널 겸용" tone="accent" delta={{ text: '발견 ↔ 조치 양방향', dir: 'flat' }} />
       </div>
 
@@ -53,7 +58,7 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
       </div>
 
       <Card kicker="Connectors" title="연동 대상 상세" pad={false}>
-        <ConnectorTable integrations={s.integrations} canManage={canManage} />
+        <ConnectorTable integrations={s.integrations} canManage={canManage} degradedOnly={connParam === 'degraded'} />
       </Card>
 
       <AuditLog logs={s.auditLogs} canExport={canManage} role={session.role} openable={openableRoutes(session.role)} />

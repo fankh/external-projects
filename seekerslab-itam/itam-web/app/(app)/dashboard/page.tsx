@@ -1,4 +1,4 @@
-import { USER_REQUEST_KINDS } from '@/lib/types'
+import { DEGRADED_CONNECTOR_STATUSES, USER_REQUEST_KINDS } from '@/lib/types'
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
@@ -155,7 +155,7 @@ export default async function DashboardPage() {
   }
   if (['SEC_MGR', 'ADMIN'].includes(session.role)) {
     // 수집 커넥터 지연·오류는 Discovery 수집 사각지대 — 해당 채널이 멎으면 미등록 자산·Shadow SaaS 가 안 잡힌다. 재연동 필요.
-    const degradedConn = s.integrations.filter((i) => i.status === '지연' || i.status === '오류')
+    const degradedConn = s.integrations.filter((i) => DEGRADED_CONNECTOR_STATUSES.includes(i.status))
     // 취약점 우선순위 P1 — 자산 중요도 × 노출도 스코어링(§05)의 즉시 조치 등급. 출처별 큐가 '얼마나'라면 이건 '무엇부터'.
     const p1 = buildVulnPriority().p1
     opsQueues.push(
@@ -176,7 +176,7 @@ export default async function DashboardPage() {
       { label: '로컬 VM 위반 미조치 (엔드포인트 가상머신)', count: s.localVms.filter((v) => !v.action).length, href: '/discovery/found?open=localvm', tone: 'warn' },
       // 미관리 클라우드 리소스 — CSP API(채널 05)가 잡은 태그 미부착·개인 구독·미등록 리소스. 통제·정산 사각지대(태그·소유 지정 또는 회수 대상).
       { label: '미관리 클라우드 리소스 미조치 (태그·소유·회수 · SAM/거버넌스)', count: s.cloudFindings.filter((c) => !c.action).length, href: '/discovery/found?open=cloud', tone: 'err' },
-      { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
+      { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations?conn=degraded', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
       // 알림 전달 실패 — 긴급 격리·에스컬레이션 문자/메일이 미도달(반송·게이트웨이 오류)한 건. 방치하면 야간·현장 대응이 지연되므로 재발송 필요(§06 발송 신뢰성).
       { label: '알림 전달 실패 (재발송 필요)', count: s.dispatches.filter((m) => m.deliveryStatus === '실패').length, href: '/platform/integrations?dispatch=failed', tone: 'err' },
       // 외부 공격표면 재탐지 기한 경과 — 도메인별 주기(스케줄러) 경과·미실행이면 외부 노출 관측에 사각(§04 재탐지 자동 반복). 재탐지 실행 대상.

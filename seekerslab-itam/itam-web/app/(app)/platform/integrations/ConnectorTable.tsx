@@ -1,15 +1,20 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import type { Integration } from '@/lib/types'
+import { DEGRADED_CONNECTOR_STATUSES, type Integration } from '@/lib/types'
 import { testConnector } from './actions'
 
 const STATUS_TONE = { 정상: 'ok', 지연: 'warn', 오류: 'err', 미연동: 'neutral' } as const
 
-export function ConnectorTable({ integrations, canManage }: { integrations: Integration[]; canManage: boolean }) {
+export function ConnectorTable({ integrations, canManage, degradedOnly: degradedParam }: { integrations: Integration[]; canManage: boolean; degradedOnly?: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  // 저하만 보기 — 대시보드 '수집 커넥터 지연·오류' 큐의 드릴다운. 커넥터 표는 정상 커넥터까지 함께 쌓이므로
+  //  큐가 말한 건수를 화면에서 다시 세어야 했다(발견 화면의 조치 표들과 같은 규약).
+  const [degradedOnly, setDegradedOnly] = useState(Boolean(degradedParam))
+  const degradedCount = integrations.filter((i) => DEGRADED_CONNECTOR_STATUSES.includes(i.status)).length
+  const shown = degradedOnly ? integrations.filter((i) => DEGRADED_CONNECTOR_STATUSES.includes(i.status)) : integrations
 
   const test = (id: string) => {
     setBusy(id)
@@ -23,6 +28,13 @@ export function ConnectorTable({ integrations, canManage }: { integrations: Inte
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className={`btn sm ${degradedOnly ? 'pri' : 'ghost'}`} onClick={() => setDegradedOnly((v) => !v)}
+          title="수집이 밀리거나 끊긴 커넥터만 — 대시보드 '수집 커넥터 지연·오류' 큐와 같은 집합">
+          {degradedOnly ? '✓ ' : ''}저하만 {degradedCount}
+        </button>
+        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {integrations.length}건</span>
+      </div>
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
@@ -32,7 +44,7 @@ export function ConnectorTable({ integrations, canManage }: { integrations: Inte
             </tr>
           </thead>
           <tbody>
-            {integrations.map((i) => (
+            {shown.map((i) => (
               <tr key={i.id}>
                 <td className="strong">{i.system}</td>
                 <td className="mute">{i.method}</td>
@@ -52,6 +64,7 @@ export function ConnectorTable({ integrations, canManage }: { integrations: Inte
                 )}
               </tr>
             ))}
+            {shown.length === 0 && <tr><td colSpan={canManage ? 8 : 7}><div className="empty">{integrations.length === 0 ? '등록된 연동 커넥터가 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>

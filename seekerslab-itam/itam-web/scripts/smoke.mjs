@@ -2007,6 +2007,18 @@ try {
   check("재배치 대기 풀 판정: 상태 묶음을 코드에 직접 적은 곳이 없다(IDLE_POOL_STATUSES 단일 정의)",
     idleLiteral.length === 0, `직접 목록=${idleLiteral.join(", ")}`)
 
+  // 저하 커넥터(지연·오류)도 같은 규약 — 대시보드 큐는 둘을 함께 세는데 연동 화면 KPI 는 지연만 세어
+  //  같은 개념이 두 곳에서 다른 수로 보였다. 각자 조건을 적으면 상태가 하나 늘 때 또 갈린다.
+  const connLiteral = sourceFiles
+    .filter((f) => path.relative(ROOT, f).split(path.sep).join("/") !== "lib/types.ts")
+    .filter((f) => {
+      const src = readFileSync(f, "utf8")
+      return src.includes("=== '지연' || i.status === '오류'") || src.includes("['지연', '오류']")
+    })
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check("저하 커넥터 판정: 상태 묶음을 코드에 직접 적은 곳이 없다(DEGRADED_CONNECTOR_STATUSES 단일 정의)",
+    connLiteral.length === 0, `직접 목록=${connLiteral.join(", ")}`)
+
   // 목록을 직접 적은 곳이 새로 생기는지도 훑는다 — 참조 파일 목록만 검사하면 새 파일이 조용히 자기 목록을 갖는다
   //  (재물조사 마감 가드가 그렇게 상태 셋을 직접 적고 있었다). 배열 리터럴 형태로만 잡아 상태 드롭다운 전체 목록은 건드리지 않는다.
   const goneLiteral = sourceFiles
@@ -2202,6 +2214,16 @@ try {
   const cloudQueue = secQueueCount('미관리 클라우드 리소스 미조치 (태그·소유·회수 · SAM/거버넌스)')
   check("미관리 클라우드 큐: 건수 = 미조치만 보기 표시 건수", cloudQueue > 0 && cloudQueue === cloudShown, `큐 ${cloudQueue} · 표시 ${cloudShown}`)
   check("미관리 클라우드 큐: 링크가 미조치만 보기를 켠 채 연다", dashSec.includes('/discovery/found?open=cloud'))
+  // 수집 커넥터 저하 큐 — 정상 커넥터까지 함께 쌓이는 표라 큐가 말한 건수를 화면에서 다시 세어야 했다.
+  //  KPI 도 지연만 세어 큐(지연+오류)와 갈렸다 — 이제 같은 묶음을 쓰고 링크가 저하만 보기를 켠 채 연다.
+  const connHtml = (await (await get('/platform/integrations?conn=degraded', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  const connQueue = secQueueCount('수집 커넥터 지연·오류 (Discovery 저하 · 재연동)')
+  const connAt = connHtml.indexOf('연동 대상 상세')
+  const connShown = Number((new RegExp("([0-9]+) / ([0-9]+)건").exec(connAt === -1 ? "" : connHtml.slice(connAt)) || [])[1] ?? -1)
+  check("수집 커넥터 저하 큐: 건수 = 저하만 보기 표시 건수", connQueue > 0 && connQueue === connShown, `큐 ${connQueue} · 표시 ${connShown}`)
+  check("수집 커넥터 저하 큐: 링크가 저하만 보기를 켠 채 연다", dashSec.includes('/platform/integrations?conn=degraded'))
+  // KPI 도 큐와 같은 묶음을 센다 — 그전엔 지연만 세어 오류 커넥터가 KPI 에서 빠졌다.
+  check("연동 화면 KPI: 저하 커넥터가 지연·오류를 함께 센다", connHtml.includes('저하 커넥터 — 지연 · 오류'))
   // 통지·감사 로그의 참조 ID 딥링크(lib/reflink)도 같은 필터를 켠 채 연다 — 표를 다섯·네 개씩 쌓은 화면으로
   //  그냥 보내면 통지가 가리킨 그 건을 스크롤해 찾아야 한다. 여기서는 reflink 가 적어 둔 ?open= 값이 화면이
   //  실제로 알아듣는 값인지 확인한다(한쪽만 이름을 바꾸면 링크가 조용히 필터 없는 화면으로 떨어진다).
