@@ -10,6 +10,23 @@ export function deptOfOwner(users: { name: string; dept: string }[]): DeptOfOwne
   return m
 }
 
+/** 자리표시자 — 값이 아니라 '아직 없음'을 적어 둔 문자열. 회수·분실 정리는 보유자를 '미지정'으로,
+ *  발견 편입은 위치를 '실사 확인 필요'로 적는다. 정합성 판정·보정 경로·통지 수신자가 이 한 정의를 공유해야
+ *  '문자열이 비어 있지 않다'는 이유로 큐에서 빠지거나 아무에게도 아닌 발송이 나가지 않는다. */
+export const PLACEHOLDER_VALUES = ['-', '미지정', '실사 확인 필요'] as const
+
+/** 이 값이 자리표시자(또는 빈 값)인가 — 공백만 있는 문자열도 빈 값으로 본다. */
+export function isPlaceholder(v?: string): boolean {
+  const t = (v ?? '').trim()
+  return t === '' || (PLACEHOLDER_VALUES as readonly string[]).includes(t)
+}
+
+/** 실물을 쥔 사람이 대장에 있는가 — 통지 수신자·이력 표기가 '미지정'·'-' 앞으로 나가지 않게 하는 판정.
+ *  그전에는 각 액션이 `x !== '미지정' && x !== '-'` 를 따로 적어, 자리표시자가 하나 늘면 일부만 고쳐질 위험이 있었다. */
+export function hasHolder(owner?: string): boolean {
+  return !isPlaceholder(owner)
+}
+
 /** 물리 실물이 있는 유형 — 시리얼·위치는 이들에만 요구한다. SW·가상자원은 물리 시리얼·위치가 없다. */
 const PHYSICAL: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기']
 

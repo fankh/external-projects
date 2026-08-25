@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
+import { hasHolder } from '@/lib/quality'
 import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, isValidDate, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -74,7 +75,7 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
   // 반납자에게 회수·점검 결과를 통보한다 — 결재 승인(반납 접수 예정)과 별개로, 실물이 실제로 회수·점검됐고
   // 점검 결과(정상·수리 필요·폐기 권고)가 무엇인지 알려 반납자 루프를 닫는다. 특히 파손(수리·폐기)은 반납자에게 중요.
   let notified = false
-  if (prevOwner && prevOwner !== '미지정' && prevOwner !== '-') {
+  if (hasHolder(prevOwner)) {
     dispatch({ channel: '이메일', to: prevOwner, subject: `반납 접수 완료 — ${asset.assetNo} ${asset.model} · 점검 결과 ${condition}${note.trim() ? ` (${note.trim()})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
     notified = true
   }
@@ -114,7 +115,7 @@ export async function receiveReturnMany(assetNos: string[], condition: ReturnCon
     // 접수 시 배정 라이선스 좌석 회수(단건 receiveReturn 과 동일 불변식) — 좌석 보유 상태로 반납대기에 온 자산의 좌석 누수 방지. 멱등.
     const freed = reclaimLicenseSeats(asset.assetNo, session.name, '반납 접수')
     if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (반납 접수)`, actor: session.name })
-    if (prevOwner && prevOwner !== '미지정' && prevOwner !== '-') {
+    if (hasHolder(prevOwner)) {
       dispatch({ channel: '이메일', to: prevOwner, subject: `반납 접수 완료 — ${asset.assetNo} ${asset.model} · 점검 결과 ${condition}${note ? ` (${note})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
       notified += 1
     }
@@ -238,9 +239,9 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   // 수리 완료 후 행선지 — 반납 접수분은 소유자를 비우고 수리에 들어와(유휴 풀 편성·재배치), 장애 신고 등
   // 사용 중 자산이 소유자를 유지한 채 수리에 들어온 경우는 원 소유자에게 반환(사용중 복귀)한다. 소유자 유무로 두 진입점을 구분.
   // 통보 대상 — 수리 불가는 아래에서 소유자를 비우므로(이탈), 통보 전에 원 소유자·부서를 먼저 확보한다.
-  const priorOwner = asset.owner && asset.owner !== '미지정' && asset.owner !== '-' ? asset.owner : null
+  const priorOwner = hasHolder(asset.owner) ? asset.owner : null
   const priorDept = asset.dept
-  const stillOwned = outcome === '수리 완료' && !!asset.owner && asset.owner !== '미지정' && asset.owner !== '-'
+  const stillOwned = outcome === '수리 완료' && !!hasHolder(asset.owner)
   asset.status = outcome === '수리 완료' ? (stillOwned ? '사용중' : '유휴') : '폐기예정'
   const cost = Number.isFinite(actualCost) ? Math.max(0, Math.round(actualCost)) : 0 // 비유한(Infinity/NaN) 방어 — repairCosts 합산이 ∞/NaN 로 오염되지 않게(add* 액션과 동일 규약)
   const repairVendor = asset.repair?.vendor ?? '-' // asset.repair 는 아래에서 해제되므로 먼저 캡처
