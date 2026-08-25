@@ -2324,6 +2324,18 @@ try {
     if (want !== shown) intakeBad.push(`${label}: 큐 ${want} ≠ 표시 ${shown}`)
   }
   check("입고 큐: 건수 = 필터 화면 표시 건수", intakeBad.length === 0, intakeBad.join(" / "))
+  // 데이터 소거 대기 큐 — 결재를 받고 집행만 남은 건이다. 화면 상태 필터에는 '진행중'(완료가 아닌 전부)까지만
+  //  있어 대상 선정 단계가 섞였고, 큐 링크도 필터 없이 떨어져 큐가 말한 건수를 화면에서 다시 세어야 했다.
+  const wipeHtml = (await (await get('/assets/disposal?status=wipe', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const wipeQueue = queueCount('데이터 소거 대기')
+  const wipeShown = cardShown(wipeHtml, '폐기 처리 현황')
+  check("데이터 소거 대기 큐: 건수 = 소거 대기 필터 표시 건수",
+    wipeQueue > 0 && wipeQueue === wipeShown, `큐 ${wipeQueue} · 표시 ${wipeShown}`)
+  check("데이터 소거 대기 큐: 링크가 소거 대기 필터를 켠 채 연다", dashMgr.includes('/assets/disposal?status=wipe'))
+  // 필터 없이 열면 대상 선정·완료까지 보인다(필터 실효 확인).
+  const dispPlainShown = cardShown(await (await get('/assets/disposal', 'ASSET_MGR')).text(), '폐기 처리 현황')
+  check("폐기 처리 현황: 필터 없이 열면 다른 단계까지 표시(필터 실효 확인)",
+    dispPlainShown > wipeShown, `전체 ${dispPlainShown} · 소거 대기 ${wipeShown}`)
   // 세 번째 입고 큐(도입 예정 입고 지연)는 검수 표가 아니라 그 위 '도입 예정' 표에 산다 — 아직 도착 전이라
   //  검수 대상이 아니기 때문이다. 그래서 ?lot=inspect·rejected 로는 좁혀지지 않았고, 링크가 필터 없이 떨어져
   //  도착 예정일이 남은 로트까지 섞인 표에서 지연 건을 눈으로 세어야 했다.
