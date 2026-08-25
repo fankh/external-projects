@@ -7,11 +7,16 @@ import { respondToUsb, respondToUsbMany, revokeUsbException } from '../actions'
 
 const KIND_TONE = { '대용량 반출 의심': 'err', '미등록 저장매체': 'warn', '암호화 미적용': 'warn' } as const
 
-export function UsbTable({ items, canAct }: { items: UsbFinding[]; canAct: boolean }) {
+export function UsbTable({ items, canAct, openOnly: openOnlyParam }: { items: UsbFinding[]; canAct: boolean; openOnly?: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+  // 미조치만 보기 — 대시보드 'USB 정책 위반 미조치' 큐의 드릴다운. 조치가 끝난 건까지 함께 쌓이는 표라,
+  //  큐가 말한 건수를 화면에서 다시 세어야 했다(휴면 계정·로컬 VM 표와 같은 규약).
+  const [openOnly, setOpenOnly] = useState(Boolean(openOnlyParam))
+  const openCount = items.filter((x) => !x.action).length
+  const shown = openOnly ? items.filter((x) => !x.action) : items
 
   // 미조치 건만 선택 대상 — 매체통제 정책·EDR 스윕으로 같은 위반이 여러 대에 잡히면 선택해 한 번에 조치한다
   const selectable = items.filter((u) => !u.action)
@@ -34,6 +39,13 @@ export function UsbTable({ items, canAct }: { items: UsbFinding[]; canAct: boole
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className={`btn sm ${openOnly ? 'pri' : 'ghost'}`} onClick={() => setOpenOnly((v) => !v)}
+          title="조치가 끝나지 않은 건만 — 대시보드 'USB 정책 위반 미조치' 큐와 같은 집합">
+          {openOnly ? '✓ ' : ''}미조치만 {openCount}
+        </button>
+        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {items.length}건</span>
+      </div>
       {canAct && checked.size > 0 && (
         <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 조치:</span>
@@ -56,7 +68,7 @@ export function UsbTable({ items, canAct }: { items: UsbFinding[]; canAct: boole
             </tr>
           </thead>
           <tbody>
-            {items.map((u) => (
+            {shown.map((u) => (
               <tr key={u.id}>
                 {canAct && <td className="c" onClick={(e) => e.stopPropagation()}>
                   {!u.action && <input type="checkbox" checked={checked.has(u.id)} disabled={pending} aria-label={`${u.device} 선택`} onChange={() => toggle(u.id)} />}
