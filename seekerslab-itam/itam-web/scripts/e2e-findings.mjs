@@ -1068,6 +1068,22 @@ try {
   await p2.goto(`${BASE}/assets/register?status=${encodeURIComponent('유휴')}`, { waitUntil: 'networkidle' })
   const idleShown = Number((((await p2.locator('span.cnt').first().textContent()) || '').match(/([0-9]+)건/) || [])[1] ?? '-1')
   ok(`재고 현황: 가용 재고(${availN}) ≤ 유휴 목록(${idleShown}) — 폐기 절차 진입분 제외`, availN >= 0 && idleShown >= 0 && availN <= idleShown)
+  // 안전재고 경보의 드릴다운 정합 — 경보는 lib/stock 판정(유휴 · 폐기 미진입 · 격리 아님)으로 세는데 링크는
+  //  status=유휴 로만 열려, '가용 0(재고 소진)' 이라고 말한 유형을 눌러도 유휴 자산이 그대로 보였다.
+  //  이제 대장에 같은 판정의 가용 필터(avail=1)가 있어 경보가 센 수와 목록 건수가 같아야 한다.
+  await p2.goto(`${BASE}/inventory/stock`, { waitUntil: 'networkidle' })
+  const alertCard = p2.locator('.card', { hasText: '안전재고 경보' })
+  const alertLinks = await alertCard.locator('a[href^="/assets/register"]').evaluateAll((as) => as.map((a) => ({ href: a.getAttribute('href'), text: (a.textContent || '').replace(/\s+/g, ' ') })))
+  ok('안전재고 경보: 드릴다운이 가용 필터(avail=1)로 열린다(경보가 센 집합과 같은 링크)',
+    alertLinks.length > 0 && alertLinks.every((l) => (l.href || '').includes('avail=1')))
+  const availMismatch = []
+  for (const l of alertLinks) {
+    const want = Number((l.text.match(/가용 (\d+)/) || [])[1] ?? '-1')
+    await p2.goto(`${BASE}${l.href}`, { waitUntil: 'networkidle' })
+    const got = Number((((await p2.locator('span.cnt').first().textContent()) || '').match(/([0-9]+)건/) || [])[1] ?? '-2')
+    if (want !== got) availMismatch.push(`${l.text.trim()} → 목록 ${got}건`)
+  }
+  ok(`안전재고 경보: 경보가 센 가용 수 = 드릴다운 목록 건수(${alertLinks.length}종)`, availMismatch.length === 0)
 
   // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })

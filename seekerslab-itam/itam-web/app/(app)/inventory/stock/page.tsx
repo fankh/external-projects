@@ -77,7 +77,9 @@ export default async function StockPage() {
           <div className="vstack" style={{ gap: 8 }}>
             <div className="mut" style={{ fontSize: 12 }}>불출 가능한 유형의 가용(유휴) 재고가 안전재고({s.opsPolicy.safetyStock}대) 미만입니다 — 신규 배정 수요에 대비해 발주를 검토하세요. 폐기 진행 중이거나 NAC 격리 중인 유휴 자산은 가용에서 제외됩니다(불출·대여 가드와 같은 판정).</div>
             {lowStock.map((r) => (
-              <Link key={r.category} href={`/assets/register?cat=${encodeURIComponent(r.category)}&status=유휴`}
+              // 드릴다운은 경보가 센 그 집합으로 연다 — status=유휴 로 열면 폐기 절차·NAC 격리된 유휴 자산이
+              //  목록에 남아 '가용 0' 이라고 말한 경보를 눌렀는데 한 대가 보인다(화면 수 ≠ 목록 수).
+              <Link key={r.category} href={`/assets/register?cat=${encodeURIComponent(r.category)}&avail=1`}
                 className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
                 <span className="strong">{r.category}</span>
                 <span className="hstack" style={{ gap: 8 }}>
