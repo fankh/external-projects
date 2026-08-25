@@ -2,6 +2,7 @@ import { ScreenHeader, Stat } from '@/components/ui'
 import { mfaRemindTargets } from '@/lib/reminders'
 import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
+import { GONE_STATUSES } from '@/lib/types'
 import { UsersView } from './UsersView'
 
 export const dynamic = 'force-dynamic'
@@ -9,10 +10,12 @@ export const dynamic = 'force-dynamic'
 export default async function UsersPage() {
   const session = await requireView('/settings/users', 'ADMIN')
   const s = getStore()
-  // 사용자별 보유 자산 수 — 운영 중 자산만(폐기 제외) 집계. 계정 관리 시 자산 부담·재배치 판단에 쓴다.
+  // 사용자별 보유 자산 수 — 손 떠난 자산(GONE_STATUSES: 분실·폐기예정·폐기완료)을 뺀 집계. 계정 관리 시
+  //  자산 부담·재배치 판단에 쓴다. 여기서 상태 목록을 따로 적으면 대장 드릴다운(live=1)과 판정이 갈려
+  //  "보유 3" 을 눌렀는데 목록이 4건인 상태가 된다 — 손 떠난 자산 판정은 lib/types 한 곳에서 온다.
   const owned: Record<string, number> = {}
   for (const a of s.assets) {
-    if (['폐기완료', '폐기예정'].includes(a.status)) continue
+    if (GONE_STATUSES.includes(a.status)) continue
     owned[a.owner] = (owned[a.owner] ?? 0) + 1
   }
   // 오프보딩 요약 — 퇴직·부서이동 시 회수·재배정 대상을 한 사람 기준으로 모은다(대장 소유자 검색·라이선스 좌석·대여가 흩어져 있던 것).
