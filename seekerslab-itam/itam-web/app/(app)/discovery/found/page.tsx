@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function FoundPage({ searchParams }: { searchParams: Promise<{ state?: string; sel?: string; open?: string }> }) {
   const session = await requireView('/discovery/found', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
-  // open=accounts|localvm — 대시보드 '휴면 계정 미처리'·'로컬 VM 위반 미조치' 큐의 드릴다운.
+  // open=accounts|localvm|cloud — 대시보드 '휴면 계정 미처리'·'로컬 VM 위반 미조치'·'미관리 클라우드 리소스 미조치' 큐의 드릴다운.
   //  해당 표를 미조치만 보기로 열어 큐가 말한 건수와 화면이 같은 집합을 보여 준다.
   const { state, sel, open } = await searchParams
   // CMDB 대사 화면에서 상태별 드릴다운(?state=)으로 진입 — 유효한 대사 상태만 초기 필터로 반영
@@ -128,7 +128,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
       </Card>
 
       <Card kicker="Cloud Governance · Channel 05 (CSP API)" title="미관리 클라우드 리소스 — 태그·소유·통제 위반" pad={false}>
-        <CloudTable items={s.cloudFindings} canAct={canAccount} />
+        <CloudTable items={s.cloudFindings} canAct={canAccount} openOnly={open === 'cloud'} />
       </Card>
     </>
   )

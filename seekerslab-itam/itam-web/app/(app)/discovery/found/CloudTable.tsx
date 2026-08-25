@@ -6,10 +6,15 @@ import { respondToCloudFinding, revokeCloudException } from '../actions'
 
 const KIND_TONE = { '개인 구독·계정': 'err', '태그 미부착': 'warn', '미관리 리소스': 'warn' } as const
 
-export function CloudTable({ items, canAct }: { items: CloudFinding[]; canAct: boolean }) {
+export function CloudTable({ items, canAct, openOnly: openOnlyParam }: { items: CloudFinding[]; canAct: boolean; openOnly?: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  // 미조치만 보기 — 대시보드 '미관리 클라우드 리소스 미조치' 큐의 드릴다운. 이 화면의 다른 네 조치 표(계정·미인가 SW·USB·로컬 VM)는
+  //  이미 같은 필터를 갖고 있었는데 클라우드 표만 빠져 있어, 큐가 말한 건수를 조치 완료분이 섞인 표에서 눈으로 세어야 했다.
+  const [openOnly, setOpenOnly] = useState(Boolean(openOnlyParam))
+  const openCount = items.filter((x) => !x.action).length
+  const shown = openOnly ? items.filter((x) => !x.action) : items
 
   const act = (id: string, kind: '태그' | '회수' | '예외 승인') => {
     setBusy(id)
@@ -23,6 +28,13 @@ export function CloudTable({ items, canAct }: { items: CloudFinding[]; canAct: b
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className={`btn sm ${openOnly ? 'pri' : 'ghost'}`} onClick={() => setOpenOnly((v) => !v)}
+          title="조치가 끝나지 않은 건만 — 대시보드 '미관리 클라우드 리소스 미조치' 큐와 같은 집합">
+          {openOnly ? '✓ ' : ''}미조치만 {openCount}
+        </button>
+        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {items.length}건</span>
+      </div>
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
@@ -33,7 +45,7 @@ export function CloudTable({ items, canAct }: { items: CloudFinding[]; canAct: b
             </tr>
           </thead>
           <tbody>
-            {items.map((c) => (
+            {shown.map((c) => (
               <tr key={c.id}>
                 <td className="strong">
                   {c.resource}
@@ -69,7 +81,7 @@ export function CloudTable({ items, canAct }: { items: CloudFinding[]; canAct: b
                 )}
               </tr>
             ))}
-            {items.length === 0 && <tr><td colSpan={canAct ? 9 : 8}><div className="empty">검출된 미관리 클라우드 리소스가 없습니다</div></td></tr>}
+            {shown.length === 0 && <tr><td colSpan={canAct ? 9 : 8}><div className="empty">{items.length === 0 ? '검출된 미관리 클라우드 리소스가 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>
