@@ -18,11 +18,19 @@ function intakeLateDays(expectedDate: string | undefined, today: string): number
   return Math.floor((Date.parse(today) - Date.parse(expectedDate)) / 86_400_000)
 }
 
-export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[]; today: string; remindCount?: number }) {
+export function IntakeView({ lots, labels, contracts, today, remindCount = 0, initialFilter }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[]; today: string; remindCount?: number; /** 대시보드 입고 큐의 드릴다운 — 검수 대기·검수 반려만 보기로 연다 */ initialFilter?: 'inspect' | 'rejected' }) {
   // 도입 예정(사전 등록) 건과 실제 입고 건을 분리한다 — 도입 예정은 아직 검수 대상이 아니다
   const plannedLots = lots.filter((l) => l.status === '도입 예정')
   const arrivedLots = lots.filter((l) => l.status !== '도입 예정')
   const [selId, setSelId] = useState(arrivedLots[0]?.id ?? '')
+  // 대시보드 '입고 검수 대기'·'검수 반려' 큐의 드릴다운 — 입고 목록은 검수 완료·반품까지 함께 쌓이므로,
+  //  큐가 말한 건수를 화면에서 다시 세어야 했다. 판정은 큐와 같은 상태값을 쓴다.
+  const [lotFilter, setLotFilter] = useState<'전체' | 'inspect' | 'rejected'>(initialFilter ?? '전체')
+  const inspectCount = arrivedLots.filter((l) => l.status === '입고 대기' || l.status === '검수 중').length
+  const rejectedCount = arrivedLots.filter((l) => l.status === '검수 반려').length
+  const shownLots = lotFilter === 'inspect' ? arrivedLots.filter((l) => l.status === '입고 대기' || l.status === '검수 중')
+    : lotFilter === 'rejected' ? arrivedLots.filter((l) => l.status === '검수 반려')
+    : arrivedLots
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, startTransition] = useTransition()
   // 입고 등록 폼
@@ -170,13 +178,25 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0 }: 
             <span className="mut" style={{ fontSize: 11 }}>등록 즉시 ‘입고 대기’로 검수 대기열에 편성됩니다.</span>
           </div>
         )}
+        {(inspectCount > 0 || rejectedCount > 0) && (
+          <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--line)' }}>
+            {([['전체', arrivedLots.length], ['inspect', inspectCount], ['rejected', rejectedCount]] as const).map(([k, n]) => (
+              <button key={k} className={`btn sm ${lotFilter === k ? (k === 'rejected' ? 'err' : k === 'inspect' ? 'warn' : 'pri') : 'ghost'}`}
+                onClick={() => setLotFilter(k)}
+                title={k === 'inspect' ? '입고 대기·검수 중 로트만 — 대시보드 검수 대기 큐와 같은 집합' : k === 'rejected' ? '검수 반려 로트만 — 재검수·반품 확인 대상' : '전체 입고 로트'}>
+                {lotFilter === k ? '✓ ' : ''}{k === 'inspect' ? '검수 대기' : k === 'rejected' ? '검수 반려' : '전체'} {n}
+              </button>
+            ))}
+            <span className="mut" style={{ fontSize: 12 }}>{shownLots.length} / {arrivedLots.length}건</span>
+          </div>
+        )}
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
               <tr><th>입고번호</th><th>계약</th><th>모델</th><th>공급사</th><th className="num">수량</th><th className="num">채번</th><th>입고일</th><th className="c">상태</th><th className="c">선택</th></tr>
             </thead>
             <tbody>
-              {arrivedLots.map((l) => (
+              {shownLots.map((l) => (
                 <tr key={l.id} className={`clickable ${l.id === sel?.id ? 'sel' : ''}`} tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelId(l.id) } }}
                   onClick={() => setSelId(l.id)}>

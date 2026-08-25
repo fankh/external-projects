@@ -8,7 +8,9 @@ import { IntakeView } from './IntakeView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function IntakePage() {
+export default async function IntakePage({ searchParams }: { searchParams: Promise<{ lot?: string }> }) {
+  // lot=inspect|rejected — 대시보드 입고 큐의 드릴다운(해당 필터를 켠 채 연다).
+  const { lot } = await searchParams
   await requireView('/assets/intake', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
   const lots = s.intakeLots
@@ -53,7 +55,7 @@ export default async function IntakePage() {
         그대로 사용됩니다.
       </div>
 
-      <IntakeView lots={lots} labels={labels} contracts={purchaseContracts} today={today()} remindCount={intakeRemindTargets().length} />
+      <IntakeView lots={lots} labels={labels} contracts={purchaseContracts} today={today()} remindCount={intakeRemindTargets().length} initialFilter={lot === 'inspect' || lot === 'rejected' ? lot : undefined} />
     </>
   )
 }
