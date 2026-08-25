@@ -1,6 +1,6 @@
 import { assetDependencies } from '@/lib/cmdb'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
-import { today, warrantyState } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, isStaleVerify, today, warrantyState } from '@/lib/dates'
 import { qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -23,6 +23,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   if (!can('자산 대장', '조회', session.role)) return new Response('Forbidden', { status: 403 })
 
   const qr = await qrSvg(a.assetNo, 120)
+  // 반환 기한 꼬리표 — 대여 확인서와 같은 문구 규약(연체 N일 · 오늘 만기 · D-N).
+  const loanDday = a.loanDueDate ? daysUntil(a.loanDueDate) : null
+  const loanDueLabel = !a.loanDueDate ? '' : isLoanOverdue(a) ? ` · 연체 ${-(loanDday ?? 0)}일` : loanDday === 0 ? ' · 오늘 만기' : loanDday === null ? '' : ` · D-${loanDday}`
   // CMDB 의존 관계 — 상위 의존·영향 범위(blast radius)·저하 상위. 이 자산 장애 시 무엇이 영향받는지 dossier 에 남긴다.
   const deps = assetDependencies(a.assetNo)
   const asById = new Map(getStore().assets.map((x) => [x.assetNo, x]))
@@ -46,7 +49,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('도입일', a.purchaseDate),
     row('보증 만료', a.warrantyEnd === '-' ? undefined : `${a.warrantyEnd}${({ covered: ' · 보증 내', soon: ' · 만료 임박', expired: ' · 보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())]}`),
     row('연계 계약', a.contractId), row('최초 발견 채널', a.discoveredVia),
-    row('최근 실측', a.lastVerifiedAt), row('반환 기한', a.loanDueDate),
+    // 최근 실측도 날짜만 찍으면 인쇄물에서 실사 대상인지 알 수 없다 — 화면은 '장기 미실측' 칩·필터로 세는데
+    //  카드만 맨 날짜였다. 운영 정책 임계값(staleVerifyDays)을 쓰는 화면·재물조사 편성과 같은 판정이다.
+    row('최근 실측', a.lastVerifiedAt ? `${a.lastVerifiedAt}${isStaleVerify(a, getStore().opsPolicy.staleVerifyDays) ? ` · 장기 미실측(${getStore().opsPolicy.staleVerifyDays}일 초과)` : ''}` : undefined),
+    // 반환 기한은 날짜만 찍으면 인쇄물에서 연체인지 알 수 없다 — 화면·대여 대장 엑셀·대여 확인서는 모두
+    //  연체·D-day 를 함께 표기하는데 카드만 맨 날짜였다(같은 lib/dates 판정으로 문구를 맞춘다).
+    row('반환 기한', a.loanDueDate ? `${a.loanDueDate}${loanDueLabel}` : undefined),
     // 화면(점검 도래 큐·대장 필터)과 같은 운영 상태 게이트 — 비운영 자산의 잔여 예정일을 카드에만 남기면 현장에서 점검을 기다린다.
     row('정기 점검 예정', a.maintenanceDue && !NON_OPERATIONAL_STATUSES.includes(a.status) ? a.maintenanceDue : undefined),
     row('수리 의뢰', a.repair ? `${a.repair.vendor}${a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}${a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}` : undefined),
