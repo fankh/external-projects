@@ -239,12 +239,15 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
           ?? [...a.history].reverse().find((h) => h.kind === '대여')
         const d = a.loanDueDate ? daysUntil(a.loanDueDate) : null
         const state = d === null ? '기한 없음' : d < 0 ? `연체 ${-d}일` : d <= 7 ? `반환 임박 D-${d}` : '정상'
-        return [a.assetNo, a.category, a.model, a.owner, a.dept, a.location, loanEv?.date ?? '', a.loanDueDate ?? '', d ?? '', state]
+        // 대기 중인 대여자 요청 — 화면(반납·회수 대기열·대시보드 큐)은 연장 요청·반납 신청을 드러내는데 반출본에는
+        //  없어, 대여 대장 엑셀로 일하는 담당자는 이미 접수된 요청을 모른 채 독촉을 보내게 된다(같은 자산에 두 소리).
+        const pending = a.loanExtendRequest ? `연장 요청 (${a.loanExtendRequest.newDueDate})` : a.returnRequest ? '반납 신청' : ''
+        return [a.assetNo, a.category, a.model, a.owner, a.dept, a.location, loanEv?.date ?? '', a.loanDueDate ?? '', d ?? '', state, pending]
       })
       .sort((x, y) => (typeof x[8] === 'number' ? x[8] : 99_999) - (typeof y[8] === 'number' ? y[8] : 99_999))
     return [{
       name: '대여 대장',
-      header: ['자산번호', '유형', '모델', '대여자', '부서', '위치', '대여일', '반환 기한', '잔여일', '상태'],
+      header: ['자산번호', '유형', '모델', '대여자', '부서', '위치', '대여일', '반환 기한', '잔여일', '상태', '대기 중 요청'],
       rows,
     }]
   }
