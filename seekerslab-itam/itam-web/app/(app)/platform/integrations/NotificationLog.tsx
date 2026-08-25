@@ -10,7 +10,11 @@ import { resendDispatch } from './actions'
 /** 알림 발송 이력 — 발송이 쌓이므로 그대로 나열하면 스캔이 불가능하다.
  *  수신·제목·연결문서 검색 + 종류·채널 필터로 발송 증적 추적을 실사용 가능하게 한다.
  *  전달 실패(반송·게이트웨이 오류) 건은 상태로 드러내고 재발송으로 닫는다(§06 이메일·문자 발송 신뢰성). */
-export function NotificationLog({ dispatches, canExport, canManage, role, openable }: { dispatches: Dispatch[]; canExport?: boolean; canManage?: boolean; role: Role; openable?: string[] }) {
+/** 대시보드 '알림 전달 실패' 큐 → 이 화면 딥링크(?dispatch=failed)를 전달 상태 필터로 매핑.
+ *  큐가 "전달 실패 1건"이라 말하면 링크가 여는 화면도 그 1건을 보여야 한다(라이선스 큐 ?lic= 규약과 동일). */
+const DELIVERY_PARAM: Record<string, '전체' | '실패'> = { failed: '실패' }
+
+export function NotificationLog({ dispatches, canExport, canManage, role, openable, deliveryParam }: { dispatches: Dispatch[]; canExport?: boolean; canManage?: boolean; role: Role; openable?: string[]; deliveryParam?: string }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const resend = (id: string) => startTransition(async () => setMsg((await resendDispatch(id)).message))
@@ -21,11 +25,13 @@ export function NotificationLog({ dispatches, canExport, canManage, role, openab
   // 기간(발송 증적 감사) — 발송 시각(YYYY-MM-DD HH:MM)의 날짜 부분으로 from~to 범위 필터
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [delivery, setDelivery] = useState<'전체' | '실패'>((deliveryParam && DELIVERY_PARAM[deliveryParam]) || '전체')
 
   const kinds = useMemo(() => ['전체', ...[...new Set(dispatches.map((m) => m.kind))]], [dispatches])
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return dispatches.filter((m) => {
+      if (delivery === '실패' && m.deliveryStatus !== '실패') return false
       if (channel !== '전체' && m.channel !== channel) return false
       if (kind !== '전체' && m.kind !== kind) return false
       const d = m.at.slice(0, 10)
@@ -34,11 +40,11 @@ export function NotificationLog({ dispatches, canExport, canManage, role, openab
       if (!needle) return true
       return [m.to, m.subject, m.ref ?? ''].some((f) => f.toLowerCase().includes(needle))
     })
-  }, [dispatches, q, channel, kind, from, to])
+  }, [dispatches, q, channel, kind, from, to, delivery])
 
   // 내보내기는 지금 화면에 보이는 필터를 그대로 반영한다 (v1.49 감사 로그 반출과 동일)
-  const exportHref = `/api/dispatch-export?${new URLSearchParams({ q: q.trim(), channel, kind, from, to }).toString()}`
-  const filtered = q.trim() !== '' || channel !== '전체' || kind !== '전체' || from !== '' || to !== ''
+  const exportHref = `/api/dispatch-export?${new URLSearchParams({ q: q.trim(), channel, kind, from, to, delivery }).toString()}`
+  const filtered = q.trim() !== '' || channel !== '전체' || kind !== '전체' || from !== '' || to !== '' || delivery !== '전체'
 
   return (
     <Card kicker="Notifications" title={`알림 발송 이력 ${dispatches.length}건${failed > 0 ? ` · 전달 실패 ${failed}` : ''}`} pad={false}
@@ -67,6 +73,14 @@ export function NotificationLog({ dispatches, canExport, canManage, role, openab
             <span className="mut">~</span>
             <input className="input" type="date" style={{ width: 140, height: 28 }} value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="발송 증적 기간 종료일" />
             {(from || to) && <button className="btn sm ghost" onClick={() => { setFrom(''); setTo('') }}>기간 해제</button>}
+            {/* 전달 실패만 — 대시보드 재발송 큐의 드릴다운 대상. 실패 건이 없으면 컨트롤을 내주지 않는다(대상 없는 유령 필터 방지). */}
+            {dispatches.some((m) => m.deliveryStatus === '실패') && (
+              <button className={`btn sm ${delivery === '실패' ? 'err' : 'ghost'}`}
+                title="전달 실패(반송·게이트웨이 오류) 건만 — 재발송 대상"
+                onClick={() => setDelivery((d) => (d === '실패' ? '전체' : '실패'))}>
+                {delivery === '실패' ? '✓ ' : ''}전달 실패 {failed}
+              </button>
+            )}
             <span className="mut" style={{ fontSize: 12 }}>{rows.length} / {dispatches.length}건</span>
           </div>
           <div className="tbl-wrap">

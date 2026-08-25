@@ -16,11 +16,14 @@ export async function GET(req: Request) {
   const q = (sp.get('q') ?? '').trim().toLowerCase()
   const channel = sp.get('channel') ?? '전체'
   const kind = sp.get('kind') ?? '전체'
+  // 전달 상태 — 화면의 '전달 실패' 필터와 같은 값. 반출본이 화면과 다른 집합이면 증적 대사가 어긋난다.
+  const delivery = sp.get('delivery') ?? '전체'
   const from = sp.get('from') ?? ''
   const to = sp.get('to') ?? ''
-  const filtered = q !== '' || channel !== '전체' || kind !== '전체' || from !== '' || to !== ''
+  const filtered = q !== '' || channel !== '전체' || kind !== '전체' || from !== '' || to !== '' || delivery !== '전체'
 
   const rows = getStore().dispatches.filter((m) => {
+    if (delivery === '실패' && m.deliveryStatus !== '실패') return false
     if (channel !== '전체' && m.channel !== channel) return false
     if (kind !== '전체' && m.kind !== kind) return false
     const d = m.at.slice(0, 10)
@@ -37,7 +40,7 @@ export async function GET(req: Request) {
   const buf = buildXlsx([sheet])
 
   const scope = filtered
-    ? `필터: ${[channel !== '전체' && `채널=${channel}`, kind !== '전체' && `종류=${kind}`, (from || to) && `기간=${from || '~'}~${to || '~'}`, q && `검색='${q}'`].filter(Boolean).join(', ')}`
+    ? `필터: ${[channel !== '전체' && `채널=${channel}`, kind !== '전체' && `종류=${kind}`, delivery !== '전체' && `전달=${delivery}`, (from || to) && `기간=${from || '~'}~${to || '~'}`, q && `검색='${q}'`].filter(Boolean).join(', ')}`
     : '전체'
   appendAudit({ actor: session.name, action: `알림 발송 이력 내보내기 (${rows.length}건 · ${scope})`, target: '알림 발송 이력' })
 
