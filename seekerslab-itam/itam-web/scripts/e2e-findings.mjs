@@ -3622,7 +3622,7 @@ try {
   await lmLoan.locator('input[placeholder="대여자 (성명)"]').fill('선점자')
   await lmLoan.locator('input[placeholder="부서"]').fill('인재개발팀')
   // 반환 기한은 오늘+5일 — 아래에서 '다가오는 일정' 아젠다(향후 30일)에 대여 반환이 잡히는지 함께 확인한다(고정 날짜면 시간이 지나며 창을 벗어난다)
-  const lmDue = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10)
+  const lmDue = dPlus(5)
   await lmLoan.locator('input[type="date"]').first().fill(lmDue)
   await lmLoan.locator('button', { hasText: /^대여 확정$/ }).first().click() // 확정 버튼 라벨은 '대여 확정'
   await pLM.waitForTimeout(900)
@@ -3840,7 +3840,7 @@ try {
     .locator('.v').first().textContent()) || '-1')
   const prBefore = await prRiskOf()
   const prName = '발주 미이행 회귀 계약'
-  const prEnd = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10)
+  const prEnd = dPlus(30)
   await pPRO.locator('button', { hasText: /계약 등록$/ }).first().click()
   await pPRO.waitForTimeout(300)
   await pPRO.locator('input[placeholder="계약명"]').fill(prName)
@@ -3943,7 +3943,7 @@ try {
   const dmLast = dmCells.find((t) => /^\d{4}-\d{2}-\d{2}$/.test(t.trim()))
   const dmIdx = dmCells.findIndex((t) => /^\d{4}-\d{2}-\d{2}$/.test(t.trim()))
   const dmShown = Number((dmCells[dmIdx + 1] || '').trim())
-  const dmExpect = Math.round((Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`) - Date.parse(`${dmLast}T00:00:00Z`)) / 86_400_000)
+  const dmExpect = Math.round((Date.parse(`${dPlus(0)}T00:00:00Z`) - Date.parse(`${dmLast}T00:00:00Z`)) / 86_400_000)
   ok(`휴면 경과일: 마지막 로그인(${dmLast})에서 파생 — 표시 ${dmShown}일 ≈ 계산 ${dmExpect}일`,
     Number.isFinite(dmShown) && Math.abs(dmShown - dmExpect) <= 1)
   const dmNoLogin = (await pDM.locator('tr', { has: pDM.locator('td', { hasText: 'jh.lim' }) }).first().textContent()) || ''
@@ -4336,7 +4336,7 @@ try {
   await pMT.goto(`${BASE}/assets/register?sel=${mtAsset}`, { waitUntil: 'networkidle' })
   await pMT.locator('button', { hasText: /^정기 점검 일정 등록$/ }).first().click()
   await pMT.waitForTimeout(200)
-  const mtDue = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10) // 창(14일) 안 — 고정 날짜면 시간이 지나며 창을 벗어난다
+  const mtDue = dPlus(7) // 창(14일) 안 — 고정 날짜면 시간이 지나며 창을 벗어난다
   await pMT.locator('input[title*="점검 예정일"]').fill(mtDue)
   await pMT.locator('button', { hasText: /^일정 등록$/ }).click()
   await pMT.waitForTimeout(700)
