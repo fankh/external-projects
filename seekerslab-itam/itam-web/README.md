@@ -22,7 +22,7 @@ npm run dev        # http://localhost:3000
 ## 테스트
 
 ```powershell
-npm run verify     # 빌드 → 스모크 → e2e → 헬스 → 레이아웃 → 리포트 샘플 드리프트 순차 실행
+npm run verify     # 빌드 → 스모크 → e2e → 헬스 → 레이아웃 → 빈 대장 → 리포트 샘플 드리프트 순차 실행
 
 # 개별 실행
 npm run build
@@ -30,6 +30,7 @@ npm run smoke      # 프로덕션 서버 기동 → 820개 검증(SSR HTML) → 
 npm run health     # 실제 브라우저로 권한그룹 4종 × 접근 화면 74회 로드 + 역할별 링크·API 링크 권한 8건 → 응답 상태·클라이언트 크래시·하이드레이션 오류 검사
 npm run e2e        # 실제 브라우저로 보안 findings 대응(45~50)·AI 제안 판정(11) 클릭·상태 전환·역할 게이트 검증
 npm run layout     # 화면 30종 × 폭 5종 (+ 좁은 폭 상세 패널) — 카드 밖으로 이탈해 도달 불가한 컨트롤(스크롤 조상 없는 넘침) 검사
+npm run empty      # 빈 대장(갓 배포한 상태) — 데이터 0에서 화면 30종 × 권한그룹 4종이 5xx·NaN 없이 열리는지
 ```
 
 네 스위트 모두 `next start` 로 **이미 만들어진** `.next` 를 띄운다 — 그래서 소스가 빌드보다 새로우면
