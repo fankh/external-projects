@@ -374,6 +374,12 @@ export interface SwInstall {
 export type ApprovalKind = '자산 신청' | '반납' | '이동' | '대여' | '폐기' | '소유자 확인' | '격리 요청' | '차이 조정' | 'SaaS 인가'
 export type ApprovalStatus = '대기' | '승인' | '반려' | '취소'
 
+/** 사용자가 스스로 올리는 신청 종류 — 재상신·상신 취소·결과 통보가 함께 쓰는 한 묶음이다.
+ *  시스템·담당자가 올리는 종류(폐기·소유자 확인·격리 요청·차이 조정)는 신청자 본인이 되돌릴 대상이 아니라 뺀다.
+ *  네 곳이 각자 배열을 적고 있어, 사용자 상신 종류가 늘면 어떤 경로에선 취소·재상신이 되고 어떤 경로에선
+ *  조용히 막히는 갈림이 생겼다(GONE_STATUSES·DISPOSAL_STATUSES 와 같은 규약). */
+export const USER_REQUEST_KINDS: ApprovalKind[] = ['자산 신청', '반납', '이동', '대여', 'SaaS 인가']
+
 /** 제품안내서가 필수 결재로 규정한 종류 — 폐기·격리·편입(소유자 확인)·차이 조정.
  *  결재선 화면에서 '선택'으로 내릴 수 없도록 고정한다(§03·§04 통제 우회 방지). */
 export const MANDATORY_APPROVAL_KINDS: ApprovalKind[] = ['폐기', '격리 요청', '소유자 확인', '차이 조정']

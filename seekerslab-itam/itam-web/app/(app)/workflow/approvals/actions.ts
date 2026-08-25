@@ -8,7 +8,7 @@ import { classifyDiscoveredType } from '@/lib/classify'
 import { reclaimLicenseSeats } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextAssetNo, nextId } from '@/lib/store'
-import { approvalRoute, approvalStepIndex , DISPOSAL_STATUSES, GONE_STATUSES } from '@/lib/types'
+import { approvalRoute, approvalStepIndex , DISPOSAL_STATUSES, GONE_STATUSES, USER_REQUEST_KINDS } from '@/lib/types'
 import type { ApprovalKind, AssetCategory } from '@/lib/types'
 
 /** 신청 상신 — 사용자가 직접 올리는 3종 (자산 신청 / 반납 / 이동).
@@ -122,7 +122,7 @@ export async function resubmitRequest(approvalId: string, note: string) {
   if (!orig) return { ok: false, message: '원 신청을 찾을 수 없습니다.' }
   if (orig.status !== '반려') return { ok: false, message: '반려된 신청만 재상신할 수 있습니다.' }
   if (orig.requester !== session.name) return { ok: false, message: '본인 신청만 재상신할 수 있습니다.' }
-  if (!['자산 신청', '반납', '이동', '대여', 'SaaS 인가'].includes(orig.kind)) {
+  if (!USER_REQUEST_KINDS.includes(orig.kind)) {
     return { ok: false, message: `재상신 대상이 아닌 결재입니다 — ${orig.kind}` }
   }
   const trimmed = note.trim()
@@ -163,7 +163,7 @@ export async function withdrawRequest(approvalId: string) {
   if (!a) return { ok: false, message: '신청 건을 찾을 수 없습니다.' }
   if (a.status !== '대기') return { ok: false, message: `이미 처리된 건입니다 — ${a.id} (${a.status})` }
   if (a.requester !== session.name) return { ok: false, message: '본인이 상신한 건만 취소할 수 있습니다.' }
-  if (!['자산 신청', '반납', '이동', '대여', 'SaaS 인가'].includes(a.kind)) {
+  if (!USER_REQUEST_KINDS.includes(a.kind)) {
     return { ok: false, message: `상신 취소 대상이 아닌 결재입니다 — ${a.kind}` }
   }
 
@@ -286,7 +286,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
 
   // 결재 결과를 신청자에게 통보한다 — 사용자 상신 종류(자산 신청·반납·이동·대여)만. 그동안 신청자는
   // 결재함을 직접 확인해야 결과를 알 수 있었다(요청자 루프 미폐쇄). 승인/반려 모두 통보하고 발송 이력에 남긴다.
-  if (['자산 신청', '반납', '이동', '대여', 'SaaS 인가'].includes(a.kind)) {
+  if (USER_REQUEST_KINDS.includes(a.kind)) {
     dispatch({
       channel: '이메일',
       to: `${a.requester} (${a.dept})`,
