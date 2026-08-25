@@ -3225,6 +3225,16 @@ try {
   // 조회 칸도 실제로 막는가(라운드트립) — 매트릭스의 조회·저장·삭제는 어디서도 읽히지 않아, 조회를 빼도 화면이
   //  그대로 열렸다. can() 주석과 ACTION_DEF 의 '화면 가드' 표기가 실제와 달랐다(표시만 되고 강제되지 않는 정책).
   //  자산담당 × 수명주기 조회를 회수한 뒤 직접 진입·사이드바를 확인하고 복원한다(스위트 상태 불변).
+  // 탭 스트립(MDI)도 사이드바와 같은 집합이어야 한다 — 탭은 localStorage 에 남아, 권한 회수 뒤에도 스트립에
+  //  남으면 눌러서 대시보드로 튕긴다. 회수 전에 그 화면을 방문해 탭을 만들어 두고 확인한다.
+  const ctxTab = await browser.newContext(); await ctxTab.addCookies([cookie(ASSET)]); const pTab = await ctxTab.newPage()
+  await pTab.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
+  await pTab.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  const tabStrip = () => pTab.locator('.mdibar [role="tab"]')
+  // 탭은 마운트 후 localStorage 를 읽어 그려진다 — 스트립이 채워질 때까지 기다린 뒤 본다(하이드레이션 경주 방지).
+  const tabText = async () => { await pTab.waitForTimeout(500); return (await tabStrip().allTextContents()).join(' ') }
+  ok('MDI 탭: 방문 화면이 탭 스트립에 남는다(양성 대조)',
+    (await tabText()).includes('수명주기'))
   const lcRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '수명주기' }) }).first()
   const lcCell = lcRow.locator('td').nth(8) // 라벨(0) + 자산담당(역할 2번째) × 조회(기능 1번째)
   await lcCell.click(); await pPM.waitForTimeout(600) // 허용 → 본인
@@ -3234,12 +3244,20 @@ try {
   await pLC.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
   ok('화면 가드: 조회 회수 시 수명주기 직접 진입 차단(대시보드로)', pLC.url().endsWith('/dashboard'))
   ok('사이드바: 조회 회수 시 수명주기 메뉴 미노출(보이는데 튕기는 링크 방지)', (await pLC.locator('a[href="/assets/lifecycle"]').count()) === 0)
+  await pTab.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  ok('MDI 탭: 조회 회수 시 그 화면 탭도 사라진다(사이드바와 같은 집합)',
+    !(await tabText()).includes('수명주기'))
   await ctxLC.close()
   await lcCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
   ok('권한 매트릭스: 수명주기 조회 권한 복원(허용)', ((await lcCell.textContent()) || '').includes('✓'))
   const ctxLC2 = await browser.newContext(); await ctxLC2.addCookies([cookie(ASSET)]); const pLC2 = await ctxLC2.newPage()
   await pLC2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
   ok('화면 가드: 조회 복원 시 수명주기 재진입·메뉴 재노출(양성 대조)', pLC2.url().endsWith('/assets/lifecycle') && (await pLC2.locator('a[href="/assets/lifecycle"]').count()) > 0)
+  // 저장분은 지우지 않았으므로 권한이 돌아오면 탭도 그대로 돌아온다(감춤이지 삭제가 아니다).
+  await pTab.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  ok('MDI 탭: 조회 복원 시 탭 재노출(감춤이지 삭제가 아님 · 양성 대조)',
+    (await tabText()).includes('수명주기'))
+  await ctxTab.close()
   await ctxLC2.close()
   // 저장 칸도 실제로 막는가(라운드트립) — 조회와 같은 이유로 저장·삭제 칸도 어디서도 읽히지 않아, 회수해도
   //  변경 액션이 그대로 성공했다. 자산 대장 × 저장 을 회수한 뒤 보증 연장을 시도하고 복원한다.
