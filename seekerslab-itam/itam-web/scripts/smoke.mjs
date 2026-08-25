@@ -2147,6 +2147,29 @@ try {
   const usbQueue = secQueueCount('USB 정책 위반 미조치 (이동식 매체 DLP)')
   check("미인가 SW 큐: 건수 = 미조치만 보기 표시 건수", swQueue > 0 && swQueue === swShown, `큐 ${swQueue} · 표시 ${swShown}`)
   check("USB 위반 큐: 건수 = 미조치만 보기 표시 건수", usbQueue > 0 && usbQueue === usbShown, `큐 ${usbQueue} · 표시 ${usbShown}`)
+  // CMDB 대사 화면의 상태별 건수 ↔ 발견 처리 화면 드릴다운 — 대사 표가 "미등록 8건"이라 말하면 그 링크가 여는
+  //  목록도 8건이어야 한다. 두 화면이 각자 집계하므로(대사는 s.discovered 직접, 발견 화면은 필터 상태) 조용히 갈릴 수 있다.
+  const recPlain = (await (await get('/discovery/reconcile', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  // 상단 파이프라인 설명에도 '미등록' 같은 낱말이 있으므로 결과 표 구간부터 찾는다.
+  const recTable = recPlain.slice(recPlain.indexOf('대사 결과별 처리'))
+  const recCount = (state) => {
+    const at = recTable.indexOf(`>${state}</span>`)
+    if (at === -1) return -1
+    const m = new RegExp('class="num tnum"[^>]*>([0-9]+)<').exec(recTable.slice(at, at + 300))
+    return m ? Number(m[1]) : -1
+  }
+  const foundShown = async (state) => {
+    const html = (await (await get('/discovery/found?state=' + encodeURIComponent(state), 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+    const m = new RegExp("([0-9]+)건 \/ 전체 ([0-9]+)건").exec(html)
+    return m ? Number(m[1]) : -1
+  }
+  const recBad = []
+  for (const st of ['미등록', '등록·불일치', '미확인']) {
+    const want = recCount(st)
+    const got = await foundShown(st)
+    if (want < 0 || want !== got) recBad.push(`${st}: 대사 ${want} ≠ 목록 ${got}`)
+  }
+  check("CMDB 대사: 상태별 건수 = 발견 처리 화면 드릴다운 목록 건수", recBad.length === 0, recBad.join(" / "))
 
   // 분석 패널로만 보내던 두 큐 — 교체 대상·미사용 라이선스는 대장(?replace=1)·계약 화면(?lic=under)에 같은 판정의
   //  필터가 이미 있는데도 /ai/insights 로만 보내, 큐가 말한 14건·2건을 화면에서 다시 찾아야 했다(패널은 상위 N만 보여 준다).
