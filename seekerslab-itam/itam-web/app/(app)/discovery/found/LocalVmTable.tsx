@@ -7,11 +7,16 @@ import { respondToLocalVm, respondToLocalVmMany, revokeVmException } from '../ac
 
 const KIND_TONE = { 'EOL·미패치 게스트': 'err', '미인가 하이퍼바이저': 'warn', '미관리 VM': 'warn' } as const
 
-export function LocalVmTable({ items, canAct }: { items: LocalVmFinding[]; canAct: boolean }) {
+export function LocalVmTable({ items, canAct, openOnly: openOnlyParam }: { items: LocalVmFinding[]; canAct: boolean; openOnly?: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+  // 미조치만 보기 — 대시보드 '로컬 VM 위반 미조치' 큐의 드릴다운 대상. 조치가 끝난 건까지 함께 쌓이는 표라,
+  //  큐가 말한 건수를 화면에서 다시 세어야 했다. 큐 링크는 이 필터를 켠 채 화면을 연다.
+  const [openOnly, setOpenOnly] = useState(Boolean(openOnlyParam))
+  const openCount = items.filter((x) => !x.action).length
+  const shown = openOnly ? items.filter((x) => !x.action) : items
 
   // 미조치 건만 선택 대상 — 하이퍼바이저 금지 정책 스윕으로 다수 단말의 로컬 VM 을 선택해 한 번에 조치한다
   const selectable = items.filter((v) => !v.action)
@@ -34,6 +39,13 @@ export function LocalVmTable({ items, canAct }: { items: LocalVmFinding[]; canAc
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className={`btn sm ${openOnly ? 'pri' : 'ghost'}`} onClick={() => setOpenOnly((v) => !v)}
+          title="조치가 끝나지 않은 건만 — 대시보드 '로컬 VM 위반 미조치' 큐와 같은 집합">
+          {openOnly ? '✓ ' : ''}미조치만 {openCount}
+        </button>
+        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {items.length}건</span>
+      </div>
       {canAct && checked.size > 0 && (
         <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 조치:</span>
@@ -56,7 +68,7 @@ export function LocalVmTable({ items, canAct }: { items: LocalVmFinding[]; canAc
             </tr>
           </thead>
           <tbody>
-            {items.map((v) => (
+            {shown.map((v) => (
               <tr key={v.id}>
                 {canAct && <td className="c" onClick={(e) => e.stopPropagation()}>
                   {!v.action && <input type="checkbox" checked={checked.has(v.id)} disabled={pending} aria-label={`${v.vm} 선택`} onChange={() => toggle(v.id)} />}

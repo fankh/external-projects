@@ -552,6 +552,16 @@ try {
     await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
     const ug = (await page.locator('.card', { hasText: '엔드포인트 VM 정책 위반' }).locator('tr', { hasText: 'unregistered-guest' }).first().textContent()) || ''
     ok('로컬 VM 일괄 회수: 선택 VM 일괄 처리(회수 요청 반영)', ug.includes('회수 요청'))
+    // 미조치만 보기(대시보드 '로컬 VM 위반 미조치' 큐의 드릴다운) — 방금 조치한 건은 이 목록에서 빠져야 한다.
+    //  조치 완료분까지 함께 쌓이는 표라, 필터가 실제로 걸러 내는지 조치 전후로 확인한다.
+    await page.goto(`${BASE}${FOUND}?open=localvm`, { waitUntil: 'networkidle' })
+    const vmOpenCard = page.locator('.card', { hasText: '엔드포인트 VM 정책 위반' })
+    const vmOpenRows = await vmOpenCard.locator('tbody tr').count()
+    const vmOpenText = ((await vmOpenCard.textContent()) || '').replace(/s+/g, ' ')
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    const vmAllRows = await page.locator('.card', { hasText: '엔드포인트 VM 정책 위반' }).locator('tbody tr').count()
+    ok(`로컬 VM 미조치만 보기: 조치분이 빠진다(미조치 ${vmOpenRows} < 전체 ${vmAllRows})`, vmOpenRows > 0 && vmOpenRows < vmAllRows)
+    ok('로컬 VM 미조치만 보기: 조치한 VM 은 목록에서 사라진다(unregistered-guest)', !vmOpenText.includes('unregistered-guest'))
   }
 
   // 미인가 SW 일괄 제거 요청 — 새로 금지된 SW·EDR 스윕처럼 같은 위반이 여러 대에 잡히면 체크박스로 선택해 한 번에 제거 요청(단건 반복 방지).

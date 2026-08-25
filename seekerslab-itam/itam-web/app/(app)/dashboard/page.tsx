@@ -164,7 +164,7 @@ export default async function DashboardPage() {
       { label: '크리덴셜 노출 미조치 (인증 취약점)', count: s.credentials.filter((c) => c.status !== '조치 완료').length, href: '/discovery/external', tone: 'err' },
       { label: 'IOC 상관 미조치 (위협 인텔·침해 징후)', count: s.iocMatches.filter((i) => !i.action).length, href: '/discovery/external', tone: 'err' },
       { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external', tone: 'err' },
-      { label: '휴면 계정 미처리 (AD/IdP 계정 위생)', count: s.accounts.filter((a) => !a.action).length, href: '/discovery/found', tone: 'warn' },
+      { label: '휴면 계정 미처리 (AD/IdP 계정 위생)', count: s.accounts.filter((a) => !a.action).length, href: '/discovery/found?open=accounts', tone: 'warn' },
       // 소유자 확인 미응답 — 기한(운영 정책) 경과한 확인 요청은 격리 에스컬레이션 대상. 방치하면 미확인 자산이 계속 사내망에 남는다.
       { label: `소유자 확인 미응답 (${s.opsPolicy.confirmDeadlineDays}일 경과 · 격리 에스컬레이션)`, count: s.discovered.filter((d) => d.action === '확인요청' && d.confirmRequestedAt && -(daysUntil(d.confirmRequestedAt) ?? 0) >= s.opsPolicy.confirmDeadlineDays).length, href: '/discovery/found', tone: 'err' },
       { label: '미인가 SW 미조치 (EDR 정책 위반)', count: s.unauthorizedSw.filter((w) => !w.action).length, href: '/discovery/found', tone: 'err' },
@@ -173,7 +173,7 @@ export default async function DashboardPage() {
       // 판정 기한 경과 — 검토중이 SLA 를 넘겨 방치된 건(소유자 확인 미응답과 동형 에스컬레이션). 기밀·민감 등급은 데이터 반출 위험 최우선.
       { label: `미판정 SaaS 판정 기한 경과 (${SAAS_REVIEW_SLA_DAYS}일 초과 · 에스컬레이션)`, count: buildSaasReview().overdue.length, href: '/settings/saas-catalog', tone: 'err' },
       { label: 'USB 정책 위반 미조치 (이동식 매체 DLP)', count: s.usbFindings.filter((u) => !u.action).length, href: '/discovery/found', tone: 'err' },
-      { label: '로컬 VM 위반 미조치 (엔드포인트 가상머신)', count: s.localVms.filter((v) => !v.action).length, href: '/discovery/found', tone: 'warn' },
+      { label: '로컬 VM 위반 미조치 (엔드포인트 가상머신)', count: s.localVms.filter((v) => !v.action).length, href: '/discovery/found?open=localvm', tone: 'warn' },
       // 미관리 클라우드 리소스 — CSP API(채널 05)가 잡은 태그 미부착·개인 구독·미등록 리소스. 통제·정산 사각지대(태그·소유 지정 또는 회수 대상).
       { label: '미관리 클라우드 리소스 미조치 (태그·소유·회수 · SAM/거버넌스)', count: s.cloudFindings.filter((c) => !c.action).length, href: '/discovery/found', tone: 'err' },
       { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
