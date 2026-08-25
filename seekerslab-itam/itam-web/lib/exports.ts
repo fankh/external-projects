@@ -1,7 +1,7 @@
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf, repairTotalOf } from './cost'
 import { buildLicenseUsage } from './license-usage'
-import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isLoanOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
+import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { contractAssetCount, getStore } from './store'
 import { ASSET_CATEGORIES, type PermMenu, type Role } from './types'
@@ -68,7 +68,13 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         a.os ?? '', a.cpu ?? '', a.memory ?? '', a.ip ?? '', a.mac ?? '',
         a.purchaseDate, a.warrantyEnd,
         ({ covered: '보증 내', soon: '만료 임박', expired: '보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())],
-        a.lastVerifiedAt ?? '', a.maintenanceDue ?? '', a.contractId ?? '', a.discoveredVia ?? '',
+        a.lastVerifiedAt ?? '',
+        // 정기 점검 예정도 날짜만 반출하면 이 자산이 이미 점검을 넘긴 건지 알 수 없다 — 대여 반환 기한이 연체를
+        //  함께 밝히는 것과 같은 규약으로 화면·큐와 같은 lib/dates 판정을 붙인다.
+        a.maintenanceDue
+          ? `${a.maintenanceDue}${isMaintenanceOverdue(a) ? ' (점검 경과)' : isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays) ? ' (도래)' : ''}`
+          : '',
+        a.contractId ?? '', a.discoveredVia ?? '',
         // 대여 반환 기한 — 수리 의뢰 열과 짝. 반출본만 보면 대여중 자산이 언제 돌아오는지·연체인지 알 수 없어
         //  결재 첨부·감사 대응에서 화면을 다시 열어야 했다(연체 판정은 화면·큐와 같은 lib/dates 판정).
         a.status === '대여중' && a.loanDueDate ? `${a.loanDueDate}${isLoanOverdue(a) ? ' (연체)' : ''}` : '',

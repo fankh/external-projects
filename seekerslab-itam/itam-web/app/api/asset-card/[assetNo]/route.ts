@@ -1,6 +1,6 @@
 import { assetDependencies } from '@/lib/cmdb'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
-import { daysUntil, isLoanOverdue, isStaleVerify, today, warrantyState } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today, warrantyState } from '@/lib/dates'
 import { qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -56,7 +56,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     //  연체·D-day 를 함께 표기하는데 카드만 맨 날짜였다(같은 lib/dates 판정으로 문구를 맞춘다).
     row('반환 기한', a.loanDueDate ? `${a.loanDueDate}${loanDueLabel}` : undefined),
     // 화면(점검 도래 큐·대장 필터)과 같은 운영 상태 게이트 — 비운영 자산의 잔여 예정일을 카드에만 남기면 현장에서 점검을 기다린다.
-    row('정기 점검 예정', a.maintenanceDue && !NON_OPERATIONAL_STATUSES.includes(a.status) ? a.maintenanceDue : undefined),
+    row('정기 점검 예정', a.maintenanceDue && !NON_OPERATIONAL_STATUSES.includes(a.status)
+      ? `${a.maintenanceDue}${isMaintenanceOverdue(a) ? ' · 점검 경과(미시행)' : isMaintenanceDue(a, getStore().opsPolicy.maintenanceWindowDays) ? ' · 점검 도래' : ''}`
+      : undefined),
     row('수리 의뢰', a.repair ? `${a.repair.vendor}${a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}${a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}` : undefined),
     row('누적 수리비', repairTotalOf(a) > 0 ? `${repairTotalOf(a).toLocaleString()}원 (${a.repairCosts!.filter((c) => !c.warrantyClaimed).length}건 · 자사 부담)` : undefined),
     row('취득가', acquisitionCostOf(a) > 0 ? `${acquisitionCostOf(a).toLocaleString()}원${a.acquisitionCost === undefined ? ' (표준 단가)' : ''}` : undefined),

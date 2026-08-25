@@ -1004,6 +1004,11 @@ try {
   // 정기 점검 예정 행 — 예방 정비 일정(로55)이 잡힌 자산 dossier 에 다음 점검 예정일을 남긴다(인수인계·유지보수 참고). 시드 AST-2022-000640(예정 2026-06-15).
   const cardMaint = await (await get('/api/asset-card/AST-2022-000640', 'ASSET_MGR')).text()
   check('자산 카드: 정기 점검 예정 행(예방 정비 일정)', cardMaint.includes('정기 점검 예정') && cardMaint.includes('2026-06-15'))
+  // 날짜만으로는 이 자산이 점검을 넘겼는지 알 수 없다 — 화면·대시보드 큐는 점검 도래·경과(미시행)를 세는데
+  //  카드·엑셀만 맨 날짜였다(대여 반환 기한이 연체를 함께 밝히는 규약과 같은 자리). 시드 640 은 예정일 경과분.
+  check('자산 카드: 정기 점검 경과 자산에 미시행 표기', cardMaint.includes('점검 경과'))
+  const maintXlsx = Buffer.from(await (await get('/api/export/assets', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
+  check('자산 대장 엑셀: 정기 점검 예정에 경과 표기', maintXlsx.includes('점검 경과'))
   // 자산 카드 누적 수리비 행 — 수리 비용 이력이 있는 자산(AST-2023-000112, 누계 243,000원 2건)에 노출
   const cardCost = await (await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')).text()
   check('자산 카드: 수리 이력 자산에 누적 수리비 행(자사 부담 TCO · 무상 보증 청구 제외)', cardCost.includes('누적 수리비') && cardCost.includes('243,000원') && cardCost.includes('2건 · 자사 부담'))
