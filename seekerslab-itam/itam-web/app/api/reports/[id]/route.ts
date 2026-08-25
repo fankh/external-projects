@@ -1,5 +1,6 @@
 import { appendAudit } from '@/lib/audit'
 import { getSession } from '@/lib/session'
+import { can } from '@/lib/perm'
 import { toCsv, toMarkdown, toSheets } from '@/lib/reports'
 import { getStore } from '@/lib/store'
 import { buildXlsx } from '@/lib/xlsx'
@@ -12,6 +13,9 @@ export async function GET(
 ) {
   const session = await getSession()
   if (!session || session.role === 'USER') return new Response('Forbidden', { status: 403 })
+  // 매트릭스 'AI 어시스턴트 × 조회'도 만족해야 한다 — 리포트 화면(/ai/reports)은 매트릭스를 보는데
+  //  열람 API 가 역할만 보면, 조회를 회수한 뒤에도 결재 첨부 링크로 리포트 전문이 그대로 나간다(문서 API 와 같은 규약).
+  if (!can('AI 어시스턴트', '조회', session.role)) return new Response('Forbidden', { status: 403 })
 
   const { id } = await params
   const report = getStore().reports.find((r) => r.id === id)
