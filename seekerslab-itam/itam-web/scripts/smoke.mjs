@@ -1927,6 +1927,15 @@ try {
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.
+  // 업무 중요도 선택지도 같은 규약 — 화면의 지정 버튼과 서버 검증이 각자 목록을 들면, 화면이 내준 값을 서버가
+  //  "올바르지 않은 값"으로 거절하는 막다른 컨트롤이 된다.
+  const critLiteral = sourceFiles
+    .filter((f) => path.relative(ROOT, f).split(path.sep).join("/") !== "lib/types.ts")
+    .filter((f) => readFileSync(f, "utf8").includes("['핵심', '중요', '일반']"))
+    .map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
+  check("업무 중요도 선택지: 코드에 직접 적은 곳이 없다(CRITICALITY_LEVELS 단일 정의)",
+    critLiteral.length === 0, `직접 목록=${critLiteral.join(", ")}`)
+
   // 종료(터미널) 상태(분실·폐기완료)도 같은 규약 — 계약 일괄 연계·좌석 배정 가드와 그 화면 컨트롤이 함께 쓰는
   //  판정이라, 각자 적으면 서버는 거절하는데 화면은 버튼을 내주는(또는 그 반대) 갈림이 생긴다.
   const terminalLiteral = sourceFiles
