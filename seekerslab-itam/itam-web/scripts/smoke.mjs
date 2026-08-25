@@ -1248,6 +1248,13 @@ try {
   // 가용 재고 KPI ↔ 안전재고 경보 정합 — 타일이 상태 '유휴' 를 그대로 세면 폐기 선정된 유휴 자산까지 '가용'으로 잡혀
   //  같은 화면 아래 경보(가용 제외)·어시스턴트 '재배치 가능' 답변과 어긋난다. lib/stock availableAssets 단일 소스.
   check('재고 현황: 가용 재고 KPI 가 폐기 선정 유휴를 제외(경보·어시스턴트와 동일 판정)', stockHtml.includes('가용 재고 (재배치 가능)') && stockHtml.includes('폐기 선정'))
+  // 경보 드릴다운은 경보가 센 집합으로 열어야 한다 — status=유휴 로 열면 폐기 절차·NAC 격리된 유휴 자산이 목록에
+  //  남아 '가용 0(재고 소진)' 이라고 말한 유형을 눌렀는데 자산이 보인다(화면 수 ≠ 목록 수). 대장의 avail=1 은
+  //  같은 lib/stock 판정을 쓴다.
+  check('재고 현황: 안전재고 경보 드릴다운이 가용 필터(avail=1)로 열린다',
+    !stockHtml.includes('안전재고 경보') || stockHtml.includes('avail=1'))
+  const availHtml = await (await get('/assets/register?avail=1', 'ASSET_MGR')).text()
+  check('자산 대장: 가용 재고 필터 칩 렌더(재고 경보 드릴다운 대상)', availHtml.includes('가용 재고'))
   // 안전재고 경보 — 불출형 유형(단말·주변기기) 가용 재고가 안전재고(2대) 미만이면 경보. 시드: 단말 유휴 1대(AST-2021-000432)는 폐기 선정(대상 선정)이라 가용 제외 → 가용 0(재고 소진), 주변기기 가용 1.
   check('재고 현황: 안전재고 경보 카드(가용 부족 발주 검토)', stockHtml.includes('안전재고 경보') && stockHtml.includes('발주 검토'))
   check('재고 현황: 폐기 선정 유휴는 가용 제외 → 단말 재고 소진(가용 0)', stockHtml.includes('단말') && stockHtml.includes('재고 소진'))
