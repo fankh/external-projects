@@ -3,6 +3,7 @@ import { requireView } from '@/lib/authz'
 import { roundProgressPct } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { GONE_STATUSES } from '@/lib/types'
 import { SurveyConsole } from './SurveyConsole'
 import { UnscannedTargets } from './UnscannedTargets'
 
@@ -44,7 +45,7 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
     .map((no) => {
       const a = s.assets.find((x) => x.assetNo === no)
       // 이미 분실·폐기 처리된 대장 자산은 대상에서 제외 — 조치가 끝난 것을 다시 '미실사'로 보여주지 않는다.
-      if (a && ['분실', '폐기예정', '폐기완료'].includes(a.status)) return null
+      if (a && GONE_STATUSES.includes(a.status)) return null
       if (a) return { ref: no, label: a.model, location: a.location, note: a.lastVerifiedAt ? `최근 실측 ${a.lastVerifiedAt}` : '실측 이력 없음', inLedger: true }
       const d = s.discovered.find((x) => x.id === no)
       if (d) return { ref: no, label: `${d.hostname} · ${d.type}`, location: d.ip ?? '-', note: `발견 ${d.channel} · 최근 ${d.lastSeen}`, inLedger: false }
