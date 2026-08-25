@@ -2122,6 +2122,14 @@ try {
   //  (필터가 실제로 걸러 내는지는 e2e 가 조치 후 두 수를 비교해 확인한다.)
   const acctAll = cardShown(await (await get('/discovery/found', 'SEC_MGR')).text(), '휴면 계정 — AD/IdP')
   check("발견 조치 표: 필터 없는 화면은 미조치 이상을 표시(집합 포함 관계)", acctAll >= acctShown && acctShown > 0, `전체 ${acctAll} · 미조치 ${acctShown}`)
+  // 미판정 SaaS 큐 — 판정이 끝난 인가·차단 항목까지 함께 쌓이는 대장이라, 큐가 말한 '검토 대기 N건'을
+  //  화면에서 다시 세어야 했다. 큐 링크가 검토 대기만 보기를 켠 채 연다.
+  const saasHtml = await (await get('/settings/saas-catalog?status=review', 'SEC_MGR')).text()
+  const saasShown = cardShown(saasHtml, '서비스 목록 · 판정')
+  const saasQueue = secQueueCount('미판정 SaaS (카탈로그 검토중 · 판정 대기)')
+  check("미판정 SaaS 큐: 건수 = 검토 대기만 보기 표시 건수", saasQueue > 0 && saasQueue === saasShown, `큐 ${saasQueue} · 표시 ${saasShown}`)
+  const saasAll = cardShown(await (await get('/settings/saas-catalog', 'SEC_MGR')).text(), '서비스 목록 · 판정')
+  check("SaaS 카탈로그: 필터 없이 열면 판정 완료분까지 표시(필터 실효 확인)", saasAll > saasShown, `전체 ${saasAll} · 검토중 ${saasShown}`)
 
   // 분석 패널로만 보내던 두 큐 — 교체 대상·미사용 라이선스는 대장(?replace=1)·계약 화면(?lic=under)에 같은 판정의
   //  필터가 이미 있는데도 /ai/insights 로만 보내, 큐가 말한 14건·2건을 화면에서 다시 찾아야 했다(패널은 상위 N만 보여 준다).

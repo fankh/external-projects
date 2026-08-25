@@ -13,9 +13,14 @@ function reviewAge(reviewSince: string | undefined, today: string): number | nul
   return Math.floor((Date.parse(today) - Date.parse(reviewSince)) / 86_400_000)
 }
 
-export function CatalogTable({ entries, today, slaDays, approveNeedsApproval }: { entries: SaasCatalogEntry[]; today: string; slaDays: number; approveNeedsApproval?: boolean }) {
+export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, reviewOnly: reviewOnlyParam }: { entries: SaasCatalogEntry[]; today: string; slaDays: number; approveNeedsApproval?: boolean; reviewOnly?: boolean }) {
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<string | null>(null)
+  // 검토 대기만 보기 — 대시보드 '미판정 SaaS' 큐의 드릴다운. 판정이 끝난 인가·차단 항목까지 함께 쌓이는
+  //  대장이라, 큐가 말한 건수를 화면에서 다시 세어야 했다. 큐 링크는 이 필터를 켠 채 화면을 연다.
+  const [reviewOnly, setReviewOnly] = useState(Boolean(reviewOnlyParam))
+  const reviewCount = entries.filter((e) => e.status === '검토중').length
+  const shown = reviewOnly ? entries.filter((e) => e.status === '검토중') : entries
   // 신규 SaaS 등록 — 발견 이전이라도 조달·온보딩으로 알게 된 서비스를 검토중으로 카탈로그에 올린다
   const [adding, setAdding] = useState(false)
   const [service, setService] = useState('')
@@ -53,6 +58,13 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval }: 
       </div>
     )}
     {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+    <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <button className={`btn sm ${reviewOnly ? 'pri' : 'ghost'}`} onClick={() => setReviewOnly((r) => !r)}
+        title="아직 인가·차단 판정이 나지 않은 항목만 — 대시보드 미판정 SaaS 큐와 같은 집합">
+        {reviewOnly ? '✓ ' : ''}검토 대기만 {reviewCount}
+      </button>
+      <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {entries.length}건</span>
+    </div>
     <div className="tbl-wrap">
       <table className="tbl">
         <thead>
@@ -62,7 +74,7 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval }: 
           </tr>
         </thead>
         <tbody>
-          {entries.map((e) => (
+          {shown.map((e) => (
             <tr key={e.id}>
               <td className="strong">{e.service}</td>
               <td className="mute">{e.category}</td>
