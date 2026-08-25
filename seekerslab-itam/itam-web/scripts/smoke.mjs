@@ -2206,6 +2206,21 @@ try {
   const seatHtml = await (await get('/inventory/contracts?seat=unused', 'ASSET_MGR')).text()
   check("계약 화면 드릴다운: 미설치 좌석 큐가 회수 후보만 여는 필터로 연결",
     dashMgr.includes('/inventory/contracts?seat=unused') && seatHtml.includes('미설치 좌석(회수 후보) 필터'))
+  // 입고 화면의 두 큐(검수 대기·검수 반려)도 검수 완료·반품까지 함께 쌓이는 목록을 통째로 열던 것을 필터로 연다.
+  const intakePairs = [
+    ['입고 검수 대기', 'inspect'],
+    ['검수 반려 (재검수 · 반품 확인)', 'rejected'],
+  ]
+  const intakeBad = []
+  for (const [label, key] of intakePairs) {
+    const want = queueCount(label)
+    if (want < 0) continue
+    const html = await (await get(`/assets/intake?lot=${key}`, 'ASSET_MGR')).text()
+    const shown = cardShown(html, '입고 목록')
+    if (want !== shown) intakeBad.push(`${label}: 큐 ${want} ≠ 표시 ${shown}`)
+  }
+  check("입고 큐: 건수 = 필터 화면 표시 건수", intakeBad.length === 0, intakeBad.join(" / "))
+
   // 반납·수리 화면의 세 큐(대여 연체·반환 임박·수리 예상 반환 경과)도 정상 건까지 함께 보여 주는 표를 통째로
   //  열던 것을 해당 필터를 켠 채 연다. 판정은 큐·독촉과 같은 lib/dates 에서 온다.
   const retPairs = [
