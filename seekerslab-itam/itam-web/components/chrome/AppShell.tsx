@@ -47,24 +47,29 @@ export function AppShell(props: {
   const activeGroup = groups.find((g) => g.items.some((i) => pathname.startsWith(i.href))) ?? groups[0]
   const badgeOf = (badge?: 'approvals' | 'unregistered') => (badge ? props.badges[badge] : 0)
 
-  // MDI 탭 — 방문 시 upsert, 새로고침 간 유지 (edim MdiTabs 패턴)
+  // MDI 탭 — 방문 시 맨 앞으로 올리고, 새로고침 간 유지 (edim MdiTabs 패턴)
+  //  최근 방문이 왼쪽 끝, 오래된 화면이 오른쪽으로 밀린다. 다시 들른 화면도 앞으로 당긴다 —
+  //  제자리에 두면 어느 것이 방금 본 화면인지 스트립만 봐서는 알 수 없다.
+  //  넘치면 잘리는 쪽은 오른쪽 끝(가장 오래된 화면)이다.
   const [tabs, setTabs] = useState<Tab[]>([])
   useEffect(() => { setTabs(loadTabs()) }, [])
   useEffect(() => {
     const info = TITLE_BY_HREF[pathname]
     if (!info) return
     setTabs((cur) => {
-      if (cur.some((t) => t.href === pathname)) return cur
-      const next = [...cur, { href: pathname, title: info.title }].slice(-MAX_TABS)
+      if (cur[0]?.href === pathname) return cur
+      const next = [{ href: pathname, title: info.title }, ...cur.filter((t) => t.href !== pathname)].slice(0, MAX_TABS)
       saveTabs(next)
       return next
     })
   }, [pathname])
+  // 사이드바(visible)와 같은 판정 — 매핑이 없는 화면(대시보드 등)은 제한 없음으로 본다.
+  const visibleTabs = tabs.filter((t) => !visible || visible.has(t.href))
   const closeTab = (href: string) => {
     setTabs((cur) => {
       const next = cur.filter((t) => t.href !== href)
       saveTabs(next)
-      if (href === pathname) router.push(next.length ? next[next.length - 1].href : '/dashboard')
+      if (href === pathname) router.push(next.length ? next[0].href : '/dashboard')
       return next
     })
   }
@@ -102,7 +107,10 @@ export function AppShell(props: {
       </nav>
 
       <div className="mdibar">
-        {tabs.map((t) => (
+        {/* 탭도 사이드바와 같은 집합만 보여 준다 — 탭은 localStorage 에 남으므로 권한이 회수되거나
+            다른 권한그룹으로 로그인하면 열 수 없는 화면이 스트립에 남아, 누르면 대시보드로 튕긴다
+            (보이는데 튕기는 링크 방지 · 저장분은 지우지 않아 권한이 복원되면 그대로 돌아온다). */}
+        {visibleTabs.map((t) => (
           <span key={t.href} role="tab" className={`tab ${t.href === pathname ? 'on' : ''}`}
             onClick={() => router.push(t.href)}>
             {t.title}
