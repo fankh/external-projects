@@ -112,7 +112,7 @@ export function AccountTable({ accounts, canAct, openOnly: openOnlyParam }: { ac
                 )}
               </tr>
             ))}
-            {accounts.length === 0 && <tr><td colSpan={canAct ? 9 : 7}><div className="empty">발견된 휴면 계정이 없습니다</div></td></tr>}
+            {shown.length === 0 && <tr><td colSpan={canAct ? 9 : 7}><div className="empty">{accounts.length === 0 ? '발견된 휴면 계정이 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>

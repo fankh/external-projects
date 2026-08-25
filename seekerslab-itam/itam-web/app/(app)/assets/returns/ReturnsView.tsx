@@ -224,6 +224,7 @@ export function ReturnsView(props: {
                     </td>
                   </tr>
                 ))}
+                {shownRepairing.length === 0 && <tr><td colSpan={5}><div className="empty">{props.repairing.length === 0 ? '수리 중인 자산이 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
               </tbody>
             </table>
           </div>
@@ -305,6 +306,7 @@ export function ReturnsView(props: {
                     </tr>
                   )
                 })}
+                {shownLoans.length === 0 && <tr><td colSpan={6}><div className="empty">{props.loans.length === 0 ? '대여 중인 자산이 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
               </tbody>
             </table>
           </div>

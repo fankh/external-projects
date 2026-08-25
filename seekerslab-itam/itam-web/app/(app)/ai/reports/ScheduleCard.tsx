@@ -110,6 +110,7 @@ export function ScheduleCard({ rows, adhoc, dueOnly: dueOnlyParam }: { rows: Row
                 <td className="c"><span className="mut">—</span></td>
               </tr>
             ))}
+            {shown.length === 0 && <tr><td colSpan={8}><div className="empty">{rows.length === 0 ? '등록된 자동 생성 스케줄이 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>

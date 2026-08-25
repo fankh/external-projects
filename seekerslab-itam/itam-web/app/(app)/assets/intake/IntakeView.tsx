@@ -211,6 +211,7 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0, in
                   <td className="c">{l.id === sel?.id ? <Chip tone="info" bare>선택됨</Chip> : <span className="mut">클릭</span>}</td>
                 </tr>
               ))}
+              {shownLots.length === 0 && <tr><td colSpan={9}><div className="empty">{arrivedLots.length === 0 ? '입고된 로트가 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
             </tbody>
           </table>
         </div>

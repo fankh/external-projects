@@ -115,7 +115,7 @@ export function CredTable({ credentials, canRespond, openOnly: openOnlyParam }: 
                 </td>
               </tr>
             ))}
-            {credentials.length === 0 && <tr><td colSpan={canRespond ? 8 : 7}><div className="empty">점검된 크리덴셜 노출이 없습니다</div></td></tr>}
+            {shown.length === 0 && <tr><td colSpan={canRespond ? 8 : 7}><div className="empty">{credentials.length === 0 ? '점검된 크리덴셜 노출이 없습니다' : '필터에 맞는 항목이 없습니다 — 필터를 해제하면 전체가 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>

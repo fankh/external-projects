@@ -2206,6 +2206,17 @@ try {
   const seatHtml = await (await get('/inventory/contracts?seat=unused', 'ASSET_MGR')).text()
   check("계약 화면 드릴다운: 미설치 좌석 큐가 회수 후보만 여는 필터로 연결",
     dashMgr.includes('/inventory/contracts?seat=unused') && seatHtml.includes('미설치 좌석(회수 후보) 필터'))
+  // 필터가 걸린 빈 표는 이유를 말해야 한다 — 큐를 눌러 들어왔는데 아무것도 없으면 사용자는 화면이 고장난 줄 안다.
+  //  '원래 없음'과 '필터로 가려짐'을 가른다(시드에는 반환 임박 대여가 없어 ?loan=임박 이 그 상황을 만든다).
+  const emptyFilterHtml = (await (await get('/assets/returns?loan=' + encodeURIComponent('임박'), 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const loanCardAt = emptyFilterHtml.indexOf('대여 현황')
+  check("필터 빈 표: 걸러진 결과가 없으면 사유를 밝힌다(대여 임박 필터)",
+    loanCardAt !== -1 && emptyFilterHtml.slice(loanCardAt, loanCardAt + 4000).includes('필터에 맞는 항목이 없습니다'))
+  // 필터 없는 화면에서는 원래 문구가 그대로여야 한다(양성 대조 — 필터 문구가 모든 빈 표를 덮어쓰지 않는다).
+  const plainReturns = (await (await get('/assets/returns', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  check("필터 빈 표(양성 대조): 필터 없는 화면은 원래 안내 문구를 쓴다",
+    !plainReturns.includes('필터에 맞는 항목이 없습니다'))
+
   // 입고 화면의 두 큐(검수 대기·검수 반려)도 검수 완료·반품까지 함께 쌓이는 목록을 통째로 열던 것을 필터로 연다.
   const intakePairs = [
     ['입고 검수 대기', 'inspect'],
