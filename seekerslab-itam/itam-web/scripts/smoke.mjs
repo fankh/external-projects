@@ -2214,6 +2214,20 @@ try {
   const cloudQueue = secQueueCount('미관리 클라우드 리소스 미조치 (태그·소유·회수 · SAM/거버넌스)')
   check("미관리 클라우드 큐: 건수 = 미조치만 보기 표시 건수", cloudQueue > 0 && cloudQueue === cloudShown, `큐 ${cloudQueue} · 표시 ${cloudShown}`)
   check("미관리 클라우드 큐: 링크가 미조치만 보기를 켠 채 연다", dashSec.includes('/discovery/found?open=cloud'))
+  // 소유자 확인 미응답 큐 — 에스컬레이션 바가 '기한 경과 N건'을 세지만 그 아래 발견 목록에는 그 집합을 여는
+  //  필터가 없어, 큐가 말한 건을 전체 발견 목록에서 눈으로 찾아야 했다. 판정(운영 정책 기한)은 서버가 준다.
+  const awaitHtml = (await (await get('/discovery/found?await=overdue', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  // 라벨에 운영 정책 일수가 박혀 있어 접두어로 찾는다(정책이 바뀌어도 검사가 따라간다).
+  const awaitQueue = secQueueCount('소유자 확인 미응답 (')
+  const awaitShown = Number((new RegExp("([0-9]+)건 \/ 전체 ([0-9]+)건").exec(awaitHtml) || [])[1] ?? -1)
+  check("소유자 확인 미응답 큐: 건수 = 확인 미응답만 보기 표시 건수",
+    awaitQueue > 0 && awaitQueue === awaitShown, `큐 ${awaitQueue} · 표시 ${awaitShown}`)
+  check("소유자 확인 미응답 큐: 링크가 그 필터를 켠 채 연다", dashSec.includes('/discovery/found?await=overdue'))
+  // 필터 없이 열면 응답 대기·처리 완료 건까지 보인다(필터 실효 확인).
+  const foundPlain = (await (await get('/discovery/found', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  const foundPlainShown = Number((new RegExp("([0-9]+)건 \/ 전체 ([0-9]+)건").exec(foundPlain) || [])[1] ?? -1)
+  check("발견 목록: 필터 없이 열면 미응답 밖의 발견까지 표시(필터 실효 확인)",
+    foundPlainShown > awaitShown, `전체 ${foundPlainShown} · 미응답 ${awaitShown}`)
   // 수집 커넥터 저하 큐 — 정상 커넥터까지 함께 쌓이는 표라 큐가 말한 건수를 화면에서 다시 세어야 했다.
   //  KPI 도 지연만 세어 큐(지연+오류)와 갈렸다 — 이제 같은 묶음을 쓰고 링크가 저하만 보기를 켠 채 연다.
   const connHtml = (await (await get('/platform/integrations?conn=degraded', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')

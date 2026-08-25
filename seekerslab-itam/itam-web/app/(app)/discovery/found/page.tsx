@@ -16,11 +16,11 @@ import { UsbTable } from './UsbTable'
 
 export const dynamic = 'force-dynamic'
 
-export default async function FoundPage({ searchParams }: { searchParams: Promise<{ state?: string; sel?: string; open?: string }> }) {
+export default async function FoundPage({ searchParams }: { searchParams: Promise<{ state?: string; sel?: string; open?: string; await?: string }> }) {
   const session = await requireView('/discovery/found', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
   // open=accounts|localvm|cloud — 대시보드 '휴면 계정 미처리'·'로컬 VM 위반 미조치'·'미관리 클라우드 리소스 미조치' 큐의 드릴다운.
   //  해당 표를 미조치만 보기로 열어 큐가 말한 건수와 화면이 같은 집합을 보여 준다.
-  const { state, sel, open } = await searchParams
+  const { state, sel, open, await: awaitParam } = await searchParams
   // CMDB 대사 화면에서 상태별 드릴다운(?state=)으로 진입 — 유효한 대사 상태만 초기 필터로 반영
   const initialState = RECONCILE_STATES.includes(state as ReconcileState) ? (state as ReconcileState) : undefined
   const s = getStore()
@@ -104,7 +104,8 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
       <EscalateBar waiting={awaiting.length} overdue={overdue.length} deadlineDays={s.opsPolicy.confirmDeadlineDays} />
 
       <Card pad={false}>
-        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} canOnboard={canOnboard} canQuarantine={canQuarantine} initialState={initialState} initialSel={initialSel} />
+        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} canOnboard={canOnboard} canQuarantine={canQuarantine} initialState={initialState} initialSel={initialSel}
+          awaitOverdueIds={overdue.map((x) => x.id)} initialAwaitOverdue={awaitParam === 'overdue'} />
       </Card>
 
       <Card kicker="Account Hygiene · Channel 06" title="휴면 계정 — AD/IdP·SSO 계정 위생" pad={false}>
