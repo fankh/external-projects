@@ -9,7 +9,8 @@ import { IntakeView } from './IntakeView'
 export const dynamic = 'force-dynamic'
 
 export default async function IntakePage({ searchParams }: { searchParams: Promise<{ lot?: string }> }) {
-  // lot=inspect|rejected — 대시보드 입고 큐의 드릴다운(해당 필터를 켠 채 연다).
+  // lot=inspect|rejected|overdue — 대시보드 입고 큐의 드릴다운(해당 필터를 켠 채 연다).
+  //  overdue 는 검수 표가 아니라 '도입 예정' 표를 좁힌다(입고 지연 로트는 아직 도착 전이라 검수 대상이 아니다).
   const { lot } = await searchParams
   await requireView('/assets/intake', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
@@ -55,7 +56,7 @@ export default async function IntakePage({ searchParams }: { searchParams: Promi
         그대로 사용됩니다.
       </div>
 
-      <IntakeView lots={lots} labels={labels} contracts={purchaseContracts} today={today()} remindCount={intakeRemindTargets().length} initialFilter={lot === 'inspect' || lot === 'rejected' ? lot : undefined} />
+      <IntakeView lots={lots} labels={labels} contracts={purchaseContracts} today={today()} remindCount={intakeRemindTargets().length} initialFilter={lot === 'inspect' || lot === 'rejected' || lot === 'overdue' ? lot : undefined} />
     </>
   )
 }

@@ -2324,6 +2324,25 @@ try {
     if (want !== shown) intakeBad.push(`${label}: 큐 ${want} ≠ 표시 ${shown}`)
   }
   check("입고 큐: 건수 = 필터 화면 표시 건수", intakeBad.length === 0, intakeBad.join(" / "))
+  // 세 번째 입고 큐(도입 예정 입고 지연)는 검수 표가 아니라 그 위 '도입 예정' 표에 산다 — 아직 도착 전이라
+  //  검수 대상이 아니기 때문이다. 그래서 ?lot=inspect·rejected 로는 좁혀지지 않았고, 링크가 필터 없이 떨어져
+  //  도착 예정일이 남은 로트까지 섞인 표에서 지연 건을 눈으로 세어야 했다.
+  const intakeOverdueHtml = (await (await get('/assets/intake?lot=overdue', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const intakeOverdueQueue = queueCount('도입 예정 입고 지연 (SR·발주 독촉)')
+  const intakeOverdueShown = cardShown(intakeOverdueHtml, '도입 예정 — ITSM SR·발주 연계')
+  check("도입 예정 입고 지연 큐: 건수 = 지연만 보기 표시 건수",
+    intakeOverdueQueue > 0 && intakeOverdueQueue === intakeOverdueShown, `큐 ${intakeOverdueQueue} · 표시 ${intakeOverdueShown}`)
+  check("도입 예정 입고 지연 큐: 링크가 지연만 보기를 켠 채 연다", dashMgr.includes('/assets/intake?lot=overdue'))
+  // 필터 없이 열면 도입 예정 전량이 보인다 — 표가 스스로 적는 '표시 / 전체'의 전체가 카드 제목의 건수와 같아야 한다.
+  //  (시드에는 도입 예정 로트가 지연 1건뿐이라 '전체 > 지연'으로는 필터 실효를 못 가른다 — 정상 납기 로트가
+  //   생기면 위 큐 대조가 곧바로 그 차이를 잡는다.)
+  const intakePlain = (await (await get('/assets/intake', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const intakePlainShown = cardShown(intakePlain, '도입 예정 — ITSM SR·발주 연계')
+  const intakePlannedAt = intakePlain.indexOf('도입 예정 — ITSM SR·발주 연계')
+  const intakePlannedTotal = Number((/(([0-9]+))/.exec(intakePlain.slice(intakePlannedAt, intakePlannedAt + 200)) || [])[1] ?? -1)
+  check("도입 예정 표: 필터 없이 열면 도입 예정 전량 표시",
+    intakePlannedTotal > 0 && intakePlainShown === intakePlannedTotal && intakePlannedTotal >= intakeOverdueShown,
+    `표시 ${intakePlainShown} · 카드 ${intakePlannedTotal} · 지연 ${intakeOverdueShown}`)
 
   // 반납·수리 화면의 세 큐(대여 연체·반환 임박·수리 예상 반환 경과)도 정상 건까지 함께 보여 주는 표를 통째로
   //  열던 것을 해당 필터를 켠 채 연다. 판정은 큐·독촉과 같은 lib/dates 에서 온다.
