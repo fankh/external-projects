@@ -2082,6 +2082,19 @@ try {
     if (want < 0 || want !== got) drillBad.push(`${label}: 큐 ${want} ≠ 표시 ${got}`)
   }
   check("계약 화면 드릴다운: 유지보수 큐 건수 = 필터 화면 표시 건수", drillBad.length === 0, drillBad.join(" / "))
+  // 분석 패널로만 보내던 두 큐 — 교체 대상·미사용 라이선스는 대장(?replace=1)·계약 화면(?lic=under)에 같은 판정의
+  //  필터가 이미 있는데도 /ai/insights 로만 보내, 큐가 말한 14건·2건을 화면에서 다시 찾아야 했다(패널은 상위 N만 보여 준다).
+  const licUnderHtml = await (await get('/inventory/contracts?lic=under', 'ASSET_MGR')).text()
+  // 계약 표·라이선스 표가 각각 "N건 / 전체 M건"을 적으므로 라이선스 카드 이후 구간에서 찾는다(첫 매칭은 계약 표다).
+  const licPlain = licUnderHtml.replace(/<!-- -->/g, "")
+  const licCardAt = licPlain.indexOf("SW 라이선스 보유 – 사용 대사")
+  const licUnderShown = Number((new RegExp("([0-9]+)건 \\/ 전체").exec(licCardAt === -1 ? "" : licPlain.slice(licCardAt)) || [])[1] ?? -1)
+  const licUnderQueue = queueCount('미사용 라이선스 회수 후보 (비용 절감)')
+  check("분석 큐 드릴다운: 미사용 라이선스 큐 건수 = 계약 화면 필터 표시 건수",
+    licUnderQueue > 0 && licUnderQueue === licUnderShown, `큐 ${licUnderQueue} · 표시 ${licUnderShown}`)
+  check("분석 큐 드릴다운: 교체 대상 큐가 대장 교체 필터(?replace=1)로 연결",
+    dashMgr.includes('/assets/register?replace=1'))
+
   const seatHtml = await (await get('/inventory/contracts?seat=unused', 'ASSET_MGR')).text()
   check("계약 화면 드릴다운: 미설치 좌석 큐가 회수 후보만 여는 필터로 연결",
     dashMgr.includes('/inventory/contracts?seat=unused') && seatHtml.includes('미설치 좌석(회수 후보) 필터'))

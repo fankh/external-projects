@@ -123,13 +123,13 @@ export default async function DashboardPage() {
       // EOL OS 자산 — OS 지원 종료 경과(미패치 취약점 상시 노출). 하드웨어 노후(보증·내용연수)와 별개인 SW 업그레이드·교체 트리거.
       { label: 'EOL OS 자산 (교체·업그레이드 대상)', count: s.assets.filter((a) => isEolTarget(a.status, a.os, today())).length, href: '/assets/register?os=eol', tone: 'err' },
       // 교체 대상 자산 — 내용연수 초과·보증 경과(이미 지난)·장애 이력(잦은 수리). 보증 '임박'(미래 90일)과 달리 이미 교체 시점이 도래한 계획 신호. 수명예측 패널과 같은 근거.
-      { label: '교체 대상 자산 (내용연수·보증 경과·장애 이력)', count: replCands.length, href: '/ai/insights', tone: 'warn' },
+      { label: '교체 대상 자산 (내용연수·보증 경과·장애 이력)', count: replCands.length, href: '/assets/register?replace=1', tone: 'warn' },
       // SW 라이선스 초과 사용(보유<사용)은 SAM 감사 최우선 노출 리스크 — 계약·라이선스 화면에만 있던 것을 담당자 일과 시작점(대시보드)으로 끌어올린다
       { label: '라이선스 초과 사용 (감사 노출)', count: licOpt.over.length, href: '/inventory/contracts?lic=over', tone: 'err' },
       // 라이선스 만료 경과 — 미갱신 만료 라이선스 사용은 컴플라이언스 위반. 만료 임박(창 안) 알림에서 이미 지난 건이 누락되던 공백.
       { label: '라이선스 만료 경과 (갱신 필요 · 위반 노출)', count: licOpt.expired.length, href: '/inventory/contracts?lic=expired', tone: 'err' },
       // 미사용 라이선스 회수 후보 — 사용률 60% 미만. 리스크(초과·만료)의 반대편 = 비용 절감 신호. 분석 화면 라이선스 최적화 패널과 같은 근거.
-      { label: '미사용 라이선스 회수 후보 (비용 절감)', count: licOpt.under.length, href: '/ai/insights', tone: 'warn' },
+      { label: '미사용 라이선스 회수 후보 (비용 절감)', count: licOpt.under.length, href: '/inventory/contracts?lic=under', tone: 'warn' },
       // 라이선스 배정 밖 설치 — EDR 설치 인벤토리 대사(STEP2)에서 배정 좌석 없이 설치된 무단 사용. SAM 감사·법적 노출 리스크(좌석 배정 또는 제거 대상).
       { label: '라이선스 배정 밖 설치 (무단 사용 · SAM 리스크)', count: buildLicenseUsage().totalOffSeat, href: '/inventory/contracts', tone: 'err' },
       // 미설치 좌석 — 좌석은 배정됐으나 설치가 관측되지 않은 자산. 배정 밖 설치(위험)의 반대편 = 회수 대상 낭비 좌석(비용 절감).
