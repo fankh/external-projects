@@ -112,7 +112,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
       </Card>
 
       <Card kicker="Unauthorized Software · Channel 04 (EDR)" title="미인가 SW — 설치 SW 정책 위반" pad={false}>
-        <UnauthorizedSwTable items={s.unauthorizedSw} canAct={canAccount} />
+        <UnauthorizedSwTable items={s.unauthorizedSw} canAct={canAccount} openOnly={open === 'sw'} />
       </Card>
 
       <Card kicker="SW Policy · Allowlist" title={`SW 예외 승인 목록 (화이트리스트) — ${s.swAllowlist.length}종`} pad={false}>
@@ -120,7 +120,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
       </Card>
 
       <Card kicker="Removable Media · Channel 04 (EDR)" title="USB 저장매체 — 이동식 매체 정책 위반(DLP)" pad={false}>
-        <UsbTable items={s.usbFindings} canAct={canAccount} />
+        <UsbTable items={s.usbFindings} canAct={canAccount} openOnly={open === 'usb'} />
       </Card>
 
       <Card kicker="Local VM · Channel 04 (EDR)" title="로컬 가상머신 — 엔드포인트 VM 정책 위반" pad={false}>

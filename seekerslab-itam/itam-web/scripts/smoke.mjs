@@ -2138,6 +2138,15 @@ try {
   check("정례 리포트 기한 경과 큐: 건수 = 기한 도래만 보기 표시 건수", repDueQueue > 0 && repDueQueue === repDueShown, `큐 ${repDueQueue} · 표시 ${repDueShown}`)
   const repAll = cardShown(await (await get('/ai/reports', 'ASSET_MGR')).text(), '자동 생성 스케줄')
   check("리포트 스케줄: 필터 없이 열면 정상 주기 항목까지 표시(필터 실효 확인)", repAll > repDueShown, `전체 ${repAll} · 기한 도래 ${repDueShown}`)
+  // 미인가 SW·USB 큐도 같은 계열 — 조치 완료분까지 쌓이는 표를 통째로 열던 것을 미조치만 보기로 연다.
+  const swHtml = await (await get('/discovery/found?open=sw', 'SEC_MGR')).text()
+  const usbHtml = await (await get('/discovery/found?open=usb', 'SEC_MGR')).text()
+  const swShown = cardShown(swHtml, '미인가 SW — 설치 SW 정책 위반')
+  const usbShown = cardShown(usbHtml, 'USB 저장매체 — 이동식 매체 정책 위반')
+  const swQueue = secQueueCount('미인가 SW 미조치 (EDR 정책 위반)')
+  const usbQueue = secQueueCount('USB 정책 위반 미조치 (이동식 매체 DLP)')
+  check("미인가 SW 큐: 건수 = 미조치만 보기 표시 건수", swQueue > 0 && swQueue === swShown, `큐 ${swQueue} · 표시 ${swShown}`)
+  check("USB 위반 큐: 건수 = 미조치만 보기 표시 건수", usbQueue > 0 && usbQueue === usbShown, `큐 ${usbQueue} · 표시 ${usbShown}`)
 
   // 분석 패널로만 보내던 두 큐 — 교체 대상·미사용 라이선스는 대장(?replace=1)·계약 화면(?lic=under)에 같은 판정의
   //  필터가 이미 있는데도 /ai/insights 로만 보내, 큐가 말한 14건·2건을 화면에서 다시 찾아야 했다(패널은 상위 N만 보여 준다).
