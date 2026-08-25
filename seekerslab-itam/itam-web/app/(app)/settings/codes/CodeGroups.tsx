@@ -84,9 +84,12 @@ export function CodeGroups({ groups, usage }: { groups: CodeGroup[]; usage: Reco
                           </>
                         ) : (
                           <>
-                            <button className="btn sm ghost" disabled={pending}
+                            {/* 참조가 있는 사용 중 코드는 서버가 미사용 전환·명칭 변경을 모두 거절한다(참조는 label 로 저장되므로).
+                                버튼을 살려 두면 눌러야 막히는 컨트롤이 된다 — 화면이 같은 판정으로 잠그고 사유를 title 로 밝힌다. */}
+                            <button className="btn sm ghost" disabled={pending || (v.active && used > 0)}
+                              title={v.active && used > 0 ? `${used}건이 참조 중 — 명칭 변경 불가(참조 이관 후 변경)` : undefined}
                               onClick={() => { setEditCode(v.code); setEditLabel(v.label); setMsg(null) }}>수정</button>
-                            <button className="btn sm" disabled={pending}
+                            <button className="btn sm" disabled={pending || (v.active && used > 0)}
                               title={v.active && used > 0 ? `${used}건이 참조 중 — 이관 후 미사용 전환 가능` : undefined}
                               onClick={() => startTransition(async () => { const r = await toggleCodeValue(sel.id, v.code); setMsg(r?.message ?? null) })}>
                               {v.active ? '미사용' : '사용'}

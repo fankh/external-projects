@@ -2034,6 +2034,16 @@ try {
     expSrc.includes("'NAC 격리'") && expSrc.includes("a.quarantinedAt") && cardSrc.includes("a.quarantinedAt"),
     `엑셀 열=${expSrc.includes("'NAC 격리'")} 카드=${cardSrc.includes("a.quarantinedAt")}`)
 
+  // 공통코드도 같은 규약 — 참조가 있는 사용 중 코드는 서버가 미사용 전환·명칭 변경을 모두 거절한다.
+  //  화면이 그 판정을 모르면 눌러야 막히는 버튼을 계속 내준다(참조 수는 이미 화면이 알고 있다).
+  const codesViewSrc = readFileSync(path.join(ROOT, "app", "(app)", "settings", "codes", "CodeGroups.tsx"), "utf8")
+  const codesActionsSrc = readFileSync(path.join(ROOT, "app", "(app)", "settings", "actions.ts"), "utf8")
+  check("공통코드: 참조 있는 코드의 컨트롤을 화면이 잠근다(서버 가드와 같은 판정)",
+    codesViewSrc.includes("disabled={pending || (v.active && used > 0)}")
+    && codesActionsSrc.includes("사용 중인 코드는 미사용 전환할 수 없습니다")
+    && codesActionsSrc.includes("사용 중인 코드는 명칭을 바꿀 수 없습니다"),
+    `화면 잠금=${codesViewSrc.includes("disabled={pending || (v.active && used > 0)}")}`)
+
   // 조용한 거절 금지(입고 검수) — 서버가 값 없이 거절하면 화면은 거절 사실을 알 수 없어, 눌러도 아무 일이
   //  없는 체크박스를 계속 내준다. 검수 토글은 사유가 있는 응답을 돌려주고, 화면은 같은 판정으로 잠근다.
   const intakeSrc = readFileSync(path.join(ROOT, "app", "(app)", "assets", "intake", "actions.ts"), "utf8")
