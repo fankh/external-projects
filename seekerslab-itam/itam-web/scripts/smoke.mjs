@@ -462,6 +462,20 @@ try {
   const discFilt = await (await get('/api/export/discovered?state=' + encodeURIComponent('미등록') + '&risk=' + encodeURIComponent('높음'), 'SEC_MGR'))
   const discFiltTxt = Buffer.from(await discFilt.arrayBuffer()).toString('utf8')
   check('발견 자산: 반출이 대사상태·위험도 필터 반영 (미등록·높음만)', discFilt.status === 200 && discFiltTxt.includes('DSC-2607-0046') && !discFiltTxt.includes('DSC-2607-0029'))
+  // 발견 자산 엑셀은 CMDB 대사 표 하나만 담고 있었다 — 같은 화면에서 판정한 다섯 조치 표(계정 위생·미인가 SW·
+  //  USB·로컬 VM·클라우드 거버넌스)가 감사 제출본에서 통째로 빠져, 화면에서 내린 판정이 문서로 남지 않았다.
+  const discXlsx = Buffer.from(await (await get('/api/export/discovered', 'SEC_MGR')).arrayBuffer()).toString('utf8')
+  const discSheets = ['계정 위생 — 휴면 계정', '미인가 SW', 'USB 정책 위반', '로컬 VM 위반', '미관리 클라우드 리소스']
+  check('발견 자산 엑셀: 다섯 조치 표 시트 반출 (감사 제출본)',
+    discSheets.every((n) => discXlsx.includes(n)), `누락=${discSheets.filter((n) => !discXlsx.includes(n)).join(', ')}`)
+  // 시트 이름만이 아니라 판정 자체가 실려야 한다 — 검출 행과 조치 상태(미조치 포함)·정책 근거를 확인한다.
+  check('발견 자산 엑셀: 조치 표의 검출 행·조치 상태 반출',
+    discXlsx.includes('svc-legacy-batch') && discXlsx.includes('USB-01') && discXlsx.includes('LVM-02') && discXlsx.includes('CLD-2607-02') && discXlsx.includes('미조치'))
+  check('발견 자산 엑셀: 유형별 정책 근거 반출 (판정 사유가 문서에 남는다)',
+    discXlsx.includes('지원 종료·미패치 게스트 OS') && discXlsx.includes('개인 액세스키'))
+  // 다섯 표는 화면에서도 대사상태·위험도 필터를 받지 않는다 — 필터를 걸어도 그대로 실려야 화면과 일치한다.
+  check('발견 자산 엑셀: 대사 필터를 걸어도 조치 표는 전량 반출(화면과 같은 범위)',
+    discFiltTxt.includes('USB-01') && discFiltTxt.includes('CLD-2607-04'))
   // 휴면 계정(loop46) — 채널 06(AD/IdP·SSO) 계정 위생. 검출에서 끝내지 않고 보안담당이 비활성화·소유자 확인으로 조치.
   check('발견 자산: 휴면 계정 계정 위생 카드 렌더', foundHtml.includes('휴면 계정') && foundHtml.includes('svc-legacy-batch') && foundHtml.includes('계정 위생'))
   check('발견 자산: 보안담당에 휴면 계정 조치(비활성화·소유자 확인) 노출', foundHtml.includes('비활성화') && foundHtml.includes('소유자 확인'))

@@ -4,7 +4,7 @@ import { buildLicenseUsage } from './license-usage'
 import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { contractAssetCount, getStore } from './store'
-import { ASSET_CATEGORIES, IDLE_POOL_STATUSES, type PermMenu, type Role } from './types'
+import { ASSET_CATEGORIES, CLOUD_POLICY, IDLE_POOL_STATUSES, LOCALVM_POLICY, UNAUTH_SW_POLICY, USB_POLICY, type PermMenu, type Role } from './types'
 import type { Sheet } from './xlsx'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
@@ -177,6 +177,34 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         header: ['관측ID', '발견ID', '채널', '호스트명', 'IP', 'MAC', '관측시각', '내용'],
         // 필터된 발견 자산의 관측만 (반출이 화면과 일치)
         rows: s.observations.filter((o) => discIds.has(o.discoveredId)).map((o) => [o.id, o.discoveredId, o.channel, o.hostname, o.ip, o.mac, o.seenAt, o.detail]),
+      },
+      // 발견 화면의 다섯 조치 표도 함께 반출한다 — 그동안 이 엑셀은 CMDB 대사 표 하나만 담아,
+      //  화면에서 판정한 계정 위생·미인가 SW·USB·로컬 VM·클라우드 거버넌스 위반이 감사 제출본에서 통째로 빠졌다.
+      //  (이 다섯 표는 화면에서도 채널·대사상태·위험도 필터를 받지 않으므로 전량을 담아 화면과 일치한다.)
+      {
+        name: '계정 위생 — 휴면 계정',
+        header: ['검출ID', '계정', '표시명', '부서', '유형', '최근 로그인', '소스', '위험도', '조치', '조치자', '조치일', '비고'],
+        rows: s.accounts.map((a) => [a.id, a.account, a.displayName, a.dept, a.kind, a.lastLogin, a.source, a.risk, a.action ?? '미조치', a.actedBy ?? '', a.actedAt ?? '', a.note ?? '']),
+      },
+      {
+        name: '미인가 SW',
+        header: ['검출ID', 'SW', '버전', '자산번호', '보유자', '부서', '유형', '정책 근거', '검출', '최초검출', '위험도', '조치', '조치자', '조치일', '비고'],
+        rows: s.unauthorizedSw.map((w) => [w.id, w.name, w.version ?? '', w.assetNo, w.owner, w.dept, w.kind, UNAUTH_SW_POLICY[w.kind], w.detectedBy, w.firstSeen, w.risk, w.action ?? '미조치', w.actedBy ?? '', w.actedAt ?? '', w.note ?? '']),
+      },
+      {
+        name: 'USB 정책 위반',
+        header: ['검출ID', '매체', '자산번호', '보유자', '부서', '유형', '정책 근거', '검출', '최초검출', '위험도', '조치', '조치자', '조치일', '비고'],
+        rows: s.usbFindings.map((u) => [u.id, u.device, u.assetNo, u.owner, u.dept, u.kind, USB_POLICY[u.kind], u.detectedBy, u.firstSeen, u.risk, u.action ?? '미조치', u.actedBy ?? '', u.actedAt ?? '', u.note ?? '']),
+      },
+      {
+        name: '로컬 VM 위반',
+        header: ['검출ID', 'VM', '게스트 OS', '실행 자산', '보유자', '부서', '유형', '정책 근거', '검출', '최초검출', '위험도', '조치', '조치자', '조치일', '비고'],
+        rows: s.localVms.map((v) => [v.id, v.vm, v.guestOs, v.assetNo, v.owner, v.dept, v.kind, LOCALVM_POLICY[v.kind], v.detectedBy, v.firstSeen, v.risk, v.action ?? '미조치', v.actedBy ?? '', v.actedAt ?? '', v.note ?? '']),
+      },
+      {
+        name: '미관리 클라우드 리소스',
+        header: ['검출ID', '리소스', 'CSP · 리전', '계정 · 구독', '소유자', '부서', '유형', '정책 근거', '검출', '최초검출', '위험도', '조치', '조치자', '조치일', '비고'],
+        rows: s.cloudFindings.map((c) => [c.id, c.resource, c.provider, c.account, c.owner, c.dept, c.kind, CLOUD_POLICY[c.kind], c.detectedBy, c.firstSeen, c.risk, c.action ?? '미조치', c.actedBy ?? '', c.actedAt ?? '', c.note ?? '']),
       },
     ]
   }
