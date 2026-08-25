@@ -3957,6 +3957,34 @@ try {
     chipN > 0 && chipAfter === chipN && chipCnt === chipN && chipAfter < chipBefore)
   await ctxChip.close()
 
+  // 저장된 뷰(신규) — 뷰는 "그때 좁혀 본 집합"을 이름으로 되살린다. 저장은 켜져 있던 필터를 담아야 하고,
+  //  적용은 그 상태로 덮어써야 한다(다른 필터가 남아 있으면 같은 이름이 매번 다른 목록을 연다).
+  const ctxViews = await browser.newContext(); await ctxViews.addCookies([cookie(ASSET)]); const pViews = await ctxViews.newPage()
+  await pViews.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const viewRiskChip = pViews.locator('button', { hasText: /복합 위험 \d+/ }).first()
+  const viewRiskN = Number((/복합 위험 (\d+)/.exec((await viewRiskChip.textContent()) || '') || [])[1] ?? 0)
+  await viewRiskChip.click(); await pViews.waitForTimeout(300)
+  await pViews.locator('button', { hasText: /현재 필터 저장/ }).first().click()
+  await pViews.locator('input[placeholder*="뷰 이름"]').fill('e2e-복합위험뷰')
+  await pViews.locator('button', { hasText: /^저장$/ }).first().click()
+  await pViews.waitForTimeout(400)
+  await viewRiskChip.click(); await pViews.waitForTimeout(300) // 필터 해제 — 전체 목록으로
+  const viewAllRows = await pViews.locator('tbody tr.clickable').count()
+  await pViews.locator('button', { hasText: /^e2e-복합위험뷰$/ }).first().click()
+  await pViews.waitForTimeout(400)
+  const viewAppliedRows = await pViews.locator('tbody tr.clickable').count()
+  ok(`저장된 뷰: 저장 당시 필터(복합 위험 ${viewRiskN}건)가 적용으로 되살아난다 (전체 ${viewAllRows} → ${viewAppliedRows})`,
+    viewRiskN > 0 && viewAppliedRows === viewRiskN && viewAllRows > viewAppliedRows)
+  // 적용은 덮어쓰기 — 켜 둔 다른 필터가 남지 않는다(뷰 이름이 약속한 집합 그대로).
+  await pViews.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await pViews.locator('button', { hasText: /운영 자산만/ }).first().click()
+  await pViews.waitForTimeout(300)
+  await pViews.locator('button', { hasText: /^e2e-복합위험뷰$/ }).first().click()
+  await pViews.waitForTimeout(400)
+  const viewOverrideRows = await pViews.locator('tbody tr.clickable').count()
+  ok(`저장된 뷰: 적용이 다른 필터를 덮어쓴다(운영 자산만 켠 뒤 적용해도 ${viewRiskN}건)`, viewOverrideRows === viewRiskN)
+  await ctxViews.close()
+
   // 문서 API 매트릭스 게이트(신규) — 화면 가드(requireView)는 권한 매트릭스의 조회 칸을 보는데,
   //  인쇄 문서 API(자산 카드·인수인계서·대여 확인서·라벨·계약/라이선스 카드…)는 역할만 봤다.
   //  조회를 회수해도 같은 데이터가 인쇄 문서로 그대로 나갔다(화면은 막혔는데 API 는 열린 상태).

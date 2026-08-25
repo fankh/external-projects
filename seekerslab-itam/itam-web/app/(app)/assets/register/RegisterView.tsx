@@ -23,7 +23,16 @@ function daysBetween(today: string, dueDate: string): number {
  *  유형으로 등록된 자산은 계속 조회돼야 하기 때문이다. 실사 위치 드롭다운처럼 값을 새로
  *  기록하는 입력 항목은 반대로 활성 코드만 읽는다. */
 const VIEWS_KEY = 'itam-register-views'
-type SavedView = { name: string; q: string; cat: string; status: string; staleOnly: boolean; warrantyOnly: boolean; dqOnly?: boolean; eolOnly?: boolean; critOnly?: boolean }
+/** 저장된 뷰 — 이름이 가리키는 집합을 그대로 되살려야 한다. 화면 필터가 늘 때 여기에 넣지 않으면
+ *  (1) 좁혀 본 조건이 저장되지 않고 (2) 뷰를 적용해도 켜져 있던 다른 필터가 남아, 같은 이름이 매번 다른 목록을 연다.
+ *  예전 뷰(필드 없음)는 false 로 읽어 하위 호환을 유지한다. */
+type SavedView = {
+  name: string; q: string; cat: string; status: string
+  staleOnly: boolean; warrantyOnly: boolean
+  dqOnly?: boolean; eolOnly?: boolean; critOnly?: boolean; maintOnly?: boolean; spofOnly?: boolean
+  impactOnly?: boolean; replaceOnly?: boolean; riskOnly?: boolean; receiptOnly?: boolean
+  loanExtOnly?: boolean; loanRetOnly?: boolean; liveOnly?: boolean
+}
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 const STATUSES: (AssetStatus | '전체')[] = ['전체', '검수중', '사용중', '유휴', '대여중', '반납대기', '수리중', '분실', '폐기예정', '폐기완료']
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
@@ -67,14 +76,23 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     setViews(next)
     try { localStorage.setItem(VIEWS_KEY, JSON.stringify(next)) } catch { /* quota */ }
   }
+  // 뷰 적용은 저장된 값으로 필터 전체를 덮어쓴다 — 일부만 세팅하면 켜져 있던 나머지 필터가 남아
+  //  뷰 이름이 약속한 집합과 다른 목록이 열린다(적용 = 그 뷰의 상태로 되돌아가기).
   const applyView = (v: SavedView) => {
     setQ(v.q); setCat(v.cat as AssetCategory | '전체'); setStatus(v.status as AssetStatus | '전체')
-    setStaleOnly(v.staleOnly); setWarrantyOnly(v.warrantyOnly); setDqOnly(Boolean(v.dqOnly)); setEolOnly(Boolean(v.eolOnly)); setCritOnly(Boolean(v.critOnly))
+    setStaleOnly(Boolean(v.staleOnly)); setWarrantyOnly(Boolean(v.warrantyOnly)); setDqOnly(Boolean(v.dqOnly))
+    setEolOnly(Boolean(v.eolOnly)); setCritOnly(Boolean(v.critOnly)); setMaintOnly(Boolean(v.maintOnly))
+    setSpofOnly(Boolean(v.spofOnly)); setImpactOnly(Boolean(v.impactOnly)); setReplaceOnly(Boolean(v.replaceOnly))
+    setRiskOnly(Boolean(v.riskOnly)); setReceiptOnly(Boolean(v.receiptOnly)); setLoanExtOnly(Boolean(v.loanExtOnly))
+    setLoanRetOnly(Boolean(v.loanRetOnly)); setLiveOnly(Boolean(v.liveOnly))
   }
   const saveCurrentView = () => {
     const name = viewName.trim()
     if (!name) return
-    const v: SavedView = { name, q, cat, status, staleOnly, warrantyOnly, dqOnly, eolOnly, critOnly }
+    const v: SavedView = {
+      name, q, cat, status, staleOnly, warrantyOnly, dqOnly, eolOnly, critOnly, maintOnly, spofOnly,
+      impactOnly, replaceOnly, riskOnly, receiptOnly, loanExtOnly, loanRetOnly, liveOnly,
+    }
     persistViews([...views.filter((x) => x.name !== name), v])
     setNaming(false); setViewName('')
   }
