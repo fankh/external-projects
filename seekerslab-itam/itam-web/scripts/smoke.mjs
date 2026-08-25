@@ -1815,6 +1815,29 @@ try {
   check(`필터 재계산: 화면 필터 ${onlyStates.length}개가 모두 목록 메모 의존성에 포함`,
     memoDeps.length > 0 && depMissing.length === 0, `누락=${depMissing.join(", ")}`)
 
+  // 데이터 API 도 권한 매트릭스를 본다 — 화면 가드(requireView)는 매트릭스 조회 칸을 보는데 인쇄 문서·리포트 API 가
+  //  역할만 보면, 조회를 회수한 뒤에도 같은 데이터가 문서로 그대로 나간다(실제로 12곳이 그랬다).
+  //  스토어를 읽는 API 라우트는 매트릭스 판정(can·canExport·canViewMenu) 중 하나를 반드시 거쳐야 한다.
+  //  면제는 화면 매핑 자체가 없는 두 곳뿐이다(연동 화면은 ROUTE_MENU 에 없어 매트릭스 조회 칸이 존재하지 않는다).
+  const apiExempt = ["audit-export", "dispatch-export"]
+  const apiRoutes = []
+  const walkApi = (dir) => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, ent.name)
+      if (ent.isDirectory()) walkApi(p)
+      else if (ent.name === "route.ts") apiRoutes.push(p)
+    }
+  }
+  walkApi(path.join(ROOT, "app", "api"))
+  const apiUngated = apiRoutes
+    .map((p) => ({ rel: path.relative(ROOT, p).split(path.sep).join("/"), src: readFileSync(p, "utf8") }))
+    .filter((r) => r.src.includes("getStore") || r.src.includes("buildSheets"))
+    .filter((r) => !apiExempt.some((e) => r.rel.includes(e)))
+    .filter((r) => !new RegExp("\\b(can|canExport|canViewMenu)\\(").test(r.src))
+    .map((r) => r.rel)
+  check(`API 매트릭스 게이트: 스토어를 읽는 라우트 ${apiRoutes.length}개가 모두 매트릭스 판정을 거친다`,
+    apiUngated.length === 0, `미적용=${apiUngated.join(", ")}`)
+
   // 손 떠난 자산 판정 단일화 — 계약 커버리지(contractAssetCount)·재배치 풀(availableAssets)·예정 일정(upcomingSchedule)은
   //  모두 "분실·폐기예정·폐기완료는 뺀다"는 같은 규칙을 쓴다. 한 곳만 상태 목록을 직접 적으면(예전 아젠다가 폐기 두 상태만 뺐다)
   //  같은 자산이 한 화면에선 살아 있고 다른 화면에선 빠지는 갈림이 생긴다. 세 모듈이 GONE_STATUSES 를 참조하는지 본다.
