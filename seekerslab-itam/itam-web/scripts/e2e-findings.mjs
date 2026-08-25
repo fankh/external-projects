@@ -3923,6 +3923,25 @@ try {
   ok('문서 API 게이트: 조회 복원 시 다시 200(과잉 차단 아님)',
     ((await docCell.textContent()) || '').includes('✓') && (await docCardStatus()) === 200)
   await ctxDocB.close(); await ctxDocA.close()
+
+  // 리포트 열람 API 도 같은 규약(신규) — 결재 첨부 링크로 리포트 전문이 나가는 경로다.
+  //  AI 어시스턴트 조회를 회수하면 화면(/ai/reports)은 막히는데 API 는 그대로 열려 있었다.
+  const ctxRepA = await browser.newContext(); await ctxRepA.addCookies([cookie(ADMIN)]); const pRepA = await ctxRepA.newPage()
+  const ctxRepB = await browser.newContext(); await ctxRepB.addCookies([cookie(ASSET)]); const pRepB = await ctxRepB.newPage()
+  await pRepB.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
+  const repApiHref = (await pRepB.locator('a[href^="/api/reports/"]').first().getAttribute('href')) || ''
+  const repApiStatus = async () => (await pRepB.request.get(`${BASE}${repApiHref}`)).status()
+  ok('리포트 API 게이트(양성 대조): 조회 권한이 있으면 리포트 열람 200', repApiHref !== '' && (await repApiStatus()) === 200)
+  await pRepA.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
+  const repMatrixRow = pRepA.locator('tr', { has: pRepA.locator('td.strong', { hasText: 'AI 어시스턴트' }) }).first()
+  const repMatrixCell = repMatrixRow.locator('td').nth(8) // 자산담당 × 조회
+  for (let k = 0; k < 4 && !((await repMatrixCell.textContent()) || '').includes('·'); k++) { await repMatrixCell.click(); await pRepA.waitForTimeout(700) }
+  ok('리포트 API 게이트: 조회 회수 시 리포트 열람도 403(화면 가드와 같은 집합)',
+    ((await repMatrixCell.textContent()) || '').includes('·') && (await repApiStatus()) === 403)
+  await repMatrixCell.click(); await pRepA.waitForTimeout(800) // 복원
+  ok('리포트 API 게이트: 조회 복원 시 다시 200(과잉 차단 아님)',
+    ((await repMatrixCell.textContent()) || '').includes('✓') && (await repApiStatus()) === 200)
+  await ctxRepB.close(); await ctxRepA.close()
   // 폐기 절차 불변식 — 상태가 '폐기예정'인 자산은 반드시 폐기 건(disposals)이 있어야 한다. 지금은 폐기예정으로
   //  바꾸는 8개 경로가 저마다 `if (!s.disposals.some(...)) push` 를 적어 지키고 있을 뿐, 이를 확인하는 검사가 없었다.
   //  한 경로가 빠뜨리면 그 자산은 폐기예정인데 폐기 화면에 없어 결재·소거로 나아갈 수 없다(상태만 종착, 절차는 없음).
