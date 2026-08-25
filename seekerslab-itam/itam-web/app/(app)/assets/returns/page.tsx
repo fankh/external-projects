@@ -11,7 +11,9 @@ import { ReturnsView } from './ReturnsView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ReturnsPage() {
+export default async function ReturnsPage({ searchParams }: { searchParams: Promise<{ loan?: string; repair?: string }> }) {
+  // loan=연체|임박 · repair=overdue — 대시보드 대여·수리 큐의 드릴다운(해당 필터를 켠 채 연다).
+  const { loan, repair } = await searchParams
   const session = await requireView('/assets/returns', 'ASSET_MGR', 'ADMIN')
   const s = getStore()
 
@@ -46,7 +48,7 @@ export default async function ReturnsPage() {
       const last = [...a.history].reverse().find((h) => h.kind === '반납' || h.kind === '수리')
       // 보증 내 자산은 제조사 보증 수리(무상) 대상 — 유상 수리비를 지불하지 않도록 안내한다
       const warranty = a.warrantyEnd !== '-' && a.warrantyEnd >= today()
-      return { assetNo: a.assetNo, model: a.model, category: a.category, location: a.location, note: last?.detail ?? '', faultNote: a.faultNote, repair: a.repair, warranty }
+      return { assetNo: a.assetNo, model: a.model, category: a.category, location: a.location, note: last?.detail ?? '', faultNote: a.faultNote, repair: a.repair, warranty, repairOverdue: isRepairOverdue(a) }
     })
 
   // 대여 현황 — 반출(대여중) 자산을 한 곳에 모아 반환 기한·연체를 관리한다. 그동안 대여 반환·연장은
@@ -103,7 +105,7 @@ export default async function ReturnsPage() {
         <Stat value={warrantySaved > 0 ? `${warrantySaved.toLocaleString()}원` : '0'} label="보증 절감 (무상 청구)" tone={warrantySaved > 0 ? 'ok' : undefined} delta={{ text: '제조사 보증 수리 비용 회피', dir: 'flat' }} />
       </div>
 
-      <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} repairRemindable={repairRemindable} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} />
+      <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} repairRemindable={repairRemindable} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} initialLoan={loan === '연체' || loan === '임박' ? loan : undefined} initialRepairOverdue={repair === 'overdue'} />
 
       {repairVendors.length > 0 && (
         <Card kicker="Vendor Scorecard" title="수리 업체 성과" pad={false}>

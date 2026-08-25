@@ -2026,9 +2026,11 @@ try {
   // 만료 창(60일)이 대시보드·계약 화면에도 일관 반영된다(하드코딩 90 제거)
   await p3.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('운영 정책 다운스트림: 대시보드 만료 임박 라벨 60일', (await p3.textContent('body')).includes('계약·라이선스 60일') && !(await p3.textContent('body')).includes('계약·라이선스 90일'))
-  // 대여 반환 독촉 큐는 독촉 액션이 있는 반납·유휴 화면으로 연결된다(라벨과 링크 정합)
+  // 대여 반환 독촉 큐는 독촉 액션이 있는 반납·유휴 화면으로 연결되고, 큐가 센 집합(연체)만 여는 필터를 켠다
+  //  (라벨·링크·목록 건수 정합 — 예전에는 필터 없이 대여 현황 전체를 열어 연체 건을 눈으로 찾아야 했다).
   const loanQueueHref = await p3.locator('a', { hasText: '대여 반환 연체' }).first().getAttribute('href')
-  ok('대시보드: 대여 반환 독촉 큐 → 반납·유휴(독촉 액션) 연결', loanQueueHref === '/assets/returns')
+  ok('대시보드: 대여 반환 독촉 큐 → 반납·유휴 화면의 연체 필터 연결',
+    (loanQueueHref || '').startsWith('/assets/returns') && decodeURIComponent(loanQueueHref || '').includes('loan=연체'))
   // 최근 공지 위젯(Main/Home 공지 요약) — 발행 공지를 필독 우선·최신순으로 노출하고 게시판으로 연결한다
   const noticeCard = p3.locator('.card', { has: p3.locator('*', { hasText: /^최근 공지$/ }) }).first()
   ok('대시보드: 최근 공지 위젯 노출', (await noticeCard.count()) > 0)

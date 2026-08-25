@@ -2206,6 +2206,26 @@ try {
   const seatHtml = await (await get('/inventory/contracts?seat=unused', 'ASSET_MGR')).text()
   check("계약 화면 드릴다운: 미설치 좌석 큐가 회수 후보만 여는 필터로 연결",
     dashMgr.includes('/inventory/contracts?seat=unused') && seatHtml.includes('미설치 좌석(회수 후보) 필터'))
+  // 반납·수리 화면의 세 큐(대여 연체·반환 임박·수리 예상 반환 경과)도 정상 건까지 함께 보여 주는 표를 통째로
+  //  열던 것을 해당 필터를 켠 채 연다. 판정은 큐·독촉과 같은 lib/dates 에서 온다.
+  const retPairs = [
+    ['대여 반환 연체 (반환 독촉)', 'loan=' + encodeURIComponent('연체'), '대여 현황'],
+    ['대여 반환 임박 (D-7 · 사전 안내)', 'loan=' + encodeURIComponent('임박'), '대여 현황'],
+    ['수리 예상 반환 경과 (업체 독촉)', 'repair=overdue', '수리 대기'],
+  ]
+  const retBad = []
+  let retChecked = 0
+  for (const [label, qs, cardTitle] of retPairs) {
+    const want = queueCount(label)
+    // 대상이 0 이면 대시보드가 큐 자체를 내지 않는다(시드에 반환 임박 대여가 없다) — 검사 대상에서 제외한다.
+    if (want < 0) continue
+    retChecked++
+    const html = await (await get(`/assets/returns?${qs}`, 'ASSET_MGR')).text()
+    const shown = cardShown(html, cardTitle)
+    if (want !== shown) retBad.push(`${label}: 큐 ${want} ≠ 표시 ${shown}`)
+  }
+  check(`반납·수리 큐: 건수 = 필터 화면 표시 건수(${retChecked}종)`, retBad.length === 0 && retChecked >= 2, retBad.join(" / ") || `검사한 큐 ${retChecked}종`)
+
   // 외부 위협 네 큐(유출·크리덴셜·IOC·외부 노출)도 조치 완료분까지 쌓이는 표를 통째로 열던 것을 미조치만 보기로 연다.
   const extPairs = [
     ['유출 · 침해 미조치', 'leaks', '위협 인텔리전스 · 유출 수집'],
