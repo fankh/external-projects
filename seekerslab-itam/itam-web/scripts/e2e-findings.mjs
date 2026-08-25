@@ -3575,10 +3575,18 @@ try {
   //  이 스위트 앞부분이 실제로 대응을 눌러 통지를 쌓아 두므로, 그 ref 들이 링크로 렌더되는지 확인한다.
   const ctxRL = await browser.newContext(); await ctxRL.addCookies([cookie(SEC)]); const pRL = await ctxRL.newPage()
   await pRL.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
-  const rlExternal = await pRL.locator('a[href="/discovery/external"]').count()
-  const rlFound = await pRL.locator('a[href="/discovery/found"]').count()
-  ok('발송 이력 딥링크: 외부 위협 ref(크리덴셜·IOC·노출)가 외부 위협 화면으로 연결', rlExternal > 0)
-  ok('발송 이력 딥링크: 발견 채널 ref(계정·미인가 SW·USB·로컬 VM)가 발견 화면으로 연결', rlFound > 0)
+  //  두 화면 모두 표를 여러 개 쌓아 두므로 링크는 해당 표의 '미조치만 보기'를 켠 채 열어야 한다 —
+  //  화면 맨 위로만 보내면 통지가 가리킨 그 건을 스크롤해 찾아야 했다.
+  const rlExternal = await pRL.locator('a[href^="/discovery/external?open="]').count()
+  const rlFound = await pRL.locator('a[href^="/discovery/found?open="]').count()
+  ok('발송 이력 딥링크: 외부 위협 ref(크리덴셜·IOC·노출)가 해당 표 필터로 연결', rlExternal > 0)
+  ok('발송 이력 딥링크: 발견 채널 ref(계정·미인가 SW·USB·로컬 VM)가 해당 표 필터로 연결', rlFound > 0)
+  // 여는 표가 실제로 화면이 아는 값이어야 한다 — 오타 하나면 필터 없는 화면으로 조용히 떨어진다.
+  //  (CMDB 대사 표는 ?state= 를 쓰므로 DSC- ref 의 필터 없는 링크는 정상이다 — 여기서 세지 않는다.)
+  const rlOpens = new Set((await pRL.locator('a[href*="?open="]').evaluateAll((els) => els.map((e) => e.getAttribute('href') || '')))
+    .map((h) => h.split('?open=')[1]))
+  const rlKnown = ['accounts', 'sw', 'usb', 'localvm', 'cloud', 'exposure', 'creds', 'ioc', 'leaks']
+  ok('발송 이력 딥링크: 여는 표 이름이 모두 화면이 아는 값', [...rlOpens].every((v) => rlKnown.includes(v)))
   await ctxRL.close()
   // 리포트 반출 감사 — 리포트 전문(감사 대응 자료·부서별 비용·취약점 우선순위)은 고정 URL 로 내려받아도 흔적이 없었다.
   //  대장·감사 로그·발송 이력 반출은 "누가 무엇을 몇 건 받았는지"를 남기는데 리포트만 빠져 있었다(결재 첨부 근거 문서로도 쓰인다).

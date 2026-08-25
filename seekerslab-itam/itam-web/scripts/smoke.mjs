@@ -2202,6 +2202,29 @@ try {
   const cloudQueue = secQueueCount('미관리 클라우드 리소스 미조치 (태그·소유·회수 · SAM/거버넌스)')
   check("미관리 클라우드 큐: 건수 = 미조치만 보기 표시 건수", cloudQueue > 0 && cloudQueue === cloudShown, `큐 ${cloudQueue} · 표시 ${cloudShown}`)
   check("미관리 클라우드 큐: 링크가 미조치만 보기를 켠 채 연다", dashSec.includes('/discovery/found?open=cloud'))
+  // 통지·감사 로그의 참조 ID 딥링크(lib/reflink)도 같은 필터를 켠 채 연다 — 표를 다섯·네 개씩 쌓은 화면으로
+  //  그냥 보내면 통지가 가리킨 그 건을 스크롤해 찾아야 한다. 여기서는 reflink 가 적어 둔 ?open= 값이 화면이
+  //  실제로 알아듣는 값인지 확인한다(한쪽만 이름을 바꾸면 링크가 조용히 필터 없는 화면으로 떨어진다).
+  const reflinkSrc = readFileSync(path.join(ROOT, 'lib', 'reflink.ts'), 'utf8')
+  const opensOf = (constName) => {
+    const at = reflinkSrc.indexOf(constName)
+    if (at === -1) return []
+    const line = reflinkSrc.slice(at, reflinkSrc.indexOf(String.fromCharCode(10), at))
+    return [...line.matchAll(/: '([a-z]+)'/g)].map((m) => m[1])
+  }
+  const openBad = []
+  for (const [screen, constName] of [['/discovery/found', 'FOUND_TABLE'], ['/discovery/external', 'EXTERNAL_TABLE']]) {
+    const opens = opensOf(constName)
+    if (opens.length === 0) { openBad.push(`${constName} 매핑 없음`); continue }
+    for (const v of opens) {
+      const html = (await (await get(`${screen}?open=${v}`, 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+      if (!html.includes('✓ 미조치만')) openBad.push(`${screen}?open=${v}`)
+    }
+  }
+  check('통지 딥링크: reflink 의 ?open= 값이 모두 화면이 아는 값(미조치 필터가 켜진다)', openBad.length === 0, `안 먹는 값=${openBad.join(', ')}`)
+  // 양성 대조 — 알 수 없는 값이면 어떤 표도 필터되지 않는다(위 검사가 무조건 통과하는 게 아님을 보인다).
+  const bogusOpen = (await (await get('/discovery/found?open=nope', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  check('통지 딥링크: 알 수 없는 ?open= 값은 어떤 표도 필터하지 않는다(대조)', !bogusOpen.includes('✓ 미조치만'))
   // CMDB 대사 화면의 상태별 건수 ↔ 발견 처리 화면 드릴다운 — 대사 표가 "미등록 8건"이라 말하면 그 링크가 여는
   //  목록도 8건이어야 한다. 두 화면이 각자 집계하므로(대사는 s.discovered 직접, 발견 화면은 필터 상태) 조용히 갈릴 수 있다.
   const recPlain = (await (await get('/discovery/reconcile', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
