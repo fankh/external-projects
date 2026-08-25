@@ -1443,6 +1443,11 @@ try {
   // 대여 연장 요청 대기 대시보드 큐(자산담당) — 사용자 연장 요청이 통보만으로 놓치지 않게 대시보드에도 뜬다. pU 가 방금 AST-2024-000230 에 요청했다.
   await p3.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('대시보드(자산담당): 대여 연장 요청 대기 큐 노출', ((await p3.textContent('body')) || '').includes('대여 연장 요청 대기'))
+  // 대여 대장 반출에도 대기 중 요청이 실려야 한다 — 화면·대시보드 큐는 연장 요청·반납 신청을 드러내는데
+  //  엑셀에는 없어, 반출본으로 일하는 담당자는 이미 접수된 요청을 모른 채 반환 독촉을 보내게 된다(같은 자산에 두 소리).
+  const loansXlsx = Buffer.from(await (await p3.request.get(`${BASE}/api/export/loans`)).body()).toString('utf8')
+  ok('대여 대장 엑셀: 대기 중 요청 열에 연장 요청·요청 기한 반출', loansXlsx.includes('대기 중 요청') && loansXlsx.includes(`연장 요청 (${extWanted})`))
+  ok('대여 대장 엑셀(음성 대조): 요청 없는 대여 자산엔 대기 중 요청이 붙지 않는다(요청 표기 1건)', loansXlsx.includes('AST-2024-000995') && loansXlsx.split('연장 요청 (').length - 1 === 1)
   // 상단 KPI 카드 드릴다운(대시보드=업무 허브) — 지표 클릭이 상세 화면으로 이어진다(미등록 신규 발견 KPI 와 동형). 그전엔 총 등록·만료 임박·결재 대기가 dead-end.
   ok('대시보드 KPI: 총 등록 자산 → 자산 대장 드릴다운', (await p3.locator('a[href="/assets/register"]', { hasText: '총 등록 자산' }).count()) > 0)
   ok('대시보드 KPI: 만료 임박 → 계약·라이선스 드릴다운', (await p3.locator('a[href="/inventory/contracts"]', { hasText: '만료 임박' }).count()) > 0)
