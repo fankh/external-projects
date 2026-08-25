@@ -11,8 +11,10 @@ import { SaasEscalateButton } from './SaasEscalateButton'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SaasCatalogPage() {
+export default async function SaasCatalogPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const session = await requireView('/settings/saas-catalog', 'SEC_MGR', 'ADMIN')
+  // status=review — 대시보드 '미판정 SaaS' 큐의 드릴다운(검토 대기만 보기로 연다).
+  const { status: statusParam } = await searchParams
   const s = getStore()
   const c = s.saasCatalog
   const review = buildSaasReview()
@@ -50,7 +52,7 @@ export default async function SaasCatalogPage() {
       )}
 
       <Card kicker="Catalog" title="서비스 목록 · 판정" pad={false}>
-        <CatalogTable entries={c} today={today()} slaDays={review.slaDays} approveNeedsApproval={requiresApproval('SaaS 인가')} />
+        <CatalogTable entries={c} today={today()} slaDays={review.slaDays} approveNeedsApproval={requiresApproval('SaaS 인가')} reviewOnly={statusParam === 'review'} />
       </Card>
     </>
   )
