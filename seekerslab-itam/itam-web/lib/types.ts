@@ -251,6 +251,11 @@ export const HELD_STATUSES = ['사용중', '대여중', '검수중'] as const
  *  한 화면에선 재배치 대기로 세고 다른 화면·리포트에선 빠지는 갈림이 생긴다(GONE_STATUSES 와 같은 규약). */
 export const IDLE_POOL_STATUSES: AssetStatus[] = ['유휴', '반납대기']
 
+/** 저하된 수집 커넥터 — 수집이 밀리거나 끊긴 상태. Discovery 의 입력이 줄어 화면 전체가 조용히 과소 집계되므로
+ *  재연동 대상으로 본다. 대시보드 큐는 지연·오류를 함께 세는데 연동 화면 KPI 는 지연만 세어, 같은 개념이 두 곳에서
+ *  다른 수로 보였다 — 한 묶음으로 고정한다(GONE_STATUSES 와 같은 규약). */
+export const DEGRADED_CONNECTOR_STATUSES: Integration['status'][] = ['지연', '오류']
+
 /** 위험도 기준(취약점 우선순위 임계값) — 보안담당이 관리하는 조치 우선순위 판정 기준.
  *  자산 중요도 × 노출도 점수(0~100)를 P1/P2/P3 로 나누는 컷오프. (제품안내서 §01 역할: 보안담당 — 위험도 기준 관리, §05 취약점 우선순위) */
 export interface RiskPolicy {
