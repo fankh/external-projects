@@ -15,7 +15,7 @@ const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고
 
 type Pending = { assetNo: string; model: string; owner: string; dept: string; location: string; since: string }
 type Idle = { assetNo: string; model: string; category: string; location: string; idleDays: number | null }
-type Repairing = { assetNo: string; model: string; category: string; location: string; note: string; warranty?: boolean; faultNote?: string; repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number } }
+type Repairing = { assetNo: string; model: string; category: string; location: string; note: string; warranty?: boolean; faultNote?: string; repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number }; /** 예상 반환 경과(미회신 포함) — 대시보드 업체 독촉 큐와 같은 lib/dates 판정을 서버가 계산해 넘긴다 */ repairOverdue?: boolean }
 type Loan = { assetNo: string; model: string; owner: string; dept: string; dueDate: string; dday: number | null; overdue: boolean; returnRequested?: boolean }
 
 export function ReturnsView(props: {
@@ -34,6 +34,10 @@ export function ReturnsView(props: {
   locations: string[]
   /** 배정 대기 중인 자산 신청 수 — 재배치 우선 원칙의 근거 */
   openRequests: number
+  /** 대시보드 대여 큐의 드릴다운 — '연체'·'임박' 필터를 켠 채 연다 */
+  initialLoan?: '전체' | '연체' | '임박'
+  /** 대시보드 수리 업체 독촉 큐의 드릴다운 — 예상 반환 경과만 보기로 연다 */
+  initialRepairOverdue?: boolean
 }) {
   const [cond, setCond] = useState<Record<string, ReturnCondition>>({})
   const [loc, setLoc] = useState<Record<string, string>>({})
@@ -46,6 +50,17 @@ export function ReturnsView(props: {
   const [ext, setExt] = useState<Record<string, string>>({})
   const [lcond, setLcond] = useState<Record<string, ReturnCondition>>({}) // 대여 반환 상태 점검
   const [msg, setMsg] = useState<string | null>(null)
+  // 대시보드 큐(대여 연체·반환 임박·수리 예상 반환 경과)의 드릴다운 — 표는 정상 건까지 함께 보여 주므로
+  //  큐가 말한 건수를 화면에서 다시 세어야 했다. 판정은 큐·독촉과 같은 lib/dates(overdue·dday)에서 온다.
+  const [loanFilter, setLoanFilter] = useState<'전체' | '연체' | '임박'>(props.initialLoan ?? '전체')
+  const [repairOverdueOnly, setRepairOverdueOnly] = useState(Boolean(props.initialRepairOverdue))
+  const loanOverdueCount = props.loans.filter((l) => l.overdue).length
+  const loanSoonCount = props.loans.filter((l) => !l.overdue && l.dday !== null && l.dday <= 7).length
+  const shownLoans = loanFilter === '연체' ? props.loans.filter((l) => l.overdue)
+    : loanFilter === '임박' ? props.loans.filter((l) => !l.overdue && l.dday !== null && l.dday <= 7)
+    : props.loans
+  const repairOverdueCount = props.repairing.filter((a) => a.repairOverdue).length
+  const shownRepairing = repairOverdueOnly ? props.repairing.filter((a) => a.repairOverdue) : props.repairing
   // 반납 일괄 접수 — 팀 오프보딩·사무실 이전으로 반납대기에 몰린 묶음을 같은 점검 결과·위치로 한 번에 접수(일괄 회수의 짝)
   const [retSel, setRetSel] = useState<Set<string>>(new Set())
   const [bulkCond, setBulkCond] = useState<ReturnCondition>('정상')
@@ -146,13 +161,22 @@ export function ReturnsView(props: {
                 title="예상 반환일이 지났거나 아직 반환 일정을 받지 못한 수리 자산의 업체에 진행·반환 일정 회신을 독촉합니다 (발송 이력·감사)"
                 onClick={() => startTransition(async () => setMsg((await remindRepairs()).message))}>업체 독촉 발송 {props.repairRemindable}건</button>
             : undefined}>
+          {repairOverdueCount > 0 && (
+            <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--line)' }}>
+              <button className={`btn sm ${repairOverdueOnly ? 'err' : 'ghost'}`} onClick={() => setRepairOverdueOnly((r) => !r)}
+                title="예상 반환일이 지난 수리만 — 대시보드 업체 독촉 큐와 같은 집합">
+                {repairOverdueOnly ? '✓ ' : ''}예상 반환 경과만 {repairOverdueCount}
+              </button>
+              <span className="mut" style={{ fontSize: 12 }}>{shownRepairing.length} / {props.repairing.length}건</span>
+            </div>
+          )}
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
                 <tr><th>자산번호</th><th>모델</th><th>수리 의뢰 (업체·예상반환·견적)</th><th>수리 메모</th><th className="c">처리</th></tr>
               </thead>
               <tbody>
-                {props.repairing.map((a) => (
+                {shownRepairing.map((a) => (
                   <tr key={a.assetNo}>
                     <td className="tnum">{a.assetNo}<div className="dim" style={{ fontSize: 11 }}>{a.category} · {a.location}</div>
                       {a.warranty && <Chip tone="ok" bare>보증 수리 (무상)</Chip>}</td>
@@ -226,6 +250,17 @@ export function ReturnsView(props: {
             : undefined
         }
       >
+        {(loanOverdueCount > 0 || loanSoonCount > 0) && (
+          <div className="hstack" style={{ gap: 8, padding: '10px 14px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--line)' }}>
+            {([['전체', props.loans.length], ['연체', loanOverdueCount], ['임박', loanSoonCount]] as const).map(([k, n]) => (
+              <button key={k} className={`btn sm ${loanFilter === k ? (k === '연체' ? 'err' : k === '임박' ? 'warn' : 'pri') : 'ghost'}`}
+                onClick={() => setLoanFilter(k)} title={k === '연체' ? '반환 기한이 지난 대여만 — 대시보드 연체 큐·반환 독촉과 같은 집합' : k === '임박' ? '반환 기한 D-7 이내(연체 전) 대여만 — 대시보드 사전 안내 큐와 같은 집합' : '전체 대여'}>
+                {loanFilter === k ? '✓ ' : ''}{k} {n}
+              </button>
+            ))}
+            <span className="mut" style={{ fontSize: 12 }}>{shownLoans.length} / {props.loans.length}건</span>
+          </div>
+        )}
         {props.loans.length === 0 ? (
           <div className="empty">대여 중인 자산이 없습니다. 자산 대장·대여 신청 결재에서 유휴 자산을 반환 기한과 함께 대여하면 여기에 표시됩니다.</div>
         ) : (
@@ -235,7 +270,7 @@ export function ReturnsView(props: {
                 <tr><th>자산</th><th>대여자</th><th className="c">반환 기한</th><th className="c">D-day</th><th>기한 연장</th><th className="c">반환</th></tr>
               </thead>
               <tbody>
-                {props.loans.map((l) => {
+                {shownLoans.map((l) => {
                   const dd = l.dday
                   const tone = l.overdue ? 'err' : dd !== null && dd <= 7 ? 'warn' : 'neutral'
                   const label = dd === null ? '기한 없음' : l.overdue ? `연체 ${-dd}일` : dd === 0 ? '오늘 만기' : `D-${dd}`
