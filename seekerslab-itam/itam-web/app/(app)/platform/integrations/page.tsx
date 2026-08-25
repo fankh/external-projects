@@ -8,8 +8,10 @@ import { NotificationLog } from './NotificationLog'
 
 export const dynamic = 'force-dynamic'
 
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({ searchParams }: { searchParams: Promise<{ dispatch?: string }> }) {
   const session = await requireView('/platform/integrations', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  // 대시보드 재발송 큐(?dispatch=failed)의 드릴다운 — 큐가 말한 실패 건만 열어 준다.
+  const { dispatch: dispatchParam } = await searchParams
   const s = getStore()
   const canManage = ['SEC_MGR', 'ADMIN'].includes(session.role)
   const live = s.integrations.filter((i) => i.status !== '미연동')
@@ -61,7 +63,7 @@ export default async function IntegrationsPage() {
         시간 임계 조치는 상세 근거를 이메일로, 즉시 알림을 <span className="chip warn bare">문자</span>로 이중 발송해 야간·현장 대응 지연을 줄입니다. 두 발송 모두 발송 이력에 남습니다.
       </div>
 
-      <NotificationLog dispatches={s.dispatches} canExport={canManage} canManage={canManage} role={session.role} openable={openableRoutes(session.role)} />
+      <NotificationLog dispatches={s.dispatches} canExport={canManage} canManage={canManage} role={session.role} openable={openableRoutes(session.role)} deliveryParam={dispatchParam} />
 
       <div className="cols c2">
         <div className="callout"><b>인증.</b> SAML 기반 SSO — 그룹웨어 IdP 어설션으로 로그인하며, 부여된 메뉴·기능만 렌더링됩니다.</div>

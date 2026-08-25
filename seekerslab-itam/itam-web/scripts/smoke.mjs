@@ -2082,6 +2082,27 @@ try {
     if (want < 0 || want !== got) drillBad.push(`${label}: 큐 ${want} ≠ 표시 ${got}`)
   }
   check("계약 화면 드릴다운: 유지보수 큐 건수 = 필터 화면 표시 건수", drillBad.length === 0, drillBad.join(" / "))
+  // 알림 전달 실패 큐 — 재발송 대상 건만 열어야 한다. 그동안 이력 화면 맨 위로만 보내, 긴 발송 이력에서
+  //  실패 건을 눈으로 찾아야 했다(전달 상태 필터 자체가 없었다). 반출본도 같은 필터를 받는다.
+  const dispFailHtml = await (await get('/platform/integrations?dispatch=failed', 'SEC_MGR')).text()
+  // 감사 로그 카드도 같은 형태의 "N / M건"을 적으므로 알림 발송 이력 카드 이후 구간에서 찾는다.
+  const dispPlain = dispFailHtml.replace(/<!-- -->/g, "")
+  const dispCardAt = dispPlain.indexOf("알림 발송 이력")
+  const dispShown = Number((new RegExp("([0-9]+) \/ ([0-9]+)건").exec(dispCardAt === -1 ? "" : dispPlain.slice(dispCardAt)) || [])[1] ?? -1)
+  // 이 큐는 보안 운영 큐라 자산담당 대시보드에는 없다 — 보안담당 대시보드에서 읽는다.
+  const dashSec = await (await get('/dashboard', 'SEC_MGR')).text()
+  const secQueueCount = (label) => {
+    const at = dashSec.indexOf(label)
+    if (at === -1) return -1
+    const chip = /<span class="chip[^"]*">(?:<!-- -->)*([0-9]+)/.exec(dashSec.slice(at, at + 900))
+    return chip ? Number(chip[1]) : -1
+  }
+  const dispQueue = secQueueCount('알림 전달 실패 (재발송 필요)')
+  check("알림 전달 실패 큐: 건수 = 필터 화면 표시 건수", dispQueue > 0 && dispQueue === dispShown, `큐 ${dispQueue} · 표시 ${dispShown}`)
+  check("알림 발송 이력: 전달 실패 필터 컨트롤 렌더(재발송 대상 좁히기)", dispFailHtml.includes('전달 실패'))
+  const dispXlsx = Buffer.from(await (await get('/api/dispatch-export?delivery=' + encodeURIComponent('실패'), 'SEC_MGR')).arrayBuffer()).toString('utf8')
+  check("알림 발송 이력 반출: 전달 상태 필터 반영(화면과 같은 집합)", dispXlsx.includes('전달 상태') && !dispXlsx.includes('발송 완료'))
+
   // 분석 패널로만 보내던 두 큐 — 교체 대상·미사용 라이선스는 대장(?replace=1)·계약 화면(?lic=under)에 같은 판정의
   //  필터가 이미 있는데도 /ai/insights 로만 보내, 큐가 말한 14건·2건을 화면에서 다시 찾아야 했다(패널은 상위 N만 보여 준다).
   const licUnderHtml = await (await get('/inventory/contracts?lic=under', 'ASSET_MGR')).text()
