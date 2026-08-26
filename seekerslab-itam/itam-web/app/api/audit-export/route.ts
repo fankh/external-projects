@@ -1,4 +1,4 @@
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, forbidden } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -11,7 +11,7 @@ import { buildXlsx, type Sheet } from '@/lib/xlsx'
 export async function GET(req: Request) {
   const session = await getSession()
   if (!session) return new Response('Unauthorized', { status: 401 })
-  if (!['SEC_MGR', 'ADMIN'].includes(session.role)) return new Response('Forbidden', { status: 403 })
+  if (!['SEC_MGR', 'ADMIN'].includes(session.role)) return forbidden(session.name, '권한 밖 반출 시도 — 감사 로그', '/api/audit-export')
 
   const sp = new URL(req.url).searchParams
   const q = (sp.get('q') ?? '').trim().toLowerCase()

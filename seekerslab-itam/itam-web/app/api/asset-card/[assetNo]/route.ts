@@ -1,3 +1,4 @@
+import { forbidden } from '@/lib/audit'
 import { assetDependencies } from '@/lib/cmdb'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
 import { daysUntil, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today, warrantyState } from '@/lib/dates'
@@ -17,10 +18,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const { assetNo } = await params
   const a = getStore().assets.find((x) => x.assetNo === assetNo)
   if (!a) return new Response('Not Found', { status: 404 })
-  if (session.role === 'USER' && a.owner !== session.name) return new Response('Forbidden', { status: 403 })
+  if (session.role === 'USER' && a.owner !== session.name) return forbidden(session.name, '권한 밖 문서 발급 시도 — 자산 카드', '/api/asset-card')
   // 매트릭스 '조회'도 만족해야 한다 — 화면(requireView)은 매트릭스를 보는데 문서 API 가 역할만 보면,
   //  조회 권한을 회수한 뒤에도 인쇄 문서로 같은 데이터가 그대로 나간다(화면은 막혔는데 API 는 열린 상태).
-  if (!can('자산 대장', '조회', session.role)) return new Response('Forbidden', { status: 403 })
+  if (!can('자산 대장', '조회', session.role)) return forbidden(session.name, '권한 밖 문서 발급 시도 — 자산 카드', '/api/asset-card')
 
   const qr = await qrSvg(a.assetNo, 120)
   // 반환 기한 꼬리표 — 대여 확인서와 같은 문구 규약(연체 N일 · 오늘 만기 · D-N).

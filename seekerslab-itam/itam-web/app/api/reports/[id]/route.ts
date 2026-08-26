@@ -1,4 +1,4 @@
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
 import { toCsv, toMarkdown, toSheets } from '@/lib/reports'
@@ -16,10 +16,10 @@ export async function GET(
   //  퇴사 정리표·라이선스 카드)은 이미 나누는데 이 셋만 미로그인을 403 으로 뭉뚱그려, 호출자가 '로그인하라'와
   //  '너는 안 된다'를 구분할 수 없었다.
   if (!session) return new Response('Unauthorized', { status: 401 })
-  if (session.role === 'USER') return new Response('Forbidden', { status: 403 })
+  if (session.role === 'USER') return forbidden(session.name, '권한 밖 문서 발급 시도 — 리포트 열람', '/api/reports')
   // 매트릭스 'AI 어시스턴트 × 조회'도 만족해야 한다 — 리포트 화면(/ai/reports)은 매트릭스를 보는데
   //  열람 API 가 역할만 보면, 조회를 회수한 뒤에도 결재 첨부 링크로 리포트 전문이 그대로 나간다(문서 API 와 같은 규약).
-  if (!can('AI 어시스턴트', '조회', session.role)) return new Response('Forbidden', { status: 403 })
+  if (!can('AI 어시스턴트', '조회', session.role)) return forbidden(session.name, '권한 밖 문서 발급 시도 — 리포트 열람', '/api/reports')
 
   const { id } = await params
   const report = getStore().reports.find((r) => r.id === id)

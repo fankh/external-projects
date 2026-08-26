@@ -1,4 +1,4 @@
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, forbidden } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { EXPORT_KINDS, EXPORT_META, buildSheets, canExport, type ExportKind } from '@/lib/exports'
 import { getSession } from '@/lib/session'
@@ -13,7 +13,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
   const { kind } = await params
   if (!EXPORT_KINDS.includes(kind as ExportKind)) return new Response('Not Found', { status: 404 })
   const k = kind as ExportKind
-  if (!canExport(k, session.role)) return new Response('Forbidden', { status: 403 })
+  // 반출 거부도 감사에 남긴다 — '누가 어떤 대장을 권한 밖에서 내려받으려 했는가'는 감사 질문 그 자체다
+  if (!canExport(k, session.role)) return forbidden(session.name, `권한 밖 반출 시도 — ${EXPORT_META[k].label}`, `/api/export/${k}`)
 
   // 자산 대장은 화면 필터(검색·유형)를 쿼리로 받아 반영한다 (다른 종류는 무시)
   const sp = new URL(req.url).searchParams

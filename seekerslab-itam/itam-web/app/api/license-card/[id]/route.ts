@@ -1,3 +1,4 @@
+import { forbidden } from '@/lib/audit'
 import { daysUntil, fmtAmount } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -8,10 +9,10 @@ import { getStore } from '@/lib/store'
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session) return new Response('Unauthorized', { status: 401 })
-  if (!['ASSET_MGR', 'ADMIN'].includes(session.role)) return new Response('Forbidden', { status: 403 })
+  if (!['ASSET_MGR', 'ADMIN'].includes(session.role)) return forbidden(session.name, '권한 밖 문서 발급 시도 — 라이선스 카드', '/api/license-card')
   // 매트릭스 '조회'도 만족해야 한다 — 화면(requireView)은 매트릭스를 보는데 문서 API 가 역할만 보면,
   //  조회 권한을 회수한 뒤에도 인쇄 문서로 같은 데이터가 그대로 나간다(화면은 막혔는데 API 는 열린 상태).
-  if (!can('계약 · 라이선스', '조회', session.role)) return new Response('Forbidden', { status: 403 })
+  if (!can('계약 · 라이선스', '조회', session.role)) return forbidden(session.name, '권한 밖 문서 발급 시도 — 라이선스 카드', '/api/license-card')
 
   const { id } = await params
   const l = getStore().licenses.find((x) => x.id === id)

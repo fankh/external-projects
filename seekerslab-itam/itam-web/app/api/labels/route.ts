@@ -1,4 +1,4 @@
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, forbidden } from '@/lib/audit'
 import { barcodeSvg, qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -9,10 +9,12 @@ import { getStore } from '@/lib/store'
  *  단건은 /api/label/[assetNo], 선택 여러 건 재발행은 이 경로(선택 라벨 일괄 인쇄). */
 export async function GET(req: Request) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return new Response('Forbidden', { status: 403 })
+  // 미로그인(401)과 권한 밖(403)을 나눈다 — 신원이 없으면 감사에 남길 수행자가 없고, 호출자도 '로그인하면 되는지'를 구분해야 한다
+  if (!session) return new Response('Unauthorized', { status: 401 })
+  if (session.role === 'USER') return forbidden(session.name, '권한 밖 문서 발급 시도 — 자산 라벨 일괄', '/api/labels')
   // 매트릭스 '조회'도 만족해야 한다 — 화면(requireView)은 매트릭스를 보는데 문서 API 가 역할만 보면,
   //  조회 권한을 회수한 뒤에도 인쇄 문서로 같은 데이터가 그대로 나간다(화면은 막혔는데 API 는 열린 상태).
-  if (!can('자산 대장', '조회', session.role)) return new Response('Forbidden', { status: 403 })
+  if (!can('자산 대장', '조회', session.role)) return forbidden(session.name, '권한 밖 문서 발급 시도 — 자산 라벨 일괄', '/api/labels')
 
   const nos = (new URL(req.url).searchParams.get('nos') ?? '').split(',').map((v) => v.trim()).filter(Boolean)
   if (nos.length === 0) return new Response('자산번호(nos)를 지정하세요.', { status: 400 })
