@@ -1,4 +1,5 @@
 import { getStore } from './store'
+import { hasPartialScope, PERM_ACTIONS } from './types'
 import type { PermAction, PermMenu, Role } from './types'
 
 /** 기능 단위 권한 조회 — 매트릭스는 **필요조건**이다.
@@ -12,11 +13,16 @@ export function can(menu: PermMenu, action: PermAction, role: Role): boolean {
   if (!row) return false
   const idx = PERM_ACTIONS.indexOf(action)
   if (idx < 0) return false
-  // 'p'(부분)는 본인 범위 한정 허용 — 조회 스코핑은 각 화면이 따로 처리한다
-  return row.cells[role]?.[idx] !== 'n'
+  const cell = row.cells[role]?.[idx]
+  if (cell === 'n') return false
+  // 'p'(부분)는 본인 범위 한정 허용 — 스코핑은 각 화면·반출이 따로 처리한다(PARTIAL_SCOPES).
+  //  구현이 없는 칸에 'p' 가 남아 있으면(이 가드 이전에 저장된 스냅샷) 허용과 구분되지 않아 전사가 열린다 —
+  //  권한은 보수적으로 읽어 불가로 판정한다. 지정 자체는 setPermission 이 이미 막는다.
+  if (cell === 'p' && !hasPartialScope(menu, action, role)) return false
+  return true
 }
 
-export const PERM_ACTIONS = ['조회', '저장', '삭제', '엑셀', '편입', '격리요청', '결재'] as const
+export { PARTIAL_SCOPES, PERM_ACTIONS, hasPartialScope } from './types'
 
 /** 기능(Action) 사전 — STEP 1 메뉴기능관리. 화면이 제공하는 버튼의 의미와 강제 지점을 정의한다.
  *  메뉴·기능 관리 화면 표시와 엑셀 반출이 같은 정의를 쓰도록 한 곳에 둔다. (제품안내서 §02) */

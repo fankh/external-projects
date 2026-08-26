@@ -1,6 +1,6 @@
 import { Card, ScreenHeader } from '@/components/ui'
 import { requireView } from '@/lib/authz'
-import { isLocked, PERM_ACTIONS } from '@/lib/perm'
+import { hasPartialScope, isLocked, PARTIAL_SCOPES, PERM_ACTIONS } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 import type { Role } from '@/lib/types'
 import { MatrixEditor } from './MatrixEditor'
@@ -25,6 +25,12 @@ export default async function PermissionsPage() {
     return PERM_ACTIONS.filter((a) => !def.actions.includes(a)).map((a) => `${r.menu}|${a}`)
   })
   const roles: Role[] = ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']
+  // '본인(부분)'을 줄 수 있는 칸 — 범위를 좁히는 구현이 있는 칸만. 나머지 칸에서 'p' 는 허용과 구분되지 않으므로
+  //  순환에서 아예 건너뛴다(허용 → 불가). 구현 목록은 lib/perm.ts PARTIAL_SCOPES 하나뿐이다.
+  const partial = rows.flatMap((r) =>
+    roles.flatMap((role) => PERM_ACTIONS.filter((act) => hasPartialScope(r.menu, act, role)).map((act) => `${r.menu}|${act}|${role}`)),
+  )
+  const partialScope = Object.fromEntries(partial.map((k) => [k, PARTIAL_SCOPES[k]]))
   const locked = rows.flatMap((r) =>
     roles.flatMap((role) => PERM_ACTIONS.filter((a) => isLocked(r.menu, a, role)).map((a) => `${r.menu}|${a}|${role}`)),
   )
@@ -55,13 +61,16 @@ export default async function PermissionsPage() {
       </div>
 
       <Card kicker="Permission Matrix" title="권한그룹 × 메뉴 · 기능 매트릭스" pad={false}>
-        <MatrixEditor rows={rows} actions={PERM_ACTIONS} enforced={ENFORCED} locked={locked} na={NA} />
+        <MatrixEditor rows={rows} actions={PERM_ACTIONS} enforced={ENFORCED} locked={locked} na={NA} partial={partial} partialScope={partialScope} />
         <div className="callout" style={{ margin: 14 }}>
-          <b>칸을 클릭해 변경합니다</b> (허용 → 본인 → 불가). <u>밑줄</u> 친 칸은 서버가 직접 강제하는 권한이며,
+          <b>칸을 클릭해 변경합니다</b> (허용 → 불가). <u>밑줄</u> 친 칸은 서버가 직접 강제하는 권한이며,
           회수하면 버튼이 사라질 뿐 아니라 API 직접 호출도 막힙니다. 나머지 칸은 선언된 정책으로 화면 가드가 구현합니다.
           <br />
           매트릭스는 <b>필요조건</b>이라 권한을 켜도 코드의 규칙(결재 종류별 담당, 본인 자산 범위)을 넘지 못하며,
           Admin 의 권한·정책 조회/저장은 🔒 잠겨 있어 스스로를 화면 밖으로 밀어낼 수 없습니다. 변경은 감사 로그에 남습니다.
+          <br />
+          <b>본인 범위</b>는 실제로 범위를 좁히는 구현이 있는 {partial.length}칸에서만 선택됩니다 — 나머지 칸의 <b>본인</b> 은
+          허용과 구분되지 않아(전사 조회·전사 엑셀 반출) 순환에서 제외했습니다. 칸에 마우스를 올리면 좁혀지는 범위가 보입니다.
         </div>
       </Card>
     </>

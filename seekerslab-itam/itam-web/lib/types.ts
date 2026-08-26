@@ -1023,6 +1023,9 @@ export const SCAN_INTERVALS = ['실시간', '1분', '5분', '15분', '30분', '1
  *  'y'=허용 · 'n'=불가 · 'p'=부분(본인 범위 한정) */
 export type PermCell = 'y' | 'n' | 'p'
 export type PermAction = '조회' | '저장' | '삭제' | '엑셀' | '편입' | '격리요청' | '결재'
+
+/** 매트릭스 cells 배열의 기능 순서 — 저장된 칸 배열의 i 번째가 어느 기능인지를 정하는 유일한 정의 */
+export const PERM_ACTIONS = ['조회', '저장', '삭제', '엑셀', '편입', '격리요청', '결재'] as const
 export type PermMenu =
   | '대시보드' | '자산 대장' | '수명주기' | '재고 · 재물조사' | '계약 · 라이선스'
   | '발견 자산 · CMDB 대사' | 'Shadow SaaS' | 'AI 어시스턴트' | '신청 · 결재' | '권한 · 정책'
@@ -1217,4 +1220,28 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   text: string
   evidence?: { label: string; href: string }[]
+}
+
+/** '부분(p)' 이 실제로 범위를 좁히는 칸 — 키는 `메뉴|기능|권한그룹`, 값은 그 범위와 강제 지점이다.
+ *
+ *  매트릭스 화면은 어느 칸이든 허용 → 본인 → 불가로 순환시켰지만, '본인 범위 한정'을 구현한 곳은
+ *  아래 다섯 칸뿐이었다. 구현이 없는 칸에 '본인'을 넣으면 can() 이 'n' 이 아니라는 이유로 통과시켜
+ *  **허용(y)과 똑같이** 동작한다 — 관리자는 범위를 좁혔다고 믿는데 실제로는 전사가 열린다.
+ *  특히 엑셀 칸이 위험하다: buildSheets 는 자산 대장·신청 결재 두 종만 본인 범위로 거르므로,
+ *  나머지 여덟 종은 '본인'을 줘도 전사 데이터가 그대로 xlsx 로 반출된다.
+ *  (ROUTE_MENU 주석의 '표시만 되고 강제되지 않는 정책'과 같은 종류의 구멍이다.)
+ *
+ *  그래서 구현이 없는 칸에는 '본인'을 아예 주지 못하게 막고(setPermission 이 거부, 화면은 순환에서 건너뜀),
+ *  범위를 좁히려면 여기에 구현과 함께 칸을 등록하도록 한다. */
+export const PARTIAL_SCOPES: Record<string, string> = {
+  '자산 대장|조회|USER': '본인 보유 자산만 — app/(app)/assets/register/page.tsx 가 owner 로 거른다',
+  '자산 대장|엑셀|USER': '본인 보유 자산만 — lib/exports.ts buildSheets(assets)',
+  'AI 어시스턴트|조회|USER': '본인 보유 자산 범위 안에서만 답변 — app/(app)/ai/assistant/actions.ts',
+  '신청 · 결재|조회|USER': '본인 상신분 + 본인 부서 소유자 확인 건 — app/(app)/workflow/approvals/page.tsx',
+  '신청 · 결재|엑셀|USER': '본인 상신분만 — lib/exports.ts buildSheets(approvals)',
+}
+
+/** 이 칸에 '본인(부분)'을 줄 수 있는가 — 범위를 좁히는 구현이 있는 칸만 참 */
+export function hasPartialScope(menu: PermMenu, action: PermAction, role: Role): boolean {
+  return `${menu}|${action}|${role}` in PARTIAL_SCOPES
 }

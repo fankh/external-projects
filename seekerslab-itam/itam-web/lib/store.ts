@@ -6,11 +6,11 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname } from 'node:path'
 import { addDays, today } from './dates'
 import { checklistFor } from './intake'
-import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, GONE_STATUSES, fingerprintOf } from './types'
+import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, GONE_STATUSES, PERM_ACTIONS, fingerprintOf, hasPartialScope } from './types'
 import type {
   AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CloudFinding, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding, OpsPolicy, RiskPolicy, SwAllowEntry,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
-  ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwInstall, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
+  ReportSchedule, Role, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwInstall, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
 
 export interface Store {
@@ -881,6 +881,16 @@ function loadStore(): Store | null {
     const { __v: _v, ...store } = parsed
     // 최소 정합성 검사 — 깨진 파일이면 시드로 폴백
     if (!Array.isArray(store.assets) || !Array.isArray(store.approvals) || typeof store.seq !== 'number') return null
+    // 구현 없는 칸에 남은 '본인(p)' 정리 — 이 가드가 생기기 전 스냅샷에는 범위를 좁히는 구현이 없는 칸에도
+    //  'p' 가 저장돼 있을 수 있다. can() 은 그런 'p' 를 불가로 읽지만(보수적 판정), 매트릭스 화면은 저장된
+    //  값을 그대로 '본인'으로 그려 '보이는 값 ≠ 실제 판정'이 된다. 로드 시 한 번 불가로 내려 둘을 맞춘다.
+    for (const row of (store.menuPermissions ?? []) as MenuPermission[]) {
+      for (const role of ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'] as Role[]) {
+        row.cells[role]?.forEach((cell: string, i: number) => {
+          if (cell === 'p' && !hasPartialScope(row.menu, PERM_ACTIONS[i], role)) row.cells[role][i] = 'n'
+        })
+      }
+    }
     return store as Store
   } catch {
     return null
