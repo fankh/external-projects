@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, appendDenial } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -10,10 +10,16 @@ import { GONE_STATUSES } from '@/lib/types'
 
 async function guard() {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return null
+  if (!session) return null
   // 매트릭스 '저장' 칸도 필요조건 — 관리자가 회수하면 이 화면의 변경 액션이 모두 막힌다(조회 게이트와 같은 규약).
   //  그전에는 저장·삭제 칸이 어디서도 읽히지 않아 매트릭스에서 빼도 저장이 그대로 됐다(표시만 되는 정책).
-  if (!can('수명주기', '저장', session.role)) return null
+  if (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role)) {
+    // 거부는 감사에 남긴다 — 서버 액션은 화면에서 버튼을 숨겨도 액션 id 로 직접 호출할 수 있다.
+    //  화면 진입·문서 반출 거부는 이미 '결과=실패'로 남는데, 정작 변경을 시도한 기록만 빠져 있었다.
+    //  같은 사람·같은 화면의 반복은 하루 한 건으로 접힌다(lib/audit appendDenial).
+    appendDenial({ actor: session.name, action: '권한 밖 변경 시도 — 수명주기 (저장)', target: '/assets/movement' })
+    return null
+  }
   return session
 }
 

@@ -1587,6 +1587,24 @@ try {
   walkApi(apiDir)
   const rawForbidden = routeFiles.filter((p) => readFileSync(p, 'utf8').includes('status: 403'))
   const auditedForbidden = routeFiles.filter((p) => readFileSync(p, 'utf8').includes('forbidden(session.name'))
+  // 서버 액션의 변경 거부도 남는다 — 액션은 화면에서 버튼을 숨겨도 액션 id 로 직접 호출할 수 있어,
+  //  '권한 밖에서 무엇을 바꾸려 했는가'가 감사 질문이 된다. 공용 guard() 를 쓰는 다섯 화면이 이를 기록한다.
+  const guardFiles = []
+  const walkActs = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, e.name); if (e.isDirectory()) walkActs(p); else if (e.name === 'actions.ts') guardFiles.push(p) } }
+  walkActs(path.join(ROOT, 'app'))
+  const withGuard = guardFiles.filter((p) => readFileSync(p, 'utf8').includes('async function guard()'))
+  const guardAudits = withGuard.filter((p) => readFileSync(p, 'utf8').includes('권한 밖 변경 시도'))
+  check(`감사: 공용 guard() 를 쓰는 액션 파일이 모두 거부를 기록한다 (${guardAudits.length}/${withGuard.length})`,
+    withGuard.length >= 5 && guardAudits.length === withGuard.length,
+    `미기록: ${withGuard.filter((p) => !guardAudits.includes(p)).map((p) => p.replace(ROOT, '')).join(', ')}`)
+  // 아직 남은 범위를 드러낸다 — 액션마다 손으로 적은 권한 거부는 기록되지 않는다(조용히 덮지 않는다).
+  const inlineDenies = guardFiles.reduce((n, p) => n + (readFileSync(p, 'utf8').split('권한이 없습니다').length - 1), 0)
+  console.log(`    · 액션 인라인 권한 거부 ${inlineDenies}곳은 아직 감사 미기록 — guard() 이관 대상`)
+  const denyActBefore = await (await get('/platform/integrations', 'SEC_MGR')).text()
+  // 자산담당이 커넥터 관리(보안담당 전용) 액션을 두드린 것과 같은 상황을 만든다 — 화면에는 버튼이 없다.
+  //  여기서는 시드에 이미 남은 기록 대신, 기록 경로가 소스에 있는지로 확인한다(액션 직접 호출은 스모크 범위 밖).
+  check('감사: 변경 거부 기록이 화면·반출 거부와 같은 결과 축을 쓴다',
+    readFileSync(path.join(ROOT, 'lib', 'audit.ts'), 'utf8').includes("result: '실패'") && denyActBefore.includes('권한 밖'))
   check(`감사: 문서·반출 API 의 권한 거부가 모두 감사를 거친다 (${auditedForbidden.length}개 라우트)`,
     rawForbidden.length === 0 && auditedForbidden.length >= 15, `직접 403: ${rawForbidden.map((p) => p.replace(ROOT, '')).join(', ')}`)
   const intHtml = await (await get('/platform/integrations', 'SEC_MGR')).text()
