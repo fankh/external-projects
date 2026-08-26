@@ -2270,6 +2270,24 @@ try {
   // 등급 칩은 큐가 세는 세 등급을 모두 내준다 — 필터가 P1 만 있으면 P2·P3 는 여전히 12건에서 잘린다.
   check('취약점 우선순위: P1·P2·P3 등급 필터 진입점 노출',
     vulnCard.includes('/ai/insights?tier=p1') && vulnCard.includes('/ai/insights?tier=p2') && vulnCard.includes('/ai/insights?tier=p3'))
+  // 분석 화면의 네 패널이 모두 상위 12건에서 끊긴다 — 잘렸다고 적기만 하고 넘어갈 길이 없으면 그 뒤 항목은
+  //  화면 어디에서도 볼 수 없다. 잘림 안내마다 등급 필터든 전체 목록 링크든 경로가 붙어 있어야 한다.
+  const cutNotes = [...vulnPlain.matchAll(/… 외 [0-9]+[건대]/g)].map((m) => m.index ?? -1)
+  const cutBad = cutNotes.filter((i) => {
+    const after = vulnPlain.slice(i, i + 300)
+    return !(after.includes('전량을 볼 수 있습니다') || after.includes('전체 보기'))
+  })
+  check('분석 패널: 잘림 안내마다 남은 항목으로 가는 길이 있다(조용한 잘림 금지)',
+    cutBad.length === 0, `길 없는 잘림 안내=${cutBad.length}/${cutNotes.length}`)
+  // 이상 탐지도 심각도 필터로 그 등급 전량을 연다(취약점 우선순위와 같은 규약).
+  const anomHtml = (await (await get('/ai/insights?anom=' + encodeURIComponent('높음'), 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  const anomAt = anomHtml.indexOf('이상 자산 행위 탐지 — 평시 프로파일 대비 이탈')
+  const anomCard = anomAt === -1 ? '' : anomHtml.slice(anomAt, anomAt + 20000)
+  const anomShown = Number((new RegExp("이상탐지 · ([0-9]+) \/ ([0-9]+)건").exec(anomCard) || [])[1] ?? -1)
+  check('이상 탐지: 심각도 필터 진입점 노출', anomCard.includes('/ai/insights?anom='))
+  check('이상 탐지: 심각도 필터가 그 등급만 연다(전체보다 작거나 같음)',
+    anomShown >= 0 && anomShown <= (Number((new RegExp("이상탐지 · [0-9]+ \/ ([0-9]+)건").exec(anomCard) || [])[1] ?? -1)),
+    `표시 ${anomShown}`)
   // 재탐지 지연 두 큐 — 화면에는 행마다 배지가 붙지만 몇 건이 밀렸는지 적힌 곳이 없어 큐가 말한 수를
   //  화면에서 대조할 수가 없었다. 이제 두 화면이 같은 판정(lib/scan-policy · lib/easm)으로 지표를 낸다.
   //  Stat 은 값이 라벨보다 먼저 렌더되므로 라벨 앞 구간에서 숫자를 읽는다.
