@@ -1467,7 +1467,10 @@ try {
   ok('대여 대장 엑셀(음성 대조): 요청 없는 대여 자산엔 대기 중 요청이 붙지 않는다(요청 표기 1건)', loansXlsx.includes('AST-2024-000995') && loansXlsx.split('연장 요청 (').length - 1 === 1)
   // 상단 KPI 카드 드릴다운(대시보드=업무 허브) — 지표 클릭이 상세 화면으로 이어진다(미등록 신규 발견 KPI 와 동형). 그전엔 총 등록·만료 임박·결재 대기가 dead-end.
   ok('대시보드 KPI: 총 등록 자산 → 자산 대장 드릴다운', (await p3.locator('a[href="/assets/register"]', { hasText: '총 등록 자산' }).count()) > 0)
-  ok('대시보드 KPI: 만료 임박 → 계약·라이선스 드릴다운', (await p3.locator('a[href="/inventory/contracts"]', { hasText: '만료 임박' }).count()) > 0)
+  // 이 KPI 는 계약과 라이선스를 한 수로 합쳐 세므로 링크도 두 표를 함께 좁히는 필터로 연다 —
+  //  필터 없이 열면 전체 두 표가 나와 KPI 가 말한 수와 목록이 갈린다.
+  ok('대시보드 KPI: 만료 임박 → 계약·라이선스 만료 임박 필터로 드릴다운',
+    (await p3.locator('a[href="/inventory/contracts?expiry=soon"]', { hasText: '만료 임박' }).count()) > 0)
   ok('대시보드 KPI: 결재 대기 → 결재함 드릴다운', (await p3.locator('a[href="/workflow/approvals"]', { hasText: '결재 대기' }).count()) > 0)
   // 대여 연장 요청 큐 드릴다운(count↔destination) — 전체 대여중이 아니라 ?loanext=1(연장 요청 자산만)로 연결. 큐 건수=목록.
   const extHref = await p3.locator('a', { hasText: '대여 연장 요청 대기' }).first().getAttribute('href')

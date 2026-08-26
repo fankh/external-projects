@@ -2404,6 +2404,16 @@ try {
     unguarded.length === 0, `매핑·예외 어디에도 없음=${unguarded.join(', ')}`)
   // 예외 목록이 비어 있으면 위 검사가 '매핑만 확인'으로 조용히 약해진다 — 실제로 쓰이는지 함께 본다.
   check('화면 접근 판정: 예외 목록이 이유와 함께 명시돼 있다', exempt.size > 0)
+  // 만료 임박 KPI 는 계약과 라이선스를 한 수로 합쳐 세는데 화면엔 그 합집합을 여는 필터가 없었다 —
+  //  KPI 를 눌러도 전체 두 표가 열려, 수와 목록이 갈렸다. 이제 두 표를 같은 창으로 함께 좁히고 합계를 적는다.
+  const expHtml = (await (await get('/inventory/contracts?expiry=soon', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const expSum = Number((/합계 ([0-9]+)건/.exec(expHtml) || [])[1] ?? -1)
+  const dashPlainE = dashMgr.replace(/<!-- -->/g, '')
+  const expAt = dashPlainE.indexOf('만료 임박 (계약·라이선스')
+  const expKpi = Number(([...dashPlainE.slice(Math.max(0, expAt - 400), expAt).matchAll(/>([0-9]+)</g)].pop() || [])[1] ?? -1)
+  check("만료 임박 KPI: 수 = 필터 화면이 적는 계약·라이선스 합계",
+    expKpi > 0 && expKpi === expSum, `KPI ${expKpi} · 합계 ${expSum}`)
+  check('만료 임박 KPI: 링크가 두 표를 함께 좁히는 필터로 연다', dashMgr.includes('/inventory/contracts?expiry=soon'))
 
   // 큐 건수 ↔ 드릴다운 목록 일치 — 전수 스윕.
   //  이 세션에 큐마다 손으로 짝을 적어 대조를 걸었는데, 그 방식은 새 큐가 생기면 조용히 빠진다.

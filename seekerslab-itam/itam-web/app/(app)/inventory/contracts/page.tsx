@@ -20,11 +20,20 @@ import { UsageCollect } from './UsageCollect'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string; lic?: string; maint?: string; seat?: string; proc?: string }> }) {
+export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string; lic?: string; maint?: string; seat?: string; proc?: string; expiry?: string }> }) {
   const session = await requireView('/inventory/contracts', 'ASSET_MGR', 'ADMIN')
-  const { sel, lic, maint: maintFilter, seat: seatFilter, proc: procFilter } = await searchParams
+  const { sel, lic, maint: maintFilter, seat: seatFilter, proc: procFilter, expiry: expiryFilter } = await searchParams
+  // ?expiry=soon — 대시보드 '만료 임박' KPI 의 드릴다운. 이 KPI 는 계약과 라이선스를 한 수로 합쳐 세는데
+  //  화면엔 그 합집합을 여는 필터가 없어(계약 표·라이선스 표가 따로다) KPI 를 눌러도 전체 두 표가 열렸다.
+  //  두 표를 같은 창(운영 정책 expiryWindowDays)으로 함께 좁히고, 합계를 KPI 와 맞댈 수 있게 적는다.
+  const expiryPick = expiryFilter === 'soon'
+  const inWindow = (end: string | undefined) => {
+    const d = end ? daysUntil(end) : null
+    return d !== null && d <= s.opsPolicy.expiryWindowDays
+  }
   const s = getStore()
-  const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
+  const contractsAll = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
+  const contracts = expiryPick ? contractsAll.filter((c) => c.status !== '해지' && inWindow(c.end)) : contractsAll
   const usage = buildLicenseUsage()
   const maint = buildMaintenance()
   // 대시보드 유지보수·좌석 큐의 드릴다운 — 큐가 "SLA 위반 1건"이라 말하면 링크가 여는 화면도 그 1건을 보여야 한다.
@@ -46,6 +55,9 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
     : offSeatPick
       ? usage.rows.filter((r) => r.offSeat.length > 0)
       : usage.rows
+  // 라이선스도 같은 창으로 좁힌다 — 합계 문구가 두 표를 함께 세므로 목록도 함께 좁혀야 수와 목록이 맞는다.
+  const expiringLicenses = s.licenses.filter((l) => l.status !== '해지' && inWindow(l.expiry))
+  const shownLicenses = expiryPick ? expiringLicenses : s.licenses
   const proc = buildProcurement()
   const procPick = procFilter === 'risk'
   const procRows = procPick ? proc.rows.filter((r) => r.atRisk) : proc.rows
@@ -74,6 +86,11 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <ExpiryNoticeButton due={dueCount} />
         </span>}>
         <AddContract />
+        {expiryPick && (
+          <div className="callout" style={{ margin: 14 }}>
+            <b>만료 임박 필터({s.opsPolicy.expiryWindowDays}일 · 경과 포함)</b> — 계약 {contracts.length}건 · 라이선스 {expiringLicenses.length}건 · 합계 {contracts.length + expiringLicenses.length}건 · <Link href="/inventory/contracts">전체 보기</Link>
+          </div>
+        )}
         <ContractsTable rows={contracts.map((c) => ({ ...c, assetCount: contractAssetCount(c.id), d: daysUntil(c.end) }))} sel={sel} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} expiryWindowDays={s.opsPolicy.expiryWindowDays} />
       </Card>
 
@@ -197,7 +214,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
       <Card kicker="License Compliance" title="SW 라이선스 보유 – 사용 대사" pad={false}>
         <AddLicense />
         <LicenseTable
-          rows={s.licenses.map((l) => ({
+          rows={shownLicenses.map((l) => ({
             ...l,
             d: daysUntil(l.expiry),
             // 근거 계약이 해지된 라이선스 — 구독 근거가 사라진 상태(계약 해지 연계 영향 v1.272 의 역방향). 이관·재계약 검토 필요.
