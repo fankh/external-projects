@@ -2284,11 +2284,13 @@ try {
     vulnCard.includes('/ai/insights?tier=p1') && vulnCard.includes('/ai/insights?tier=p2') && vulnCard.includes('/ai/insights?tier=p3'))
   // 대시보드 카드도 상위 몇 건만 보여 주고 나머지는 '외 N건'으로만 알렸다 — 다가오는 일정은 여러 화면에서
   //  모아 만든 목록이라 대신 열 화면이 없고, 내게 온 알림은 발송 이력 화면이 운영 권한이라 사용자에겐 닫혀 있다.
-  const dashPlain = dashMgr.replace(/<!-- -->/g, '')
+  // 자산담당 대시보드에는 시드상 잘림이 없다 — 그 화면만 보면 '0건 검사'로 조용히 통과한다.
+  //  실제로 잘리는 화면(Admin 결재 대기 '외 N건')까지 함께 봐야 이 규약이 검증된다.
+  const dashPlain = (dashMgr + dashAdminHtml).replace(/<!-- -->/g, '')
   const dashCuts = [...dashPlain.matchAll(/외 [0-9]+건/g)].map((m) => m.index ?? -1)
   const dashCutBad = dashCuts.filter((i) => !dashPlain.slice(i, i + 200).includes('전체 보기') && !dashPlain.slice(i, i + 200).includes('결재함에서 전체 처리'))
-  check('대시보드: 잘림 안내마다 남은 항목으로 가는 길이 있다(조용한 잘림 금지)',
-    dashCutBad.length === 0, `길 없는 잘림 안내=${dashCutBad.length}/${dashCuts.length}`)
+  check(`대시보드: 잘림 안내 ${dashCuts.length}건 모두 남은 항목으로 가는 길이 있다(조용한 잘림 금지)`,
+    dashCutBad.length === 0 && dashCuts.length > 0, `길 없는 잘림 안내=${dashCutBad.length}/${dashCuts.length}`)
   // 펼침은 URL 로 받는다 — 딥링크·새로고침이 같은 목록을 연다. 시드에서 잘림이 실제로 일어나는 카드에만
   //  접기 링크를 요구한다(잘리지 않으면 펼칠 것도 없다 — 그 경우는 파라미터가 화면을 깨지 않는지만 본다).
   const dashUpAll = await get('/dashboard?upcoming=all', 'ASSET_MGR')
@@ -2409,8 +2411,11 @@ try {
   const mapped = new Set([...routeMenuBody.matchAll(new RegExp(String.raw`'([/][^']+)':`, 'g'))].map((m) => m[1]))
   const exempt = new Set([...exemptBody.matchAll(new RegExp(String.raw`'([/][^']+)':`, 'g'))].map((m) => m[1]))
   const unguarded = navRoutes.filter((r) => !mapped.has(r) && !exempt.has(r))
-  check('화면 접근 판정: 내비 화면이 모두 매트릭스 매핑 또는 명시적 예외에 있다(조용한 fail open 금지)',
-    unguarded.length === 0, `매핑·예외 어디에도 없음=${unguarded.join(', ')}`)
+  // 내비 화면 수집이 망가지면 대상이 0건이 되어 '어디에도 없음 없음'으로 조용히 통과한다 —
+  //  수집량을 함께 요구해 그 무증상 실패를 막는다(헬스 스위트에서 이스케이프가 깨진 선택자가
+  //  아무것도 매칭하지 않은 채 초록으로 통과한 적이 있다).
+  check(`화면 접근 판정: 내비 화면 ${navRoutes.length}종이 모두 매트릭스 매핑 또는 명시적 예외에 있다(조용한 fail open 금지)`,
+    unguarded.length === 0 && navRoutes.length >= 20, `매핑·예외 어디에도 없음=${unguarded.join(', ')} · 수집 화면 ${navRoutes.length}종`)
   // 예외 목록이 비어 있으면 위 검사가 '매핑만 확인'으로 조용히 약해진다 — 실제로 쓰이는지 함께 본다.
   check('화면 접근 판정: 예외 목록이 이유와 함께 명시돼 있다', exempt.size > 0)
   // 만료 임박 KPI 는 계약과 라이선스를 한 수로 합쳐 세는데 화면엔 그 합집합을 여는 필터가 없었다 —
@@ -2470,7 +2475,7 @@ try {
     const after = vulnPlain.slice(i, i + 300)
     return !(after.includes('전량을 볼 수 있습니다') || after.includes('전체 보기'))
   })
-  check('분석 패널: 잘림 안내마다 남은 항목으로 가는 길이 있다(조용한 잘림 금지)',
+  check(`분석 패널: 잘림 안내 ${cutNotes.length}건 모두 남은 항목으로 가는 길이 있다(조용한 잘림 금지)`,
     cutBad.length === 0, `길 없는 잘림 안내=${cutBad.length}/${cutNotes.length}`)
   // 이상 탐지도 심각도 필터로 그 등급 전량을 연다(취약점 우선순위와 같은 규약).
   const anomHtml = (await (await get('/ai/insights?anom=' + encodeURIComponent('높음'), 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
