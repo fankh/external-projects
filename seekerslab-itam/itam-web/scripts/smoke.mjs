@@ -279,6 +279,7 @@ try {
   // 수리중은 이제 운영·이동 단계로 도달한다(양성 대조 — 단계를 눌러 실제로 그 행이 나오는지).
   const lifeOperate = (await (await get('/assets/lifecycle?phase=operate', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
   check('수명주기 단계: 수리중 자산이 운영·이동 단계에서 열린다', lifeOperate.includes('수리 진행 관리'))
+
   // 수리중 자산 상세 — 수리 의뢰(업체·예상반환·반환 지연) 블록. 대여 블록과 대칭. 시드 AST-2024-000512(중부IT서비스, 예상반환 경과)로 검증
   const regRepairDetail = await (await get('/assets/register?sel=AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 대장: 수리중 상세에 수리 의뢰(업체·반환 지연) 블록', regRepairDetail.includes('수리 의뢰') && regRepairDetail.includes('중부IT서비스') && regRepairDetail.includes('반환 지연'))
@@ -1478,7 +1479,6 @@ try {
   }
   check(`시드 참조 무결성: 자산 ${seededAssets.size}건 · 참조가 모두 실재 자산을 가리킴`, danglingRefs.length === 0, danglingRefs.slice(0, 5).join(', '))
 
-
   // 시드 ID 유일성 — 레코드 조회는 전부 find(x => x.id === id) 라 같은 ID 가 둘이면 뒤엣것은 영원히 손이 닿지 않는다.
   //  실제로 결재 APR-2607-118 이 '자산 신청'과 '반납' 두 건에 함께 붙어 있었다: 결재함에서 반납 행의 승인을 눌러도
   //  서버는 앞의 자산 신청을 찾아 처리했고, 반납은 대기에 남아 자산이 회수되지 않았다(화면·감사 로그는 성공으로 보인다).
@@ -1505,7 +1505,6 @@ try {
   ]
   check(`시드 참조 무결성: 계약 ${seededContracts.size}·라이선스 ${seededLicenses.size}·조사 회차 ${seededRounds.size} 참조가 모두 실재`,
     danglingIds.length === 0, [...new Set(danglingIds)].slice(0, 5).join(', '))
-
 
   const reportsSrc = readFileSync(path.join(ROOT, 'lib', 'reports.ts'), 'utf8')
   const reportKinds = [...reportsSrc.matchAll(/\{ kind: '([^']+)', period:/g)].map((m) => m[1])
@@ -1562,7 +1561,6 @@ try {
   check(`라우트 권한: 화면 파일 ${pageDirs.length}개와 내비 항목 일치(고아 화면·죽은 메뉴 없음)`,
     orphanPages.length === 0 && deadNav.length === 0,
     `내비에 없는 화면=${orphanPages.join(',')} · 화면 없는 내비=${deadNav.join(',')}`)
-
 
 
   // 스냅샷 스키마 형태 가드 — 파일 영속화(ITAM_DATA_FILE)는 마이그레이션 없이 SCHEMA_VERSION 이 다르면 낡은 파일을
@@ -1725,7 +1723,6 @@ try {
 
 
 
-
   // CMDB 의존 그래프 형태 — 자기 참조·순환이 없어야 한다. 탐색(assetDependenciesFrom)은 방문 집합으로 순환에
   //  빠지지 않지만, 순환이 있으면 그 자산이 자기 영향 범위(blast radius)에 포함돼 단일 장애점 수가 부풀고
   //  '이 자산 장애 시 영향받는 하위'에 자기 자신이 나열된다. dependsOn 은 시드에서만 정의되고 편집 경로가
@@ -1825,7 +1822,6 @@ try {
   check(`비율 표기: 백분율 계산이 lib/dates ratioPct 한 곳(소스 ${sourceFiles.length + actionFiles.length}개 검사 · 예외 ${Object.keys(PCT_EXEMPT).length}건)`,
     pctOffenders.length === 0, `직접 계산=${pctOffenders.join(",")}`)
 
-
   // 보증 임박 판정 단일 소스 — 만료 알림 창(opsPolicy.expiryWindowDays)은 설정 화면이 '계약·보증·라이선스' 기준이라고
   //  안내하는데, 보증만 여러 곳에 90 이 박혀 있었다(대장 필터·대시보드 큐·어시스턴트·반출·복합 위험 신호).
   //  통지(lib/expiry)는 정책을 따랐으므로, 관리자가 창을 바꾸면 '보증 만료 임박 자산 N건' 통지와 화면 집합이 갈렸다.
@@ -1852,7 +1848,6 @@ try {
   const anomalySrc = readFileSync(path.join(ROOT, 'lib', 'anomaly.ts'), 'utf8')
   const anomalyAxes = (anomalySrc.match(/disposedAsset\.has\(/g) || []).length
   check(`이상행위: 네 축 모두 폐기 경로 자산 제외(참조 ${anomalyAxes}곳)`, anomalyAxes === 4, `참조=${anomalyAxes}`)
-
 
   // AI 로그 보존 정책의 강제 — auditRetentionDays 는 화면·리포트에 숫자로만 찍히고 조회에는 쓰이지 않아,
   //  '90일 보존'이라 말하면서 그보다 오래된 로그를 그대로 보여줄 수 있었다(표시와 강제가 갈리는 계열).
@@ -2101,7 +2096,6 @@ try {
     expSrc.includes("'NAC 격리'") && expSrc.includes("a.quarantinedAt") && cardSrc.includes("a.quarantinedAt"),
     `엑셀 열=${expSrc.includes("'NAC 격리'")} 카드=${cardSrc.includes("a.quarantinedAt")}`)
 
-
   // 테스트 하네스의 날짜 만들기 단일화 — e2e 가 UTC 로 날짜를 만들면 서버 기준일(KST)과 자정~09시에 하루 어긋난다
   //  (실제로 00:19 실행에서 '격리 반출 정합'이 그렇게 깨졌다). 날짜는 dPlus() 하나로만 만든다 —
   //  헬퍼 본문의 한 번을 빼면 스크립트 어디에도 toISOString 으로 날짜를 자르는 곳이 없어야 한다.
@@ -2326,6 +2320,46 @@ try {
   const fndPageSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'found', 'page.tsx'), 'utf8')
   check('발견 자산 화면: 조치 표 노출 판정이 서버 가드와 같은 매트릭스를 본다',
     fndPageSrc.includes('&& canQuarantine'))
+
+  // 큐 건수 ↔ 드릴다운 목록 일치 — 전수 스윕.
+  //  이 세션에 큐마다 손으로 짝을 적어 대조를 걸었는데, 그 방식은 새 큐가 생기면 조용히 빠진다.
+  //  대시보드가 실제로 렌더한 큐 칩(라벨 + 숫자 + 링크)을 전부 읽어, 링크가 여는 화면이 스스로 적는
+  //  'N / M건' 과 칩 숫자를 비교한다. 판정 기준을 여기 두지 않으므로(양쪽 화면이 각자 세고 우리는 맞대 볼 뿐)
+  //  드릴다운을 새로 붙이면 자동으로 이 대조에 들어온다.
+  //  대상은 파라미터가 붙은 링크로 한정한다 — 필터 없는 링크는 애초에 큐가 센 집합을 여는 약속을 하지 않는다.
+  //  화면이 'N / M건' 을 한 번만 적는 경우에만 비교한다(여러 표가 같은 표기를 쓰면 어느 것과 맞대야 할지 알 수 없다).
+  const sweepQueues = (html, role) => {
+    const plain = html.replace(/<!-- -->/g, '')
+    const out = []
+    for (const m of plain.matchAll(new RegExp('href="(/[^"?]+\?[^"]+)"[^>]*>(.{0,400}?)</a>', 'gs'))) {
+      const inner = m[2]
+      const chip = /class="chip[^"]*">([0-9]+)</.exec(inner)
+      if (!chip) continue
+      const label = inner.replace(/<[^>]*>/g, ' ').replace(/s+/g, ' ').trim().replace(/ [0-9]+$/, '')
+      out.push({ href: m[1].replace(/&amp;/g, '&'), n: Number(chip[1]), label, role })
+    }
+    return out
+  }
+  const sweepTargets = [...sweepQueues(dashMgr, 'ASSET_MGR'), ...sweepQueues(dashSec, 'SEC_MGR')]
+  const sweepBad = []
+  let sweepChecked = 0
+  for (const q of sweepTargets) {
+    const target = (await (await get(q.href, q.role)).text()).replace(/<!-- -->/g, '')
+    // 화면마다 표기 형태가 다르다 — 세 가지를 받는다: 'N / M건'(조치 표) · 'N건 / 전체 M건'(발견 목록) ·
+    //  'N건 표시'(필터 안내 배너). 한 화면에서 딱 한 번만 나올 때만 비교한다 — 여러 표가 같은 표기를 쓰면
+    //  어느 것과 맞대야 할지 정할 수 없고, 억지로 첫 번째를 고르면 엉뚱한 표를 세게 된다(실제로 그렇게 틀린 적이 있다).
+    const forms = [
+      new RegExp('([0-9]+)건 / 전체 [0-9]+건', 'g'),
+      new RegExp('([0-9]+) / [0-9]+건', 'g'),
+      new RegExp('([0-9]+)건 표시', 'g'),
+    ]
+    const hits = forms.flatMap((re) => [...target.matchAll(re)].map((m) => Number(m[1])))
+    if (hits.length !== 1) continue
+    sweepChecked++
+    if (hits[0] !== q.n) sweepBad.push(`${q.label} → ${q.href}: 큐 ${q.n} ≠ 표시 ${hits[0]}`)
+  }
+  check(`큐 드릴다운 전수: 큐 건수 = 링크가 여는 목록의 표시 건수(${sweepChecked}종)`,
+    sweepBad.length === 0 && sweepChecked >= 8, sweepBad.join(' / ') || `대조한 큐 ${sweepChecked}종`)
   // 분석 화면의 네 패널이 모두 상위 12건에서 끊긴다 — 잘렸다고 적기만 하고 넘어갈 길이 없으면 그 뒤 항목은
   //  화면 어디에서도 볼 수 없다. 잘림 안내마다 등급 필터든 전체 목록 링크든 경로가 붙어 있어야 한다.
   const cutNotes = [...vulnPlain.matchAll(/… 외 [0-9]+[건대]/g)].map((m) => m.index ?? -1)
