@@ -51,7 +51,7 @@ export function CredTable({ credentials, canRespond, openOnly: openOnlyParam }: 
           title="조치가 끝나지 않은 건만 — 대시보드 '크리덴셜 노출 미조치' 큐와 같은 집합">
           {openOnly ? '✓ ' : ''}미조치만 {openCount}
         </button>
-        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {credentials.length}건</span>
+        <span className="mut" data-queue="open=creds" style={{ fontSize: 12 }}>{shown.length} / {credentials.length}건</span>
       </div>
       {canRespond && checked.size > 0 && (
         <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

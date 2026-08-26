@@ -129,7 +129,7 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0, in
               title="도착 예정일이 지난 발주 로트만 — 대시보드 '도입 예정 입고 지연' 큐와 같은 집합">
               {plannedOverdueOnly ? '✓ ' : ''}지연만 {plannedOverdueCount}
             </button>
-            <span className="mut" style={{ fontSize: 12 }}>{shownPlanned.length} / {plannedLots.length}건</span>
+            <span className="mut" data-queue="lot=overdue" style={{ fontSize: 12 }}>{shownPlanned.length} / {plannedLots.length}건</span>
           </div>
         )}
         {shownPlanned.length === 0 ? (
@@ -202,7 +202,7 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0, in
                 {lotFilter === k ? '✓ ' : ''}{k === 'inspect' ? '검수 대기' : k === 'rejected' ? '검수 반려' : '전체'} {n}
               </button>
             ))}
-            <span className="mut" style={{ fontSize: 12 }}>{shownLots.length} / {arrivedLots.length}건</span>
+            <span className="mut" data-queue="lot=inspect lot=rejected" style={{ fontSize: 12 }}>{shownLots.length} / {arrivedLots.length}건</span>
           </div>
         )}
         <div className="tbl-wrap">

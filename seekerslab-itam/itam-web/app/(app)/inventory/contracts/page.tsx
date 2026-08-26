@@ -106,7 +106,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
       >
         {maintPick && (
           <div className="callout" style={{ margin: 14 }}>
-            <b>{maintPick.label} 필터</b> — {maintRows.length}건 표시 (전체 {maint.rows.length}건) · <Link href="/inventory/contracts">전체 보기</Link>
+            <b>{maintPick.label} 필터</b> — <span data-queue="maint=budget maint=sla maint=exec">{maintRows.length}</span>건 표시 (전체 {maint.rows.length}건) · <Link href="/inventory/contracts">전체 보기</Link>
           </div>
         )}
         <div className="stat-row" style={{ margin: 14 }}>
@@ -166,7 +166,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
       >
         {procPick && (
           <div className="callout" style={{ margin: 14 }}>
-            <b>발주 미이행 · 만료 임박 필터</b> — 구매 계약 {procRows.length}건 표시 · 전체 {proc.rows.length}건 · <Link href="/inventory/contracts">전체 보기</Link>
+            <b>발주 미이행 · 만료 임박 필터</b> — 구매 계약 <span data-queue="proc=risk">{procRows.length}</span>건 표시 · 전체 {proc.rows.length}건 · <Link href="/inventory/contracts">전체 보기</Link>
           </div>
         )}
         <div className="stat-row" style={{ margin: 14 }}>
@@ -244,12 +244,12 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
       >
         {seatPick && (
           <div className="callout" style={{ margin: 14 }}>
-            <b>미설치 좌석(회수 후보) 필터</b> — 라이선스 {usageRows.length}건 표시 · 좌석 {usage.totalUnusedSeat}석 · <Link href="/inventory/contracts">전체 보기</Link>
+            <b>미설치 좌석(회수 후보) 필터</b> — 라이선스 {usageRows.length}건 표시 · 좌석 <span data-queue="seat=unused">{usage.totalUnusedSeat}</span>석 · <Link href="/inventory/contracts">전체 보기</Link>
           </div>
         )}
         {offSeatPick && (
           <div className="callout" style={{ margin: 14 }}>
-            <b>배정 밖 설치(무단 사용) 필터</b> — 라이선스 {usageRows.length}건 표시 · 설치 {usage.totalOffSeat}건 · <Link href="/inventory/contracts">전체 보기</Link>
+            <b>배정 밖 설치(무단 사용) 필터</b> — 라이선스 {usageRows.length}건 표시 · 설치 <span data-queue="seat=off">{usage.totalOffSeat}</span>건 · <Link href="/inventory/contracts">전체 보기</Link>
           </div>
         )}
         <div className="stat-row" style={{ margin: 14 }}>

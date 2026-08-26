@@ -67,7 +67,7 @@ export default async function ScanPage() {
         <Stat value={`${activeChannels}/${policies.length}`} label="활성 수집 채널" tone={activeChannels === policies.length ? 'ok' : 'warn'} />
         <Stat value={s.observations.length} label="누적 관측" delta={{ text: `발견 자산 ${s.discovered.length}건으로 병합`, dir: 'flat' }} />
         <Stat value={recentNew} label="최근 7회차 신규 발견" tone={recentNew ? 'err' : 'ok'} />
-        <Stat value={overdueChannels.length} label="재탐지 주기 경과 채널" tone={overdueChannels.length ? 'warn' : 'ok'}
+        <Stat value={<span data-queue="/discovery/scan">{overdueChannels.length}</span>} label="재탐지 주기 경과 채널" tone={overdueChannels.length ? 'warn' : 'ok'}
           delta={{ text: overdueChannels.length ? `${overdueChannels.join(' · ')} — 수집 지연(Discovery 사각)` : '전 채널 주기 내 수집', dir: overdueChannels.length ? 'up' : 'flat' }} />
         <Stat value={last ? last.startedAt.slice(5) : '-'} label={last ? `마지막 스캔 — ${last.by}` : '스캔 이력 없음'} />
       </div>

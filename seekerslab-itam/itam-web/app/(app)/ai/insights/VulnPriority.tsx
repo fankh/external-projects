@@ -26,7 +26,7 @@ export function VulnPriority({ tier }: { tier?: string }) {
       actions={<span className="dim" style={{ fontSize: 11.5 }}>자산 중요도 × 노출도 · {top.length} / {items.length}건</span>}
     >
       <div className="stat-row" style={{ margin: 14 }}>
-        <Stat value={p1} label="P1 — 즉시 조치" tone={p1 ? 'err' : 'ok'} />
+        <Stat value={<span data-queue="tier=p1">{p1}</span>} label="P1 — 즉시 조치" tone={p1 ? 'err' : 'ok'} />
         <Stat value={p2} label="P2 — 우선 조치" tone={p2 ? 'warn' : 'ok'} />
         <Stat value={p3} label="P3 — 계획 조치" />
         <Stat value={items.length} label="스코어링 대상" delta={{ text: bySource.filter((x) => x.count).map((x) => `${x.source} ${x.count}`).join(' · '), dir: 'flat' }} />

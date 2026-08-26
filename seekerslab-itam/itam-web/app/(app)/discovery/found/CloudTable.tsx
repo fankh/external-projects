@@ -33,7 +33,7 @@ export function CloudTable({ items, canAct, openOnly: openOnlyParam }: { items: 
           title="조치가 끝나지 않은 건만 — 대시보드 '미관리 클라우드 리소스 미조치' 큐와 같은 집합">
           {openOnly ? '✓ ' : ''}미조치만 {openCount}
         </button>
-        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {items.length}건</span>
+        <span className="mut" data-queue="open=cloud" style={{ fontSize: 12 }}>{shown.length} / {items.length}건</span>
       </div>
       <div className="tbl-wrap">
         <table className="tbl">

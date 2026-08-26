@@ -2331,7 +2331,8 @@ try {
   }
   const drillCount = async (qs) => {
     const html = await (await get(`/inventory/contracts${qs}`, 'ASSET_MGR')).text()
-    const m = /([0-9]+)건 표시/.exec(html.replace(/<!-- -->/g, ""))
+    // 큐 건수에는 data-queue 표식이 붙어 태그가 사이에 낀다 — 태그를 걷어낸 뒤 문구를 읽는다
+    const m = /([0-9]+)건 표시/.exec(html.replace(/<!-- -->/g, "").replace(/<[^>]*>/g, ""))
     return m ? Number(m[1]) : -1
   }
   const drillPairs = [
@@ -2499,7 +2500,8 @@ try {
 
   // 반납·유휴 화면은 표가 셋인데 '반납 접수 대기' 카드만 건수를 적지 않았다 — 형제 두 카드(수리 대기 N건 ·
   //  대여 현황 N건)는 적는다. 대시보드 큐가 세는 집합이 바로 그 표라, 큐가 말한 수를 화면에서 맞대 볼 자리가 없었다.
-  const retHtmlP = (await (await get('/assets/returns', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  // 큐 건수에는 data-queue 표식이 붙어 태그가 사이에 낀다 — 태그를 걷어낸 뒤 문구를 읽는다
+  const retHtmlP = (await (await get('/assets/returns', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '').replace(/<[^>]*>/g, '')
   const retPendingShown = Number((/반납 접수 대기 ([0-9]+)건/.exec(retHtmlP) || [])[1] ?? -1)
   const retPendingQueue = queueCount('반납 접수 대기')
   check("반납 접수 대기 큐: 건수 = 카드가 적는 건수",
@@ -2509,7 +2511,7 @@ try {
     dashMgr.includes('/assets/returns#receive') && dashMgr.includes('/assets/returns#repair'))
   // 불출·이동 화면도 같은 자리였다 — 사이 카드(배정 가능 재고 N건)는 건수를 적는데 처리 대기 두 카드만
   //  안 적었다. 큐는 둘의 합을 세므로, 두 카드 건수를 더해 큐와 맞댄다.
-  const movHtml = (await (await get('/assets/movement', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const movHtml = (await (await get('/assets/movement', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '').replace(/<[^>]*>/g, '')
   const movIssue = Number((/불출 대기 ([0-9]+)건/.exec(movHtml) || [])[1] ?? -1)
   const movMove = Number((/이동 대기 ([0-9]+)건/.exec(movHtml) || [])[1] ?? -1)
   const movQueue = queueCount('불출 · 이동 집행 대기')
@@ -2519,7 +2521,7 @@ try {
   check('불출·이동 큐: 링크가 처리 대기 표 앵커로 내려간다', dashMgr.includes('/assets/movement#issue'))
   // 안전재고 큐는 유형(종) 단위로 센다 — 경보 카드가 적는 종 수와 맞댄다. 이 큐는 파라미터 없는 링크라
   //  전수 스윕(파라미터 붙은 링크만 대상)에는 들어오지 않으므로 여기서 따로 고정한다.
-  const stockAlertHtml = (await (await get('/inventory/stock', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const stockAlertHtml = (await (await get('/inventory/stock', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '').replace(/<[^>]*>/g, '')
   const stockAlertShown = Number((/가용 재고 부족 ([0-9]+)종/.exec(stockAlertHtml) || [])[1] ?? -1)
   const stockQueue = queueCount('안전재고 미달')
   check("안전재고 큐: 건수 = 경보 카드가 적는 유형 수",
@@ -2610,13 +2612,14 @@ try {
       const inner = m[2]
       const chip = /class="chip[^"]*">([0-9]+)</.exec(inner)
       if (!chip) continue
-      const label = inner.replace(/<[^>]*>/g, ' ').replace(/s+/g, ' ').trim().replace(/ [0-9]+$/, '')
+      const label = inner.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().replace(/ [0-9]+$/, '')
       out.push({ href: m[1].replace(/&amp;/g, '&'), n: Number(chip[1]), label, role })
     }
     return out
   }
   const sweepTargets = [...sweepQueues(dashMgr, 'ASSET_MGR'), ...sweepQueues(dashSec, 'SEC_MGR')]
   const sweepBad = []
+  const sweepSkipped = []
   let sweepChecked = 0
   for (const q of sweepTargets) {
     const target = (await (await get(q.href, q.role)).text()).replace(/<!-- -->/g, '')
@@ -2628,13 +2631,37 @@ try {
       new RegExp('([0-9]+) / [0-9]+건', 'g'),
       new RegExp('([0-9]+)건 표시', 'g'),
     ]
-    const hits = forms.flatMap((re) => [...target.matchAll(re)].map((m) => Number(m[1])))
-    if (hits.length !== 1) continue
+    // 표가 여럿인 화면은 어느 표와 맞대야 할지 형태만으로는 정할 수 없다 — 큐가 여는 표는 자기를 여는
+    //  쿼리를 data-queue 로 달아 둔다(화면·검사가 같은 표식을 쓴다). 표식이 있으면 그 표의 건수를 바로 읽는다.
+    // 표식 키 — 그 큐가 화면을 여는 방식 그대로다: 쿼리(?open=sw) · 앵커(#repair) · 없으면 경로(/discovery/scan).
+    //  세 형태를 다 받아야 앵커·무인자 링크로 여는 큐도 표를 특정할 수 있다.
+    const qs = q.href.includes('?') ? q.href.split('?')[1]
+      : q.href.includes('#') ? `#${q.href.split('#')[1]}`
+      : q.href
+    // 표식은 공백으로 구분한 목록이다 — 한 표가 여러 큐를 받는다(라이선스 표는 초과·만료·미사용 세 큐가 연다).
+    //  정규식 대신 문자열 탐색으로 찾는다: 쿼리에 정규식 특수문자가 섞여도 그대로 맞는다.
+    //  표식이 붙은 요소의 첫 숫자가 곧 그 큐의 건수다 — 화면이 '무엇을 세어 보여 주는지'를 표식이 못박는다
+    //  (좌석·설치처럼 라이선스 건수가 아니라 다른 단위를 세는 큐도 그 숫자에 표식을 단다).
+    let markedText = ''
+    if (qs) {
+      for (const m of target.matchAll(new RegExp('data-queue="([^"]*)"[^>]*>([^<]*)', 'g'))) {
+        if (m[1].split(' ').includes(qs)) { markedText = m[2]; break }
+      }
+    }
+    const firstNum = /([0-9]+)/.exec(markedText)
+    const hits = markedText
+      ? (firstNum ? [Number(firstNum[1])] : [])
+      : forms.flatMap((re) => [...target.matchAll(re)].map((m) => Number(m[1])))
+    if (hits.length !== 1) { sweepSkipped.push(`${q.label} → ${q.href} (표기 ${hits.length}개)`); continue }
     sweepChecked++
     if (hits[0] !== q.n) sweepBad.push(`${q.label} → ${q.href}: 큐 ${q.n} ≠ 표시 ${hits[0]}`)
   }
-  check(`큐 드릴다운 전수: 큐 건수 = 링크가 여는 목록의 표시 건수(${sweepChecked}종)`,
-    sweepBad.length === 0 && sweepChecked >= 8, sweepBad.join(' / ') || `대조한 큐 ${sweepChecked}종`)
+  // '전수'라는 이름값을 한다 — 한 종이라도 대조하지 못하면 실패다. 그전에는 형태가 애매한 큐를 조용히
+  //  건너뛰어 47종 중 12종만 보면서 초록으로 통과했다(이름이 실제 범위를 4배 과장했다).
+  //  새 큐를 붙이면서 그 화면에 표식(data-queue)을 빠뜨리면 여기서 먼저 걸린다.
+  check(`큐 드릴다운 전수: 큐 건수 = 링크가 여는 목록의 표시 건수(${sweepChecked}/${sweepTargets.length}종)`,
+    sweepBad.length === 0 && sweepSkipped.length === 0 && sweepChecked >= 40,
+    [...sweepBad, ...sweepSkipped.map((x) => `대조 불가: ${x}`)].join(' / ') || `대조한 큐 ${sweepChecked}종`)
   // 분석 화면의 네 패널이 모두 상위 12건에서 끊긴다 — 잘렸다고 적기만 하고 넘어갈 길이 없으면 그 뒤 항목은
   //  화면 어디에서도 볼 수 없다. 잘림 안내마다 등급 필터든 전체 목록 링크든 경로가 붙어 있어야 한다.
   const cutNotes = [...vulnPlain.matchAll(/… 외 [0-9]+[건대]/g)].map((m) => m.index ?? -1)
@@ -2758,7 +2785,7 @@ try {
 
   // 배정 밖 설치(무단 사용) 큐 — 큐는 '설치 건수'를 세므로 화면 필터 문구도 같은 축(설치 N건)을 적어야 한다
   //  (라이선스 건수와 다르다: 한 라이선스에 배정 밖 설치가 여럿 붙는다).
-  const offSeatHtml = (await (await get('/inventory/contracts?seat=off', 'ASSET_MGR')).text()).replace(/<!-- -->/g, "")
+  const offSeatHtml = (await (await get('/inventory/contracts?seat=off', 'ASSET_MGR')).text()).replace(/<!-- -->/g, "").replace(/<[^>]*>/g, "")
   const offSeatQueue = queueCount('라이선스 배정 밖 설치 (무단 사용 · SAM 리스크)')
   const offSeatAt = offSeatHtml.indexOf('배정 밖 설치(무단 사용) 필터')
   const offSeatShown = Number((/· 설치 ([0-9]+)건/.exec(offSeatAt === -1 ? '' : offSeatHtml.slice(offSeatAt, offSeatAt + 600)) || [])[1] ?? -1)
@@ -2799,7 +2826,7 @@ try {
   // 대시보드 '장기 미실측' 큐는 미실측 전량을 세고 화면·자동 편성 액션은 '편성 대기'(아직 회차에 안 묶인 건)를
   //  써서, 편성을 눌러 대상을 모두 회차로 묶어도 큐 건수가 그대로 남았다 — 처리해도 줄지 않는 큐였다.
   //  이제 셋 다 lib/survey 의 같은 집합을 본다.
-  const planPlain = planHtml.replace(/<!-- -->/g, '')
+  const planPlain = planHtml.replace(/<!-- -->/g, '').replace(/<[^>]*>/g, '')
   const staleQueue = queueCount('장기 미실측 (재물조사 편성 대기)')
   // 이 화면에는 '편성 대기 N건' 칩이 둘이다(대사 미확인 카드가 먼저 온다) — 장기 미실측 카드 구간부터 찾는다.
   const staleCardAt = planPlain.indexOf('장기 미실측(실사 기반 유령) 자산 자동 편성')
