@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { nowMinute, today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -367,7 +367,8 @@ export async function revokeExternalRisk(externalId: string) {
  *  능동 탐지는 대상에 직접 접속하므로 사전 협의된 도메인에서만 허용한다 (제품안내서 §04 '수동 우선, 능동 확인'). */
 export async function runEasmScan(input: { domains: string[]; mode: 'Passive' | 'Passive+Active'; note?: string }) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '재탐지 실행 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '재탐지 실행 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '재탐지 실행 권한이 없습니다.', '/discovery/external')
   if (input.domains.length === 0) return { ok: false, message: '재탐지 도메인을 선택해 주세요.' }
 
   const s = getStore()

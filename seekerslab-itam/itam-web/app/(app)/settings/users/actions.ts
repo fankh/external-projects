@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAdminAudit } from '@/lib/audit'
+import { appendAdminAudit, denied } from '@/lib/audit'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -16,7 +16,8 @@ type Res = { ok: boolean; message: string }
  *  login 지정 시 해당 사용자만, 미지정 시 미적용 전원(공지 미확인 독촉과 같은 일괄/개별 패턴). */
 export async function requireMfa(login?: string): Promise<Res> {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: 'MFA 등록 요구 권한이 없습니다 (Admin).' }
+  if (!session) return { ok: false, message: 'MFA 등록 요구 권한이 없습니다 (Admin).' }
+  if (session.role !== 'ADMIN') return denied(session.name, 'MFA 등록 요구 권한이 없습니다 (Admin).', '/settings/users')
   const s = getStore()
   // 오늘 이미 보낸 계정은 뺀다 — 화면 버튼 건수(mfaRemindTargets)와 같은 집합이어야 '눌러도 아무 일 없는' 버튼이 안 남는다.
   const pool = mfaRemindTargets()
@@ -45,7 +46,8 @@ export async function requireMfa(login?: string): Promise<Res> {
  *  2) 마지막 남은 시스템 관리자는 강등할 수 없다 — 관리 화면이 잠기는 것을 막는다. */
 export async function setUserRole(login: string, role: Role): Promise<Res> {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: '권한그룹 변경은 Admin 만 가능합니다.' }
+  if (!session) return { ok: false, message: '권한그룹 변경은 Admin 만 가능합니다.' }
+  if (session.role !== 'ADMIN') return denied(session.name, '권한그룹 변경은 Admin 만 가능합니다.', '/settings/users')
 
   const s = getStore()
   const user = s.users.find((u) => u.login === login)
@@ -75,7 +77,8 @@ export async function setUserRole(login: string, role: Role): Promise<Res> {
  *  신청자는 첫 단계로 고정, 결재자 단계는 최소 1개. 시스템 결재선(Discovery 엔진 등)은 편집 대상 아님. */
 export async function setApprovalLineSteps(id: string, approvers: string[]): Promise<Res> {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: '결재선 변경은 Admin 만 가능합니다.' }
+  if (!session) return { ok: false, message: '결재선 변경은 Admin 만 가능합니다.' }
+  if (session.role !== 'ADMIN') return denied(session.name, '결재선 변경은 Admin 만 가능합니다.', '/settings/users')
   const VALID = ['부서장', '자산담당', '보안담당', 'IT기획팀장']
 
   const s = getStore()
@@ -97,7 +100,8 @@ export async function setApprovalLineSteps(id: string, approvers: string[]): Pro
  *  폐기·격리·편입·차이 조정은 필수 결재로 고정되어 해제할 수 없다(통제 우회 방지). */
 export async function toggleApprovalRequired(id: string): Promise<Res> {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: '결재선 변경은 Admin 만 가능합니다.' }
+  if (!session) return { ok: false, message: '결재선 변경은 Admin 만 가능합니다.' }
+  if (session.role !== 'ADMIN') return denied(session.name, '결재선 변경은 Admin 만 가능합니다.', '/settings/users')
 
   const s = getStore()
   const line = s.approvalLines.find((l) => l.id === id)

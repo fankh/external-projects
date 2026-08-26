@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { clearDependencyRefs } from '@/lib/cmdb'
 import { clearSwInstalls, reclaimLicenseSeats } from '@/lib/license'
@@ -13,7 +13,8 @@ import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, HELD_STATUSES, type Disposition, t
  *  (폐기 화면은 반환값을 쓰지 않지만, 반납·유휴 화면에서 장기 유휴 → 폐기 검토 브리지가 피드백을 쓴다). */
 export async function selectForDisposal(assetNo: string, reason: string): Promise<{ ok: boolean; message: string }> {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '폐기 대상 선정 권한이 없습니다.', '/assets/disposal')
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
@@ -33,7 +34,8 @@ export async function selectForDisposal(assetNo: string, reason: string): Promis
  *  잘못 선정하거나 일괄/AI 선정을 되돌릴 때. 결재 상신·소거 진행 건은 취소 불가. 자산담당·Admin. */
 export async function cancelDisposalCandidate(disposalId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '폐기 대상 취소 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '폐기 대상 취소 권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '폐기 대상 취소 권한이 없습니다.', '/assets/disposal')
   const s = getStore()
   const d = s.disposals.find((x) => x.id === disposalId)
   if (!d) return { ok: false, message: '폐기 대상을 찾을 수 없습니다.' }
@@ -52,7 +54,8 @@ export async function cancelDisposalCandidate(disposalId: string) {
  *  이미 선정됐거나 없는 자산은 건너뛰고, 실제 선정된 수만 감사에 남긴다. */
 export async function selectForDisposalMany(items: { assetNo: string; reason: string }[]) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '폐기 대상 선정 권한이 없습니다.', '/assets/disposal')
   const s = getStore()
   let n = 0
   let skippedD = 0 // 이미 폐기 건이 있거나 보유자가 쥔 자산이라 건너뛴 선택분
@@ -74,7 +77,8 @@ export async function selectForDisposalMany(items: { assetNo: string; reason: st
 /** 폐기 결재 상신 — 필수 결재 (자산담당 → IT기획팀장) */
 export async function raiseDisposalApproval() {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '폐기 결재 상신 권한이 없습니다 (자산담당·Admin).' }
+  if (!session) return { ok: false, message: '폐기 결재 상신 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '폐기 결재 상신 권한이 없습니다 (자산담당·Admin).', '/assets/disposal')
   const s = getStore()
   const targets = s.disposals.filter((d) => d.status === '대상 선정')
   // 사유 없이 끝내지 않는다 — 다른 화면에서 이미 상신했으면 대상이 비어 버튼이 무반응이 된다.
@@ -104,7 +108,8 @@ export async function raiseDisposalApproval() {
 /** 데이터 소거 처리 + 물리 처분 + 증적 보존 — 승인된 건만 가능 */
 export async function recordWipe(id: string, method: WipeMethod, disposition: Disposition = '폐기(파쇄)', rawProceeds = 0) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '권한이 없습니다.' }
+  if (!session) return { ok: false, message: '권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '권한이 없습니다.', '/assets/disposal')
   if (!DISPOSITIONS.includes(disposition)) return { ok: false, message: '처분 방식이 올바르지 않습니다.' }
   const s = getStore()
   const d = s.disposals.find((x) => x.id === id)
@@ -169,7 +174,8 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
  *  매각 대금은 건별로 다르므로 일괄에서는 처리하지 않는다(대금 0 — 매각가는 단건 소거로 개별 입력). 자산담당·Admin. */
 export async function recordWipeMany(ids: string[], method: WipeMethod, disposition: Disposition = '폐기(파쇄)') {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '권한이 없습니다.' }
+  if (!session) return { ok: false, message: '권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '권한이 없습니다.', '/assets/disposal')
   if (!DISPOSITIONS.includes(disposition)) return { ok: false, message: '처분 방식이 올바르지 않습니다.' }
   // 매각 제외는 지금까지 화면 규칙일 뿐이었다(일괄 선택지에서 빼 두기만 함). 위조 POST·향후 UI 변경으로 매각이 들어오면
   //  대금 0 인 매각이 폐기 대장에 확정되고, 소거 완료 뒤에는 대금을 기록할 경로가 없어(recordWipe 는 '소거 대기' 건만 받는다)
@@ -212,7 +218,8 @@ export async function recordWipeMany(ids: string[], method: WipeMethod, disposit
  *  "증적 사진이 존재한다"는 감사 주장을 실제 기록으로 뒷받침한다(제품안내서 §03 폐기: 증적(사진·확인서)). 자산담당·Admin. */
 export async function addDisposalPhoto(id: string, label: DisposalPhotoLabel, rawNote: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '증적 사진 등록 권한이 없습니다 (자산담당·Admin).' }
+  if (!session) return { ok: false, message: '증적 사진 등록 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '증적 사진 등록 권한이 없습니다 (자산담당·Admin).', '/assets/disposal')
   if (!DISPOSAL_PHOTO_LABELS.includes(label)) return { ok: false, message: '사진 구분이 올바르지 않습니다.' }
 
   const s = getStore()
@@ -229,7 +236,8 @@ export async function addDisposalPhoto(id: string, label: DisposalPhotoLabel, ra
 /** 폐기 증적 사진 삭제 — 잘못 등록한 증적 항목을 제거한다. 감사 로그에 남긴다. 자산담당·Admin. */
 export async function removeDisposalPhoto(id: string, photoId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '증적 사진 삭제 권한이 없습니다 (자산담당·Admin).' }
+  if (!session) return { ok: false, message: '증적 사진 삭제 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '증적 사진 삭제 권한이 없습니다 (자산담당·Admin).', '/assets/disposal')
 
   const s = getStore()
   const d = s.disposals.find((x) => x.id === id)

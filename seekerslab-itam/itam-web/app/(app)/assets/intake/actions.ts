@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { addYears, daysUntil, isIntakeOverdue, isValidDate, today } from '@/lib/dates'
 import { checklistFor } from '@/lib/intake'
 import { dispatch } from '@/lib/notify'
@@ -14,7 +14,8 @@ import type { Asset, AssetCategory } from '@/lib/types'
  *  체크리스트를 초기화(전 항목 미체크)해 처음부터 재검수한다. 검수 반려 로트만 대상. 자산담당·Admin. */
 export async function reinspectIntakeLot(lotId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '재검수 권한이 없습니다 (자산담당·Admin).' }
+  if (!session) return { ok: false, message: '재검수 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '재검수 권한이 없습니다 (자산담당·Admin).', '/assets/intake')
 
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
@@ -34,7 +35,8 @@ export async function reinspectIntakeLot(lotId: string) {
  *  교체품이 오지 않는 반려 로트를 '반품 완료'로 종결해 검수 반려 백로그(대시보드 큐)에서 뺀다. 검수 반려 로트만 대상. 자산담당·Admin. */
 export async function closeReturnedLot(lotId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '반품 완료 처리 권한이 없습니다 (자산담당·Admin).' }
+  if (!session) return { ok: false, message: '반품 완료 처리 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '반품 완료 처리 권한이 없습니다 (자산담당·Admin).', '/assets/intake')
 
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
@@ -52,7 +54,8 @@ export async function closeReturnedLot(lotId: string) {
  *  (그동안 검수는 합격(채번)만 있고 불합격 처리가 없었다.) 채번 전 로트만 대상. 자산담당·Admin. */
 export async function rejectIntakeLot(lotId: string, reason: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '검수 반려 권한이 없습니다 (자산담당·Admin).' }
+  if (!session) return { ok: false, message: '검수 반려 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '검수 반려 권한이 없습니다 (자산담당·Admin).', '/assets/intake')
 
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
@@ -215,7 +218,8 @@ export async function remindIntakeOverdue() {
 
 export async function toggleCheck(lotId: string, item: string): Promise<{ ok: boolean; message: string }> {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '검수 권한이 없습니다 (자산담당·Admin).' }
+  if (!session) return { ok: false, message: '검수 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '검수 권한이 없습니다 (자산담당·Admin).', '/assets/intake')
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
   const c = lot?.checklist.find((x) => x.item === item)
@@ -249,7 +253,8 @@ export async function toggleCheck(lotId: string, item: string): Promise<{ ok: bo
 /** 자산번호 채번 — 검수 완료분에 한해 대장에 등록하고 라벨 발행 대상이 된다 */
 export async function issueAssetNo(lotId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '권한이 없습니다.' }
+  if (!session) return { ok: false, message: '권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '권한이 없습니다.', '/assets/intake')
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
   if (!lot) return { ok: false, message: '입고 건을 찾을 수 없습니다.' }

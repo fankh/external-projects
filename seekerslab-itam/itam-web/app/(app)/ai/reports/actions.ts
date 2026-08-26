@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { REPORT_KINDS, createReport, isScheduleOverdue } from '@/lib/reports'
 import { getSession } from '@/lib/session'
@@ -11,7 +11,8 @@ import type { ReportKind } from '@/lib/types'
 
 export async function generateReport(kind: ReportKind) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '리포트 생성 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '리포트 생성 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '리포트 생성 권한이 없습니다.', '/ai/reports')
   // 종류 열거 검증 — ReportKind 는 타입일 뿐 런타임 가드가 아니다. 목록에 없는 값이 들어오면
   //  buildSections 의 마지막 폴백(감사 대응 자료)이 실행돼, 제목만 임의 문자열이고 내용은 감사 대응 자료인
   //  리포트가 대장에 남는다. 그 리포트는 결재에 '근거 리포트'로 첨부되고 xlsx·md 로 반출된다 — 감사 산출물이라
@@ -27,7 +28,8 @@ export async function generateReport(kind: ReportKind) {
  *  대기 결재·존재하는 리포트만 대상, 중복 첨부는 무시(멱등). 비사용자만. */
 export async function attachReportToApproval(approvalId: string, reportId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '결재 첨부 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '결재 첨부 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '결재 첨부 권한이 없습니다.', '/ai/reports')
   const s = getStore()
   const ap = s.approvals.find((a) => a.id === approvalId)
   if (!ap) return { ok: false, message: '결재 건을 찾을 수 없습니다.' }
@@ -46,7 +48,8 @@ export async function attachReportToApproval(approvalId: string, reportId: strin
 /** 결재 첨부 리포트 해제 — 잘못 붙인 근거 문서를 뗀다. 대기 결재만, 비사용자. */
 export async function detachReportFromApproval(approvalId: string, reportId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '권한이 없습니다.' }
+  if (!session) return { ok: false, message: '권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '권한이 없습니다.', '/ai/reports')
   const s = getStore()
   const ap = s.approvals.find((a) => a.id === approvalId)
   if (!ap || !ap.reportRefs) return { ok: false, message: '첨부 내역을 찾을 수 없습니다.' }
@@ -59,7 +62,8 @@ export async function detachReportFromApproval(approvalId: string, reportId: str
 
 export async function toggleSchedule(kind: ReportKind) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '스케줄 변경 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '스케줄 변경 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '스케줄 변경 권한이 없습니다.', '/ai/reports')
   const s = getStore()
   const sc = s.reportSchedules.find((x) => x.kind === kind)
   if (!sc) return { ok: false, message: '스케줄을 찾을 수 없습니다.' }
@@ -74,7 +78,8 @@ export async function toggleSchedule(kind: ReportKind) {
  *  신규 정기 리포트를 자동 생성에 올릴 경로가 없었다. 수시 리포트는 사유 발생 시 생성이라 대상 아님. 기본값 등록 후 '수정'으로 조정. 비사용자만. */
 export async function createSchedule(kind: ReportKind) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '스케줄 등록 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '스케줄 등록 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '스케줄 등록 권한이 없습니다.', '/ai/reports')
   const s = getStore()
   if (s.reportSchedules.some((x) => x.kind === kind)) return { ok: false, message: '이미 스케줄이 등록된 리포트입니다.' }
   const def = REPORT_KINDS.find((k) => k.kind === kind)
@@ -101,7 +106,8 @@ export async function editSchedule(
   input: { recipients: string[]; hour: number; dayOfWeek?: number; dayOfMonth?: number },
 ) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '스케줄 변경 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '스케줄 변경 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '스케줄 변경 권한이 없습니다.', '/ai/reports')
   const s = getStore()
   const sc = s.reportSchedules.find((x) => x.kind === kind)
   if (!sc) return { ok: false, message: '스케줄을 찾을 수 없습니다.' }
@@ -128,7 +134,8 @@ export async function editSchedule(
 
 export async function runDueSchedules() {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '스케줄 실행 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '스케줄 실행 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '스케줄 실행 권한이 없습니다.', '/ai/reports')
 
   const s = getStore()
   const t = today()
@@ -154,7 +161,8 @@ export async function runDueSchedules() {
 export async function deleteReport(id: string) {
   const session = await getSession()
   // 사유 없이 끝내지 않는다 — 다른 화면이 먼저 지운 리포트를 누르면 무반응으로 끝난다.
-  if (!session || session.role === 'USER') return { ok: false, message: '리포트 삭제 권한이 없습니다 (담당자·Admin).' }
+  if (!session) return { ok: false, message: '리포트 삭제 권한이 없습니다 (담당자·Admin).' }
+  if (session.role === 'USER') return denied(session.name, '리포트 삭제 권한이 없습니다 (담당자·Admin).', '/ai/reports')
   // 매트릭스 '삭제' 칸도 필요조건 — 조회·저장 게이트와 같은 규약(회수하면 실제로 막힌다).
   if (!can('AI 어시스턴트', '삭제', session.role)) return { ok: false, message: '리포트 삭제 권한이 회수되었습니다 (권한 · 정책의 AI 어시스턴트 삭제).' }
   const s = getStore()

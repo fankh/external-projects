@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { approvalAgeDays, isApprovalOverdue, isValidDate, today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
 import { canDecideApproval } from '@/lib/approval'
@@ -611,7 +611,8 @@ export async function rejectMany(ids: string[], rawReason: string) {
  *  (대여 반환 독촉·필독 미확인 안내와 같은 컴플라이언스 독촉의 결재판). 당일 중복 발송 차단. 비사용자. */
 export async function remindOverdueApprovals() {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '결재 독촉 발송 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '결재 독촉 발송 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '결재 독촉 발송 권한이 없습니다.', '/workflow/approvals')
   const s = getStore()
   const t = today()
   const slaDays = s.opsPolicy.approvalSlaDays

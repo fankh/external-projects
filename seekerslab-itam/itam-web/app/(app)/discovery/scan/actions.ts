@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { nowMinute, today } from '@/lib/dates'
 import { inScanWindow } from '@/lib/scan-policy'
 import { getSession } from '@/lib/session'
@@ -20,7 +20,8 @@ export interface ScanInput {
  *  runScan 에 위임하므로 정책 중지 채널·시간대 안전장치·감사 기록을 똑같이 탄다(시간대 밖이면 재실행 사유가 기록된다). */
 export async function rerunScan(runId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '스캔 실행 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '스캔 실행 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '스캔 실행 권한이 없습니다.', '/discovery/scan')
   const prev = getStore().scanRuns.find((r) => r.id === runId)
   if (!prev) return { ok: false, message: '재실행할 스캔 회차를 찾을 수 없습니다.' }
   return runScan({
@@ -34,7 +35,8 @@ export async function rerunScan(runId: string) {
 /** 스캔 실행 — 선택한 채널이 관측을 수집하고, 지문으로 병합되어 발견 저장소에 반영된다. */
 export async function runScan(input: ScanInput) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '스캔 실행 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '스캔 실행 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '스캔 실행 권한이 없습니다.', '/discovery/scan')
 
   const s = getStore()
   if (input.channels.length === 0) return { ok: false, message: '수집 채널을 하나 이상 선택해 주세요.' }

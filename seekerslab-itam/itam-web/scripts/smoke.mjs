@@ -1597,9 +1597,23 @@ try {
   check(`감사: 공용 guard() 를 쓰는 액션 파일이 모두 거부를 기록한다 (${guardAudits.length}/${withGuard.length})`,
     withGuard.length >= 5 && guardAudits.length === withGuard.length,
     `미기록: ${withGuard.filter((p) => !guardAudits.includes(p)).map((p) => p.replace(ROOT, '')).join(', ')}`)
-  // 아직 남은 범위를 드러낸다 — 액션마다 손으로 적은 권한 거부는 기록되지 않는다(조용히 덮지 않는다).
-  const inlineDenies = guardFiles.reduce((n, p) => n + (readFileSync(p, 'utf8').split('권한이 없습니다').length - 1), 0)
-  console.log(`    · 액션 인라인 권한 거부 ${inlineDenies}곳은 아직 감사 미기록 — guard() 이관 대상`)
+  // 아직 남은 범위를 드러낸다 — 조용히 덮지 않는다. 다만 수를 정직하게 센다:
+  //  '!session' 거부는 미로그인이라 남길 수행자가 없어 애초에 감사 대상이 아니다(그 70곳을 세면 남은 일을 과장한다).
+  //  기록된 곳(denied·guard) 대비 아직 손으로 적힌 곳을 함께 출력한다.
+  let inlineAudited = 0
+  let inlineLeft = 0
+  for (const p of guardFiles) {
+    for (const ln of readFileSync(p, 'utf8').split(new RegExp(String.fromCharCode(92) + 'r?' + String.fromCharCode(92) + 'n'))) {
+      // 기록된 거부는 메시지 문구와 무관하게 denied() 를 거친다 — 문구로 세면 '권한이 없습니다'가 아닌 거부를 놓친다
+      if (ln.includes('denied(session.name')) { inlineAudited += 1; continue }
+      if (!ln.includes('권한이 없습니다')) continue
+      if (ln.includes('if (!session) return')) continue  // 미로그인 — 신원이 없어 감사 대상이 아니다
+      inlineLeft += 1
+    }
+  }
+  check(`감사: 액션 권한 거부 기록 ${inlineAudited}곳 (미기록 ${inlineLeft}곳)`, inlineAudited >= 55 && inlineAudited > inlineLeft / 2,
+    `기록된 거부가 너무 적다 — denied() 이관이 되돌려졌는지 확인`)
+  console.log(`    · 아직 손으로 적힌 권한 거부 ${inlineLeft}곳 — denied() 이관 대상(미로그인 거부는 제외)`)
   const denyActBefore = await (await get('/platform/integrations', 'SEC_MGR')).text()
   // 자산담당이 커넥터 관리(보안담당 전용) 액션을 두드린 것과 같은 상황을 만든다 — 화면에는 버튼이 없다.
   //  여기서는 시드에 이미 남은 기록 대신, 기록 경로가 소스에 있는지로 확인한다(액션 직접 호출은 스모크 범위 밖).

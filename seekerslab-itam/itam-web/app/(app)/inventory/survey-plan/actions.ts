@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { addDays, isValidDate, roundProgressPct, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -170,7 +170,8 @@ export async function startRound(roundId: string) {
   const session = await getSession()
   // 거부를 값 없이 끝내면 버튼이 아무 반응 없이 죽는다 — 다른 화면이 이미 개시한 회차를 열어 둔 채 누르면
   //  무슨 일이 일어났는지 알 길이 없다. 다른 액션과 같이 사유를 돌려준다.
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return { ok: false, message: '재물조사 개시 권한이 없습니다 (자산담당·Admin).' }
+  if (!session) return { ok: false, message: '재물조사 개시 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return denied(session.name, '재물조사 개시 권한이 없습니다 (자산담당·Admin).', '/inventory/survey-plan')
   const s = getStore()
   const round = s.inventoryRounds.find((r) => r.id === roundId)
   if (!round) return { ok: false, message: '회차를 찾을 수 없습니다.' }
@@ -186,7 +187,8 @@ export async function startRound(roundId: string) {
  *  진행중·완료 회차는 취소할 수 없다. 자산담당·Admin. */
 export async function cancelRound(roundId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return { ok: false, message: '재물조사 계획 취소 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '재물조사 계획 취소 권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return denied(session.name, '재물조사 계획 취소 권한이 없습니다.', '/inventory/survey-plan')
   const s = getStore()
   const round = s.inventoryRounds.find((r) => r.id === roundId)
   if (!round) return { ok: false, message: '조사 회차를 찾을 수 없습니다.' }
