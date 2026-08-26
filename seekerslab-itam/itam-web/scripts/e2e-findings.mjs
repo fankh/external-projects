@@ -2636,7 +2636,9 @@ try {
   // 대시보드 운영 대기 큐에 기한 경과 회차를 끌어올린다(신호를 담당자 일과 시작점으로 · 재물조사 계획 딥링크)
   await p4.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   const roundQueue = p4.locator('a', { hasText: '재물조사 기한 경과' }).first()
-  ok('대시보드: 재물조사 기한 경과 운영 대기 큐(→ 재물조사 계획)', (await roundQueue.count()) > 0 && (await roundQueue.getAttribute('href')) === '/inventory/survey-plan')
+  // 계획 화면은 카드가 셋이라 큐가 자기 표(조사 회차)로 내려가는 앵커를 단다 — 경로는 그대로, 앵커만 붙는다.
+  ok('대시보드: 재물조사 기한 경과 운영 대기 큐(→ 재물조사 계획 회차 표)',
+    (await roundQueue.count()) > 0 && (await roundQueue.getAttribute('href')) === '/inventory/survey-plan#rounds')
 
   // 미실사 남은 대상 — 장기 미실측 자동 편성(로34) 회차의 미스캔 대상을 실사 화면에 노출(무엇을 더 찾아야 하는지)
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
