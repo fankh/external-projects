@@ -4,8 +4,14 @@ import { appendAudit } from '@/lib/audit'
 import { nowMinute, today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
+import { can } from '@/lib/perm'
 import { getStore, nextId } from '@/lib/store'
 import type { EasmRun } from '@/lib/types'
+
+/** 이 화면의 조치는 역할 하한(보안담당·Admin)과 권한 매트릭스의 '격리요청'(조치 집행 요청) 칸을 함께 본다.
+ *  그전엔 역할만 봐서, 권한 · 정책에서 이 칸을 꺼도 외부 위협 조치 버튼은 그대로 실행됐다 — 같은 메뉴
+ *  ('발견 자산 · CMDB 대사')의 편입·격리는 이미 매트릭스를 보고 있었으므로, 한 메뉴의 절반만 정책이 먹는 상태였다.
+ *  거절 사유도 둘을 구분한다 — 역할 때문인지 매트릭스 때문인지 모르면 관리자가 어디를 고쳐야 할지 알 수 없다. */
 
 /** 유출 대응 조치 — 다크웹 유출 검출에서 끝내지 않고 보안 대응까지 이어간다.
  *  대응은 보안 업무이므로 보안담당·Admin 만. 조치 사실은 보안팀 앞 통지 + 감사 로그에 남는다. */
@@ -13,6 +19,9 @@ export async function respondToLeak(leakId: string, note: string) {
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '유출 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '유출 대응 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const action = note.trim()
   if (!action) return { ok: false, message: '대응 조치 내용을 입력하세요.' }
@@ -39,6 +48,9 @@ export async function reopenLeak(leakId: string) {
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '유출 대응 취소 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '유출 대응 취소 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const leak = s.leaks.find((l) => l.id === leakId)
   if (!leak) return { ok: false, message: '유출 건을 찾을 수 없습니다.' }
@@ -59,6 +71,9 @@ export async function respondToLeakMany(ids: string[], note: string) {
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '유출 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '유출 대응 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const action = note.trim()
   if (!action) return { ok: false, message: '대응 조치 내용을 입력하세요.' }
@@ -87,6 +102,9 @@ export async function respondToCredential(credId: string, note: string) {
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '크리덴셜 노출 대응 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '크리덴셜 노출 대응 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const action = note.trim()
   if (!action) return { ok: false, message: '대응 조치 내용을 입력하세요.' }
 
@@ -112,6 +130,9 @@ export async function reopenCredential(credId: string) {
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '크리덴셜 노출 대응 취소 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '크리덴셜 노출 대응 취소 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const cred = s.credentials.find((c) => c.id === credId)
   if (!cred) return { ok: false, message: '크리덴셜 노출 건을 찾을 수 없습니다.' }
@@ -132,6 +153,9 @@ export async function respondToCredentialMany(ids: string[], note: string) {
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '크리덴셜 노출 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '크리덴셜 노출 대응 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const action = note.trim()
   if (!action) return { ok: false, message: '대응 조치 내용을 입력하세요.' }
@@ -158,6 +182,9 @@ export async function respondToIoc(iocId: string, kind: '차단' | '조사') {
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: 'IOC 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: 'IOC 대응 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const s = getStore()
   const ioc = s.iocMatches.find((x) => x.id === iocId)
@@ -186,6 +213,9 @@ export async function respondToIocMany(ids: string[], kind: '차단' | '조사')
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: 'IOC 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: 'IOC 대응 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const s = getStore()
   const targets = s.iocMatches.filter((ioc) => ids.includes(ioc.id) && !ioc.action)
@@ -216,6 +246,9 @@ export async function reopenIoc(iocId: string) {
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: 'IOC 조치 취소 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: 'IOC 조치 취소 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const ioc = s.iocMatches.find((x) => x.id === iocId)
   if (!ioc) return { ok: false, message: 'IOC 상관 건을 찾을 수 없습니다.' }
@@ -235,6 +268,9 @@ export async function requestExternalAction(externalId: string, kind: '편입' |
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '외부 노출 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '외부 노출 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const s = getStore()
   const e = s.external.find((x) => x.id === externalId)
@@ -262,6 +298,9 @@ export async function requestExternalActionMany(ids: string[], kind: '편입' | 
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '외부 노출 조치 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '외부 노출 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const targets = s.external.filter((e) => ids.includes(e.id) && !e.action)
   if (targets.length === 0) return { ok: false, message: '조치할 외부 노출 건이 없습니다 (이미 처리된 건 제외).' }
@@ -288,6 +327,9 @@ export async function acceptExternalRisk(externalId: string, rawReason: string) 
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '외부 노출 위험 수용 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '외부 노출 위험 수용 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const e = s.external.find((x) => x.id === externalId)
   if (!e) return { ok: false, message: '노출 자산을 찾을 수 없습니다.' }
@@ -306,6 +348,9 @@ export async function revokeExternalRisk(externalId: string) {
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '위험 수용 해제 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '위험 수용 해제 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const s = getStore()
   const e = s.external.find((x) => x.id === externalId)

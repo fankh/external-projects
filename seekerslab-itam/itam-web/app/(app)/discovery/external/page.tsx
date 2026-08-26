@@ -2,6 +2,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
 import { isEasmRescanOverdue, nextEasmRescan } from '@/lib/easm'
+import { can } from '@/lib/perm'
 import { CredTable } from './CredTable'
 import { ExposedTable } from './ExposedTable'
 import { IocTable } from './IocTable'
@@ -34,7 +35,8 @@ export default async function ExternalPage({ searchParams }: { searchParams: Pro
   const { open } = await searchParams
   const s = getStore()
   // 유출 대응은 보안 업무 — 보안담당·Admin 만 조치 가능
-  const canRespond = ['SEC_MGR', 'ADMIN'].includes(session.role)
+  // 서버 액션과 같은 판정을 쓴다 — 매트릭스에서 격리요청을 끈 역할에 조치 버튼을 내주면 눌러야 거절되는 막다른 길이 된다.
+  const canRespond = ['SEC_MGR', 'ADMIN'].includes(session.role) && can('발견 자산 · CMDB 대사', '격리요청', session.role)
   // 다음 재탐지 기한 — 마지막 실행 + 주기(nextEasmRescan 단일 소스). 지나면 기한 경과로 표시해 스케줄러 지연을 드러낸다(대시보드 큐와 동일 판정)
   const targets = s.easmTargets.map((t) => {
     const next = nextEasmRescan(t)
