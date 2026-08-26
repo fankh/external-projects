@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { hasHolder } from '@/lib/quality'
 import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, isValidDate, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
@@ -90,7 +90,8 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
  *  감사만 일괄로 남긴다. 반납대기 건만 대상(멱등). 점검 결과에 따라 정상→유휴·수리 필요→수리중·폐기 권고→폐기예정(폐기 대장 편입). 자산담당·Admin. */
 export async function receiveReturnMany(assetNos: string[], condition: ReturnCondition, location: string, rawNote: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return { ok: false, message: '반납 접수 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '반납 접수 권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '반납 접수 권한이 없습니다.', '/assets/returns')
   const s = getStore()
   const note = rawNote.trim()
   const loc = location.trim() || '본사 3F 자산창고'

@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { isQnaOverdue, isValidDate, qnaAgeDays, today } from '@/lib/dates'
 import { noticeTargets } from '@/lib/notice'
 import { noticeRemindTargets } from '@/lib/reminders'
@@ -55,7 +55,8 @@ export async function askQuestion(title: string, body: string, category: QnaCate
 /** QnA 답변 — 자산담당·보안담당·Admin */
 export async function answerQuestion(postId: string, body: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '답변 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '답변 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '답변 권한이 없습니다.', '/board/qna')
   if (!body.trim()) return { ok: false, message: '답변 내용을 입력하세요.' }
 
   const s = getStore()
@@ -126,7 +127,8 @@ export async function reopenQuestion(postId: string) {
  *  문의 분류별 담당 팀(접수 통보와 같은 라우팅)으로 발송하고, 문의별 당일 중복 발송은 차단한다. 자산담당·보안담당·Admin. */
 export async function remindQna() {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: 'QnA 답변 독촉 권한이 없습니다 (담당자·Admin).' }
+  if (!session) return { ok: false, message: 'QnA 답변 독촉 권한이 없습니다 (담당자·Admin).' }
+  if (session.role === 'USER') return denied(session.name, 'QnA 답변 독촉 권한이 없습니다 (담당자·Admin).', '/board/qna')
   // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — SLA 경과 미답변 + 당일 발송분 제외.
   let n = 0
   for (const p of qnaRemindTargets()) {
@@ -180,7 +182,8 @@ export async function deleteQuestion(postId: string) {
 /** 공지 등록 — Admin */
 export async function postNotice(title: string, body: string, pinned: boolean, publishAt?: string, category?: NoticeCategory, audienceDept?: string) {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 등록 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '공지 등록 권한이 없습니다.' }
+  if (session.role !== 'ADMIN') return denied(session.name, '공지 등록 권한이 없습니다.', '/board/qna')
   if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
   const pub = publishAt?.trim() || undefined
   // 형식만 검증한다. 과거·오늘 날짜는 즉시 발행으로 처리(publishAt 미설정), 미래 날짜만 예약으로 남긴다.
@@ -213,7 +216,8 @@ export async function postNotice(title: string, body: string, pinned: boolean, p
 /** 공지 삭제 — Admin. 등록만 있고 정리 수단이 없어 낡은 공지가 계속 남던 공백을 메운다. */
 export async function deleteNotice(postId: string) {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 삭제 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '공지 삭제 권한이 없습니다.' }
+  if (session.role !== 'ADMIN') return denied(session.name, '공지 삭제 권한이 없습니다.', '/board/qna')
 
   const s = getStore()
   const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
@@ -228,7 +232,8 @@ export async function deleteNotice(postId: string) {
 /** 공지 수정 — Admin. 제목·내용·고정 상태를 갱신한다 (오타·정보 갱신 시 삭제·재등록 없이). */
 export async function editNotice(postId: string, title: string, body: string, pinned: boolean, category?: NoticeCategory, audienceDept?: string) {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 수정 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '공지 수정 권한이 없습니다.' }
+  if (session.role !== 'ADMIN') return denied(session.name, '공지 수정 권한이 없습니다.', '/board/qna')
   if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
 
   const s = getStore()
@@ -257,7 +262,8 @@ export async function editNotice(postId: string, title: string, body: string, pi
 /** 공지 상단 고정 토글 — Admin. 필독 지정·해제로 목록 상단 노출을 관리한다. */
 export async function toggleNoticePin(postId: string) {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 고정 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '공지 고정 권한이 없습니다.' }
+  if (session.role !== 'ADMIN') return denied(session.name, '공지 고정 권한이 없습니다.', '/board/qna')
 
   const s = getStore()
   const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
@@ -297,7 +303,8 @@ export async function acknowledgeNotice(postId: string) {
  *  상단 고정(필독) 공지만 대상. Admin. (소유자 확인 미응답 에스컬레이션과 같은 컴플라이언스 독촉 패턴) */
 export async function remindNoticeUnacked(postId: string) {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: '미확인자 안내 발송 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '미확인자 안내 발송 권한이 없습니다.' }
+  if (session.role !== 'ADMIN') return denied(session.name, '미확인자 안내 발송 권한이 없습니다.', '/board/qna')
 
   const s = getStore()
   const post = s.posts.find((p) => p.id === postId && p.kind === '공지')

@@ -1,7 +1,7 @@
 'use server'
 import { DISPOSAL_STATUSES } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { daysUntil, dormantDaysOf, today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
 import { can } from '@/lib/perm'
@@ -13,7 +13,8 @@ import { getStore, nextApprovalId } from '@/lib/store'
  *  이미 처리 중이거나 대사 완료(등록·일치)인 건은 건너뛴다. */
 export async function requestOnboardMany(ids: string[]) {
   const session = await getSession()
-  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return { ok: false, message: '편입 요청 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '편입 요청 권한이 없습니다.' }
+  if (!can('발견 자산 · CMDB 대사', '편입', session.role)) return denied(session.name, '편입 요청 권한이 없습니다.', '/discovery/found')
   const s = getStore()
   let n = 0
   for (const id of ids) {
@@ -46,7 +47,8 @@ export async function requestOnboardMany(ids: string[]) {
  *  (제품안내서 그림 3: 소유자 확인 → 편입/격리, AL-05 는 필수 결재) */
 export async function requestOwnerConfirm(discoveredId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '권한이 없습니다.' }
+  if (!session) return { ok: false, message: '권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '권한이 없습니다.', '/discovery/found')
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   if (!d) return { ok: false, message: '발견 자산을 찾을 수 없습니다.' }
@@ -79,7 +81,8 @@ export async function requestOwnerConfirm(discoveredId: string) {
  *  각 건은 후보 부서(ownerCandidate)로 개별 확인 메일이 나가고 부서 확인 결재가 선다(편입 일괄 요청과 대칭). 이미 처리 중인 건은 건너뛴다(멱등). USER 제외. */
 export async function requestOwnerConfirmMany(ids: string[]) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '소유자 확인 요청 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '소유자 확인 요청 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '소유자 확인 요청 권한이 없습니다.', '/discovery/found')
   const s = getStore()
   const targets = s.discovered.filter((d) => ids.includes(d.id) && !d.action)
   if (targets.length === 0) return { ok: false, message: '소유자 확인 요청할 대상이 없습니다 (이미 처리 중인 건 제외).' }
@@ -115,7 +118,8 @@ export async function requestOwnerConfirmMany(ids: string[]) {
  *  사유는 필수(감사·오판정 근거)이며 오판이면 '제외 해제'로 되돌린다. 미등록·미처리 건만 대상. USER 제외. */
 export async function dismissDiscovered(discoveredId: string, rawReason: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '관리 제외 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '관리 제외 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '관리 제외 권한이 없습니다.', '/discovery/found')
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   if (!d) return { ok: false, message: '발견 자산을 찾을 수 없습니다.' }
@@ -134,7 +138,8 @@ export async function dismissDiscovered(discoveredId: string, rawReason: string)
  *  건별 로직은 dismissDiscovered 와 동일하고 감사만 일괄로 남긴다. 미등록·미처리 건만 대상(멱등). USER 제외. */
 export async function dismissDiscoveredMany(ids: string[], rawReason: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '관리 제외 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '관리 제외 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '관리 제외 권한이 없습니다.', '/discovery/found')
   const reason = rawReason.trim()
   if (!reason) return { ok: false, message: '관리 제외 사유를 입력하세요 (비자산 판정 근거).' }
   const s = getStore()
@@ -155,7 +160,8 @@ export async function dismissDiscoveredMany(ids: string[], rawReason: string) {
 /** 관리 제외 해제 — 잘못 제외한 발견 건을 다시 미등록·미처리로 되돌려 편입/격리/확인 대상으로 복귀시킨다. USER 제외. */
 export async function undismissDiscovered(discoveredId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '관리 제외 해제 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '관리 제외 해제 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '관리 제외 해제 권한이 없습니다.', '/discovery/found')
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   if (!d) return { ok: false, message: '발견 자산을 찾을 수 없습니다.' }
@@ -171,7 +177,8 @@ export async function undismissDiscovered(discoveredId: string) {
  *  보안담당 검토 → NAC 격리 요청으로 자동 전환된다 (제품안내서 §04 미확인 소유자 정책). */
 export async function escalateUnanswered() {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '권한이 없습니다.' }
+  if (!session) return { ok: false, message: '권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '권한이 없습니다.', '/discovery/found')
   const s = getStore()
 
   const deadlineDays = s.opsPolicy.confirmDeadlineDays
@@ -218,7 +225,8 @@ export async function escalateUnanswered() {
  *  (제품안내서 §04 정규화·병합 — 자산 지문 기반 중복 제거) */
 export async function mergeDiscovered(primaryId: string, duplicateId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '병합 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '병합 권한이 없습니다.' }
+  if (session.role === 'USER') return denied(session.name, '병합 권한이 없습니다.', '/discovery/found')
   if (primaryId === duplicateId) return { ok: false, message: '같은 항목은 병합할 수 없습니다.' }
 
   const s = getStore()
@@ -265,7 +273,8 @@ export async function requestOnboard(discoveredId: string) {
   const session = await getSession()
   // 매트릭스의 '발견 자산 · CMDB 대사 × 편입' 이 필요조건 — 화면에서 회수하면 실제로 막힌다.
   //  거부를 undefined 로 끝내면 버튼이 아무 반응 없이 죽는다(무엇이 잘못됐는지 알 길이 없다) — 일괄 편입과 같이 사유를 돌려준다.
-  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return { ok: false, message: '편입 요청 권한이 없습니다 (권한 · 정책의 편입 권한).' }
+  if (!session) return { ok: false, message: '편입 요청 권한이 없습니다 (권한 · 정책의 편입 권한).' }
+  if (!can('발견 자산 · CMDB 대사', '편입', session.role)) return denied(session.name, '편입 요청 권한이 없습니다 (권한 · 정책의 편입 권한).', '/discovery/found')
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   // 미등록만 편입한다 — 등록·불일치(이미 대장에 매칭된 자산)를 편입하면 대장에 중복 자산이 생긴다.
@@ -291,7 +300,8 @@ export async function requestOnboard(discoveredId: string) {
 /** NAC 격리 요청 — 미확인·미인가 자산 차단 (발견과 조치의 양방향 폐쇄 루프) */
 export async function requestQuarantine(discoveredId: string) {
   const session = await getSession()
-  if (!session || !can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: '격리 요청 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  if (!session) return { ok: false, message: '격리 요청 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) return denied(session.name, '격리 요청 권한이 없습니다 (권한 · 정책의 격리요청 권한).', '/discovery/found')
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   if (!d || d.action) return { ok: false, message: '격리 요청 대상이 아닙니다 (이미 처리 중).' }
@@ -317,7 +327,8 @@ export async function requestQuarantine(discoveredId: string) {
  *  그동안 등록·불일치는 발견 화면에서 정보만 보이고 종결 액션이 없어 대사 루프가 열려 있었다. 발견 편입 권한자(자산담당·Admin). */
 export async function confirmReconcile(discoveredId: string) {
   const session = await getSession()
-  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return { ok: false, message: '대사 확인 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '대사 확인 권한이 없습니다.' }
+  if (!can('발견 자산 · CMDB 대사', '편입', session.role)) return denied(session.name, '대사 확인 권한이 없습니다.', '/discovery/found')
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   if (!d) return { ok: false, message: '발견 자산을 찾을 수 없습니다.' }
@@ -364,7 +375,8 @@ export async function confirmReconcile(discoveredId: string) {
  *  Discovery 의 생존 재관측을 담당자가 확정하면 대장 최근 실측일이 오늘로 갱신돼 장기 미실측·미확인 집계에서 빠진다. */
 export async function confirmSurvival(discoveredId: string) {
   const session = await getSession()
-  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return { ok: false, message: '대사 생존 확인 권한이 없습니다.' }
+  if (!session) return { ok: false, message: '대사 생존 확인 권한이 없습니다.' }
+  if (!can('발견 자산 · CMDB 대사', '편입', session.role)) return denied(session.name, '대사 생존 확인 권한이 없습니다.', '/discovery/found')
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   if (!d) return { ok: false, message: '발견 자산을 찾을 수 없습니다.' }
@@ -457,7 +469,8 @@ export async function respondToAccountMany(ids: string[], kind: '비활성화' |
  *  keep=true(사용 확인): 유효 계정으로 판정해 휴면 리스크에서 정리. keep=false(비활성화): 미사용 확정으로 비활성화 집행 요청으로 전환. 확인 요청 상태만 대상. 보안담당·Admin. */
 export async function resolveAccountReview(accountId: string, keep: boolean) {
   const session = await getSession()
-  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '휴면 계정 확인 처리 권한이 없습니다 (보안담당·Admin).' }
+  if (!session) return { ok: false, message: '휴면 계정 확인 처리 권한이 없습니다 (보안담당·Admin).' }
+  if (!['SEC_MGR', 'ADMIN'].includes(session.role)) return denied(session.name, '휴면 계정 확인 처리 권한이 없습니다 (보안담당·Admin).', '/discovery/found')
   if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: '휴면 계정 확인 처리 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   const s = getStore()
   const a = s.accounts.find((x) => x.id === accountId)
@@ -708,7 +721,8 @@ export async function respondToLocalVmMany(ids: string[], kind: '회수' | '예�
  *  '예외 승인' 상태만 해제 대상. 차단 요청은 보안 집행이라 이 경로로 되돌리지 않는다. 보안담당·Admin. */
 export async function revokeUsbException(usbId: string) {
   const session = await getSession()
-  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: 'USB 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!session) return { ok: false, message: 'USB 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!['SEC_MGR', 'ADMIN'].includes(session.role)) return denied(session.name, 'USB 예외 해제 권한이 없습니다 (보안담당·Admin).', '/discovery/found')
   if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: 'USB 예외 해제 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   const s = getStore()
   const u = s.usbFindings.find((x) => x.id === usbId)
@@ -725,7 +739,8 @@ export async function revokeUsbException(usbId: string) {
 /** 로컬 VM 예외 승인 해제 — USB 예외 해제와 동일 규약. '예외 승인' 상태만 대상. 보안담당·Admin. */
 export async function revokeVmException(vmId: string) {
   const session = await getSession()
-  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '로컬 VM 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!session) return { ok: false, message: '로컬 VM 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!['SEC_MGR', 'ADMIN'].includes(session.role)) return denied(session.name, '로컬 VM 예외 해제 권한이 없습니다 (보안담당·Admin).', '/discovery/found')
   if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: '로컬 VM 예외 해제 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   const s = getStore()
   const v = s.localVms.find((x) => x.id === vmId)
@@ -777,7 +792,8 @@ export async function respondToCloudFinding(cldId: string, kind: '태그' | '회
 /** 클라우드 리소스 예외 승인 해제 — USB·VM 예외 해제와 같은 규약. '예외 승인' 상태만 대상. 보안담당·Admin. */
 export async function revokeCloudException(cldId: string) {
   const session = await getSession()
-  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '클라우드 리소스 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!session) return { ok: false, message: '클라우드 리소스 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!['SEC_MGR', 'ADMIN'].includes(session.role)) return denied(session.name, '클라우드 리소스 예외 해제 권한이 없습니다 (보안담당·Admin).', '/discovery/found')
   if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: '클라우드 리소스 예외 해제 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   const s = getStore()
   const c = s.cloudFindings.find((x) => x.id === cldId)

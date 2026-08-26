@@ -59,3 +59,11 @@ export function forbidden(actor: string, action: string, target: string): Respon
   appendDenial({ actor, action, target })
   return new Response('Forbidden', { status: 403 })
 }
+
+/** 권한 밖 변경 시도를 감사에 남기고 거부 응답을 돌려준다 — 서버 액션판 forbidden().
+ *  액션마다 거부 이유를 손으로 적어 두면 어느 하나가 빠지므로, 기록과 응답을 한 줄로 묶는다.
+ *  target 은 그 액션이 속한 화면 경로다(감사 로그의 대상 열이 '어디서'를 답한다). */
+export function denied(actor: string, message: string, target: string): { ok: false; message: string } {
+  appendDenial({ actor, action: `권한 밖 변경 시도 — ${message}`, target })
+  return { ok: false, message }
+}

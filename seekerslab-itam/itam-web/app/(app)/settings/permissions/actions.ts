@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAdminAudit } from '@/lib/audit'
+import { appendAdminAudit, denied } from '@/lib/audit'
 import { hasPartialScope, isLocked, PARTIAL_SCOPES, PERM_ACTIONS } from '@/lib/perm'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -14,7 +14,8 @@ import type { PermAction, PermCell, PermMenu, Role } from '@/lib/types'
  *     따라서 편집으로 권한이 상승하는 경로가 없다. */
 export async function setPermission(menu: PermMenu, action: PermAction, role: Role, next: PermCell) {
   const session = await getSession()
-  if (!session || session.role !== 'ADMIN') return { ok: false, message: '권한 변경은 Admin 만 가능합니다.' }
+  if (!session) return { ok: false, message: '권한 변경은 Admin 만 가능합니다.' }
+  if (session.role !== 'ADMIN') return denied(session.name, '권한 변경은 Admin 만 가능합니다.', '/settings/permissions')
   if (isLocked(menu, action, role)) {
     return { ok: false, message: 'Admin 의 권한·정책 조회/저장 권한은 회수할 수 없습니다 (잠금 방지).' }
   }
