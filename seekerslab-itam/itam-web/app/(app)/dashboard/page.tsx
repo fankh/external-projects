@@ -1,8 +1,9 @@
+import { staleComposeTargets } from '@/lib/survey'
 import { DEGRADED_CONNECTOR_STATUSES, USER_REQUEST_KINDS } from '@/lib/types'
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isWarrantyExpiring, isQnaOverdue, isRepairOverdue, isStaleVerify, nowMinute, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isWarrantyExpiring, isQnaOverdue, isRepairOverdue, nowMinute, roundProgressPct, today } from '@/lib/dates'
 import { isEasmRescanOverdue } from '@/lib/easm'
 import { criticalDependencies } from '@/lib/cmdb'
 import { upcomingSchedule } from '@/lib/upcoming'
@@ -116,7 +117,8 @@ export default async function DashboardPage() {
       { label: '분실 · 도난 자산 (회수·폐기 확정)', count: s.assets.filter((a) => a.status === '분실').length, href: '/assets/register?status=분실', tone: 'err' },
       { label: '대여 반환 연체 (반환 독촉)', count: s.assets.filter(isLoanOverdue).length, href: '/assets/returns?loan=연체', tone: 'err' },
       { label: '대여 반환 임박 (D-7 · 사전 안내)', count: s.assets.filter(isLoanDueSoon).length, href: '/assets/returns?loan=임박', tone: 'warn' },
-      { label: '장기 미실측 (재물조사 편성)', count: s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).length, href: '/inventory/survey-plan', tone: 'warn' },
+      // 편성 대기만 센다 — 이미 회차에 묶인 자산까지 세면 편성을 눌러도 큐가 줄지 않는다(lib/survey 단일 소스).
+      { label: '장기 미실측 (재물조사 편성 대기)', count: staleComposeTargets().length, href: '/inventory/survey-plan', tone: 'warn' },
       // 재물조사 기한 경과 — 기한이 지난 미완료(계획·진행중) 조사 회차. 회차 표의 '기한 경과' 표시를 담당자 일과 시작점으로 끌어올려 독촉으로 닫는다(로59).
       { label: '재물조사 기한 경과 (담당자 독촉)', count: s.inventoryRounds.filter((r) => r.status !== '완료' && r.dueDate < today()).length, href: '/inventory/survey-plan', tone: 'err' },
       { label: '보증 만료 임박 자산 (연장·교체 검토)', count: s.assets.filter((a) => isWarrantyExpiring(a, s.opsPolicy.expiryWindowDays)).length, href: '/assets/register?warranty=soon', tone: 'warn' },

@@ -2349,6 +2349,21 @@ try {
     if (want !== shown) intakeBad.push(`${label}: 큐 ${want} ≠ 표시 ${shown}`)
   }
   check("입고 큐: 건수 = 필터 화면 표시 건수", intakeBad.length === 0, intakeBad.join(" / "))
+  // 대시보드 '장기 미실측' 큐는 미실측 전량을 세고 화면·자동 편성 액션은 '편성 대기'(아직 회차에 안 묶인 건)를
+  //  써서, 편성을 눌러 대상을 모두 회차로 묶어도 큐 건수가 그대로 남았다 — 처리해도 줄지 않는 큐였다.
+  //  이제 셋 다 lib/survey 의 같은 집합을 본다.
+  const planPlain = planHtml.replace(/<!-- -->/g, '')
+  const staleQueue = queueCount('장기 미실측 (재물조사 편성 대기)')
+  // 이 화면에는 '편성 대기 N건' 칩이 둘이다(대사 미확인 카드가 먼저 온다) — 장기 미실측 카드 구간부터 찾는다.
+  const staleCardAt = planPlain.indexOf('장기 미실측(실사 기반 유령) 자산 자동 편성')
+  const staleCard = staleCardAt === -1 ? '' : planPlain.slice(staleCardAt, staleCardAt + 2500)
+  const stalePendingShown = Number((/편성 대기 ([0-9]+)건/.exec(staleCard) || [])[1] ?? (staleCard.includes('편성 완료') ? 0 : -1))
+  check("장기 미실측 큐: 건수 = 계획 화면의 편성 대기 건수",
+    staleQueue >= 0 && staleQueue === stalePendingShown, `큐 ${staleQueue} · 화면 ${stalePendingShown}`)
+  // 편성 대기는 미실측 전량의 부분집합이어야 한다(카드가 두 수를 나란히 적는다).
+  const staleTotalShown = Number((/장기 미실측 ([0-9]+)건/.exec(staleCard) || [])[1] ?? -1)
+  check("장기 미실측: 편성 대기는 전량의 부분집합", staleTotalShown >= stalePendingShown && staleTotalShown > 0,
+    `전량 ${staleTotalShown} · 편성 대기 ${stalePendingShown}`)
   // 데이터 소거 대기 큐 — 결재를 받고 집행만 남은 건이다. 화면 상태 필터에는 '진행중'(완료가 아닌 전부)까지만
   //  있어 대상 선정 단계가 섞였고, 큐 링크도 필터 없이 떨어져 큐가 말한 건수를 화면에서 다시 세어야 했다.
   const wipeHtml = (await (await get('/assets/disposal?status=wipe', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
