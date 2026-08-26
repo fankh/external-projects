@@ -77,6 +77,10 @@ if (!REMOTE) {
 const cookie = (acct) => ({ name: 'itam_session', value: encodeURIComponent(JSON.stringify(acct)), url: BASE })
 const failures = []
 let checks = 0
+/** 필터·드릴다운 경로 — 화면이 실제로 렌더한 링크에서 모은다. 필터를 걸면 안내 배너·해제 링크·칩줄이
+ *  추가로 붙어 컨트롤 밀도가 올라가므로, 기본 경로만 재면 그 줄들이 통째로 사각으로 남는다.
+ *  목록을 여기 적어 두면 새 필터가 이 스윕에서만 조용히 빠진다(화면 목록을 내비에서 읽는 것과 같은 규약). */
+let FILTER_LINKS = []
 
 try {
   const browser = await chromium.launch({ executablePath: EXE, headless: true })
@@ -84,6 +88,31 @@ try {
     const ctx = await browser.newContext({ viewport: { width, height: 900 } })
     await ctx.addCookies([cookie(ADMIN)])
     const page = await ctx.newPage()
+    // 좁은 폭에서 한 번만 필터 경로를 수집·검사한다 — 이탈은 좁은 폭에서 나므로 넓은 폭까지 늘리면 시간만 배로 든다.
+    if (width === WIDTHS[0]) {
+      const seen = new Map()
+      for (const route of ROUTES) {
+        await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle', timeout: 20000 })
+        const links = await page.evaluate(() => [...document.querySelectorAll('a[href]')]
+          .map((a) => a.getAttribute('href') || '')
+          .filter((h) => h.startsWith('/') && h.includes('?') && !h.startsWith('/api/')))
+        for (const link of links) {
+          const [p, q] = link.split('?')
+          const shape = p + '?' + [...new URLSearchParams(q).keys()].sort().join(',')
+          if (!seen.has(shape)) seen.set(shape, link)
+        }
+      }
+      FILTER_LINKS = [...seen.values()]
+      if (FILTER_LINKS.length === 0) failures.push('필터 링크를 하나도 수집하지 못했습니다(수집 로직 확인)')
+      for (const link of FILTER_LINKS) {
+        await page.goto(`${BASE}${link}`, { waitUntil: 'networkidle', timeout: 20000 })
+        await page.waitForTimeout(120)
+        checks++
+        for (const hit of await page.evaluate(PROBE)) {
+          failures.push(`w=${width} ${link}(필터): ${hit.t} 이 카드 밖 ${hit.by}px (스크롤 조상 없음)`)
+        }
+      }
+    }
     for (const route of ROUTES) {
       await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle', timeout: 20000 })
       await page.waitForTimeout(120)
@@ -118,7 +147,7 @@ try {
 
 for (const f of failures) console.log('✗ ' + f)
 if (failures.length === 0) {
-  console.log(`✓ layout: ${ROUTES.length}화면 x ${WIDTHS.length}폭 + 좁은 폭 상세 패널 (${checks}건) 카드 이탈 컨트롤 없음`)
+  console.log(`✓ layout: ${ROUTES.length}화면 x ${WIDTHS.length}폭 + 좁은 폭 상세 패널·필터 경로 ${FILTER_LINKS.length}종 (${checks}건) 카드 이탈 컨트롤 없음`)
 } else {
   console.log(`✗ layout: ${checks}건 중 ${failures.length}건 도달 불가 이탈`)
 }
