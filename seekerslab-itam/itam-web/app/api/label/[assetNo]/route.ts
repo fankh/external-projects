@@ -8,7 +8,11 @@ import { getStore } from '@/lib/store'
  *  라벨 발행은 자산 운영 업무이므로 사용자(USER)는 제외한다 — 대장 편집 권한(canEdit)과 동일 게이트. */
 export async function GET(_req: Request, { params }: { params: Promise<{ assetNo: string }> }) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return new Response('Forbidden', { status: 403 })
+  // 인증 안 됨(401)과 권한 없음(403)을 가른다 — 형제 문서 API 여섯(자산 카드·검수 확인서·인수인계서·분실 신고서·
+  //  퇴사 정리표·라이선스 카드)은 이미 나누는데 이 셋만 미로그인을 403 으로 뭉뚱그려, 호출자가 '로그인하라'와
+  //  '너는 안 된다'를 구분할 수 없었다.
+  if (!session) return new Response('Unauthorized', { status: 401 })
+  if (session.role === 'USER') return new Response('Forbidden', { status: 403 })
   // 매트릭스 '조회'도 만족해야 한다 — 화면(requireView)은 매트릭스를 보는데 문서 API 가 역할만 보면,
   //  조회 권한을 회수한 뒤에도 인쇄 문서로 같은 데이터가 그대로 나간다(화면은 막혔는데 API 는 열린 상태).
   if (!can('자산 대장', '조회', session.role)) return new Response('Forbidden', { status: 403 })
