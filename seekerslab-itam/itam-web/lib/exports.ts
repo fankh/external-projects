@@ -402,9 +402,20 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
   const astatus = filter?.status ?? '전체'
   const akind = filter?.akind ?? '전체'
   const amine = Boolean(filter?.mine)
+  // 결재선 정의 — 이 문서가 어느 단계를 거치도록 돼 있는지. 현재단계만으로는 남은 단계도, 필수 결재 여부도
+  //  반출본에서 읽을 수 없어 '왜 아직 대기인지'를 감사에서 판단할 수 없었다.
+  const lineOf = new Map(s.approvalLines.map((l) => [l.kind, l]))
+  // 신청 사유·첨부 근거 문서는 화면이 결재자에게 보여 주는 판단 근거인데 반출본에 없었다 — 결재 이력이라면서
+  //  '무엇을 왜 요청했고 무엇을 근거로 결재했는지'가 빠져 있던 셈이다. 대상 상세(이동 목적지·희망 반환 기한 등)도 같다.
+  const detailOf = (a: (typeof s.approvals)[number]) => [
+    a.targetLocation ? `이동 목적지 ${a.targetLocation}` : '',
+    a.loanDueDate ? `희망 반환 ${a.loanDueDate}` : '',
+    a.desiredCategory ? `희망 유형 ${a.desiredCategory}` : '',
+    a.saasService ? `대상 SaaS ${a.saasService}` : '',
+  ].filter(Boolean).join(' · ') || '-'
   return [{
     name: '결재 이력',
-    header: ['문서번호', '구분', '제목', '기안자', '부서', '기안일', '상태', '현재단계', '대기 경과일', '결재자', '결재일', '반려 사유', '연결', '집행'],
+    header: ['문서번호', '구분', '제목', '기안자', '부서', '기안일', '상태', '결재선', '현재단계', '대기 경과일', '결재자', '결재일', '신청 사유', '대상 상세', '첨부 근거 문서', '반려 사유', '재상신', '연결', '집행'],
     rows: s.approvals
       .filter((a) => {
         // USER 는 본인 상신분만 — 권한 매트릭스 '엑셀' 셀을 켜도 조회='p'(own-scope) 규칙을 넘지 못한다(자산 반출과 동일 방어선). amine 는 선택 필터일 뿐 보안 스코프가 아니다.
@@ -415,11 +426,21 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         if (!aq) return true
         return [a.id, a.title, a.requester].some((f) => f?.toLowerCase().includes(aq))
       })
-      .map((a) => [
-        a.id, a.kind, a.title, a.requester, a.dept, a.requestedAt, a.status, a.currentStep,
-        // 대기 경과일 — 대기 결재의 상신 후 경과일. SLA(3일) 초과면 '지연' 표기로 정체 결재를 감사 반출에 드러낸다.
-        a.status === '대기' ? `${approvalAgeDays(a.requestedAt, t)}일${isApprovalOverdue(a, t, s.opsPolicy.approvalSlaDays) ? ' · 지연' : ''}` : '',
-        a.decidedBy ?? '', a.decidedAt ?? '', a.rejectReason ?? '', a.refId ?? '', a.fulfilled ? '집행완료' : '',
-      ]),
+      .map((a) => {
+        const line = lineOf.get(a.kind)
+        return [
+          a.id, a.kind, a.title, a.requester, a.dept, a.requestedAt, a.status,
+          line ? `${line.steps.join(' → ')}${line.required ? ' (필수 결재)' : ''}` : '-',
+          a.currentStep,
+          // 대기 경과일 — 대기 결재의 상신 후 경과일. SLA(3일) 초과면 '지연' 표기로 정체 결재를 감사 반출에 드러낸다.
+          a.status === '대기' ? `${approvalAgeDays(a.requestedAt, t)}일${isApprovalOverdue(a, t, s.opsPolicy.approvalSlaDays) ? ' · 지연' : ''}` : '',
+          a.decidedBy ?? '', a.decidedAt ?? '',
+          a.note ?? '-', detailOf(a), (a.reportRefs ?? []).join(', ') || '-',
+          // 반려 사유는 반려일 때만 뜻이 있다 — 다른 상태의 빈 칸과 섞이지 않게 '-' 로 구분한다.
+          a.status === '반려' ? (a.rejectReason ?? '미기재') : '-',
+          a.status === '반려' ? (a.resubmitted ? '재상신함' : '미재상신') : '-',
+          a.refId ?? '-', a.fulfilled ? '집행완료' : a.status === '승인' ? '집행 대기' : '-',
+        ]
+      }),
   }]
 }
