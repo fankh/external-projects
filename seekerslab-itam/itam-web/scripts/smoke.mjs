@@ -2329,6 +2329,24 @@ try {
   // 표가 여럿인 화면이라 큐 링크가 자기 표로 바로 내려가야 한다(앵커).
   check('반납·유휴 큐: 링크가 해당 표 앵커로 내려간다',
     dashMgr.includes('/assets/returns#receive') && dashMgr.includes('/assets/returns#repair'))
+  // 불출·이동 화면도 같은 자리였다 — 사이 카드(배정 가능 재고 N건)는 건수를 적는데 처리 대기 두 카드만
+  //  안 적었다. 큐는 둘의 합을 세므로, 두 카드 건수를 더해 큐와 맞댄다.
+  const movHtml = (await (await get('/assets/movement', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const movIssue = Number((/불출 대기 ([0-9]+)건/.exec(movHtml) || [])[1] ?? -1)
+  const movMove = Number((/이동 대기 ([0-9]+)건/.exec(movHtml) || [])[1] ?? -1)
+  const movQueue = queueCount('불출 · 이동 집행 대기')
+  check("불출·이동 큐: 건수 = 두 처리 대기 카드 건수의 합",
+    movQueue > 0 && movIssue >= 0 && movMove >= 0 && movQueue === movIssue + movMove,
+    `큐 ${movQueue} · 불출 ${movIssue} + 이동 ${movMove}`)
+  check('불출·이동 큐: 링크가 처리 대기 표 앵커로 내려간다', dashMgr.includes('/assets/movement#issue'))
+  // 안전재고 큐는 유형(종) 단위로 센다 — 경보 카드가 적는 종 수와 맞댄다. 이 큐는 파라미터 없는 링크라
+  //  전수 스윕(파라미터 붙은 링크만 대상)에는 들어오지 않으므로 여기서 따로 고정한다.
+  const stockAlertHtml = (await (await get('/inventory/stock', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const stockAlertShown = Number((/가용 재고 부족 ([0-9]+)종/.exec(stockAlertHtml) || [])[1] ?? -1)
+  const stockQueue = queueCount('안전재고 미달')
+  check("안전재고 큐: 건수 = 경보 카드가 적는 유형 수",
+    stockQueue > 0 && stockQueue === stockAlertShown, `큐 ${stockQueue} · 표시 ${stockAlertShown}`)
+  check('안전재고 큐: 링크가 경보 카드 앵커로 내려간다', dashMgr.includes('/inventory/stock#alert'))
 
   // 큐 건수 ↔ 드릴다운 목록 일치 — 전수 스윕.
   //  이 세션에 큐마다 손으로 짝을 적어 대조를 걸었는데, 그 방식은 새 큐가 생기면 조용히 빠진다.

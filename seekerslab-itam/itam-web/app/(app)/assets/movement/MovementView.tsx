@@ -28,7 +28,9 @@ export function MovementView(props: {
     <>
       {msg && <div className="callout">{msg}</div>}
 
-      <Card kicker="Phase 3 · Issue" title="불출 대기 — 승인된 자산 신청" pad={false}>
+      {/* 사이 카드(배정 가능 재고 N건)는 건수를 적는데 처리 대기 두 카드만 안 적었다 — 대시보드
+          '불출 · 이동 집행 대기' 큐가 세는 집합이 이 둘의 합이라, 큐가 말한 수를 화면에서 맞대 볼 자리가 없었다. */}
+      <Card id="issue" kicker="Phase 3 · Issue" title={`불출 대기 ${props.issues.length}건 — 승인된 자산 신청`} pad={false}>
         {props.issues.length === 0 ? (
           <div className="empty">불출 처리할 승인 건이 없습니다.</div>
         ) : (
@@ -95,7 +97,7 @@ export function MovementView(props: {
         )}
       </Card>
 
-      <Card kicker="Phase 3 · Move" title="이동 대기 — 승인된 이동 신청" pad={false}>
+      <Card id="move" kicker="Phase 3 · Move" title={`이동 대기 ${props.moves.length}건 — 승인된 이동 신청`} pad={false}>
         {props.moves.length === 0 ? (
           <div className="empty">이동 처리할 승인 건이 없습니다.</div>
         ) : (
