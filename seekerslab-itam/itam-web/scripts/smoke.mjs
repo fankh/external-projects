@@ -2294,6 +2294,17 @@ try {
   // 잘린 표의 문구는 전체 건수를 말해야 한다 — 자른 배열의 length 를 그대로 적는 형태를 막는다.
   check('리포트: 잘림 문구가 자른 뒤 건수를 총계처럼 적지 않는다',
     !reportsSrc.includes('(최대 ') && reportsSrc.includes('soonAll.length'))
+  // 외부 위협 조치는 역할만 보고 권한 매트릭스를 보지 않았다 — 같은 메뉴('발견 자산 · CMDB 대사')의 편입·격리는
+  //  이미 매트릭스를 보고 있어, 한 메뉴의 절반만 정책이 먹는 상태였다. 권한 · 정책에서 격리요청을 꺼도 조치가 나갔다.
+  const extActionsSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'external', 'actions.ts'), 'utf8')
+  const extRoleGates = extActionsSrc.split("['SEC_MGR', 'ADMIN'].includes(session.role)").length - 1
+  const extMatrixGates = extActionsSrc.split("can('발견 자산 · CMDB 대사', '격리요청', session.role)").length - 1
+  check('외부 위협 조치: 역할 가드마다 권한 매트릭스 가드가 함께 있다',
+    extRoleGates > 0 && extMatrixGates >= extRoleGates, `역할 가드 ${extRoleGates} · 매트릭스 가드 ${extMatrixGates}`)
+  // 화면도 같은 판정을 써야 한다 — 매트릭스에서 꺼진 역할에 조치 버튼을 내주면 눌러야 거절되는 막다른 길이 된다.
+  const extPageSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'external', 'page.tsx'), 'utf8')
+  check('외부 위협 화면: 조치 노출 판정이 서버 가드와 같은 매트릭스를 본다',
+    extPageSrc.includes("can('발견 자산 · CMDB 대사', '격리요청', session.role)"))
   // 분석 화면의 네 패널이 모두 상위 12건에서 끊긴다 — 잘렸다고 적기만 하고 넘어갈 길이 없으면 그 뒤 항목은
   //  화면 어디에서도 볼 수 없다. 잘림 안내마다 등급 필터든 전체 목록 링크든 경로가 붙어 있어야 한다.
   const cutNotes = [...vulnPlain.matchAll(/… 외 [0-9]+[건대]/g)].map((m) => m.index ?? -1)

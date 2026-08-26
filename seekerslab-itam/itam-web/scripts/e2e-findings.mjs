@@ -3522,6 +3522,26 @@ try {
   await pDA2.goto(`${BASE}/discovery/found?sel=${dgTarget}`, { waitUntil: 'networkidle' })
   ok('발견 자산: 편입 권한 복원 시 편입 요청 버튼 재노출(양성 대조)', ((await pDA2.textContent('body')) || '').includes('편입 요청 (결재)'))
   await ctxDA2.close()
+  // 외부 위협 조치는 역할만 보고 매트릭스를 보지 않아, 권한 · 정책에서 격리요청을 꺼도 그대로 실행됐다.
+  //  같은 메뉴의 편입·격리는 이미 매트릭스를 보고 있었으므로 한 메뉴의 절반만 정책이 먹는 상태였다.
+  //  셀 위치: 라벨(0) + 보안담당(역할 3번째) × 격리요청(기능 6번째) = 1 + 14 + 5
+  const xgCell = dgRow.locator('td').nth(20)
+  ok('권한 매트릭스: 발견 자산 × 격리요청(보안담당) 초기 허용', ((await xgCell.textContent()) || '').includes('✓'))
+  await xgCell.click(); await pDG.waitForTimeout(600) // 허용 → 본인
+  await xgCell.click(); await pDG.waitForTimeout(800) // 본인 → 불가
+  const ctxXS = await browser.newContext(); await ctxXS.addCookies([cookie(SEC)]); const pXS = await ctxXS.newPage()
+  await pXS.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
+  // 설명 문구에도 '차단 요청'이 나오므로 본문 텍스트가 아니라 실제 버튼을 센다.
+  ok('외부 위협: 매트릭스 격리요청 회수 시 조치 버튼 미노출(서버 게이트와 정합)',
+    (await pXS.locator('button', { hasText: '차단 요청' }).count()) === 0)
+  await ctxXS.close()
+  await xgCell.click(); await pDG.waitForTimeout(800) // 불가 → 허용 복원
+  ok('권한 매트릭스: 발견 자산 × 격리요청 복원(허용)', ((await xgCell.textContent()) || '').includes('✓'))
+  const ctxXS2 = await browser.newContext(); await ctxXS2.addCookies([cookie(SEC)]); const pXS2 = await ctxXS2.newPage()
+  await pXS2.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
+  ok('외부 위협: 조치 권한 복원 시 조치 버튼 재노출(양성 대조)',
+    (await pXS2.locator('button', { hasText: '차단 요청' }).count()) > 0)
+  await ctxXS2.close()
   await ctxDG.close()
   // 채번 자산의 보증 시작일 — 대장이 도입일로 기록하는 입고일 기준이어야 한다. 채번일 기준이면 입고 후 검수·채번이 늦어진 만큼
   //  공급사 보증이 실제보다 길게 기록되고(시드 IN-2606-42: 입고 2026-06-20, 검수 완료 상태로 대기 중), 보증 만료 임박 알림·교체 판정도 그만큼 늦게 잡힌다.
