@@ -966,6 +966,15 @@ try {
   // 자산 라벨 재발행 — 대장에서 손상·분실 라벨 재출력 (USER 제외, 자산 운영 권한)
   check('라벨 인쇄: 사용자 차단 (403)', (await get('/api/label/AST-2023-000112', 'USER')).status === 403)
   check('라벨 인쇄: 없는 자산 404', (await get('/api/label/NOPE', 'ADMIN')).status === 404)
+  // 리포트 열람 API 는 문서 API 중 유일하게 스모크 검사가 하나도 없었다 — 감사 대응 자료·부서별 비용·
+  //  취약점 우선순위 같은 전문이 고정 URL 로 나가는 자리인데 가드가 검증되지 않은 채였다.
+  check('리포트 열람: 미로그인 차단 (401)', (await get('/api/reports/RPT-NOPE')).status === 401)
+  check('리포트 열람: 사용자 차단 (403)', (await get('/api/reports/RPT-NOPE', 'USER')).status === 403)
+  check('리포트 열람: 없는 리포트 404 (권한 통과 후)', (await get('/api/reports/RPT-NOPE', 'ADMIN')).status === 404)
+  // 인증 안 됨(401)과 권한 없음(403)을 가른다 — 형제 문서 API 는 이미 나누는데 셋만 미로그인을 403 으로
+  //  뭉뚱그려, 호출자가 '로그인하라'와 '너는 안 된다'를 구분할 수 없었다.
+  check('라벨 인쇄: 미로그인 차단 (401 · 403 과 구분)', (await get('/api/label/AST-2023-000112')).status === 401)
+  check('소거 확인서: 미로그인 차단 (401 · 403 과 구분)', (await get('/api/wipe-cert/DSP-00')).status === 401)
   const label = await get('/api/label/AST-2023-000112', 'ASSET_MGR')
   const labelBody = await label.text()
   check('라벨 인쇄: 자산담당 발급 (200·QR·바코드)', label.status === 200 && labelBody.includes('AST-2023-000112') && labelBody.includes('SEEKERSLAB') && labelBody.includes('<svg'))
