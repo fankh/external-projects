@@ -285,7 +285,8 @@ function seedScanRuns(): ScanRun[] {
   return [
     { id: 'SCN-RUN-2607-28', startedAt: '2026-07-28 23:00', finishedAt: '2026-07-28 23:41', channels: ['네트워크 능동 스캔', '패시브 트래픽', 'EDR·엔드포인트', 'DNS·프록시 로그', '클라우드 API', 'AD/IdP·SSO 로그'], scope: '10.20.0.0/16 · 10.10.0.0/16', intensity: '보통', status: '완료', observed: 16, reobserved: 14, newFound: 2, by: '스케줄러 (야간 정책)' },
     { id: 'SCN-RUN-2607-27', startedAt: '2026-07-27 23:00', finishedAt: '2026-07-27 23:38', channels: ['네트워크 능동 스캔', '패시브 트래픽', 'EDR·엔드포인트', 'DNS·프록시 로그', '클라우드 API', 'AD/IdP·SSO 로그'], scope: '10.20.0.0/16 · 10.10.0.0/16', intensity: '보통', status: '완료', observed: 14, reobserved: 13, newFound: 1, by: '스케줄러 (야간 정책)' },
-    { id: 'SCN-RUN-2607-26', startedAt: '2026-07-26 23:00', finishedAt: '2026-07-26 23:12', channels: ['네트워크 능동 스캔'], scope: '10.20.60.0/24 (IoT 세그먼트)', intensity: '낮음', status: '중단', observed: 3, reobserved: 3, newFound: 0, by: '윤보안', override: '민원 대응 — 세그먼트 한정 확인' },
+    { id: 'SCN-RUN-2607-26', startedAt: '2026-07-26 23:00', finishedAt: '2026-07-26 23:12', channels: ['네트워크 능동 스캔'], scope: '10.20.60.0/24 (IoT 세그먼트)', intensity: '낮음', status: '중단', observed: 3, reobserved: 3, newFound: 0, by: '윤보안', abortReason: '민원 대응 — 세그먼트 한정 확인' },
+    { id: 'SCN-RUN-2607-25', startedAt: '2026-07-25 14:20', finishedAt: '2026-07-25 14:33', channels: ['네트워크 능동 스캔'], scope: '10.20.31.0/24 (임원실 세그먼트)', intensity: '낮음', status: '완료', observed: 5, reobserved: 5, newFound: 0, by: '윤보안', override: '침해 의심 단말 긴급 확인 — 보안사고 대응(CISO 승인)' },
   ]
 }
 
@@ -866,12 +867,12 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 33
+const SCHEMA_VERSION = 34
 /** 스키마 형태 지문 — Store 의 키와 각 엔티티의 필드 이름에서 계산한다(scripts/smoke.mjs 가 같은 방식으로 대조).
  *  형태가 바뀐 채 SCHEMA_VERSION 이 그대로면 낡은 스냅샷이 그대로 로드돼 새 필드가 undefined 로 읽힌다
  *  (파일 영속화는 마이그레이션 없이 버전 불일치 시 시드로 폴백하는 설계다). 형태를 바꿨다면 SCHEMA_VERSION 을
  *  올리고 이 지문을 스모크가 알려주는 값으로 갱신한다 — 사람이 기억할 일이 아니라 테스트가 잡을 일이다. */
-export const SCHEMA_SHAPE = '633913f0'
+export const SCHEMA_SHAPE = '60452102'
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
