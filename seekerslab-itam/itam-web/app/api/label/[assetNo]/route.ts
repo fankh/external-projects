@@ -1,3 +1,4 @@
+import { forbidden } from '@/lib/audit'
 import { barcodeSvg, qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -12,10 +13,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   //  퇴사 정리표·라이선스 카드)은 이미 나누는데 이 셋만 미로그인을 403 으로 뭉뚱그려, 호출자가 '로그인하라'와
   //  '너는 안 된다'를 구분할 수 없었다.
   if (!session) return new Response('Unauthorized', { status: 401 })
-  if (session.role === 'USER') return new Response('Forbidden', { status: 403 })
+  if (session.role === 'USER') return forbidden(session.name, '권한 밖 문서 발급 시도 — 자산 라벨', '/api/label')
   // 매트릭스 '조회'도 만족해야 한다 — 화면(requireView)은 매트릭스를 보는데 문서 API 가 역할만 보면,
   //  조회 권한을 회수한 뒤에도 인쇄 문서로 같은 데이터가 그대로 나간다(화면은 막혔는데 API 는 열린 상태).
-  if (!can('자산 대장', '조회', session.role)) return new Response('Forbidden', { status: 403 })
+  if (!can('자산 대장', '조회', session.role)) return forbidden(session.name, '권한 밖 문서 발급 시도 — 자산 라벨', '/api/label')
 
   const { assetNo } = await params
   const a = getStore().assets.find((x) => x.assetNo === assetNo)

@@ -1,3 +1,4 @@
+import { forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
 
 /** 자산 일괄 등록 CSV 템플릿 — 헤더와 예시 행이 담긴 즉시 작성 가능한 CSV 를 내려준다.
@@ -5,7 +6,7 @@ import { getSession } from '@/lib/session'
 export async function GET() {
   const session = await getSession()
   if (!session) return new Response('Unauthorized', { status: 401 })
-  if (session.role === 'USER') return new Response('Forbidden', { status: 403 })
+  if (session.role === 'USER') return forbidden(session.name, '권한 밖 양식 내려받기 시도 — 자산 일괄등록 양식', '/api/asset-template.csv')
 
   // 유형·모델 필수, 시리얼 비우면 자동 채번. 유형: 단말·서버·네트워크·주변기기·SW·가상자원
   const lines = [

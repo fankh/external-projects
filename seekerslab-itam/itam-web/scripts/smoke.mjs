@@ -1486,6 +1486,45 @@ try {
   const auditAfterDl = await (await get('/platform/integrations', 'SEC_MGR')).text()
   check('감사: 오프보딩 명세서 반출이 감사 로그에 기록', offDl.status === 200 && auditAfterDl.includes('오프보딩 명세서 반출'))
 
+  // 접근 거부가 감사에 남는가 — 감사 로그 화면·반출 엑셀에는 '결과=실패' 필터가 있고 시드에도 「권한 밖 화면
+  //  접근 시도」가 한 줄 있는데, 정작 그 행을 만드는 코드가 없어 운영 중에는 실패 건이 늘지 않았다.
+  //  화면 가드(리다이렉트)와 문서·반출 API(403) 둘 다 남겨야 '누가 권한 밖을 두드렸는가'에 답할 수 있다.
+  const denyBefore = await (await get('/platform/integrations', 'SEC_MGR')).text()
+  const denyCount = (html) => html.split('권한 밖').length - 1
+  const beforeN = denyCount(denyBefore)
+  // 사용자가 권한 밖 화면(수명주기)을 직접 두드린다 — 대시보드로 리다이렉트되고 거부가 남아야 한다
+  await get('/assets/lifecycle', 'USER')
+  // 자산담당이 권한 밖 반출(감사 로그 엑셀)을 URL 로 호출한다 — 403 과 함께 거부가 남아야 한다
+  const denyExport = await get('/api/audit-export', 'ASSET_MGR')
+  const denyAfter = await (await get('/platform/integrations', 'SEC_MGR')).text()
+  check('감사: 권한 밖 화면 진입이 실패 기록으로 남는다', denyAfter.includes('권한 밖 화면 접근 시도') && denyAfter.includes('/assets/lifecycle'),
+    '리다이렉트만 하고 감사에 남지 않음')
+  check('감사: 권한 밖 반출 시도가 실패 기록으로 남는다(403 과 함께)',
+    denyExport.status === 403 && denyAfter.includes('권한 밖 반출 시도 — 감사 로그'))
+  // 시드 한 줄(「권한 밖 화면 접근 시도」 → /settings/permissions)을 넘어 실제로 쌓였는가 —
+  //  증가분으로 재지 않는 이유는 같은 대상의 반복이 하루 한 건으로 접히기 때문이다(위 스윕이 이미 두드렸다).
+  //  화면 진입과 반출, 두 경로 모두에서 나와야 한 쪽만 남기고 끝난 게 아니다.
+  check(`감사: 거부 기록이 시드 한 줄을 넘어 쌓인다 (${beforeN}건)`,
+    beforeN > 1 && denyAfter.includes('권한 밖 화면 접근 시도') && denyAfter.includes('권한 밖 반출 시도'))
+  // 같은 사람이 같은 대상을 같은 날 다시 두드려도 한 건 — 리다이렉트는 새로고침으로 쉽게 반복되고,
+  //  그대로 쌓으면 정작 봐야 할 변경 이력이 거부 로그에 덮인다(독촉·통지의 '오늘 이미 보냈다'와 같은 규약).
+  const dupN = denyCount(denyAfter)
+  await get('/assets/lifecycle', 'USER')
+  await get('/api/audit-export', 'ASSET_MGR')
+  const denyDup = await (await get('/platform/integrations', 'SEC_MGR')).text()
+  check('감사: 같은 사람·같은 대상의 반복 시도는 하루 한 건', denyCount(denyDup) === dupN, `${dupN} → ${denyCount(denyDup)}`)
+  // 반출 엑셀의 '결과=실패' 필터가 실제 거부 건을 담는다 — 시드 한 줄만 잡히던 필터다
+  const denyXlsx = Buffer.from(await (await get('/api/audit-export?result=%EC%8B%A4%ED%8C%A8', 'SEC_MGR')).arrayBuffer()).toString('utf8')
+  check('감사 로그 엑셀: 실패 필터에 실제 거부 기록이 담긴다', denyXlsx.includes('권한 밖 반출 시도 — 감사 로그') && denyXlsx.includes('/assets/lifecycle'))
+  // 문서·반출 API 의 403 은 한 곳(lib/audit forbidden)을 거쳐야 한다 — 라우트마다 손으로 적으면 어느 하나가 빠진다
+  const apiDir = path.join(ROOT, 'app', 'api')
+  const routeFiles = []
+  const walkApi = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, e.name); if (e.isDirectory()) walkApi(p); else if (e.name === 'route.ts') routeFiles.push(p) } }
+  walkApi(apiDir)
+  const rawForbidden = routeFiles.filter((p) => readFileSync(p, 'utf8').includes('status: 403'))
+  const auditedForbidden = routeFiles.filter((p) => readFileSync(p, 'utf8').includes('forbidden(session.name'))
+  check(`감사: 문서·반출 API 의 권한 거부가 모두 감사를 거친다 (${auditedForbidden.length}개 라우트)`,
+    rawForbidden.length === 0 && auditedForbidden.length >= 15, `직접 403: ${rawForbidden.map((p) => p.replace(ROOT, '')).join(', ')}`)
   const intHtml = await (await get('/platform/integrations', 'SEC_MGR')).text()
   check('연동 · 인프라: 커넥터·감사 로그(검색·필터) 렌더', intHtml.includes('EDR · 백신 콘솔') && intHtml.includes('감사 로그') && intHtml.includes('수행자·동작·대상 검색') && intHtml.includes('권한 밖 화면 접근 시도'))
   // 감사 로그 대상(target) 딥링크 — 시드 로그의 DSC- 대상이 발견 자산 화면 링크로 렌더된다
@@ -1497,7 +1536,9 @@ try {
   check('연동 · 인프라: 알림 발송 이력 기간(from/to) 필터 렌더', intHtml.includes('발송 증적 기간 시작일') && intHtml.includes('발송 증적 기간 종료일'))
   const intAsset = await (await get('/platform/integrations', 'ASSET_MGR')).text()
   check('연동 · 인프라: 자산담당은 커넥터 관리 미노출 (조회만)', !intAsset.includes('연결 테스트'))
-  check('연동 · 인프라: 자산담당엔 감사 로그 엑셀 링크 없음', !intAsset.includes('/api/audit-export'))
+  // 링크(href)가 없는지를 본다 — 감사 로그 표에는 '권한 밖 반출 시도 — 감사 로그'의 대상으로 그 경로가
+  //  텍스트로 찍힐 수 있다(거부 기록의 증적 값). 텍스트까지 막으면 감사 로그가 자기 사건을 못 적는다.
+  check('연동 · 인프라: 자산담당엔 감사 로그 엑셀 링크 없음', !intAsset.includes('href="/api/audit-export'))
 
   // ── 문서 정합성 ─────────────────────────────────────────────────────
   // 문서의 수치는 기능을 추가할 때마다 손으로 고쳐 왔고, 그 과정에서 세 번 낡았다
