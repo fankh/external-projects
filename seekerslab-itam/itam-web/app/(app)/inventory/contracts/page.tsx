@@ -87,7 +87,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         <AddContract />
         {expiryPick && (
           <div className="callout" style={{ margin: 14 }}>
-            <b>만료 임박 필터({s.opsPolicy.expiryWindowDays}일 · 경과 포함)</b> — 계약 {contracts.length}건 · 라이선스 {expiringLicenses.length}건 · 합계 {contracts.length + expiringLicenses.length}건 · <Link href="/inventory/contracts">전체 보기</Link>
+            <b>만료 임박 필터({s.opsPolicy.expiryWindowDays}일 · 경과 포함)</b> — 계약 {contracts.length}건 · 라이선스 {expiringLicenses.length}건 · 합계 <span data-queue="expiry=soon">{contracts.length + expiringLicenses.length}</span>건 · <Link href="/inventory/contracts">전체 보기</Link>
           </div>
         )}
         <ContractsTable rows={contracts.map((c) => ({ ...c, assetCount: contractAssetCount(c.id), d: daysUntil(c.end) }))} sel={sel} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} expiryWindowDays={s.opsPolicy.expiryWindowDays} canExport={canExport('contracts', session.role)} licenseIds={s.licenses.map((l) => l.id)} />

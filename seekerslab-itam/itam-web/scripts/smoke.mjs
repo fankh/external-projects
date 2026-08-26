@@ -2589,7 +2589,8 @@ try {
   check('화면 접근 판정: 예외 목록이 이유와 함께 명시돼 있다', exempt.size > 0)
   // 만료 임박 KPI 는 계약과 라이선스를 한 수로 합쳐 세는데 화면엔 그 합집합을 여는 필터가 없었다 —
   //  KPI 를 눌러도 전체 두 표가 열려, 수와 목록이 갈렸다. 이제 두 표를 같은 창으로 함께 좁히고 합계를 적는다.
-  const expHtml = (await (await get('/inventory/contracts?expiry=soon', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  // 합계 숫자에 data-queue 표식이 붙어 태그가 사이에 낀다 — 태그를 걷어낸 뒤 문구를 읽는다
+  const expHtml = (await (await get('/inventory/contracts?expiry=soon', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '').replace(/<[^>]*>/g, '')
   const expSum = Number((/합계 ([0-9]+)건/.exec(expHtml) || [])[1] ?? -1)
   const dashPlainE = dashMgr.replace(/<!-- -->/g, '')
   const expAt = dashPlainE.indexOf('만료 임박 (계약·라이선스')
@@ -2635,9 +2636,9 @@ try {
     //  쿼리를 data-queue 로 달아 둔다(화면·검사가 같은 표식을 쓴다). 표식이 있으면 그 표의 건수를 바로 읽는다.
     // 표식 키 — 그 큐가 화면을 여는 방식 그대로다: 쿼리(?open=sw) · 앵커(#repair) · 없으면 경로(/discovery/scan).
     //  세 형태를 다 받아야 앵커·무인자 링크로 여는 큐도 표를 특정할 수 있다.
-    const qs = q.href.includes('?') ? q.href.split('?')[1]
+    const qs = decodeURIComponent(q.href.includes('?') ? q.href.split('?')[1]
       : q.href.includes('#') ? `#${q.href.split('#')[1]}`
-      : q.href
+      : q.href)
     // 표식은 공백으로 구분한 목록이다 — 한 표가 여러 큐를 받는다(라이선스 표는 초과·만료·미사용 세 큐가 연다).
     //  정규식 대신 문자열 탐색으로 찾는다: 쿼리에 정규식 특수문자가 섞여도 그대로 맞는다.
     //  표식이 붙은 요소의 첫 숫자가 곧 그 큐의 건수다 — 화면이 '무엇을 세어 보여 주는지'를 표식이 못박는다
@@ -2645,7 +2646,7 @@ try {
     let markedText = ''
     if (qs) {
       for (const m of target.matchAll(new RegExp('data-queue="([^"]*)"[^>]*>([^<]*)', 'g'))) {
-        if (m[1].split(' ').includes(qs)) { markedText = m[2]; break }
+        if (m[1].replace(/&amp;/g, '&').split(' ').includes(qs)) { markedText = m[2]; break }
       }
     }
     const firstNum = /([0-9]+)/.exec(markedText)
@@ -2662,6 +2663,46 @@ try {
   check(`큐 드릴다운 전수: 큐 건수 = 링크가 여는 목록의 표시 건수(${sweepChecked}/${sweepTargets.length}종)`,
     sweepBad.length === 0 && sweepSkipped.length === 0 && sweepChecked >= 40,
     [...sweepBad, ...sweepSkipped.map((x) => `대조 불가: ${x}`)].join(' / ') || `대조한 큐 ${sweepChecked}종`)
+
+  // KPI 타일 드릴다운 전수 — 큐와 같은 계약의 거울면이다. 큐는 '할 일 N건'을 세고 KPI 는 '현황 N건'을
+  //  세는데, 둘 다 누르면 목록이 열린다. 열린 목록이 다른 수를 보여 주면 담당자는 어느 쪽을 믿을지 알 수 없다.
+  //  큐 스윕이 쓰는 표식(data-queue)을 그대로 재사용한다 — 화면은 한 번만 표시하면 두 검사가 함께 쓴다.
+  const sweepStats = (html, role) => {
+    const plain = html.replace(/<!-- -->/g, '')
+    const out = []
+    for (const m of plain.matchAll(new RegExp('<a[^>]*class="stat[^"]*"[^>]*href="([^"]+)"[^>]*>(.{0,400}?)</a>', 'gs'))) {
+      const v = /class="v">([0-9,]+)</.exec(m[2])
+      const l = /class="l">([^<]*)</.exec(m[2])
+      if (!v) continue  // 금액·비율 타일은 목록 건수와 축이 다르다
+      out.push({ href: m[1].replace(/&amp;/g, '&'), n: Number(v[1].replace(/,/g, '')), label: l ? l[1] : '', role })
+    }
+    return out
+  }
+  const statTargets = [
+    ...sweepStats(dashMgr, 'ASSET_MGR'),
+    ...sweepStats(dashSec, 'SEC_MGR'),
+    ...sweepStats(await (await get('/ai/insights', 'ASSET_MGR')).text(), 'ASSET_MGR'),
+    ...sweepStats(await (await get('/settings/scan-policy', 'SEC_MGR')).text(), 'SEC_MGR'),
+  ]
+  const statBad = []
+  const statSkipped = []
+  for (const t of statTargets) {
+    const target = (await (await get(t.href, t.role)).text()).replace(/<!-- -->/g, '')
+    // 링크의 쿼리는 URL 인코딩돼 있다 — 표식은 화면이 읽는 원문이므로 디코딩해 맞댄다
+    const rawKey = t.href.includes('?') ? t.href.split('?')[1] : t.href.includes('#') ? `#${t.href.split('#')[1]}` : t.href
+    const key = decodeURIComponent(rawKey)
+    let markedText = ''
+    for (const m of target.matchAll(new RegExp('data-queue="([^"]*)"[^>]*>([^<]*)', 'g'))) {
+      if (m[1].replace(/&amp;/g, '&').split(' ').includes(key)) { markedText = m[2]; break }
+    }
+    const num = /([0-9]+)/.exec(markedText)
+    if (!num) { statSkipped.push(`${t.label} → ${t.href}`); continue }
+    if (Number(num[1]) !== t.n) statBad.push(`${t.label} → ${t.href}: KPI ${t.n} ≠ 표시 ${num[1]}`)
+  }
+  // 큐와 같은 규약 — 표식이 없어 대조하지 못한 타일도 실패로 본다(이름이 실제 범위를 넘지 않게)
+  check(`KPI 드릴다운 전수: 타일 수 = 링크가 여는 목록의 표시 건수(${statTargets.length - statSkipped.length}/${statTargets.length}종)`,
+    statBad.length === 0 && statSkipped.length === 0 && statTargets.length >= 5,
+    [...statBad, ...statSkipped.map((x) => `대조 불가: ${x}`)].join(' / ') || `대조한 타일 ${statTargets.length}종`)
   // 분석 화면의 네 패널이 모두 상위 12건에서 끊긴다 — 잘렸다고 적기만 하고 넘어갈 길이 없으면 그 뒤 항목은
   //  화면 어디에서도 볼 수 없다. 잘림 안내마다 등급 필터든 전체 목록 링크든 경로가 붙어 있어야 한다.
   const cutNotes = [...vulnPlain.matchAll(/… 외 [0-9]+[건대]/g)].map((m) => m.index ?? -1)
