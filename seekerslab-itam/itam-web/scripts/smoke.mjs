@@ -2285,6 +2285,15 @@ try {
   check('대시보드: ?upcoming=all 가 화면을 깨지 않는다', dashUpAll.status === 200 && dashUpAllText.includes('다가오는 일정'))
   check('대시보드: 잘린 일정 카드는 펼친 뒤 접기 링크를 낸다',
     !upcomingTruncated || dashUpAllText.includes('가까운 8건만 보기'), `잘림=${upcomingTruncated}`)
+  // 리포트는 결재 첨부·감사 제출 문서다 — 표를 상위 N건으로 자르는 것 자체는 괜찮지만, 그 옆 문구가
+  //  '자른 뒤의 배열 길이'를 총계처럼 말하면 문서에 틀린 수가 실린다(갱신 전망이 40건 중 15건을 싣고
+  //  '만료 예정 15건'이라 적고 있었다 — 예산 계획이 그 수를 근거로 잡힌다).
+  const reportRowCaps = [...reportsSrc.matchAll(/.slice(0, ([0-9]+))/g)].map((m) => m[1])
+  check('리포트: 표를 자르는 수를 숫자로 박아 두지 않는다(문구와 갈리지 않게 상수로)',
+    reportRowCaps.length === 0, `숫자 리터럴 잘림=${reportRowCaps.join(', ')}`)
+  // 잘린 표의 문구는 전체 건수를 말해야 한다 — 자른 배열의 length 를 그대로 적는 형태를 막는다.
+  check('리포트: 잘림 문구가 자른 뒤 건수를 총계처럼 적지 않는다',
+    !reportsSrc.includes('(최대 ') && reportsSrc.includes('soonAll.length'))
   // 분석 화면의 네 패널이 모두 상위 12건에서 끊긴다 — 잘렸다고 적기만 하고 넘어갈 길이 없으면 그 뒤 항목은
   //  화면 어디에서도 볼 수 없다. 잘림 안내마다 등급 필터든 전체 목록 링크든 경로가 붙어 있어야 한다.
   const cutNotes = [...vulnPlain.matchAll(/… 외 [0-9]+[건대]/g)].map((m) => m.index ?? -1)
