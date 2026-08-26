@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, appendDenial } from '@/lib/audit'
 import { nowMinute } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -8,7 +8,14 @@ import { getStore } from '@/lib/store'
 async function guard() {
   const session = await getSession()
   // 커넥터 관리는 인프라·보안 책임 — 보안담당·Admin. 자산담당은 조회만.
-  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return null
+  if (!session) return null
+  if (!['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    // 거부는 감사에 남긴다 — 서버 액션은 화면에서 버튼을 숨겨도 액션 id 로 직접 호출할 수 있다.
+    //  화면 진입·문서 반출 거부는 이미 '결과=실패'로 남는데, 정작 변경을 시도한 기록만 빠져 있었다.
+    //  같은 사람·같은 화면의 반복은 하루 한 건으로 접힌다(lib/audit appendDenial).
+    appendDenial({ actor: session.name, action: '권한 밖 변경 시도 — 연동 · 인프라 (커넥터 관리)', target: '/platform/integrations' })
+    return null
+  }
   return session
 }
 
