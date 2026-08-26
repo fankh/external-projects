@@ -5,8 +5,11 @@ import type { MenuPermission, PermAction, PermCell, PermMenu, Role } from '@/lib
 import { setPermission } from './actions'
 
 const ROLES: Role[] = ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']
-/** 클릭 순환 — 허용 → 부분 → 불가 → 허용 */
-const NEXT: Record<PermCell, PermCell> = { y: 'p', p: 'n', n: 'y' }
+/** 클릭 순환 — 허용 → (본인) → 불가 → 허용. '본인'은 범위를 좁히는 구현이 있는 칸에서만 거친다:
+ *  구현 없는 칸의 'p' 는 can() 을 그대로 통과해 허용과 똑같이 동작하므로, 고를 수 있게 두면
+ *  관리자가 좁혔다고 믿는 사이 전사가 열린다(lib/perm.ts PARTIAL_SCOPES). */
+const nextOf = (cur: PermCell, canPartial: boolean): PermCell =>
+  cur === 'y' ? (canPartial ? 'p' : 'n') : cur === 'p' ? 'n' : 'y'
 const GLYPH: Record<PermCell, string> = { y: '✓', p: '본인', n: '·' }
 
 export function MatrixEditor(props: {
@@ -17,17 +20,22 @@ export function MatrixEditor(props: {
   locked: string[]
   /** 해당 화면이 제공하지 않는 기능 — 권한 부여가 무의미하므로 흐리게 표시 */
   na: string[]
+  /** '본인 범위'를 실제로 좁히는 구현이 있는 칸(`메뉴|기능|권한그룹`) — 여기서만 순환이 '본인'을 거친다 */
+  partial: string[]
+  /** 그 칸이 좁히는 범위 설명 — 툴팁으로 보여 '무엇이 좁혀지는지'를 밝힌다 */
+  partialScope: Record<string, string>
 }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const click = (menu: PermMenu, action: PermAction, role: Role, cur: PermCell) => {
-    if (props.locked.includes(`${menu}|${action}|${role}`)) {
+    const key = `${menu}|${action}|${role}`
+    if (props.locked.includes(key)) {
       setMsg('Admin 의 권한·정책 조회/저장 권한은 회수할 수 없습니다 (잠금 방지).')
       return
     }
     startTransition(async () => {
-      const r = await setPermission(menu, action, role, NEXT[cur])
+      const r = await setPermission(menu, action, role, nextOf(cur, props.partial.includes(key)))
       if (r.message) setMsg(r.message)
     })
   }
@@ -60,14 +68,22 @@ export function MatrixEditor(props: {
                   const locked = props.locked.includes(key)
                   const enforced = props.enforced.includes(`${row.menu}|${action}`)
                   const na = props.na.includes(`${row.menu}|${action}`)
+                  const canPartial = props.partial.includes(key)
                   return (
                     <td
                       key={`${r}-${i}`}
                       className={c}
+                      // 순환 힌트는 어느 칸에나 붙는다 — '본인'을 거치는지는 그 칸에 범위를 좁히는 구현이
+                      //  있는지로만 갈린다(lib/types.ts PARTIAL_SCOPES). 강제 안내와 겹쳐도 힌트를 지우지 않는다.
                       title={locked ? '잠금 — 회수 불가'
                         : na ? `${row.menu} 화면에 '${action}' 기능이 없다 (메뉴 관리에서 부여 필요)`
-                        : enforced ? `${row.menu} × ${action} — 서버가 강제하는 권한`
-                        : '클릭하여 변경 (허용 → 본인 → 불가)'}
+                        : [
+                            canPartial ? `본인 범위 지정 가능 — ${props.partialScope[key]}` : '',
+                            enforced ? `${row.menu} × ${action} — 서버가 강제하는 권한` : '',
+                            canPartial
+                              ? '클릭하여 변경 (허용 → 본인 → 불가)'
+                              : '클릭하여 변경 (허용 → 불가) — 이 칸은 본인 범위를 좁히는 구현이 없어 본인을 건너뜁니다',
+                          ].filter(Boolean).join(' · ')}
                       style={{
                         ...(i === 0 ? { borderLeft: '1px solid var(--line-strong)' } : {}),
                         cursor: locked || pending ? 'default' : 'pointer',

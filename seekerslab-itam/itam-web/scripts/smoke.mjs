@@ -638,6 +638,68 @@ try {
   // 매트릭스의 '강제' 표시는 이제 메뉴 정의에서 파생된다 — 두 화면이 어긋나면 안 된다
   check('메뉴 관리 ↔ 매트릭스 정합', menuHtml.includes('발견 자산 · CMDB 대사') && permHtml.includes('서버가 직접 강제하는 권한'))
   check('권한 매트릭스: 강제 구분 안내', permHtml.includes('서버가 직접 강제하는 권한') && permHtml.includes('필요조건'))
+
+  // 매트릭스의 '본인(부분)' 칸 — 범위를 좁히는 구현이 있는 칸에서만 고를 수 있어야 한다.
+  //  구현 없는 칸의 'p' 는 can() 이 'n' 이 아니라는 이유로 통과시켜 허용(y)과 똑같이 동작한다:
+  //  관리자는 좁혔다고 믿는데 화면은 전사를 열고, 엑셀은 전사 데이터를 그대로 반출한다.
+  //  구현 목록(lib/perm.ts PARTIAL_SCOPES)이 실제 스코핑 코드·시드 매트릭스와 어긋나지 않게 고정한다.
+  const permSrc = readFileSync(path.join(ROOT, 'lib', 'perm.ts'), 'utf8')
+  // PARTIAL_SCOPES 는 lib/types.ts 에 산다 — store.ts 도 로드 시 참조해야 하는데 perm.ts 는 store.ts 를 import 하므로
+  //  perm.ts 에 두면 순환이 된다. perm.ts 는 다시 내보내기만 한다.
+  const permTypesSrc = readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8')
+  const permScopeBlock = permTypesSrc.split('export const PARTIAL_SCOPES')[1]?.split('}')[0] ?? ''
+  const scopeKeys = [...permScopeBlock.matchAll(/'([^']+\|[^']+\|[^']+)':/g)].map((m) => m[1])
+  check(`권한 매트릭스: '본인' 구현 목록 등록 (${scopeKeys.length}칸)`, scopeKeys.length >= 5,
+    `PARTIAL_SCOPES 파싱 실패 또는 비어 있음 — ${scopeKeys.join(', ')}`)
+  // 키가 실제 메뉴·기능·권한그룹이어야 한다 — 오타 한 글자면 그 칸은 조용히 '구현 없음'으로 떨어져 다시 막힌다
+  const permMenusSrc = permSrc.split('export const PERM_MENUS = [')[1]?.split(']')[0] ?? ''
+  const knownMenus = [...permMenusSrc.matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const knownActions = ['조회', '저장', '삭제', '엑셀', '편입', '격리요청', '결재']
+  const knownRoles = ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']
+  const badScopeKeys = scopeKeys.filter((k) => {
+    const [menu, action, role] = k.split('|')
+    return !knownMenus.includes(menu) || !knownActions.includes(action) || !knownRoles.includes(role)
+  })
+  check('권한 매트릭스: 본인 구현 키가 모두 실재하는 메뉴 × 기능 × 권한그룹', badScopeKeys.length === 0 && knownMenus.length === 10,
+    `키 오타: ${badScopeKeys.join(', ')} (메뉴 ${knownMenus.length}종)`)
+  // 시드 매트릭스에 이미 박혀 있는 'p' 도 같은 목록 안에 있어야 한다 — 시드가 목록 밖 칸에 'p' 를 두면
+  //  화면은 그 칸을 '본인 불가'로 그리는데 저장된 값은 'p' 인 모순이 남는다.
+  const permStoreSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const seedMatrixSrc = permStoreSrc.split('function seedMenuPermissions()')[1]?.split('function seedEasmTargets')[0] ?? ''
+  const seedPartials = []
+  for (const m of seedMatrixSrc.matchAll(/menu: '([^']+)', cells: \{([^}]*)\}/g)) {
+    const menu = m[1]
+    for (const rm of m[2].matchAll(/(USER|ASSET_MGR|SEC_MGR|ADMIN): \[([^\]]*)\]/g)) {
+      const cells = [...rm[2].matchAll(/'([ypn])'/g)].map((c) => c[1])
+      cells.forEach((c, i) => { if (c === 'p') seedPartials.push(`${menu}|${knownActions[i]}|${rm[1]}`) })
+    }
+  }
+  const seedPartialOrphans = seedPartials.filter((k) => !scopeKeys.includes(k))
+  check(`권한 매트릭스: 시드의 '본인' 칸 ${seedPartials.length}개가 모두 구현 목록 안에 있다`,
+    seedPartialOrphans.length === 0 && seedPartials.length >= 3, `구현 없는 시드 'p': ${seedPartialOrphans.join(', ')}`)
+  // 서버가 최종 판정 — 화면이 순환에서 건너뛰어도 액션 직접 호출을 막는 가드가 있어야 한다
+  const setPermSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'permissions', 'actions.ts'), 'utf8')
+  check('권한 변경: 구현 없는 칸의 본인 지정을 서버가 거부', /next === 'p' && !hasPartialScope\(/.test(setPermSrc))
+  // 화면도 두 종류의 칸을 구분해 안내해야 한다 — 둘 다 실제로 렌더돼야 무증상 통과가 아니다
+  const canPartialCells = permHtml.split('본인 범위 지정 가능').length - 1
+  const noPartialCells = permHtml.split('본인을 건너뜁니다').length - 1
+  check(`권한 매트릭스: 본인 가능 ${canPartialCells}칸 / 건너뜀 ${noPartialCells}칸 툴팁 구분`,
+    canPartialCells === scopeKeys.length && noPartialCells > 0)
+  check('권한 매트릭스: 본인 범위 안내 문구', permHtml.includes('전사 조회·전사 엑셀 반출'))
+  // can() 이 최종 판정 — 구현 없는 칸에 남은 'p'(가드 이전 스냅샷)를 허용으로 읽으면 다시 전사가 열린다
+  check('권한 판정: 구현 없는 칸의 잔존 본인은 불가로 읽는다', /cell === 'p' && !hasPartialScope\(/.test(permSrc))
+  // 저장된 스냅샷도 로드 시 한 번 정리한다 — 화면이 그리는 값과 can() 의 판정이 갈리지 않게
+  check('스토어 로드: 구현 없는 칸의 잔존 본인을 불가로 정리', permStoreSrc.includes('hasPartialScope(row.menu, PERM_ACTIONS[i], role)'))
+  // 칸 순서(PERM_ACTIONS)는 정의가 하나여야 한다 — store 와 perm 이 각자 배열을 들면 i 번째 기능이 갈린다
+  check('권한 기능 순서: 정의는 lib/types.ts 한 곳', permTypesSrc.includes("export const PERM_ACTIONS = ['조회'") && permSrc.includes("export { PARTIAL_SCOPES, PERM_ACTIONS, hasPartialScope } from './types'"))
+  // 엑셀 칸의 '본인'은 buildSheets 가 실제로 본인 범위를 거를 때만 뜻이 있다 — 등록된 엑셀 칸 수와
+  //  exports.ts 의 USER 스코핑 지점 수가 같아야 한다(한쪽만 늘면 전사 반출이 조용히 열린다).
+  const scopedExportCells = scopeKeys.filter((k) => k.split('|')[1] === '엑셀')
+  const permExportsSrc = readFileSync(path.join(ROOT, 'lib', 'exports.ts'), 'utf8')
+  const exportUserScopes = permExportsSrc.split("role === 'USER'").length - 1
+  check(`엑셀 본인 범위: 매트릭스 ${scopedExportCells.length}칸 ↔ buildSheets USER 스코핑 ${exportUserScopes}곳`,
+    scopedExportCells.length === exportUserScopes && scopedExportCells.length === 2,
+    `${scopedExportCells.join(', ')} vs exports.ts ${exportUserScopes}`)
   const extHtml = await (await get('/discovery/external', 'SEC_MGR')).text()
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
   check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))

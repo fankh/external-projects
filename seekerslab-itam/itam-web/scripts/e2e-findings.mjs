@@ -3272,8 +3272,8 @@ try {
   await pPM.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
   const pmRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '신청 · 결재' }) }).first()
   const pmCell = pmRow.locator('td').nth(14) // 라벨(0) + 자산담당(역할 2번째) × 결재(기능 7번째) = 1*7 + 6 + 1
-  await pmCell.click(); await pPM.waitForTimeout(600) // 허용 → 본인
-  await pmCell.click(); await pPM.waitForTimeout(800) // 본인 → 불가
+  // 순환 길이는 칸마다 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다) — 불가가 될 때까지 돌린다
+  for (let k = 0; k < 4 && !((await pmCell.textContent()) || '').includes('·'); k++) { await pmCell.click(); await pPM.waitForTimeout(700) }
   ok('권한 매트릭스: 자산담당 × 결재 회수(불가) 반영', ((await pmCell.textContent()) || '').includes('·'))
   const ctxAM = await browser.newContext(); await ctxAM.addCookies([cookie(ASSET)]); const pAM = await ctxAM.newPage()
   await pAM.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
@@ -3287,6 +3287,32 @@ try {
   await pAM2.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   ok('결재함: 결재 권한 복원 시 승인 버튼 재노출(양성 대조)', (await pAM2.locator('td button', { hasText: /^승인$/ }).count()) > 0)
   await ctxAM2.close()
+  // '본인(부분)'은 실제로 범위를 좁히는 칸에서만 고를 수 있어야 한다 — 그 구현이 없는 칸의 'p' 는 can() 이
+  //  'n' 이 아니라는 이유로 통과시켜 허용(y)과 똑같이 동작한다. 관리자는 좁혔다고 믿는데 화면은 전사를 열고,
+  //  엑셀은 전사 데이터를 그대로 반출한다(buildSheets 는 자산 대장·신청 결재 두 종만 본인 범위로 거른다).
+  //  구현 있는 칸(사용자 × 자산 대장 조회)과 없는 칸(사용자 × 재고 엑셀)의 순환을 각각 돌려 확인하고 원상 복구한다.
+  const psRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '자산 대장' }) }).first()
+  const psCell = psRow.locator('td').nth(1) // 라벨(0) + 사용자(역할 1번째) × 조회(기능 1번째)
+  ok('권한 매트릭스: 사용자 × 자산 대장 조회는 본인 범위 구현이 있다(툴팁)',
+    ((await psCell.getAttribute('title')) || '').includes('본인 범위 지정 가능'))
+  ok('권한 매트릭스: 그 칸의 시드값이 본인(양성 대조)', ((await psCell.textContent()) || '').includes('본인'))
+  await psCell.click(); await pPM.waitForTimeout(700) // 본인 → 불가
+  await psCell.click(); await pPM.waitForTimeout(700) // 불가 → 허용
+  await psCell.click(); await pPM.waitForTimeout(700) // 허용 → 본인 (구현이 있으므로 순환이 본인을 거친다)
+  ok('권한 매트릭스: 본인 범위 구현이 있는 칸은 순환이 본인을 거친다(원상 복구)',
+    ((await psCell.textContent()) || '').includes('본인'))
+  const noScopeRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '재고 · 재물조사' }) }).first()
+  const noScopeCell = noScopeRow.locator('td').nth(4) // 사용자 × 엑셀 — buildSheets 에 본인 범위 구현이 없다
+  // 서버 강제 칸이든 아니든 순환 힌트는 항상 붙는다 — 구현 없는 칸은 '허용 → 불가'로만 안내해야 한다
+  const noScopeTitle = (await noScopeCell.getAttribute('title')) || ''
+  ok('권한 매트릭스: 사용자 × 재고 엑셀은 본인 범위 구현이 없다(툴팁)',
+    noScopeTitle.includes('허용 → 불가') && !noScopeTitle.includes('허용 → 본인 → 불가'))
+  ok('권한 매트릭스: 그 칸의 시드값이 불가(양성 대조)', ((await noScopeCell.textContent()) || '').includes('·'))
+  await noScopeCell.click(); await pPM.waitForTimeout(700) // 불가 → 허용
+  ok('권한 매트릭스: 구현 없는 칸도 허용은 정상 지정', ((await noScopeCell.textContent()) || '').includes('✓'))
+  await noScopeCell.click(); await pPM.waitForTimeout(700) // 허용 → 불가 (본인을 건너뛴다)
+  ok('권한 매트릭스: 구현 없는 칸의 순환은 본인을 건너뛴다(전사 반출 차단 · 원상 복구)',
+    ((await noScopeCell.textContent()) || '').includes('·'))
   // 조회 칸도 실제로 막는가(라운드트립) — 매트릭스의 조회·저장·삭제는 어디서도 읽히지 않아, 조회를 빼도 화면이
   //  그대로 열렸다. can() 주석과 ACTION_DEF 의 '화면 가드' 표기가 실제와 달랐다(표시만 되고 강제되지 않는 정책).
   //  자산담당 × 수명주기 조회를 회수한 뒤 직접 진입·사이드바를 확인하고 복원한다(스위트 상태 불변).
@@ -3302,8 +3328,8 @@ try {
     (await tabText()).includes('수명주기'))
   const lcRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '수명주기' }) }).first()
   const lcCell = lcRow.locator('td').nth(8) // 라벨(0) + 자산담당(역할 2번째) × 조회(기능 1번째)
-  await lcCell.click(); await pPM.waitForTimeout(600) // 허용 → 본인
-  await lcCell.click(); await pPM.waitForTimeout(800) // 본인 → 불가
+  // 순환 길이는 칸마다 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다) — 불가가 될 때까지 돌린다
+  for (let k = 0; k < 4 && !((await lcCell.textContent()) || '').includes('·'); k++) { await lcCell.click(); await pPM.waitForTimeout(700) }
   ok('권한 매트릭스: 자산담당 × 수명주기 조회 회수(불가) 반영', ((await lcCell.textContent()) || '').includes('·'))
   const ctxLC = await browser.newContext(); await ctxLC.addCookies([cookie(ASSET)]); const pLC = await ctxLC.newPage()
   await pLC.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
@@ -3328,8 +3354,8 @@ try {
   //  변경 액션이 그대로 성공했다. 자산 대장 × 저장 을 회수한 뒤 보증 연장을 시도하고 복원한다.
   const wsRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '자산 대장' }) }).first()
   const wsCell = wsRow.locator('td').nth(9) // 라벨(0) + 자산담당(역할 2번째) × 저장(기능 2번째)
-  await wsCell.click(); await pPM.waitForTimeout(600) // 허용 → 본인
-  await wsCell.click(); await pPM.waitForTimeout(800) // 본인 → 불가
+  // 순환 길이는 칸마다 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다) — 불가가 될 때까지 돌린다
+  for (let k = 0; k < 4 && !((await wsCell.textContent()) || '').includes('·'); k++) { await wsCell.click(); await pPM.waitForTimeout(700) }
   ok('권한 매트릭스: 자산담당 × 자산 대장 저장 회수(불가) 반영', ((await wsCell.textContent()) || '').includes('·'))
   const ctxSG = await browser.newContext(); await ctxSG.addCookies([cookie(ASSET)]); const pSG = await ctxSG.newPage()
   await pSG.goto(`${BASE}/assets/register?sel=AST-2022-000640`, { waitUntil: 'networkidle' })
@@ -3354,8 +3380,8 @@ try {
   const aiRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: 'AI 어시스턴트' }) }).first()
   const aiCell = aiRow.locator('td').nth(10) // 라벨(0) + 자산담당(역할 2번째) × 삭제(기능 3번째)
   ok('권한 매트릭스: AI 어시스턴트 × 삭제(자산담당) 초기 허용 — 화면이 제공하는 기능', ((await aiCell.textContent()) || '').includes('✓'))
-  await aiCell.click(); await pPM.waitForTimeout(600) // 허용 → 본인
-  await aiCell.click(); await pPM.waitForTimeout(800) // 본인 → 불가
+  // 순환 길이는 칸마다 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다) — 불가가 될 때까지 돌린다
+  for (let k = 0; k < 4 && !((await aiCell.textContent()) || '').includes('·'); k++) { await aiCell.click(); await pPM.waitForTimeout(700) }
   const ctxDEL = await browser.newContext(); await ctxDEL.addCookies([cookie(ASSET)]); const pDEL = await ctxDEL.newPage()
   await pDEL.goto(`${BASE}/ai/reports`, { waitUntil: 'networkidle' })
   // 리포트 유형 표가 먼저 나오므로 '삭제' 버튼이 실제로 있는 행을 골라야 한다(첫 tbody 행은 유형 표다).
@@ -3415,8 +3441,8 @@ try {
   await pSQP.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
   const sqRow = pSQP.locator('tr', { has: pSQP.locator('td.strong', { hasText: '계약 · 라이선스' }) }).first()
   const sqCell = sqRow.locator('td').nth(8) // 자산담당 × 조회
-  await sqCell.click(); await pSQP.waitForTimeout(500)
-  await sqCell.click(); await pSQP.waitForTimeout(800) // 허용 → 본인 → 불가
+  // 순환 길이는 칸마다 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다) — 불가가 될 때까지 돌린다
+  for (let k = 0; k < 4 && !((await sqCell.textContent()) || '').includes('·'); k++) { await sqCell.click(); await pSQP.waitForTimeout(700) }
   ok('전역 검색: 조회 회수 시 계약 결과가 검색에서도 사라진다(막다른 링크 방지)', !(await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
   await sqCell.click(); await pSQP.waitForTimeout(800) // 복원
   ok('전역 검색: 조회 복원 시 계약 결과 재노출(양성 대조)', (await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
@@ -3518,8 +3544,8 @@ try {
   const dgRow = pDG.locator('tr', { has: pDG.locator('td.strong', { hasText: '발견 자산 · CMDB 대사' }) }).first()
   const dgCell = dgRow.locator('td').nth(12) // 라벨(0) + 자산담당(역할 2번째) × 편입(기능 5번째) = 1 + 7 + 4
   ok('권한 매트릭스: 발견 자산 × 편입(자산담당) 초기 허용', ((await dgCell.textContent()) || '').includes('✓'))
-  await dgCell.click(); await pDG.waitForTimeout(600) // 허용 → 본인
-  await dgCell.click(); await pDG.waitForTimeout(800) // 본인 → 불가
+  // 순환 길이는 칸마다 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다) — 불가가 될 때까지 돌린다
+  for (let k = 0; k < 4 && !((await dgCell.textContent()) || '').includes('·'); k++) { await dgCell.click(); await pDG.waitForTimeout(700) }
   const ctxDA = await browser.newContext(); await ctxDA.addCookies([cookie(ASSET)]); const pDA = await ctxDA.newPage()
   await pDA.goto(`${BASE}/discovery/found?sel=${dgTarget}`, { waitUntil: 'networkidle' })
   const dgBody = (await pDA.textContent('body')) || ''
@@ -3537,8 +3563,8 @@ try {
   //  셀 위치: 라벨(0) + 보안담당(역할 3번째) × 격리요청(기능 6번째) = 1 + 14 + 5
   const xgCell = dgRow.locator('td').nth(20)
   ok('권한 매트릭스: 발견 자산 × 격리요청(보안담당) 초기 허용', ((await xgCell.textContent()) || '').includes('✓'))
-  await xgCell.click(); await pDG.waitForTimeout(600) // 허용 → 본인
-  await xgCell.click(); await pDG.waitForTimeout(800) // 본인 → 불가
+  // 순환 길이는 칸마다 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다) — 불가가 될 때까지 돌린다
+  for (let k = 0; k < 4 && !((await xgCell.textContent()) || '').includes('·'); k++) { await xgCell.click(); await pDG.waitForTimeout(700) }
   const ctxXS = await browser.newContext(); await ctxXS.addCookies([cookie(SEC)]); const pXS = await ctxXS.newPage()
   await pXS.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
   // 설명 문구에도 '차단 요청'이 나오므로 본문 텍스트가 아니라 실제 버튼을 센다.
