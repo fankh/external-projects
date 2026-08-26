@@ -177,6 +177,21 @@ try {
           } catch { /* 선택이 없는 표(읽기 전용)는 건너뛴다 */ }
         }
         await selectRowAndCollect(`${route}(상세)`)
+        // 필터 토글을 실제로 눌러 본다 — 이 스위트는 화면을 열고 첫 행만 눌러, 목록 위 필터 칩은 한 번도
+        //  누르지 않았다. 칩은 클라이언트 상태(useState)라 렌더만으로는 핸들러가 실행되지 않는다 —
+        //  누르는 순간 터지는 참조 오류는 여기서만 잡힌다.
+        //  선택자는 이 프로젝트의 필터 칩 표기 규약을 쓴다: '…만 3' 또는 켜진 상태의 '✓ …'.
+        //  목록을 여기 적지 않으므로 새 필터가 생기면 자동으로 이 검사에 들어온다.
+        const toggles = page.locator('button').filter({ hasText: new RegExp(String.raw`(만|경과|미응답)\s+\d+$|^✓\s`) })
+        const toggleCount = Math.min(await toggles.count(), 6)
+        for (let t = 0; t < toggleCount; t += 1) {
+          try {
+            await toggles.nth(t).click({ timeout: 3000 })
+            await page.waitForTimeout(250)
+            if ((await page.content()).includes('client-side exception')) crashed = true
+          } catch { /* 눌리지 않는 칩(비활성·가려짐)은 건너뛴다 */ }
+        }
+        if (toggleCount > 0) await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle', timeout: 20000 })
         // 자산 대장은 상태별로 상세 컨트롤이 달라진다(대여중은 대여 확인서, 수리중은 수리 의뢰, 분실은 신고서…).
         //  첫 행만 보면 그 상태의 링크만 훑게 되므로, 화면의 상태 필터 값을 그대로 읽어 상태마다 한 행씩 더 본다.
         //  필터 목록을 화면에서 읽으므로 상태가 늘어도 검사는 따라온다(여기 목록을 또 적어두지 않는다).
