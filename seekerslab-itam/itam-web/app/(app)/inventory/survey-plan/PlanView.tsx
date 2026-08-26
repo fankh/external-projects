@@ -51,9 +51,12 @@ export function PlanView(props: {
 
   return (
     <>
+      {/* 이 화면으로 큐가 둘 들어온다(재물조사 기한 경과 · 장기 미실측 편성 대기) — 카드가 셋이라
+          앵커가 없으면 어느 표를 보라는 것인지 화면이 말해 주지 않는다. */}
       <Card
+        id="rounds"
         kicker="Inventory Planning"
-        title="조사 회차"
+        title={`조사 회차 ${props.rounds.length}건`}
         pad={false}
         actions={
           <button className="btn sm pri" onClick={() => setOpen((o) => !o)} disabled={pending}>
@@ -187,7 +190,7 @@ export function PlanView(props: {
         </div>
       </Card>
 
-      <Card kicker="Physical Verification Follow-up" title="장기 미실측(실사 기반 유령) 자산 자동 편성">
+      <Card id="stale" kicker="Physical Verification Follow-up" title="장기 미실측(실사 기반 유령) 자산 자동 편성">
         <div className="hstack" style={{ gap: 12 }}>
           <div style={{ flex: 1 }}>
             <p className="dim" style={{ margin: 0, lineHeight: 1.7 }}>

@@ -2347,6 +2347,15 @@ try {
   check("안전재고 큐: 건수 = 경보 카드가 적는 유형 수",
     stockQueue > 0 && stockQueue === stockAlertShown, `큐 ${stockQueue} · 표시 ${stockAlertShown}`)
   check('안전재고 큐: 링크가 경보 카드 앵커로 내려간다', dashMgr.includes('/inventory/stock#alert'))
+  // 재물조사 계획 화면으로도 큐가 둘 들어온다(기한 경과 · 장기 미실측 편성 대기) — 카드가 셋이라 앵커가 없으면
+  //  어느 표를 보라는 것인지 화면이 말해 주지 않는다. 기한 경과는 회차 표, 편성 대기는 자동 편성 카드다.
+  check('재물조사 두 큐: 링크가 각자 자기 카드 앵커로 내려간다',
+    dashMgr.includes('/inventory/survey-plan#rounds') && dashMgr.includes('/inventory/survey-plan#stale'))
+  // 회차 표도 자기 건수를 적는다 — 기한 경과 큐가 세는 회차가 이 표에 있다(형제 카드와 같은 규약).
+  const planPlain2 = planHtml.replace(/<!-- -->/g, '')
+  const roundsShown = Number((/조사 회차 ([0-9]+)건/.exec(planPlain2) || [])[1] ?? -1)
+  check("재물조사 회차 표: 자기 건수를 적는다(기한 경과 큐를 맞대 볼 자리)",
+    roundsShown > 0, `표시 ${roundsShown}`)
 
   // 큐 건수 ↔ 드릴다운 목록 일치 — 전수 스윕.
   //  이 세션에 큐마다 손으로 짝을 적어 대조를 걸었는데, 그 방식은 새 큐가 생기면 조용히 빠진다.
