@@ -279,14 +279,29 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
 
   if (kind === 'disposals') {
     // 폐기 증적 대장 — 감사 대응용. 대상 선정~완료 전 단계와 소거 방식·확인서 번호를 한 장에 남긴다.
-    return [{
-      name: '폐기 증적 대장',
-      header: ['폐기번호', '자산번호', '모델', '폐기 사유', '상태', '소거 방식', '처분 방식', '매각 대금', '소거일', '처리자', '확인서 번호', '증적', '증적 사진 수'],
-      rows: s.disposals.map((d) => [
-        d.id, d.assetNo, d.model, d.reason, d.status,
-        d.wipeMethod ?? '', d.disposition ?? '', d.proceeds ?? '', d.wipedAt ?? '', d.wipedBy ?? '', d.certNo ?? '', d.evidence ?? '', d.photos?.length ?? 0,
-      ]),
-    }]
+    // 미기재 칸은 빈 칸이 아니라 사유를 적는다 — 아직 그 단계에 오지 않은 것과 값이 없는 것은 감사에서 다른 뜻이다.
+    const notYet = (d: (typeof s.disposals)[number], v?: string | number) =>
+      v !== undefined && v !== '' ? v : d.status === '완료' ? '미기재' : '소거 전'
+    return [
+      {
+        name: '폐기 증적 대장',
+        header: ['폐기번호', '자산번호', '모델', '폐기 사유', '상태', '결재번호', '소거 방식', '처분 방식', '매각 대금', '소거일', '처리자', '확인서 번호', '증적', '증적 사진 수'],
+        rows: s.disposals.map((d) => [
+          d.id, d.assetNo, d.model, d.reason, d.status, d.approvalId ?? '미상신',
+          notYet(d, d.wipeMethod), notYet(d, d.disposition), d.disposition === '매각' ? (d.proceeds ?? '미기재') : '-',
+          notYet(d, d.wipedAt), notYet(d, d.wipedBy), notYet(d, d.certNo), notYet(d, d.evidence), d.photos?.length ?? 0,
+        ]),
+      },
+      {
+        // 증적 사진은 이 대장의 이름이 걸고 있는 바로 그 증적인데 반출본에는 건수만 있었다 — 어떤 장면을
+        //  누가 언제 남겼는지가 감사에서 실제로 확인하는 값이다(화면은 구분·설명·등록자·등록일을 모두 보여 준다).
+        name: '폐기 증적 사진',
+        header: ['사진ID', '폐기번호', '자산번호', '모델', '구분', '설명', '등록자', '등록일'],
+        rows: s.disposals.flatMap((d) =>
+          (d.photos ?? []).map((ph) => [ph.id, d.id, d.assetNo, d.model, ph.label, ph.note ?? '', ph.addedBy, ph.addedAt]),
+        ),
+      },
+    ]
   }
 
   if (kind === 'loans') {

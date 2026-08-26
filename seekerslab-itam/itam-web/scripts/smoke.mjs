@@ -931,6 +931,14 @@ try {
   // 폐기 증적 대장 엑셀에 처분 방식·매각 대금 컬럼 반출 — DSP-00(매각 85,000) 이 평문으로 들어간다
   const dispBuf = Buffer.from(await (await get('/api/export/disposals', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
   check('폐기 증적 엑셀: 처분 방식·매각 대금 컬럼 반출', dispBuf.includes('처분 방식') && dispBuf.includes('매각') && dispBuf.includes('85000'))
+  // 대장 이름이 걸고 있는 '증적' 자체가 반출본엔 건수로만 있었다 — 어떤 장면을 누가 언제 남겼는지가
+  //  감사에서 실제로 확인하는 값이다(화면은 구분·설명·등록자·등록일을 모두 보여 준다).
+  check('폐기 증적 엑셀: 증적 사진 메타데이터 시트 반출 (구분·설명·등록자·등록일)',
+    dispBuf.includes('폐기 증적 사진') && dispBuf.includes('PHO-0001') && dispBuf.includes('디가우징 전 자산 라벨') && dispBuf.includes('처리 후'))
+  // 아직 소거 전인 건과 완료인데 값이 비어 있는 건은 감사에서 다른 뜻이다 — 빈 칸으로 뭉뚱그리지 않는다.
+  check('폐기 증적 엑셀: 미기재 칸에 사유 표기(소거 전 ≠ 미기재)', dispBuf.includes('소거 전'))
+  // 결재번호는 폐기가 승인을 거쳤다는 근거다 — 대장에 없으면 반출본만으로 결재 이력을 대사할 수 없다.
+  check('폐기 증적 엑셀: 결재번호 컬럼 반출(승인 근거 대사)', dispBuf.includes('결재번호') && dispBuf.includes('APR-2606-088'))
   // 증적 사진 관리 — 완료 폐기 건에 사진 등록 토글 (제품안내서 §03 폐기: 증적(사진·확인서))
   check('폐기 처리: 완료 건에 증적 사진 관리 토글 노출', dispPage.includes('증적 사진'))
   // 자산 라벨 재발행 — 대장에서 손상·분실 라벨 재출력 (USER 제외, 자산 운영 권한)
