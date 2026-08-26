@@ -252,7 +252,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <Stat value={newFound.length} label="미등록 신규 발견 (Shadow IT)" tone="err" delta={{ text: '소유자 확인·편입 필요', dir: 'up' }} href={session.role !== 'USER' ? `/discovery/found?state=${encodeURIComponent('미등록')}&act=open` : undefined} />
         <Stat value={expiring.length} label={`만료 임박 (계약·라이선스 ${s.opsPolicy.expiryWindowDays}일)`} tone="warn"
           delta={{ text: expiring.some((x) => (x.d ?? 0) < 0) ? `만료 ${expiring.filter((x) => (x.d ?? 0) < 0).length}건 포함` : `최단 ${expiring[0]?.d ?? '-'}일`, dir: 'flat' }}
-          href={['ASSET_MGR', 'ADMIN'].includes(session.role) ? '/inventory/contracts' : undefined} />
+          href={['ASSET_MGR', 'ADMIN'].includes(session.role) ? '/inventory/contracts?expiry=soon' : undefined} />
         <Stat value={pendingApr.length} label="결재 대기" tone={overdueApr > 0 ? 'err' : 'accent'}
           delta={{ text: overdueApr > 0 ? `지연 ${overdueApr}건 (SLA ${s.opsPolicy.approvalSlaDays}일 초과)` : myQueue.length > 0 ? `내 결재 차례 ${myQueue.length}건` : `내 신청 ${myApr.length}건`, dir: overdueApr > 0 ? 'up' : 'flat' }}
           href="/workflow/approvals" />
