@@ -965,6 +965,44 @@ try {
   check('스캔 실행: 재탐지 주기 경과 채널에 재탐지 지연 칩(정체 수집기 · Discovery 사각)', scanHtml2.includes('재탐지 지연'))
   // 상태바의 마지막 스캔은 하드코딩이 아니라 스캔 이력에서 와야 한다
   check('상태바: 마지막 스캔이 이력에서 파생', scanHtml2.includes('마지막 스캔 2026-07-28 23:00') && scanHtml2.includes('스케줄러 (야간 정책)'))
+  // 중단 사유와 시간대 밖 실행 사유는 뜻이 다르다 — override 는 안전장치(허용 시간대) 우회 근거이고,
+  //  abortReason 은 회차를 멈춘 근거다. 한 필드에 섞으면 화면이 '시간대 밖'으로 표기해, 창 안에서 멈춘
+  //  회차까지 우회한 것으로 읽힌다(감사관 앞의 거짓 지적). 시드의 23:00 중단 회차가 실제로 그랬다 — 창은 23:00~05:00.
+  // RSC 는 동적 조각 사이에 <!-- --> 를 넣는다 — 문구를 그대로 찾으려면 먼저 걷어낸다
+  const scanText = text(scanHtml2)
+  check('스캔 이력: 중단 사유를 중단으로 표기(시간대 밖 우회로 오기하지 않음)',
+    scanText.includes('중단 — 민원 대응') && !scanText.includes('시간대 밖 — 민원 대응'))
+  // 중단 회차는 대상 범위를 다 돌지 못했다 — 상태 칩만 두면 '끝난 회차'로 읽혀 그 대역이 이번 주기에 통째로 빠진다
+  check('스캔 이력: 중단 회차에 범위 미완·재실행 안내', scanHtml2.includes('범위 미완 — 재실행 필요'))
+  // 시간대 밖 실행 표기도 실제 회차로 증명한다 — 안전장치를 우회한 근거는 §07 의 증적 그 자체다
+  check('스캔 이력: 시간대 밖 실행 사유 표기(안전장치 우회 증적)',
+    scanText.includes('시간대 밖 — 침해 의심 단말 긴급 확인'))
+  // 카드 제목이 표와 같은 수를 말해야 한다 — 몇 회차를 다시 돌려야 하는지 화면에 적힌 곳이 필요하다(재탐지 지연 지표와 같은 규약)
+  // 카드 제목이 표와 같은 수를 말하는가 — 표 셀만 센다(제목 문구와 RSC 플라이트 페이로드가 같은 문자열을
+  //  또 담고 있어, HTML 전체로 세면 실제 행 수의 몇 배가 나온다).
+  const abortedRows = scanText.split('>범위 미완 — 재실행 필요<').length - 1
+  const abortedTitle = /중단 ([0-9]+)회차\(범위 미완/.exec(scanText)
+  check(`스캔 이력: 중단 회차 수 = 표의 미완 행 수 (${abortedRows}회차)`,
+    abortedRows > 0 && abortedTitle !== null && Number(abortedTitle[1]) === abortedRows,
+    `제목=${abortedTitle && abortedTitle[1]} 표=${abortedRows}`)
+  // override 가 붙은 회차는 실제로 허용 시간대 밖이어야 한다 — 시드가 안전장치 우회 증적을 잘못 만들면
+  //  화면이 그대로 '우회했다'고 감사에 내민다. 회차의 시작 시각을 그 채널의 창과 대조한다.
+  const scanStoreSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const winOf = {}
+  for (const m of scanStoreSrc.matchAll(/channel: '([^']+)', enabled: \w+, kind: '([^']+)', targets: '[^']*', window: '([^']+)'/g)) winOf[m[1]] = { kind: m[2], window: m[3] }
+  const inWin = (win, hhmm) => {
+    if (win === '상시') return true
+    const [a1, b1] = win.split('~').map((x) => x.trim())
+    return a1 <= b1 ? hhmm >= a1 && hhmm <= b1 : hhmm >= a1 || hhmm <= b1
+  }
+  const overrideRuns = [...scanStoreSrc.matchAll(/startedAt: '([^']+)', [^\n]*?channels: \[([^\]]*)\][^\n]*?override: '([^']*)'/g)]
+  const falseOverrides = overrideRuns.filter((m) => {
+    const hhmm = m[1].slice(11, 16)
+    const chans = [...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1])
+    return chans.every((c) => { const p = winOf[c]; return !p || p.kind !== '능동' || inWin(p.window, hhmm) })
+  })
+  check(`스캔 이력: override 는 실제 시간대 밖 회차에만 (${overrideRuns.length}건 검사)`, falseOverrides.length === 0 && overrideRuns.length > 0,
+    `창 안인데 override: ${falseOverrides.map((m) => m[1]).join(', ')}`)
 
   check('외부 공격표면: 재탐지 실행·스케줄 렌더', extHtml.includes('재탐지 실행') && extHtml.includes('능동 협의') && extHtml.includes('재탐지 이력'))
   check('외부 공격표면: 능동 미협의 도메인 표기', extHtml.includes('skl-dev.io') && extHtml.includes('미협의'))

@@ -50,6 +50,9 @@ export default async function ScanPage() {
   //  화면 어디에도 몇 채널이 밀렸는지 적힌 곳이 없어, 큐가 말한 수를 여기서 대조할 수가 없었다.
   //  판정은 lib/scan-policy 단일 소스 — 큐·배지·이 지표가 같은 함수를 쓴다.
   const overdueChannels = overdueScanChannels(s.scanPolicies, s.observations, now)
+  // 중단 회차 — 대상 범위를 다 돌지 못한 회차다. 표에는 행마다 '범위 미완'이 붙지만 몇 회차가 그런지
+  //  화면 어디에도 없으면 재실행해야 할 양을 알 수 없다(재탐지 지연 지표와 같은 규약).
+  const abortedRuns = runs.filter((r) => r.status === '중단')
 
   return (
     <>
@@ -110,7 +113,7 @@ export default async function ScanPage() {
         </div>
       </Card>
 
-      <Card kicker="Scan History" title={`스캔 이력 ${runs.length}회차`} pad={false}>
+      <Card kicker="Scan History" title={`스캔 이력 ${runs.length}회차${abortedRuns.length ? ` · 중단 ${abortedRuns.length}회차(범위 미완 — 재실행 필요)` : ''}`} pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
@@ -134,9 +137,18 @@ export default async function ScanPage() {
                   <td className="num tnum" style={r.newFound ? { color: 'var(--err)', fontWeight: 700 } : undefined}>{r.newFound}</td>
                   <td>
                     {r.by}
+                    {/* 두 사유는 뜻이 다르다 — override 는 안전장치(시간대) 우회 근거이고, abortReason 은 중단 근거다.
+                        한 필드에 섞어 담고 '시간대 밖'으로 표기하면, 창 안에서 멈춘 회차까지 우회로 읽혀 감사관 앞에
+                        거짓 지적을 놓는다(시드의 23:00 중단 회차가 실제로 그렇게 표기되고 있었다 — 창은 23:00~05:00 다). */}
                     {r.override && <div className="dim" style={{ fontSize: 11 }}>시간대 밖 — {r.override}</div>}
+                    {r.abortReason && <div style={{ fontSize: 11, color: 'var(--warn)' }}>중단 — {r.abortReason}</div>}
                   </td>
-                  <td className="c"><Chip tone={RUN_TONE[r.status]}>{r.status}</Chip></td>
+                  <td className="c">
+                    <Chip tone={RUN_TONE[r.status]}>{r.status}</Chip>
+                    {/* 중단 회차는 대상 범위를 다 돌지 못했다 — 상태 칩만 노랗게 두면 '끝난 회차'처럼 읽혀,
+                        그 대역은 이번 주기에 한 번도 훑리지 않은 채 넘어간다. 미완임을 적고 재실행으로 보낸다. */}
+                    {r.status === '중단' && <div className="mut" style={{ fontSize: 10.5, marginTop: 2 }}>범위 미완 — 재실행 필요</div>}
+                  </td>
                   <td className="c"><ScanRerunButton runId={r.id} /></td>
                 </tr>
               ))}
