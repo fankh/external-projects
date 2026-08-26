@@ -1,7 +1,7 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
-import { nextEasmRescan } from '@/lib/easm'
+import { isEasmRescanOverdue, nextEasmRescan } from '@/lib/easm'
 import { CredTable } from './CredTable'
 import { ExposedTable } from './ExposedTable'
 import { IocTable } from './IocTable'
@@ -40,6 +40,9 @@ export default async function ExternalPage({ searchParams }: { searchParams: Pro
     const next = nextEasmRescan(t)
     return { ...t, dueIn: next === null ? null : daysUntil(next) }
   })
+  // 재탐지 기한 경과 대상 — 대시보드가 큐로 세는 집합. 재탐지 콘솔은 대상별 D-day 배지를 달고 경과분을
+  //  미리 선택해 두지만 몇 건이 밀렸는지 적힌 곳이 없어, 큐가 말한 수를 화면에서 대조할 수가 없었다.
+  const rescanOverdue = s.easmTargets.filter(isEasmRescanOverdue)
   const ext = s.external
   const unreg = ext.filter((e) => e.state === '미등록')
   const withCve = ext.filter((e) => e.cve)
@@ -61,6 +64,8 @@ export default async function ExternalPage({ searchParams }: { searchParams: Pro
         <Stat value={credOpen} label="크리덴셜 노출 — 미조치" tone={credOpen ? 'err' : 'ok'} />
         <Stat value={iocOpen} label="IOC 상관 — 미조치" tone={iocOpen ? 'err' : 'ok'} delta={{ text: '위협 행위자 귀속', dir: 'flat' }} />
         <Stat value={s.leaks.length} label="유출 · 침해 수집 건" tone="warn" />
+        <Stat value={rescanOverdue.length} label="재탐지 기한 경과 대상" tone={rescanOverdue.length ? 'warn' : 'ok'}
+          delta={{ text: rescanOverdue.length ? `${rescanOverdue.map((x) => x.domain).join(' · ')} — 재탐지 지연` : '전 대상 주기 내 재탐지', dir: rescanOverdue.length ? 'up' : 'flat' }} />
       </div>
 
       <RescanConsole targets={targets} />

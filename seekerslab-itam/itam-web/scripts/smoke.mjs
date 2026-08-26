@@ -2252,6 +2252,25 @@ try {
   const cloudQueue = secQueueCount('미관리 클라우드 리소스 미조치 (태그·소유·회수 · SAM/거버넌스)')
   check("미관리 클라우드 큐: 건수 = 미조치만 보기 표시 건수", cloudQueue > 0 && cloudQueue === cloudShown, `큐 ${cloudQueue} · 표시 ${cloudShown}`)
   check("미관리 클라우드 큐: 링크가 미조치만 보기를 켠 채 연다", dashSec.includes('/discovery/found?open=cloud'))
+  // 재탐지 지연 두 큐 — 화면에는 행마다 배지가 붙지만 몇 건이 밀렸는지 적힌 곳이 없어 큐가 말한 수를
+  //  화면에서 대조할 수가 없었다. 이제 두 화면이 같은 판정(lib/scan-policy · lib/easm)으로 지표를 낸다.
+  //  Stat 은 값이 라벨보다 먼저 렌더되므로 라벨 앞 구간에서 숫자를 읽는다.
+  const statBefore = (html, label) => {
+    const plain = html.replace(/<!-- -->/g, '')
+    const at = plain.indexOf(label)
+    if (at === -1) return -1
+    const before = plain.slice(Math.max(0, at - 400), at)
+    const m = [...before.matchAll(/>([0-9]+)</g)]
+    return m.length ? Number(m[m.length - 1][1]) : -1
+  }
+  const scanKpiHtml = await (await get('/discovery/scan', 'SEC_MGR')).text()
+  const scanOverdueQueue = secQueueCount('탐지 채널 재탐지 주기 경과 (수집 지연 · Discovery 사각)')
+  const scanOverdueShown = statBefore(scanKpiHtml, '재탐지 주기 경과 채널')
+  check("탐지 채널 재탐지 경과 큐: 건수 = 화면 지표", scanOverdueQueue > 0 && scanOverdueQueue === scanOverdueShown, `큐 ${scanOverdueQueue} · 화면 ${scanOverdueShown}`)
+  const extKpiHtml = await (await get('/discovery/external', 'SEC_MGR')).text()
+  const easmOverdueQueue = secQueueCount('외부 공격표면 재탐지 기한 경과 (재탐지 지연 · Discovery 사각)')
+  const easmOverdueShown = statBefore(extKpiHtml, '재탐지 기한 경과 대상')
+  check("외부 공격표면 재탐지 경과 큐: 건수 = 화면 지표", easmOverdueQueue > 0 && easmOverdueQueue === easmOverdueShown, `큐 ${easmOverdueQueue} · 화면 ${easmOverdueShown}`)
   // 소유자 확인 미응답 큐 — 에스컬레이션 바가 '기한 경과 N건'을 세지만 그 아래 발견 목록에는 그 집합을 여는
   //  필터가 없어, 큐가 말한 건을 전체 발견 목록에서 눈으로 찾아야 했다. 판정(운영 정책 기한)은 서버가 준다.
   const awaitHtml = (await (await get('/discovery/found?await=overdue', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')

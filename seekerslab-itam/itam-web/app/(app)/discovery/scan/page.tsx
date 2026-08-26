@@ -2,7 +2,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { ExportButton } from '@/components/ExportButton'
 import { requireView } from '@/lib/authz'
 import { nowMinute } from '@/lib/dates'
-import { isScanOverdue } from '@/lib/scan-policy'
+import { isScanOverdue, overdueScanChannels } from '@/lib/scan-policy'
 import { getStore } from '@/lib/store'
 import { ScanConsole } from './ScanConsole'
 import { ScanRerunButton } from './ScanRerunButton'
@@ -46,6 +46,10 @@ export default async function ScanPage() {
   const last = runs[0]
   const recentNew = runs.slice(0, 7).reduce((n, r) => n + r.newFound, 0)
   const activeChannels = policies.filter((p) => p.enabled).length
+  // 재탐지 주기 경과 채널 — 대시보드가 큐로 세는 그 집합이다. 표에는 행마다 '재탐지 지연' 배지가 붙지만
+  //  화면 어디에도 몇 채널이 밀렸는지 적힌 곳이 없어, 큐가 말한 수를 여기서 대조할 수가 없었다.
+  //  판정은 lib/scan-policy 단일 소스 — 큐·배지·이 지표가 같은 함수를 쓴다.
+  const overdueChannels = overdueScanChannels(s.scanPolicies, s.observations, now)
 
   return (
     <>
@@ -60,6 +64,8 @@ export default async function ScanPage() {
         <Stat value={`${activeChannels}/${policies.length}`} label="활성 수집 채널" tone={activeChannels === policies.length ? 'ok' : 'warn'} />
         <Stat value={s.observations.length} label="누적 관측" delta={{ text: `발견 자산 ${s.discovered.length}건으로 병합`, dir: 'flat' }} />
         <Stat value={recentNew} label="최근 7회차 신규 발견" tone={recentNew ? 'err' : 'ok'} />
+        <Stat value={overdueChannels.length} label="재탐지 주기 경과 채널" tone={overdueChannels.length ? 'warn' : 'ok'}
+          delta={{ text: overdueChannels.length ? `${overdueChannels.join(' · ')} — 수집 지연(Discovery 사각)` : '전 채널 주기 내 수집', dir: overdueChannels.length ? 'up' : 'flat' }} />
         <Stat value={last ? last.startedAt.slice(5) : '-'} label={last ? `마지막 스캔 — ${last.by}` : '스캔 이력 없음'} />
       </div>
 
