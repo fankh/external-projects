@@ -1312,6 +1312,15 @@ try {
   check('재고 엑셀: 화면과 동일한 열 구성(기타 열 포함 · 보유 대사 가능)', stockBuf.includes('유휴·반납대기') && stockBuf.includes('기타') && stockBuf.includes('유휴율(%)'))
   // 합계 행 — 화면 tfoot 과 동형. 회계·감사가 엑셀 안에서 바로 검산한다(리포트 금액 표 합계 행과 동일 규약)
   check('재고 엑셀: 집계 시트·유형별 가치에 합계 행(엑셀 내 검산)', stockBuf.includes('합계'))
+  // 이 반출은 '재고 · 재물조사' 메뉴에 걸리는데 재물조사 실적이 한 장도 없었다 — 계획 화면이 '완료 회차의
+  //  대상·실사·차이 실적을 보존합니다(감사 추적)'라 말해 놓고 그 실적을 반출할 경로가 없었다.
+  check('재고 엑셀: 재물조사 회차 실적 시트 반출 (감사 추적)',
+    stockBuf.includes('재물조사 회차') && stockBuf.includes('INV-2026-H2') && stockBuf.includes('진행률(%)'))
+  // 차이는 '무엇이 어긋났고 어떻게 조정했는지'가 감사 근거다 — 미조치도 값으로 적는다.
+  check('재고 엑셀: 재물조사 차이·조정 내역 시트 반출',
+    stockBuf.includes('재물조사 차이') && stockBuf.includes('DIF-02') && stockBuf.includes('대장 미등록') && stockBuf.includes('미적용'))
+  // 안전재고 미달은 화면이 경보로 띄우고 대시보드가 큐로 세는 판정인데 반출본엔 없었다(같은 lib/stock 소스를 쓴다).
+  check('재고 엑셀: 안전재고 미달 판정 시트 반출', stockBuf.includes('안전재고 미달') && stockBuf.includes('부족'))
   // 필터 딥링크가 자산 대장에서 실제로 유효 (cat 파라미터 수용)
   const drillHtml = await (await get('/assets/register?cat=%EC%84%9C%EB%B2%84', 'ASSET_MGR')).text()
   check('자산 대장: ?cat= 딥링크 진입 정상 렌더', drillHtml.includes('상태 — 전체') && drillHtml.includes('AST-2023-000561'))

@@ -1,7 +1,8 @@
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf, repairTotalOf } from './cost'
 import { buildLicenseUsage } from './license-usage'
-import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today, warrantyState, isWarrantyExpiring } from './dates'
+import { lowStockCategories } from './stock'
+import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, roundProgressPct, today, warrantyState, isWarrantyExpiring } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { contractAssetCount, getStore } from './store'
 import { ASSET_CATEGORIES, CLOUD_POLICY, IDLE_POOL_STATUSES, LOCALVM_POLICY, UNAUTH_SW_POLICY, USB_POLICY, type PermMenu, type Role } from './types'
@@ -130,11 +131,44 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     const vSum = (i: number) => valueRows.reduce((n, r) => n + (r[i] as number), 0)
     const vAcq = vSum(2), vBook = vSum(3)
     const valueTotal = ['합계', vSum(1), vAcq, vBook, ratioPct(vAcq - vBook, vAcq)]
+    // 이 반출은 권한 매트릭스의 '재고 · 재물조사' 메뉴에 걸리는데 재물조사 쪽 실적이 한 장도 없었다 —
+    //  계획 화면이 '완료 회차의 대상·실사·차이 실적을 보존합니다(감사 추적)'라고 말해 놓고, 그 실적을 반출할
+    //  경로가 없었다. 회차 실적과 차이 조정 내역, 그리고 화면이 경보로 띄우는 안전재고 미달 판정을 함께 담는다.
+    const roundRows: (string | number)[][] = s.inventoryRounds.map((r) => [
+      r.id, r.name, r.kind, r.scope, r.assignee, r.dueDate, r.status,
+      r.planned, r.scanned, r.mismatched, roundProgressPct(r),
+      r.status !== '완료' && r.dueDate < t ? '기한 경과' : '-',
+    ])
+    const roundName = new Map(s.inventoryRounds.map((r) => [r.id, r.name]))
+    // 차이는 '무엇이 어긋났고 어떻게 조정했는지'가 감사 근거다 — 미조치도 값으로 적는다(빈 칸은 조치 안 함인지
+    //  데이터 없음인지 갈리지 않는다 · 발견 자산 반출과 같은 규약).
+    const diffRows: (string | number)[][] = s.surveyDiffs.map((d) => [
+      d.id, d.roundId, roundName.get(d.roundId) ?? '-', d.kind, d.assetNo, d.model,
+      d.expected, d.actual, d.status, d.resolution ?? '미적용',
+    ])
+    // 안전재고 판정은 화면 경보·대시보드 큐와 같은 lib/stock 단일 소스 — 반출본만 따로 세면 세 수가 갈린다.
+    const low = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
+    const lowRows: (string | number)[][] = low.map((r) => [r.category, r.available, r.safetyStock, r.short, '미달'])
     return [
       { name: '유형별', header, rows: agg((a) => a.category) },
       { name: '부서별', header, rows: agg((a) => a.dept) },
       { name: '위치별', header, rows: agg((a) => a.location) },
       { name: '유형별 가치', header: ['유형', '대수', '총 취득가', '총 잔존가치', '감가상각률(%)'], rows: [...valueRows, valueTotal] },
+      {
+        name: '재물조사 회차',
+        header: ['회차ID', '회차명', '구분', '대상 범위', '담당자', '기준일', '상태', '대상', '실사', '차이', '진행률(%)', '기한'],
+        rows: roundRows,
+      },
+      {
+        name: '재물조사 차이',
+        header: ['차이ID', '회차ID', '회차명', '차이 유형', '자산번호', '모델', '대장(기대)', '실사(실제)', '조정 상태', '조정 방식'],
+        rows: diffRows,
+      },
+      {
+        name: '안전재고 미달',
+        header: ['유형', '가용', '안전재고', '부족', '판정'],
+        rows: lowRows,
+      },
     ]
   }
 
