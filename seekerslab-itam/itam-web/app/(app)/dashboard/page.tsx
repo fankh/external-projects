@@ -51,7 +51,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // 다가오는 일정(향후 14일 아젠다) — 계약·라이선스 링크가 자산담당·Admin 화면이라 그 역할에만 산출(SEC_MGR 은 dead-end 방지).
   // 일정 항목도 처리 화면으로 가는 링크다 — 큐와 같은 규약으로 매트릭스 조회를 회수한 화면 항목은 뺀다.
   const upcoming = (['ASSET_MGR', 'ADMIN'].includes(session.role) ? upcomingSchedule(14) : []).filter((u) => canViewMenu(u.href, session.role))
-  const pendingApr = s.approvals.filter((a) => a.status === '대기')
+  // 결재함 화면과 같은 조회 스코프를 쓴다 — USER 는 본인 상신분(과 부서 앞 소유자 확인)만 본다.
+  //  결재함은 목록도 타일도 이 스코프를 지키는데(주석에 '타일이 전사 집계를 쓰면 USER 결재함 머리에
+  //  전사 대기 건수가 그대로 드러난다'고 적어 두었다) 대시보드 타일만 전사 집계를 쓰고 있었다 —
+  //  같은 누출이 한 화면 앞에 그대로 남아 있던 셈이다.
+  const visibleApr = session.role === 'USER'
+    ? s.approvals.filter((a) => a.requester === session.name || (a.kind === '소유자 확인' && a.dept === session.dept))
+    : s.approvals
+  const pendingApr = visibleApr.filter((a) => a.status === '대기')
   // 결재 지연 — SLA(3일) 초과한 대기 결재(정체). 상신 후 오래 방치된 결재를 드러낸다.
   const overdueApr = pendingApr.filter((a) => isApprovalOverdue(a, today(), s.opsPolicy.approvalSlaDays)).length
   const myApr = s.approvals.filter((a) => a.requester === session.name && a.status === '대기')

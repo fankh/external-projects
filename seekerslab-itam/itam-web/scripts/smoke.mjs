@@ -2367,6 +2367,25 @@ try {
   check("미등록 신규 발견 KPI: 수 = 링크가 여는 목록의 표시 건수",
     kpiNum > 0 && kpiNum === kpiShown, `KPI ${kpiNum} · 표시 ${kpiShown}`)
   check('미등록 신규 발견 KPI: 링크가 미등록·미조치 필터를 켠 채 연다', dashMgr.includes('act=open'))
+  // 결재 대기 타일은 결재함 화면과 같은 조회 스코프를 써야 한다 — USER 는 본인 상신분만 본다.
+  //  결재함은 목록도 타일도 그 스코프를 지키는데 대시보드 타일만 전사 집계를 써, 같은 누출이 한 화면 앞에 남아 있었다.
+  const aprUserDash = (await (await get('/dashboard', 'USER')).text()).replace(/<!-- -->/g, '')
+  const aprScreenUser = (await (await get('/workflow/approvals', 'USER')).text()).replace(/<!-- -->/g, '')
+  const tileNum = (html, label) => {
+    const at = html.indexOf(label)
+    if (at === -1) return -1
+    const before = html.slice(Math.max(0, at - 400), at)
+    const m = [...before.matchAll(/>([0-9]+)</g)].pop()
+    return m ? Number(m[1]) : -1
+  }
+  const aprDashUser = tileNum(aprUserDash, '결재 대기')
+  const aprScreenNum = tileNum(aprScreenUser, '결재 대기')
+  check("결재 대기 타일(사용자): 대시보드 수 = 결재함 화면 수(같은 조회 스코프)",
+    aprDashUser >= 0 && aprDashUser === aprScreenNum, `대시보드 ${aprDashUser} · 결재함 ${aprScreenNum}`)
+  // 양성 대조 — 담당자는 전사를 보므로 사용자보다 크거나 같다(스코핑이 실제로 걸린다는 확인).
+  const aprDashMgr = tileNum(dashMgr.replace(/<!-- -->/g, ''), '결재 대기')
+  check("결재 대기 타일: 담당자 수 ≥ 사용자 수(스코핑 실효 확인)",
+    aprDashMgr >= aprDashUser && aprDashMgr > 0, `담당자 ${aprDashMgr} · 사용자 ${aprDashUser}`)
 
   // 큐 건수 ↔ 드릴다운 목록 일치 — 전수 스윕.
   //  이 세션에 큐마다 손으로 짝을 적어 대조를 걸었는데, 그 방식은 새 큐가 생기면 조용히 빠진다.
