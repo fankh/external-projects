@@ -1,6 +1,7 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
-import { isStaleVerify, today } from '@/lib/dates'
+import { today } from '@/lib/dates'
+import { staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
 import { getStore } from '@/lib/store'
 import { PlanView } from './PlanView'
 
@@ -19,20 +20,12 @@ export default async function SurveyPlanPage() {
 
   const assignees = s.users.filter((u) => u.role === 'ASSET_MGR').map((u) => u.name)
 
-  // '미확인'은 실물 확인 전까지 계속 미확인으로 남으므로, 편성 대상은 아직 어떤 회차에도
-  // 묶이지 않은 건수로 센다 — 이미 편성한 자산이 계속 대상으로 잡히면 카운트가 거짓이 된다
-  const ghosts = s.discovered.filter((d) => d.state === '미확인')
-  const composed = new Set(s.inventoryRounds.flatMap((r) => r.targets ?? []))
-  const unconfirmed = ghosts.length
-  const pendingCompose = ghosts.filter((g) => !composed.has(g.id)).length
-
-  // 실사 데이터 기반 장기 미실측(유령) — 개시 전·진행 중 회차에 편성되지 않은 건이 자동 편성 대상
-  const pendingRoundTargets = new Set(
-    s.inventoryRounds.filter((r) => r.status !== '완료').flatMap((r) => r.targets ?? []),
-  )
-  const staleAssets = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays))
-  const staleVerify = staleAssets.length
-  const pendingStaleCompose = staleAssets.filter((a) => !pendingRoundTargets.has(a.assetNo)).length
+  // 편성 대상 판정은 lib/survey 단일 소스 — 화면·자동 편성 액션·대시보드 큐가 같은 집합을 본다.
+  //  각자 적어 두면 '편성해도 줄지 않는 큐'가 된다(대시보드가 실제로 미실측 전량을 세고 있었다).
+  const unconfirmed = unconfirmedGhosts().length
+  const pendingCompose = unconfirmedComposeTargets().length
+  const staleVerify = staleVerifyAssets().length
+  const pendingStaleCompose = staleComposeTargets().length
 
   const rounds = s.inventoryRounds
   const active = rounds.filter((r) => r.status === '진행중')

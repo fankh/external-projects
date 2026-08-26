@@ -1,10 +1,11 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { addDays, isStaleVerify, isValidDate, roundProgressPct, today } from '@/lib/dates'
+import { addDays, isValidDate, roundProgressPct, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
+import { staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
 import { can } from '@/lib/perm'
 import type { Asset, RoundKind } from '@/lib/types'
 
@@ -68,11 +69,10 @@ export async function composeUnconfirmedRound() {
   }
 
   const s = getStore()
-  const ghosts = s.discovered.filter((d) => d.state === '미확인')
-  if (ghosts.length === 0) return { ok: false, message: '자동 편성할 미확인 자산이 없습니다.' }
+  if (unconfirmedGhosts().length === 0) return { ok: false, message: '자동 편성할 미확인 자산이 없습니다.' }
 
-  const already = new Set(s.inventoryRounds.flatMap((r) => r.targets ?? []))
-  const fresh = ghosts.filter((g) => !already.has(g.id))
+  // 이미 어떤 회차에도 묶이지 않은 건만 — lib/survey 단일 소스(화면 건수와 같은 집합)
+  const fresh = unconfirmedComposeTargets()
   if (fresh.length === 0) return { ok: false, message: '미확인 자산이 모두 기존 회차에 편성되어 있습니다.' }
 
   // 기한은 기준일 +14일 — 분실 판정을 미루지 않도록 수시 조사는 2주 내 마감한다
@@ -107,14 +107,10 @@ export async function composeStaleVerifyRound() {
   }
 
   const s = getStore()
-  const stale = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays))
-  if (stale.length === 0) return { ok: false, message: '장기 미실측 자산이 없습니다.' }
+  if (staleVerifyAssets().length === 0) return { ok: false, message: '장기 미실측 자산이 없습니다.' }
 
-  // 개시 전(계획)·진행 중 회차가 이미 대상으로 잡은 자산은 제외 — 완료 회차는 실측을 갱신했을 것이므로 무관
-  const pending = new Set(
-    s.inventoryRounds.filter((r) => r.status !== '완료').flatMap((r) => r.targets ?? []),
-  )
-  const fresh = stale.filter((a) => !pending.has(a.assetNo))
+  // 개시 전(계획)·진행 중 회차가 이미 대상으로 잡은 자산은 제외 — lib/survey 단일 소스(화면 건수와 같은 집합)
+  const fresh = staleComposeTargets()
   if (fresh.length === 0) return { ok: false, message: '장기 미실측 자산이 모두 진행 중 회차에 편성되어 있습니다.' }
 
   const due = addDays(today(), 14) // 기한 계산은 lib/dates addDays 단일 소스(TZ 무관)
