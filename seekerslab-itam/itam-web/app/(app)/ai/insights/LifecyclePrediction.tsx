@@ -80,7 +80,11 @@ export function LifecyclePrediction({ canNotify }: { canNotify?: boolean }) {
         </table>
       </div>
       {cands.length > top.length && (
-        <div className="dim" style={{ margin: 14, fontSize: 11.5 }}>… 외 {cands.length - top.length}대 (교체 단가·잔존가 내림차순)</div>
+        // 잘림 안내에 넘어가는 길을 함께 둔다 — 아래 설명문에 대장 링크가 있긴 했지만, 잘린 사실을 본 자리에서
+        //  바로 갈 수 있어야 한다(다른 분석 패널과 같은 규약).
+        <div className="dim" style={{ margin: 14, fontSize: 11.5 }}>
+          … 외 {cands.length - top.length}대 (교체 단가·잔존가 내림차순) — <Link href="/assets/register?replace=1">자산 대장에서 전체 보기</Link>
+        </div>
       )}
       <div className="callout" style={{ margin: 14 }}>
         <b>내용연수 × 보증 × 장애 이력.</b> 도입 5년 초과·보증 경과·반복 수리(2회 이상) 신호를 결합해 교체 시점이 도래한 하드웨어를

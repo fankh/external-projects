@@ -6,18 +6,27 @@ import type { Role } from '@/lib/types'
 
 const KIND_TONE = { '미인가 SW 설치': 'err', '유휴 자산 사용': 'warn', '서버 비정상 외부 통신': 'err', 'USB 대용량 반출': 'err' } as const
 
-/** 이상 자산 행위 탐지 — 프로파일 대비 이탈(설치 SW·상태·데이터 반출)(§05 AI 기능 02). 읽기 전용 합성 뷰. */
-export function AnomalyDetection({ role, openable }: { role: Role; openable?: string[] }) {
+const SEVERITIES = ['높음', '중간', '낮음'] as const
+const TOP_N = 12
+
+/** 이상 자산 행위 탐지 — 프로파일 대비 이탈(설치 SW·상태·데이터 반출)(§05 AI 기능 02). 읽기 전용 합성 뷰.
+ *  심각도 필터(?anom=)는 URL 로 받는다 — 서버에서 목록이 확정되어 딥링크·새로고침이 같은 집합을 연다. */
+export function AnomalyDetection({ role, openable, severity }: { role: Role; openable?: string[]; severity?: string }) {
   const { items, byKind } = buildAnomalies()
-  const top = items.slice(0, 12)
+  const pick = SEVERITIES.find((x) => x === severity)
+  // 심각도를 고르면 그 등급 전량을 보여 준다 — 표가 상위 12건에서 끊기는데 넘어갈 길이 없어,
+  //  13번째부터의 이탈은 '외 N건'으로만 알려 주고 화면 어디에서도 볼 수 없었다(취약점 우선순위와 같은 자리).
+  const scoped = pick ? items.filter((a) => a.severity === pick) : items
+  const top = pick ? scoped : scoped.slice(0, TOP_N)
   const high = items.filter((i) => i.severity === '높음').length
+  const countOf = (sev: (typeof SEVERITIES)[number]) => items.filter((i) => i.severity === sev).length
 
   return (
     <Card
       kicker="AI Function 02 · Behavioral Anomaly"
       title="이상 자산 행위 탐지 — 평시 프로파일 대비 이탈"
       pad={false}
-      actions={<span className="dim" style={{ fontSize: 11.5 }}>비지도 이상탐지 · 총 {items.length}건</span>}
+      actions={<span className="dim" style={{ fontSize: 11.5 }}>비지도 이상탐지 · {top.length} / {items.length}건</span>}
     >
       <div className="stat-row" style={{ margin: 14 }}>
         <Stat value={high} label="높음 심각도 이탈" tone={high ? 'err' : 'ok'} />
@@ -26,6 +35,16 @@ export function AnomalyDetection({ role, openable }: { role: Role; openable?: st
         ))}
       </div>
 
+      <div className="hstack" style={{ gap: 8, padding: '0 14px 10px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <Link className={`btn sm ${pick ? 'ghost' : 'pri'}`} href="/ai/insights">전체 {items.length}</Link>
+        {SEVERITIES.map((x) => (
+          <Link key={x} className={`btn sm ${pick === x ? (x === '높음' ? 'err' : 'pri') : 'ghost'}`}
+            href={`/ai/insights?anom=${encodeURIComponent(x)}`}
+            title={`심각도 ${x} 이탈만 — 고르면 상위 ${TOP_N}건 제한 없이 전량을 보여 줍니다`}>
+            {pick === x ? '✓ ' : ''}{x} {countOf(x)}
+          </Link>
+        ))}
+      </div>
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
@@ -49,12 +68,12 @@ export function AnomalyDetection({ role, openable }: { role: Role; openable?: st
                   : <span className="mut" style={{ fontSize: 11 }}>자산담당 조치</span>}</td>
               </tr>
             ))}
-            {items.length === 0 && <tr><td colSpan={6}><div className="empty">평시 프로파일 대비 이탈이 없습니다</div></td></tr>}
+            {top.length === 0 && <tr><td colSpan={6}><div className="empty">{items.length === 0 ? '평시 프로파일 대비 이탈이 없습니다' : '이 심각도에 해당하는 이탈이 없습니다 — 전체를 누르면 모두 보입니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>
-      {items.length > top.length && (
-        <div className="dim" style={{ margin: 14, fontSize: 11.5 }}>… 외 {items.length - top.length}건 (심각도 내림차순)</div>
+      {!pick && items.length > top.length && (
+        <div className="dim" style={{ margin: 14, fontSize: 11.5 }}>… 외 {items.length - top.length}건 (심각도 내림차순) — 심각도를 고르면 그 등급 전량을 볼 수 있습니다</div>
       )}
       <div className="callout" style={{ margin: 14 }}>
         <b>행위 이탈 관점.</b> 취약점 우선순위(노출도)와 달리, 자산별 평시 프로파일(설치 SW·상태·외부 통신·데이터 반출 패턴) 대비

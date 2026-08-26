@@ -13,7 +13,7 @@ export function AutoClassify() {
       kicker="AI Function 01 · Auto-Classification"
       title="자동분류 제안 — 관측 유형 → 표준 자산 유형"
       pad={false}
-      actions={<span className="dim" style={{ fontSize: 11.5 }}>LLM 분류 · 규칙 하이브리드 · 대상 {total}건</span>}
+      actions={<span className="dim" style={{ fontSize: 11.5 }}>LLM 분류 · 규칙 하이브리드 · {top.length} / {total}건</span>}
     >
       <div className="stat-row" style={{ margin: 14 }}>
         <Stat value={total} label="분류 대상 (미등록·미확인)" tone={total ? 'accent' : 'ok'} />
@@ -49,7 +49,11 @@ export function AutoClassify() {
         </table>
       </div>
       {total > top.length && (
-        <div className="dim" style={{ margin: 14, fontSize: 11.5 }}>… 외 {total - top.length}건 (신뢰도 내림차순)</div>
+        // 잘린 건을 볼 길을 함께 준다 — 이 표의 모집단은 발견 자산의 미등록·미확인 건이므로 그 화면이 전체 목록이다.
+        //  그전엔 남은 건수만 적고 넘어갈 경로가 없어, 13번째부터의 분류 제안은 화면 어디에서도 볼 수 없었다.
+        <div className="dim" style={{ margin: 14, fontSize: 11.5 }}>
+          … 외 {total - top.length}건 (신뢰도 내림차순) — <Link href={`/discovery/found?state=${encodeURIComponent('미등록')}`}>발견 자산에서 전체 보기</Link>
+        </div>
       )}
       <div className="callout" style={{ margin: 14 }}>
         <b>수기 분류 제거.</b> 스캔 배너·설치 SW·모델명 문자열을 규칙 하이브리드로 표준 자산 유형에 매핑하고,
