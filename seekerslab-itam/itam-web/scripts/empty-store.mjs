@@ -58,11 +58,34 @@ const boot = async () => {
 const cookieOf = (acct) => 'itam_session=' + encodeURIComponent(JSON.stringify(acct))
 const failures = []
 let checks = 0
+/** 시드 화면에서 수집한 필터·드릴다운 링크 — 빈 대장에서도 같은 경로를 다시 연다 */
+let FILTER_LINKS = []
 
 try {
   // 1) 시드 스냅샷 받기 — 자동 저장(2초 주기)이 파일을 만들 때까지 기다린다.
   let srv = await boot()
   await fetch(`${BASE}/dashboard`, { headers: { cookie: cookieOf(ACCOUNTS[3][1]) } })
+
+  // 1-1) 필터·드릴다운 링크를 시드 화면에서 수집한다 — 목록을 여기 적어 두면 새 필터가 이 스위트에서만
+  //  조용히 빠진다(화면 목록을 내비에서 읽는 것과 같은 규약). 빈 대장에서 터지는 계산은 대개 필터를 건
+  //  경로에 있다: 걸러낸 배열의 [0] 접근·최댓값·나누기가 그때 처음 빈 배열을 만난다.
+  //  같은 모양(경로 + 파라미터 이름)당 하나만 남겨 검사 수가 폭발하지 않게 한다.
+  const filtered = new Map()
+  for (const [, acct] of ACCOUNTS) {
+    for (const route of ROUTES) {
+      let html = ''
+      try { html = await (await fetch(`${BASE}${route}`, { headers: { cookie: cookieOf(acct) } })).text() } catch { continue }
+      for (const m of html.matchAll(new RegExp(String.raw`href="(/[^"?#]*[?][^"#]+)"`, "g"))) {
+        const link = m[1].replace(/&amp;/g, '&')
+        if (link.startsWith('/api/')) continue
+        const [p, q] = link.split('?')
+        const shape = p + '?' + [...new URLSearchParams(q).keys()].sort().join(',')
+        if (!filtered.has(shape)) filtered.set(shape, link)
+      }
+    }
+  }
+  FILTER_LINKS = [...filtered.values()]
+  if (FILTER_LINKS.length === 0) throw new Error('드릴다운 링크를 하나도 수집하지 못했습니다(수집 정규식 확인)')
   const waitStart = Date.now()
   while (Date.now() - waitStart < 15000 && !existsSync(DATA)) await new Promise((r) => setTimeout(r, 500))
   srv.kill()
@@ -81,7 +104,7 @@ try {
   // 3) 빈 대장으로 다시 띄우고 전 화면 순회
   srv = await boot()
   for (const [tag, acct] of ACCOUNTS) {
-    for (const route of ROUTES) {
+    for (const route of [...ROUTES, ...FILTER_LINKS]) {
       checks++
       try {
         const res = await fetch(`${BASE}${route}`, { headers: { cookie: cookieOf(acct) } })
@@ -103,7 +126,7 @@ try {
 
 for (const f of failures) console.log('✗ ' + f)
 if (failures.length === 0) {
-  console.log(`✓ empty: 빈 대장에서 화면 ${ROUTES.length}종 x 권한그룹 ${ACCOUNTS.length}종 (${checks}건) 정상 렌더 — 5xx·NaN·Infinity 없음`)
+  console.log(`✓ empty: 빈 대장에서 화면 ${ROUTES.length}종 + 필터 링크 ${FILTER_LINKS.length}종 x 권한그룹 ${ACCOUNTS.length}종 (${checks}건) 정상 렌더 — 5xx·NaN·Infinity 없음`)
 } else {
   console.log(`✗ empty: ${checks}건 중 ${failures.length}건 실패`)
 }
