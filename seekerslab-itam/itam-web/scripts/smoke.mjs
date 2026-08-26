@@ -598,6 +598,16 @@ try {
   check('결재 이력 엑셀: 상태=반려 반출이 전체보다 작음(필터 반영)', aprCount(aprRej) < aprCount(aprAll) && aprCount(aprAll) >= 3, `전체=${aprCount(aprAll)} 반려=${aprCount(aprRej)}`)
   // 대기 경과일·지연 컬럼 반출 — 시드 대기 결재(2주 전 상신)는 '지연' 표기 (정체 결재 감사 반출)
   check('결재 이력 엑셀: 대기 경과일·지연 컬럼 반출', aprAll.includes('대기 경과일') && aprAll.includes('· 지연'))
+  // 결재 이력이라면서 '무엇을 왜 요청했고 무엇을 근거로 결재했는지'가 빠져 있었다 — 화면이 결재자에게
+  //  보여 주는 신청 사유·대상 상세·첨부 근거 문서가 반출본에 한 칸도 없었다.
+  check('결재 이력 엑셀: 신청 사유·대상 상세·첨부 근거 문서 컬럼 반출',
+    aprAll.includes('신청 사유') && aprAll.includes('대상 상세') && aprAll.includes('첨부 근거 문서'))
+  // 현재단계만으로는 남은 단계도 필수 결재 여부도 읽을 수 없어 '왜 아직 대기인지'를 감사에서 판단할 수 없었다.
+  check('결재 이력 엑셀: 결재선 정의(단계·필수 여부) 반출',
+    aprAll.includes('결재선') && aprAll.includes('IT기획팀장') && aprAll.includes('필수 결재'))
+  // 반려는 '왜 반려했고 다시 올렸는지'가 감사 근거다 — 반려 건에만 뜻이 있으므로 다른 상태의 빈 칸과 구분한다.
+  check('결재 이력 엑셀: 반려 건의 재상신 여부 표기',
+    aprRej.includes('재상신함') || aprRej.includes('미재상신'))
   check('결재함: 다단계 결재선 — 자산 신청에 부서장 단계 노출', aprHtml.includes('부서장'))
   const permHtml = await (await get('/settings/permissions', 'ADMIN')).text()
   check('권한 매트릭스: 파이프라인·매트릭스 렌더', permHtml.includes('메뉴권한관리') && permHtml.includes('클릭해 변경'))
