@@ -23,8 +23,10 @@ const FUNCTIONS: { kind: InsightKind; tech: string; desc: string }[] = [
   { kind: '라이선스 최적화', tech: '사용 패턴 분석', desc: '장기 미사용 회수 후보, 중복 기능 SaaS 통합 후보, 갱신 협상 근거 데이터' },
 ]
 
-export default async function InsightsPage() {
+export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ tier?: string }> }) {
   const session = await requireView('/ai/insights', 'ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  // tier=p1 — 대시보드 '취약점 우선순위 P1' 큐의 드릴다운(그 등급만 전량 보기로 연다).
+  const { tier } = await searchParams
   const s = getStore()
   // 위험도 기준 관리는 보안담당 책무(제품안내서 §01) — 자산담당은 조회만
   const canEditRisk = ['SEC_MGR', 'ADMIN'].includes(session.role)
@@ -87,7 +89,7 @@ export default async function InsightsPage() {
 
       <LifecyclePrediction canNotify={['ASSET_MGR', 'ADMIN'].includes(session.role)} />
 
-      <VulnPriority />
+      <VulnPriority tier={tier} />
 
       <LicenseOptimization canManage={['ASSET_MGR', 'ADMIN'].includes(session.role)} />
 

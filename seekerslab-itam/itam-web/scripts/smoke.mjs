@@ -2252,6 +2252,24 @@ try {
   const cloudQueue = secQueueCount('미관리 클라우드 리소스 미조치 (태그·소유·회수 · SAM/거버넌스)')
   check("미관리 클라우드 큐: 건수 = 미조치만 보기 표시 건수", cloudQueue > 0 && cloudQueue === cloudShown, `큐 ${cloudQueue} · 표시 ${cloudShown}`)
   check("미관리 클라우드 큐: 링크가 미조치만 보기를 켠 채 연다", dashSec.includes('/discovery/found?open=cloud'))
+  // 취약점 우선순위 표는 점수 상위 12건에서 끊기고 남은 건수만 '… 외 N건'으로 알려 줬다 — 대시보드 P1 큐가
+  //  12건보다 많으면 그 뒤 P1 항목은 화면 어디에서도 볼 수 없었다. 이제 등급을 고르면 그 등급 전량이 나온다.
+  const vulnP1Html = (await (await get('/ai/insights?tier=p1', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  const vulnP1Queue = secQueueCount('취약점 우선순위 P1 (즉시 조치)')
+  const vulnAt = vulnP1Html.indexOf('자산 중요도 × 노출도 · ')
+  const vulnShown = Number((new RegExp("노출도 · ([0-9]+) \/ ([0-9]+)건").exec(vulnAt === -1 ? "" : vulnP1Html.slice(vulnAt, vulnAt + 200)) || [])[1] ?? -1)
+  check("취약점 P1 큐: 건수 = 등급 필터 표시 건수", vulnP1Queue > 0 && vulnP1Queue === vulnShown, `큐 ${vulnP1Queue} · 표시 ${vulnShown}`)
+  check("취약점 P1 큐: 링크가 등급 필터를 켠 채 연다", dashSec.includes('/ai/insights?tier=p1'))
+  // 필터 없이 열면 상위 12건에서 끊긴다 — 그 제한이 있다는 사실과 넘어가는 길을 화면이 밝혀야 한다(조용한 잘림 금지).
+  //  이 화면에는 '… 외 N건'을 쓰는 패널이 여럿이라 취약점 카드 구간부터 본다.
+  const vulnPlain = (await (await get('/ai/insights', 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  const vulnCardAt = vulnPlain.indexOf('취약점 노출 우선순위 — 조치 우선순위 스코어링')
+  const vulnCard = vulnCardAt === -1 ? '' : vulnPlain.slice(vulnCardAt, vulnCardAt + 20000)
+  check('취약점 우선순위: 상위 N건 제한을 화면이 밝힌다(조용한 잘림 금지)',
+    vulnCardAt !== -1 && (!vulnCard.includes('점수 내림차순') || vulnCard.includes('등급을 고르면 그 등급 전량을 볼 수 있습니다')))
+  // 등급 칩은 큐가 세는 세 등급을 모두 내준다 — 필터가 P1 만 있으면 P2·P3 는 여전히 12건에서 잘린다.
+  check('취약점 우선순위: P1·P2·P3 등급 필터 진입점 노출',
+    vulnCard.includes('/ai/insights?tier=p1') && vulnCard.includes('/ai/insights?tier=p2') && vulnCard.includes('/ai/insights?tier=p3'))
   // 재탐지 지연 두 큐 — 화면에는 행마다 배지가 붙지만 몇 건이 밀렸는지 적힌 곳이 없어 큐가 말한 수를
   //  화면에서 대조할 수가 없었다. 이제 두 화면이 같은 판정(lib/scan-policy · lib/easm)으로 지표를 낸다.
   //  Stat 은 값이 라벨보다 먼저 렌더되므로 라벨 앞 구간에서 숫자를 읽는다.
