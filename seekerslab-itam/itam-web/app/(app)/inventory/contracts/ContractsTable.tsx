@@ -66,7 +66,7 @@ function StatusChip({ d, win }: { d: number | null; win: number }) {
   return <Chip tone="ok">정상</Chip>
 }
 
-export function ContractsTable({ rows, sel, canEdit, expiryWindowDays }: { rows: Row[]; sel?: string; canEdit: boolean; expiryWindowDays: number }) {
+export function ContractsTable({ rows, sel, canEdit, expiryWindowDays, canExport = false, licenseIds = [] }: { rows: Row[]; sel?: string; canEdit: boolean; expiryWindowDays: number; canExport?: boolean; /** 라이선스 시트는 이 표의 필터 대상이 아니다 — 계약 필터로 반출해도 라이선스는 그대로 담기게 전체 id 를 받는다 */ licenseIds?: string[] }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [termId, setTermId] = useState<string | null>(null)
@@ -97,6 +97,8 @@ export function ContractsTable({ rows, sel, canEdit, expiryWindowDays }: { rows:
     })
   }, [rows, fkind, fstatus, fexpiring, fq, expiryWindowDays])
   const filterActive = fkind !== '전체' || fstatus !== '전체' || fexpiring || fq.trim() !== ''
+  // 반출 범위 — 파일 첫 시트와 감사 기록에 그대로 적힌다(부분 반출을 전체 대장으로 착각하지 않게)
+  const ctScope = [fkind !== '전체' && `구분=${fkind}`, fstatus !== '전체' && `상태=${fstatus}`, fexpiring && '만료 임박만', fq.trim() && `검색='${fq.trim()}'`].filter(Boolean).join(', ')
   const expiringCount = rows.filter((c) => c.status !== '해지' && c.d !== null && c.d <= expiryWindowDays).length
 
   const addDoc = (id: string) => startTransition(async () => {
@@ -157,6 +159,15 @@ export function ContractsTable({ rows, sel, canEdit, expiryWindowDays }: { rows:
         <input className="input" style={{ width: 190 }} placeholder="계약번호·계약명·공급사·부서 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
         {filterActive && <button className="btn sm ghost" onClick={() => { setFkind('전체'); setFstatus('전체'); setFexpiring(false); setFq('') }}>필터 해제</button>}
         <span className="cnt">{filteredRows.length}건 / 전체 {rows.length}건</span>
+        {/* 반출은 화면에 보이는 그 집합 — 유지보수만 골라 놓고 내려받은 파일이 전체 계약이면 감사에서 다른 문서가 된다.
+            버튼이 이 카드(계약 표)에 붙어 있으므로 계약 시트를 이 표의 필터로 좁힌다. 라이선스 시트는 별도 표라 그대로 담고,
+            어느 필터가 걸렸는지는 '반출 범위' 시트가 밝힌다. */}
+        {canExport && (
+          <a className="btn sm" style={{ marginLeft: 'auto' }} download
+            href={filterActive ? `/api/export/contracts?${new URLSearchParams({ ids: [...filteredRows.map((c) => c.id), ...licenseIds].join(','), scope: `계약 ${ctScope}` }).toString()}` : '/api/export/contracts'}>
+            ⤓ 계약·라이선스 엑셀{filterActive ? ` (계약 ${filteredRows.length})` : ''}
+          </a>
+        )}
       </div>
       <div className="tbl-wrap">
         <table className="tbl">

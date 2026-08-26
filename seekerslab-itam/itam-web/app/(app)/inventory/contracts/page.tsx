@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
+import { canExport } from '@/lib/exports'
 import { missingContractDocs } from '@/lib/contract'
 import { ratioPct, daysUntil, fmtAmount } from '@/lib/dates'
 import { expiryNoticeTargets } from '@/lib/expiry'
@@ -82,7 +82,6 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         actions={<span className="hstack" style={{ gap: 8 }}>
           {docGap > 0 && <Chip tone="warn">📎 부속서류 미비 {docGap}건</Chip>}
           {docGap > 0 && ['ASSET_MGR', 'ADMIN'].includes(session.role) && <ContractDocsButton gap={contractDocsTargets().length} />}
-          <ExportButton kind="contracts" role={session.role} label="계약·라이선스 엑셀" />
           <ExpiryNoticeButton due={dueCount} />
         </span>}>
         <AddContract />
@@ -91,7 +90,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
             <b>만료 임박 필터({s.opsPolicy.expiryWindowDays}일 · 경과 포함)</b> — 계약 {contracts.length}건 · 라이선스 {expiringLicenses.length}건 · 합계 {contracts.length + expiringLicenses.length}건 · <Link href="/inventory/contracts">전체 보기</Link>
           </div>
         )}
-        <ContractsTable rows={contracts.map((c) => ({ ...c, assetCount: contractAssetCount(c.id), d: daysUntil(c.end) }))} sel={sel} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} expiryWindowDays={s.opsPolicy.expiryWindowDays} />
+        <ContractsTable rows={contracts.map((c) => ({ ...c, assetCount: contractAssetCount(c.id), d: daysUntil(c.end) }))} sel={sel} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} expiryWindowDays={s.opsPolicy.expiryWindowDays} canExport={canExport('contracts', session.role)} licenseIds={s.licenses.map((l) => l.id)} />
       </Card>
 
       <Card

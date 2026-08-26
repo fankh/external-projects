@@ -1215,6 +1215,32 @@ try {
   const statusTxt = Buffer.from(await statusXlsx.arrayBuffer()).toString('utf8')
   check('자산 내보내기: 상태 필터(대여중) 반영 — 대여 자산만', statusXlsx.status === 200 && statusTxt.includes('AST-2024-000230') && statusTxt.includes('AST-2023-000450') && !statusTxt.includes('AST-2023-000112'))
   check('선택 내보내기: 감사 로그에 남는지는 감사 화면 검증 — 여기선 xlsx 시그니처', selBuf.slice(0, 2).toString('binary') === 'PK')
+  // 반출은 화면에 보이는 그 집합 — 계약·폐기·SaaS 는 화면에 필터가 있는데도 버튼이 전체를 내보냈고,
+  //  그 사실을 파일 어디에도 적지 않았다(감사 로그·발송 이력 반출은 이미 범위를 감사 기록에 적는 규약).
+  //  화면이 보여 준 행 ID(ids)와 사람이 읽는 필터 설명(scope)을 받아 좁히고, 첫 시트에 범위를 밝힌다.
+  const xlsxText = async (url, role) => Buffer.from(await (await get(url, role)).arrayBuffer()).toString('utf8')
+  //  반출본에 id 열이 있는 종류는 id 로, 없는 종류(SaaS)는 서비스명으로 대조한다.
+  //  out 값은 필터 밖의 행 — 부분 반출에 그 행이 남아 있으면 필터가 먹지 않은 것이다.
+  //  CT-2024-011 은 어느 라이선스도 근거로 삼지 않는 계약이라, 라이선스 시트에 이름이 새어 들어오지 않는다.
+  const idFilteredKinds = [
+    { kind: 'contracts', role: 'ASSET_MGR', ids: 'CT-2023-002', keep: 'CT-2023-002', out: 'CT-2024-011', scope: '계약 구분=유지보수' },
+    { kind: 'disposals', role: 'ASSET_MGR', ids: 'DSP-01', keep: 'DSP-01', out: 'DSP-03', scope: '상태=결재 대기' },
+    { kind: 'saasCatalog', role: 'SEC_MGR', ids: 'CAT-04', keep: 'Miro', out: 'Notion', scope: '검토 대기만' },
+    { kind: 'saas', role: 'SEC_MGR', ids: 'SAS-04', keep: 'Miro', out: 'Notion', scope: '부서=플랫폼개발팀' },
+  ]
+  for (const t of idFilteredKinds) {
+    const full = await xlsxText(`/api/export/${t.kind}`, t.role)
+    const part = await xlsxText(`/api/export/${t.kind}?ids=${encodeURIComponent(t.ids)}&scope=${encodeURIComponent(t.scope)}`, t.role)
+    check(`반출 필터(${t.kind}): 화면이 보여 준 행만 담긴다`,
+      full.includes(t.keep) && full.includes(t.out) && part.includes(t.keep) && !part.includes(t.out),
+      `전체에 out=${full.includes(t.out)} / 부분에 out=${part.includes(t.out)} / 부분에 keep=${part.includes(t.keep)}`)
+    check(`반출 필터(${t.kind}): 부분 반출임을 파일이 밝힌다(반출 범위 시트)`,
+      part.includes('반출 범위') && part.includes(t.scope) && part.includes('전체 대장이 아닙니다') && !full.includes('반출 범위'))
+  }
+  // 반출 기록도 범위를 남긴다 — 감사 로그 반출이 이미 지키는 규약(누가 무엇을 어떤 범위로 받았는가)
+  await get(`/api/export/disposals?ids=DSP-01&scope=${encodeURIComponent('상태=결재 대기')}`, 'ASSET_MGR')
+  const expAudit = await (await get('/platform/integrations', 'SEC_MGR')).text()
+  check('반출 필터: 부분 반출이 감사 기록에 범위와 함께 남는다', expAudit.includes('상태=결재 대기'))
   // 감사 로그 엑셀 내보내기 — 보안담당·Admin 만 (컴플라이언스 반출)
   check('감사 로그 엑셀: 미로그인 차단 (401)', (await get('/api/audit-export')).status === 401)
   check('감사 로그 엑셀: 사용자 차단 (403)', (await get('/api/audit-export', 'USER')).status === 403)

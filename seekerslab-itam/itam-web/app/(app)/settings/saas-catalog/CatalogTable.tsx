@@ -13,7 +13,7 @@ function reviewAge(reviewSince: string | undefined, today: string): number | nul
   return Math.floor((Date.parse(today) - Date.parse(reviewSince)) / 86_400_000)
 }
 
-export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, reviewOnly: reviewOnlyParam, overdueIds, overdueOnly: overdueOnlyParam }: {
+export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, reviewOnly: reviewOnlyParam, overdueIds, overdueOnly: overdueOnlyParam, canExport = false }: {
   entries: SaasCatalogEntry[]; today: string; slaDays: number; approveNeedsApproval?: boolean; reviewOnly?: boolean
   /** 판정 기한 경과 항목 id — 대시보드 큐·에스컬레이션 안내와 같은 lib/saas-review 판정(서버 산출).
    *  화면이 경과일을 다시 재면 접수일(reviewSince)이 없는 항목에서 갈린다: 그 경우 lib 은 fail safe 로 경과로 보는데
@@ -21,6 +21,7 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, re
   overdueIds?: string[]
   /** 대시보드 '판정 기한 경과' 큐의 드릴다운으로 진입할 때 그 필터를 켠 채 연다 (?status=overdue) */
   overdueOnly?: boolean
+  canExport?: boolean
 }) {
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<string | null>(null)
@@ -35,6 +36,9 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, re
   const shown = overdueOnly ? entries.filter((e) => overdueSet.has(e.id))
     : reviewOnly ? entries.filter((e) => e.status === '검토중')
     : entries
+  // 반출 범위 — 파일 첫 시트와 감사 기록에 그대로 적힌다(부분 반출을 전체 대장으로 착각하지 않게)
+  const cFilterActive = overdueOnly || reviewOnly
+  const cScope = overdueOnly ? '판정 기한 경과만' : reviewOnly ? '검토 대기만' : ''
   // 신규 SaaS 등록 — 발견 이전이라도 조달·온보딩으로 알게 된 서비스를 검토중으로 카탈로그에 올린다
   const [adding, setAdding] = useState(false)
   const [service, setService] = useState('')
@@ -84,6 +88,13 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, re
         </button>
       )}
       <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {entries.length}건</span>
+      {/* 반출은 화면에 보이는 그 집합 — 기한 경과만 골라 놓고 내려받은 파일이 전체 대장이면 다른 문서가 된다 */}
+      {canExport && (
+        <a className="btn sm" style={{ marginLeft: 'auto' }} download
+          href={cFilterActive ? `/api/export/saasCatalog?${new URLSearchParams({ ids: shown.map((x) => x.id).join(','), scope: cScope }).toString()}` : '/api/export/saasCatalog'}>
+          ⤓ SaaS 정책 대장 엑셀{cFilterActive ? ` (${shown.length})` : ''}
+        </a>
+      )}
     </div>
     <div className="tbl-wrap">
       <table className="tbl">

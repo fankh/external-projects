@@ -4,8 +4,8 @@ import { Chip, RiskChip } from '@/components/ui'
 import type { SaasUsage } from '@/lib/types'
 import { classifyShadowSaas } from './actions'
 
-export function ShadowSaasTable({ rows, canDecide, depts = [], blockedServices = [] }: {
-  rows: SaasUsage[]; canDecide: boolean; depts?: string[]
+export function ShadowSaasTable({ rows, canDecide, depts = [], blockedServices = [], canExport = false }: {
+  rows: SaasUsage[]; canDecide: boolean; depts?: string[]; canExport?: boolean
   /** 카탈로그에서 차단 판정이 난 서비스 — 미인가지만 '판정 대기'는 아니다(프록시·DNS 차단 집행 요청까지 나간 상태). */
   blockedServices?: string[]
 }) {
@@ -27,6 +27,9 @@ export function ShadowSaasTable({ rows, canDecide, depts = [], blockedServices =
       return true
     })
   }, [rows, fdept, fsanction, fq])
+  // 반출 범위 — 파일 첫 시트와 감사 기록에 그대로 적힌다(부분 반출을 전체 대장으로 착각하지 않게)
+  const sFilterActive = fdept !== '전체' || fsanction !== '전체' || fq.trim() !== ''
+  const sScope = [fdept !== '전체' && `부서=${fdept}`, fsanction !== '전체' && `인가=${fsanction}`, fq.trim() && `검색='${fq.trim()}'`].filter(Boolean).join(', ')
 
   const decide = (service: string, status: '인가' | '차단' | '검토중') => {
     setBusy(service)
@@ -55,6 +58,13 @@ export function ShadowSaasTable({ rows, canDecide, depts = [], blockedServices =
           <button className="btn sm ghost" onClick={() => { setFdept('전체'); setFsanction('전체'); setFq('') }}>필터 해제</button>
         )}
         <span className="mut" style={{ marginLeft: 'auto', fontSize: 12 }}>{view.length}/{rows.length}건</span>
+        {/* 반출은 화면에 보이는 그 집합 — 부서로 좁혀 놓고 내려받은 파일이 전사면 감사에서 다른 문서가 된다 */}
+        {canExport && (
+          <a className="btn sm" download
+            href={sFilterActive ? `/api/export/saas?${new URLSearchParams({ ids: view.map((x) => x.id).join(','), scope: sScope }).toString()}` : '/api/export/saas'}>
+            ⤓ Shadow SaaS 엑셀{sFilterActive ? ` (${view.length})` : ''}
+          </a>
+        )}
       </div>
       <div className="tbl-wrap">
         <table className="tbl">
