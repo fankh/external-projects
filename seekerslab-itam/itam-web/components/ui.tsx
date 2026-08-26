@@ -18,7 +18,7 @@ export function ScreenHeader(props: { kicker: string; title: string; desc?: stri
 }
 
 /** id 는 화면 내 앵커용 — 표가 여럿인 화면에서 대시보드 큐가 자기 표로 바로 내려가게 한다(#receive 등). */
-export function Card(props: { title?: string; kicker?: string; actions?: ReactNode; children: ReactNode; pad?: boolean; id?: string }) {
+export function Card(props: { title?: ReactNode; kicker?: string; actions?: ReactNode; children: ReactNode; pad?: boolean; id?: string }) {
   return (
     <section className="card" id={props.id}>
       {(props.title || props.actions) && (

@@ -40,6 +40,7 @@ export function PlanView(props: {
   const [dueDate, setDueDate] = useState('')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, startTransition] = useTransition()
+  const overdueRounds = props.rounds.filter((r) => r.status !== '완료' && r.dueDate < props.today).length
 
   const submit = () => {
     startTransition(async () => {
@@ -56,7 +57,9 @@ export function PlanView(props: {
       <Card
         id="rounds"
         kicker="Inventory Planning"
-        title={`조사 회차 ${props.rounds.length}건`}
+        // 기한 경과 회차 수 — 행마다 '기한 경과' 칩이 붙지만 몇 회차가 밀렸는지는 화면 어디에도 없어,
+        //  대시보드 큐가 말한 수를 여기서 맞대 볼 자리가 없었다(재탐지 지연 지표와 같은 규약).
+        title={<>조사 회차 {props.rounds.length}건{overdueRounds > 0 && <> · 기한 경과 <span data-queue="#rounds">{overdueRounds}</span>건</>}</>}
         pad={false}
         actions={
           <button className="btn sm pri" onClick={() => setOpen((o) => !o)} disabled={pending}>
@@ -201,7 +204,7 @@ export function PlanView(props: {
             <div className="hstack" style={{ gap: 6, marginTop: 8 }}>
               <Chip tone={props.staleVerify ? 'warn' : 'ok'}>장기 미실측 {props.staleVerify}건</Chip>
               <Chip tone={props.pendingStaleCompose ? 'warn' : 'ok'}>
-                {props.pendingStaleCompose ? `편성 대기 ${props.pendingStaleCompose}건` : '편성 완료'}
+                {props.pendingStaleCompose ? <>편성 대기 <span data-queue="#stale">{props.pendingStaleCompose}</span>건</> : '편성 완료'}
               </Chip>
               <Link className="btn sm ghost" href="/assets/register?stale=1">대장에서 보기</Link>
             </div>

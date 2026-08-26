@@ -43,7 +43,7 @@ export function UnauthorizedSwTable({ items, canAct, openOnly: openOnlyParam }: 
           title="조치가 끝나지 않은 건만 — 대시보드 '미인가 SW 미조치' 큐와 같은 집합">
           {openOnly ? '✓ ' : ''}미조치만 {openCount}
         </button>
-        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {items.length}건</span>
+        <span className="mut" data-queue="open=sw" style={{ fontSize: 12 }}>{shown.length} / {items.length}건</span>
       </div>
       {canAct && checked.size > 0 && (
         <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

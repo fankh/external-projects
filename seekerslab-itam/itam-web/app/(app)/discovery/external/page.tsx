@@ -66,7 +66,7 @@ export default async function ExternalPage({ searchParams }: { searchParams: Pro
         <Stat value={credOpen} label="크리덴셜 노출 — 미조치" tone={credOpen ? 'err' : 'ok'} />
         <Stat value={iocOpen} label="IOC 상관 — 미조치" tone={iocOpen ? 'err' : 'ok'} delta={{ text: '위협 행위자 귀속', dir: 'flat' }} />
         <Stat value={s.leaks.length} label="유출 · 침해 수집 건" tone="warn" />
-        <Stat value={rescanOverdue.length} label="재탐지 기한 경과 대상" tone={rescanOverdue.length ? 'warn' : 'ok'}
+        <Stat value={<span data-queue="/discovery/external">{rescanOverdue.length}</span>} label="재탐지 기한 경과 대상" tone={rescanOverdue.length ? 'warn' : 'ok'}
           delta={{ text: rescanOverdue.length ? `${rescanOverdue.map((x) => x.domain).join(' · ')} — 재탐지 지연` : '전 대상 주기 내 재탐지', dir: rescanOverdue.length ? 'up' : 'flat' }} />
       </div>
 

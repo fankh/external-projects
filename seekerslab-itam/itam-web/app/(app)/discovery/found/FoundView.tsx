@@ -165,7 +165,7 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
         {(fstate !== '전체' || frisk !== '전체' || fq.trim() !== '' || fAwait || fOpen) && (
           <button className="btn sm ghost" onClick={() => { setFstate('전체'); setFrisk('전체'); setFq(''); setFAwait(false); setFOpen(false) }}>필터 해제</button>
         )}
-        <span className="cnt">{rows.length}건 / 전체 {items.length}건</span>
+        <span className="cnt" data-queue="await=overdue">{rows.length}건 / 전체 {items.length}건</span>
         {canExport && (
           <a className="btn sm" style={{ marginLeft: 'auto' }} download
             href={`/api/export/discovered?${new URLSearchParams({ q: fq.trim(), channel, state: fstate, risk: frisk }).toString()}`}>

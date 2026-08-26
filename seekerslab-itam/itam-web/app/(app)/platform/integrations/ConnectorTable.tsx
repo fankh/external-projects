@@ -33,7 +33,7 @@ export function ConnectorTable({ integrations, canManage, degradedOnly: degraded
           title="수집이 밀리거나 끊긴 커넥터만 — 대시보드 '수집 커넥터 지연·오류' 큐와 같은 집합">
           {degradedOnly ? '✓ ' : ''}저하만 {degradedCount}
         </button>
-        <span className="mut" style={{ fontSize: 12 }}>{shown.length} / {integrations.length}건</span>
+        <span className="mut" data-queue="conn=degraded" style={{ fontSize: 12 }}>{shown.length} / {integrations.length}건</span>
       </div>
       <div className="tbl-wrap">
         <table className="tbl">

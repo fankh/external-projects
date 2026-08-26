@@ -81,7 +81,7 @@ export function NotificationLog({ dispatches, canExport, canManage, role, openab
                 {delivery === '실패' ? '✓ ' : ''}전달 실패 {failed}
               </button>
             )}
-            <span className="mut" style={{ fontSize: 12 }}>{rows.length} / {dispatches.length}건</span>
+            <span className="mut" data-queue="dispatch=failed" style={{ fontSize: 12 }}>{rows.length} / {dispatches.length}건</span>
           </div>
           <div className="tbl-wrap">
             <table className="tbl">

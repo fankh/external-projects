@@ -65,7 +65,7 @@ export function LicenseTable({ rows, sel, canEdit, expiryWindowDays, lic }: { ro
         )}
         <input className="input" style={{ width: 200 }} placeholder="라이선스명·공급사·근거계약 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
         {filterActive && <button className="btn sm ghost" onClick={() => { setFstatus('전체'); setFexpiring(false); setFverdict('전체'); setFq('') }}>필터 해제</button>}
-        <span className="cnt">{filtered.length}건 / 전체 {rows.length}건</span>
+        <span className="cnt" data-queue="lic=over lic=expired lic=under">{filtered.length}건 / 전체 {rows.length}건</span>
       </div>
       <div className="tbl-wrap">
         <table className="tbl">

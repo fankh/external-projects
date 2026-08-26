@@ -81,7 +81,7 @@ export function ReturnsView(props: {
 
       {/* 형제 두 카드(수리 대기 N건 · 대여 현황 N건)는 건수를 적는데 이 카드만 안 적었다 — 대시보드
           '반납 접수 대기' 큐가 세는 집합이 바로 이 표라, 큐가 말한 수를 화면에서 맞대 볼 자리가 없었다. */}
-      <Card id="receive" kicker="Phase 4 · Receive" title={`반납 접수 대기 ${props.pending.length}건 — 결재 승인 후 회수 대상`} pad={false}>
+      <Card id="receive" kicker="Phase 4 · Receive" title={<>반납 접수 대기 <span data-queue="#receive">{props.pending.length}</span>건 — 결재 승인 후 회수 대상</>} pad={false}>
         {props.pending.length === 0 ? (
           <div className="empty">반납 접수할 자산이 없습니다. 반납 결재가 승인되면 여기에 표시됩니다.</div>
         ) : (
@@ -157,7 +157,7 @@ export function ReturnsView(props: {
       </Card>
 
       {props.repairing.length > 0 && (
-        <Card id="repair" kicker="Maintenance" title={`수리 대기 ${props.repairing.length}건`} pad={false}
+        <Card id="repair" kicker="Maintenance" title={<>수리 대기 <span data-queue="#repair">{props.repairing.length}</span>건</>} pad={false}
           actions={props.repairRemindable > 0
             ? <button className="btn sm" disabled={pending}
                 title="예상 반환일이 지났거나 아직 반환 일정을 받지 못한 수리 자산의 업체에 진행·반환 일정 회신을 독촉합니다 (발송 이력·감사)"
@@ -169,7 +169,7 @@ export function ReturnsView(props: {
                 title="예상 반환일이 지난 수리만 — 대시보드 업체 독촉 큐와 같은 집합">
                 {repairOverdueOnly ? '✓ ' : ''}예상 반환 경과만 {repairOverdueCount}
               </button>
-              <span className="mut" style={{ fontSize: 12 }}>{shownRepairing.length} / {props.repairing.length}건</span>
+              <span className="mut" data-queue="repair=overdue" style={{ fontSize: 12 }}>{shownRepairing.length} / {props.repairing.length}건</span>
             </div>
           )}
           <div className="tbl-wrap">
@@ -261,7 +261,7 @@ export function ReturnsView(props: {
                 {loanFilter === k ? '✓ ' : ''}{k} {n}
               </button>
             ))}
-            <span className="mut" style={{ fontSize: 12 }}>{shownLoans.length} / {props.loans.length}건</span>
+            <span className="mut" data-queue="loan=연체" style={{ fontSize: 12 }}>{shownLoans.length} / {props.loans.length}건</span>
           </div>
         )}
         {props.loans.length === 0 ? (
