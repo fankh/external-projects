@@ -63,7 +63,9 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
     (x) => x.confirmRequestedAt && -(daysUntil(x.confirmRequestedAt) ?? 0) >= s.opsPolicy.confirmDeadlineDays,
   )
   // 휴면 계정(채널 06 AD/IdP·SSO) · 미인가 SW(채널 04 EDR) — 계정·SW 위생은 보안 업무이므로 보안담당·Admin 만 조치, 자산담당은 조회만
-  const canAccount = ['SEC_MGR', 'ADMIN'].includes(session.role)
+  // 서버 액션과 같은 판정 — 역할 하한에 더해 매트릭스의 '격리요청'(조치 집행 요청) 칸을 본다.
+  //  그전엔 역할만 봐서, 권한 · 정책에서 이 칸을 꺼도 다섯 조치 표의 버튼이 그대로 실행됐다(바로 위 canQuarantine 은 이미 매트릭스를 본다).
+  const canAccount = ['SEC_MGR', 'ADMIN'].includes(session.role) && canQuarantine
   const accountsOpen = s.accounts.filter((a) => !a.action).length
   const unauthSwOpen = s.unauthorizedSw.filter((w) => !w.action).length
   const usbOpen = s.usbFindings.filter((u) => !u.action).length
