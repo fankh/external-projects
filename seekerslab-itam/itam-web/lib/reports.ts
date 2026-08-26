@@ -1,3 +1,6 @@
+/** 감사 로그 표에 싣는 최근 건수 — 문구가 이 수를 그대로 말한다(조용한 잘림 금지) */
+const AUDIT_TOP = 10
+
 /** 리포트 본문 생성 — 스토어 데이터에서 결정적으로 산출한다.
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
 import { effectiveClassifyAccuracy } from './ai-accuracy'
@@ -1004,7 +1007,11 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     }
     const bucketList = [...buckets.values()]
     const totalHorizon = bucketList.reduce((n, b) => n + b.amount, 0)
-    const soon = live2.filter((c) => c.end >= t && qKey(c.end) <= horizonEnd).sort((a, b) => a.end.localeCompare(b.end)).slice(0, 15)
+    // 표는 기한 임박순 15건까지만 싣지만, 문구는 전체 건수를 말해야 한다 — 자른 뒤의 배열 길이를 그대로 적으면
+    //  40건이 만료 예정인데 '만료 예정 15건'으로 읽히는, 예산 계획 문서에 틀린 수가 실리는 자리가 된다.
+    const SOON_TOP = 15
+    const soonAll = live2.filter((c) => c.end >= t && qKey(c.end) <= horizonEnd).sort((a, b) => a.end.localeCompare(b.end))
+    const soon = soonAll.slice(0, SOON_TOP)
     const peak = bucketList.reduce((mx, b) => (b.amount > mx.amount ? b : mx), bucketList[0])
     return [
       {
@@ -1021,7 +1028,9 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       },
       {
         title: '갱신 임박 계약 상세 (기한순)',
-        note: soon.length ? `향후 8개 분기 내 만료 예정 ${soon.length}건 (최대 15건 표시)` : '향후 8개 분기 내 만료 예정 계약이 없습니다',
+        note: soonAll.length
+          ? `향후 8개 분기 내 만료 예정 ${soonAll.length}건${soonAll.length > SOON_TOP ? ` — 기한 임박 ${SOON_TOP}건만 표시(전체 목록은 계약·라이선스 화면 또는 계약 엑셀)` : ''}`
+          : '향후 8개 분기 내 만료 예정 계약이 없습니다',
         columns: ['계약', '구분', '공급사', '만료일', 'D-day', '갱신 예상액'],
         rows: soon.length
           ? soon.map((c) => [`${c.name} (${c.id})`, c.kind, c.vendor, c.end, `D-${daysUntil(c.end) ?? '-'}`, c.amount.toLocaleString()])
@@ -1142,9 +1151,10 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     anomalySection,
     {
       title: '감사 로그 (최근)',
-      note: `AI 로그 보존 ${s.aiPolicy.auditRetentionDays}일 · 권한 범위 필터 ${s.aiPolicy.scopeFilter ? 'ON' : 'OFF'}`,
+      // 몇 건 중 몇 건을 실었는지 밝힌다 — '최근'만 적어 두면 이 표가 전체인 줄 읽힌다(감사 제출 문서).
+      note: `전체 ${s.auditLogs.length}건 중 최근 ${Math.min(AUDIT_TOP, s.auditLogs.length)}건 · AI 로그 보존 ${s.aiPolicy.auditRetentionDays}일 · 권한 범위 필터 ${s.aiPolicy.scopeFilter ? 'ON' : 'OFF'}${s.auditLogs.length > AUDIT_TOP ? ' — 전체 로그는 연동 · 인프라 화면에서 조회·반출' : ''}`,
       columns: ['일시', '수행자', '동작', '대상', '결과'],
-      rows: s.auditLogs.slice(0, 10).map((l) => [l.at, l.actor, l.action, l.target, l.result]),
+      rows: s.auditLogs.slice(0, AUDIT_TOP).map((l) => [l.at, l.actor, l.action, l.target, l.result]),
     },
   ]
 }
