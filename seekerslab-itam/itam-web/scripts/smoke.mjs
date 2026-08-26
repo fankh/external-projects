@@ -2386,6 +2386,24 @@ try {
   const aprDashMgr = tileNum(dashMgr.replace(/<!-- -->/g, ''), '결재 대기')
   check("결재 대기 타일: 담당자 수 ≥ 사용자 수(스코핑 실효 확인)",
     aprDashMgr >= aprDashUser && aprDashMgr > 0, `담당자 ${aprDashMgr} · 사용자 ${aprDashUser}`)
+  // 화면 접근 판정(canViewMenu)은 매핑이 없는 경로를 '제한 없음'으로 통과시킨다(fail open). 그 기본값 자체는
+  //  의도한 것이지만, 어느 화면이 그 위에 서 있는지가 코드 어디에도 적혀 있지 않아 새 화면을 내비에 붙이면서
+  //  ROUTE_MENU 를 빠뜨리면 매트릭스를 조용히 우회한다(액션 가드에서 닫은 것과 같은 구멍).
+  //  내비 화면은 하나도 빠짐없이 '매핑 ∪ 명시적 예외' 안에 있어야 한다.
+  const permSrc = readFileSync(path.join(ROOT, 'lib', 'perm.ts'), 'utf8')
+  const navSrcPerm = readFileSync(path.join(ROOT, 'components', 'chrome', 'menus.ts'), 'utf8')
+  const navRoutes = [...new Set([...navSrcPerm.matchAll(/href: '([^']+)'/g)].map((m) => m[1]))]
+  const routeMenuAt = permSrc.indexOf('export const ROUTE_MENU')
+  const routeMenuBody = permSrc.slice(routeMenuAt, permSrc.indexOf('}', routeMenuAt))
+  const exemptAt = permSrc.indexOf('export const MATRIX_EXEMPT_ROUTES')
+  const exemptBody = exemptAt === -1 ? '' : permSrc.slice(exemptAt, permSrc.indexOf('}', exemptAt))
+  const mapped = new Set([...routeMenuBody.matchAll(new RegExp(String.raw`'([/][^']+)':`, 'g'))].map((m) => m[1]))
+  const exempt = new Set([...exemptBody.matchAll(new RegExp(String.raw`'([/][^']+)':`, 'g'))].map((m) => m[1]))
+  const unguarded = navRoutes.filter((r) => !mapped.has(r) && !exempt.has(r))
+  check('화면 접근 판정: 내비 화면이 모두 매트릭스 매핑 또는 명시적 예외에 있다(조용한 fail open 금지)',
+    unguarded.length === 0, `매핑·예외 어디에도 없음=${unguarded.join(', ')}`)
+  // 예외 목록이 비어 있으면 위 검사가 '매핑만 확인'으로 조용히 약해진다 — 실제로 쓰이는지 함께 본다.
+  check('화면 접근 판정: 예외 목록이 이유와 함께 명시돼 있다', exempt.size > 0)
 
   // 큐 건수 ↔ 드릴다운 목록 일치 — 전수 스윕.
   //  이 세션에 큐마다 손으로 짝을 적어 대조를 걸었는데, 그 방식은 새 큐가 생기면 조용히 빠진다.
