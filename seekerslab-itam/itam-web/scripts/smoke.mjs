@@ -268,6 +268,17 @@ try {
   check('수명주기 대기열: 대여중 처리 안내 + 반납 화면 딥링크', lifeHtml.includes('반환 기한 관리') && lifeHtml.includes('/assets/returns'))
   check('수명주기 대기열: 수리중 처리 안내(막다른 행 제거)', lifeHtml.includes('수리 진행 관리'))
   check('수명주기 대기열: 종결(폐기완료) 자산 제외 (처리 대상 아님)', !lifeHtml.includes('AST-2018-000090'))
+  // 대기열에 오는 상태는 하나도 빠짐없이 어느 단계엔가 속해야 한다 — 그전엔 수리중·분실이 어느 단계에도 없어,
+  //  전체에는 보이는데 단계를 다 눌러 봐도 나오지 않았다(전체 13 · 단계 합 10). 단계 칩의 수를 합쳐 전체와 맞춘다.
+  const lifePlain = lifeHtml.replace(/<!-- -->/g, '')
+  const lifeNums = [...lifePlain.matchAll(/class="n">([0-9]+)</g)].map((m) => Number(m[1]))
+  const lifeTotal = lifeNums[0] ?? -1
+  const lifePhaseSum = lifeNums.slice(1).reduce((n, v) => n + v, 0)
+  check('수명주기 단계: 전체 건수 = 단계별 건수 합(어느 단계에도 없는 행 금지)',
+    lifeTotal > 0 && lifeTotal === lifePhaseSum, `전체 ${lifeTotal} · 단계 합 ${lifePhaseSum}`)
+  // 수리중은 이제 운영·이동 단계로 도달한다(양성 대조 — 단계를 눌러 실제로 그 행이 나오는지).
+  const lifeOperate = (await (await get('/assets/lifecycle?phase=operate', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  check('수명주기 단계: 수리중 자산이 운영·이동 단계에서 열린다', lifeOperate.includes('수리 진행 관리'))
   // 수리중 자산 상세 — 수리 의뢰(업체·예상반환·반환 지연) 블록. 대여 블록과 대칭. 시드 AST-2024-000512(중부IT서비스, 예상반환 경과)로 검증
   const regRepairDetail = await (await get('/assets/register?sel=AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 대장: 수리중 상세에 수리 의뢰(업체·반환 지연) 블록', regRepairDetail.includes('수리 의뢰') && regRepairDetail.includes('중부IT서비스') && regRepairDetail.includes('반환 지연'))
