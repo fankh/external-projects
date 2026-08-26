@@ -1,6 +1,6 @@
-import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
+import { canExport } from '@/lib/exports'
 import { saasConsolidationCandidates } from '@/lib/reports'
 import { getStore } from '@/lib/store'
 import { ConsolidationCard } from './ConsolidationCard'
@@ -44,7 +44,6 @@ export default async function SaasPage() {
         kicker="Discovery · Shadow SaaS"
         title="Shadow SaaS 사용 현황"
         desc="DNS·프록시·방화벽 로그의 아웃바운드 도메인 분석 → SaaS 카탈로그 매칭 (부서별)"
-        right={<ExportButton kind="saas" role={session.role} label="Shadow SaaS 엑셀" />}
       />
 
       <div className="stat-row">
@@ -82,7 +81,7 @@ export default async function SaasPage() {
       {consolidation.length > 0 && <ConsolidationCard rows={consolidation} canDecide={canDecide} />}
 
       <Card kicker="Services" title="SaaS 서비스별 사용·판정" pad={false}>
-        <ShadowSaasTable rows={rows} canDecide={canDecide} depts={[...new Set(rows.map((x) => x.dept))].sort()} blockedServices={blockedServices} />
+        <ShadowSaasTable rows={rows} canDecide={canDecide} depts={[...new Set(rows.map((x) => x.dept))].sort()} blockedServices={blockedServices} canExport={canExport('saas', session.role)} />
       </Card>
 
       <div className="callout warn">

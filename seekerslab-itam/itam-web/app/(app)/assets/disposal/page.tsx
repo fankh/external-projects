@@ -1,6 +1,6 @@
-import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
+import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { DisposalView } from './DisposalView'
@@ -36,7 +36,6 @@ export default async function DisposalPage({ searchParams }: { searchParams: Pro
         kicker="자산관리 · Disposal"
         title="폐기 처리"
         desc="폐기 대상 선정 → 결재 상신 → 데이터 소거 · 불용 처리 → 증적(확인서 · 사진) 보존"
-        right={<ExportButton kind="disposals" role={session.role} label="폐기 증적 대장 엑셀" />}
       />
 
       <div className="stat-row">
@@ -52,7 +51,7 @@ export default async function DisposalPage({ searchParams }: { searchParams: Pro
         표시되어 재사용·불출 대상에서 제외됩니다.
       </div>
 
-      <DisposalView candidates={candidates} records={s.disposals} initialStatus={statusParam === 'wipe' ? '소거 대기' : undefined} />
+      <DisposalView candidates={candidates} records={s.disposals} initialStatus={statusParam === 'wipe' ? '소거 대기' : undefined} canExport={canExport('disposals', session.role)} />
     </>
   )
 }

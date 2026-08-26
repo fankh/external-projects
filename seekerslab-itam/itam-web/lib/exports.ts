@@ -34,8 +34,45 @@ export function canExport(kind: ExportKind, role: Role): boolean {
 
 /** 내보내기 데이터 — 화면에 보이는 것과 같은 권한 필터를 통과시킨다.
  *  화면에서 못 보는 자산이 엑셀로 새어 나가면 권한 모델이 무의미해진다. */
-export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: { q?: string; cat?: string; nos?: string[]; status?: string; stale?: boolean; warranty?: boolean; channel?: string; state?: string; risk?: string; akind?: string; mine?: boolean }): Sheet[] {
+export interface ExportFilter {
+  q?: string; cat?: string; nos?: string[]; status?: string; stale?: boolean; warranty?: boolean
+  channel?: string; state?: string; risk?: string; akind?: string; mine?: boolean
+  /** 화면이 실제로 보여 준 행의 ID — 서버가 같은 조건을 다시 계산할 수 없는 화면(계약·폐기·SaaS)에서 쓴다.
+   *  자산 대장이 이미 쓰던 nos 와 같은 수법을 종류 전체로 넓힌 것이다. */
+  ids?: string[]
+  /** 사람이 읽는 필터 설명 — 반출본 첫 시트에 적어, 받는 사람이 부분 반출임을 알 수 있게 한다 */
+  scope?: string
+}
+
+/** 반출 시트 — 필터가 걸렸으면 '반출 범위' 시트를 앞에 붙인다.
+ *  부분 반출을 전체 대장으로 착각하면 감사에서 '누락'으로 읽힌다(감사 로그 반출이 이미 감사 기록에 범위를 적는 규약).
+ *  화면과 같은 집합을 반출한다는 약속은 자산 대장·발견 자산·결재함만 지키고 있었다 — 계약·폐기·SaaS 는
+ *  필터를 무시하고 전체를 내보내면서 그 사실을 어디에도 적지 않았다. */
+export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: ExportFilter): Sheet[] {
+  const sheets = buildKindSheets(kind, role, userName, filter)
+  if (!filter?.scope) return sheets
+  return [
+    {
+      name: '반출 범위',
+      header: ['항목', '값'],
+      rows: [
+        ['반출 종류', EXPORT_META[kind].label],
+        ['반출자', userName],
+        ['반출일', today()],
+        ['적용 필터', filter.scope],
+        ...sheets.map((sh) => [`시트 '${sh.name}' 행수`, sh.rows.length] as (string | number)[]),
+        ['안내', '화면 필터가 걸린 부분 반출입니다 — 전체 대장이 아닙니다.'],
+      ],
+    },
+    ...sheets,
+  ]
+}
+
+function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?: ExportFilter): Sheet[] {
   const s = getStore()
+  // 화면이 보여 준 행만 — 서버가 같은 필터를 다시 계산할 수 없는 종류에 쓴다(자산 대장의 nos 와 같은 수법)
+  const idSet = filter?.ids?.length ? new Set(filter.ids) : null
+  const keep = (id: string) => !idSet || idSet.has(id)
 
   if (kind === 'assets') {
     // 진행 중인 폐기 절차(완료 제외) 단계 — 화면 상세는 대여·재불출을 막으며 사유를 밝히는데 반출본에는 흔적이
@@ -249,7 +286,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         name: '계약',
         // 화면(ContractsTable)이 보여주는 SLA·집행(비용 이력 누계)을 감사 반출에도 담는다 — 벤더 SLA 검토·예산 집행 대사 증적.
         header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '집행(누계)', '연계 자산 수', '시작일', '만료일', '잔여일', '상태', 'SLA', '부속서류 미비'],
-        rows: s.contracts.map((c) => {
+        rows: s.contracts.filter((c) => keep(c.id)).map((c) => {
           const miss = missingContractDocs(c)
           const spent = (c.costs ?? []).reduce((n, x) => n + x.amount, 0)
           return [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, (c.costs?.length ?? 0) > 0 ? spent : '', contractAssetCount(c.id), c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효', c.sla ?? '', miss.length > 0 ? miss.join('·') : '완비']
@@ -258,7 +295,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       {
         name: 'SW 라이선스',
         header: ['ID', '라이선스', '공급사', '근거 계약', '보유', '사용', '차이', '단가', '만료일', '판정'],
-        rows: s.licenses.map((l) => {
+        rows: s.licenses.filter((l) => keep(l.id)).map((l) => {
           const gap = l.used - l.purchased
           return [
             l.id, l.name, l.vendor, l.contractId ?? '미연계', l.purchased, l.used, gap, l.unitCost, l.expiry,
@@ -270,7 +307,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         // 라이선스 좌석 대사(STEP2) — EDR 설치 인벤토리와 배정 좌석 대사 결과. SAM 감사 증적(배정 밖 설치=무단 사용, 미설치 좌석=회수 후보).
         name: '라이선스 좌석 대사',
         header: ['ID', '라이선스', '보유', '배정 좌석', '설치 관측', '일치', '배정 밖 설치', '미설치 좌석', '최근 수집'],
-        rows: buildLicenseUsage().rows.map((r) => [
+        rows: buildLicenseUsage().rows.filter((r) => keep(r.id)).map((r) => [
           r.id, r.name, r.purchased, r.seatCount, r.installCount, r.matched, r.offSeat.length, r.unusedSeat.length, r.collectedAt ?? '-',
         ]),
       },
@@ -286,7 +323,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       {
         name: '폐기 증적 대장',
         header: ['폐기번호', '자산번호', '모델', '폐기 사유', '상태', '결재번호', '소거 방식', '처분 방식', '매각 대금', '소거일', '처리자', '확인서 번호', '증적', '증적 사진 수'],
-        rows: s.disposals.map((d) => [
+        rows: s.disposals.filter((d) => keep(d.id)).map((d) => [
           d.id, d.assetNo, d.model, d.reason, d.status, d.approvalId ?? '미상신',
           notYet(d, d.wipeMethod), notYet(d, d.disposition), d.disposition === '매각' ? (d.proceeds ?? '미기재') : '-',
           notYet(d, d.wipedAt), notYet(d, d.wipedBy), notYet(d, d.certNo), notYet(d, d.evidence), d.photos?.length ?? 0,
@@ -297,7 +334,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         //  누가 언제 남겼는지가 감사에서 실제로 확인하는 값이다(화면은 구분·설명·등록자·등록일을 모두 보여 준다).
         name: '폐기 증적 사진',
         header: ['사진ID', '폐기번호', '자산번호', '모델', '구분', '설명', '등록자', '등록일'],
-        rows: s.disposals.flatMap((d) =>
+        rows: s.disposals.filter((d) => keep(d.id)).flatMap((d) =>
           (d.photos ?? []).map((ph) => [ph.id, d.id, d.assetNo, d.model, ph.label, ph.note ?? '', ph.addedBy, ph.addedAt]),
         ),
       },
@@ -353,7 +390,8 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     //  화면 KPI·부서별 요약과 주간 브리핑이 쓰는 기준(카탈로그 차단 목록)을 반출본도 그대로 쓴다. 사용 현황 시트는
     //  전 서비스를 담되 인가 여부 칸에 '차단 판정'을 구분해 적어, 판정 이력이 반출본에서 사라지지 않게 한다.
     const blockedSaas = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
-    const shadow = s.saas.filter((x) => !x.sanctioned && !blockedSaas.has(x.service))
+    const saasRows = s.saas.filter((x) => keep(x.id))
+    const shadow = saasRows.filter((x) => !x.sanctioned && !blockedSaas.has(x.service))
     const deptAgg = Object.values(
       shadow.reduce<Record<string, { dept: string; count: number; users: number }>>((acc, x) => {
         const r = (acc[x.dept] ??= { dept: x.dept, count: 0, users: 0 })
@@ -365,7 +403,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       {
         name: 'SaaS 사용 현황',
         header: ['서비스', '기능 분류', '주 사용 부서', '추정 사용자', '인가 여부', '위험도', '월 접속'],
-        rows: s.saas.map((x) => [x.service, x.category, x.dept, x.users, x.sanctioned ? '인가' : blockedSaas.has(x.service) ? '차단 판정' : '미인가', x.risk, x.monthlyVisits]),
+        rows: saasRows.map((x) => [x.service, x.category, x.dept, x.users, x.sanctioned ? '인가' : blockedSaas.has(x.service) ? '차단 판정' : '미인가', x.risk, x.monthlyVisits]),
       },
       {
         name: '부서별 미인가 노출',  // 판정 대기 미인가만 — 차단 판정 완료분 제외(화면 요약과 동일)
@@ -380,7 +418,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     return [{
       name: 'SaaS 정책 대장',
       header: ['서비스', '기능 분류', '공급사', '판정', '데이터 등급', '주관', '판정일', '검토 접수일', '판정자'],
-      rows: s.saasCatalog.map((x) => [x.service, x.category, x.vendor, x.status, x.dataGrade, x.owner, x.decidedAt ?? '-', x.reviewSince ?? '-', x.decidedBy ?? '-']),
+      rows: s.saasCatalog.filter((x) => keep(x.id)).map((x) => [x.service, x.category, x.vendor, x.status, x.dataGrade, x.owner, x.decidedAt ?? '-', x.reviewSince ?? '-', x.decidedBy ?? '-']),
     }]
   }
 

@@ -11,7 +11,7 @@ interface Candidate {
   assetNo: string; model: string; status: string; warrantyEnd: string; overdue: number; reason: string
 }
 
-export function DisposalView({ candidates, records, initialStatus }: { candidates: Candidate[]; records: DisposalRecord[]; /** 대시보드 '데이터 소거 대기' 큐의 드릴다운 — 소거 집행 대상만 보기로 연다 */ initialStatus?: '소거 대기' }) {
+export function DisposalView({ candidates, records, initialStatus, canExport }: { candidates: Candidate[]; records: DisposalRecord[]; /** 대시보드 '데이터 소거 대기' 큐의 드릴다운 — 소거 집행 대상만 보기로 연다 */ initialStatus?: '소거 대기'; canExport?: boolean }) {
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [method, setMethod] = useState<Record<string, WipeMethod>>({})
@@ -39,6 +39,9 @@ export function DisposalView({ candidates, records, initialStatus }: { candidate
     if (!n) return true
     return [d.id, d.assetNo, d.model, d.reason].some((f) => (f ?? '').toLowerCase().includes(n))
   })
+  // 반출 범위 설명 — 파일 첫 시트와 감사 기록에 그대로 적힌다(부분 반출을 전체 대장으로 착각하지 않게)
+  const dFilterActive = fstatus !== '전체' || fq.trim() !== ''
+  const dScope = [fstatus !== '전체' && `상태=${fstatus}`, fq.trim() && `검색='${fq.trim()}'`].filter(Boolean).join(', ')
 
   const addPhoto = (id: string) => startTransition(async () => {
     const r = await addDisposalPhoto(id, photoLabel, photoNote)
@@ -137,6 +140,14 @@ export function DisposalView({ candidates, records, initialStatus }: { candidate
             placeholder="폐기번호·자산번호·모델·사유 검색"
             value={fq} onChange={(e) => setFq(e.target.value)} />
           <span className="mut" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{shown.length} / {records.length}건</span>
+          {/* 반출은 화면에 보이는 그 집합 — 필터를 켠 채 내려받은 파일이 전체 대장이면 '왜 다르지'가 아니라
+              '누락 아닌가'로 읽힌다(감사 로그·발송 이력 반출이 이미 지키는 규약). 보여 준 행의 ID 를 넘긴다. */}
+          {canExport && (
+            <a className="btn sm" style={{ marginLeft: 'auto' }} download
+              href={dFilterActive ? `/api/export/disposals?${new URLSearchParams({ ids: shown.map((x) => x.id).join(','), scope: dScope }).toString()}` : '/api/export/disposals'}>
+              ⤓ 폐기 증적 대장 엑셀{dFilterActive ? ` (${shown.length})` : ''}
+            </a>
+          )}
         </div>
         {wipeSel.size > 0 && (
           <div className="hstack" style={{ gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center', background: 'var(--canvas)' }}>

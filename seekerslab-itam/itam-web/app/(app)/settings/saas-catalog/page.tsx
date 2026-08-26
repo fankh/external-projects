@@ -1,6 +1,6 @@
-import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
+import { canExport } from '@/lib/exports'
 import { today } from '@/lib/dates'
 import { buildSaasReview } from '@/lib/saas-review'
 import { getStore } from '@/lib/store'
@@ -25,7 +25,6 @@ export default async function SaasCatalogPage({ searchParams }: { searchParams: 
         kicker="환경설정 · SaaS Catalog"
         title="SaaS 카탈로그"
         desc="인가 SaaS 등재 · 미인가 서비스 판정 — 판정 결과는 Discovery의 Shadow SaaS 현황으로 환류"
-        right={<ExportButton kind="saasCatalog" role={session.role} label="SaaS 정책 대장 엑셀" />}
       />
 
       <div className="stat-row">
@@ -53,7 +52,7 @@ export default async function SaasCatalogPage({ searchParams }: { searchParams: 
 
       <Card kicker="Catalog" title="서비스 목록 · 판정" pad={false}>
         <CatalogTable entries={c} today={today()} slaDays={review.slaDays} approveNeedsApproval={requiresApproval('SaaS 인가')} reviewOnly={statusParam === 'review'}
-          overdueIds={review.overdue.map((e) => e.id)} overdueOnly={statusParam === 'overdue'} />
+          overdueIds={review.overdue.map((e) => e.id)} overdueOnly={statusParam === 'overdue'} canExport={canExport('saasCatalog', session.role)} />
       </Card>
     </>
   )
