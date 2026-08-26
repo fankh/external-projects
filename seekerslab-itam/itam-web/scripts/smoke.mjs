@@ -2356,6 +2356,17 @@ try {
   const roundsShown = Number((/조사 회차 ([0-9]+)건/.exec(planPlain2) || [])[1] ?? -1)
   check("재물조사 회차 표: 자기 건수를 적는다(기한 경과 큐를 맞대 볼 자리)",
     roundsShown > 0, `표시 ${roundsShown}`)
+  // 대시보드 KPI '미등록 신규 발견'은 미등록 중 '미조치'만 센다(편입 요청·관리 제외된 건은 빠진다).
+  //  그런데 화면엔 그 축의 필터가 없어 KPI 를 눌러도 조치가 끝난 건까지 섞인 목록이 열렸다 —
+  //  큐에서 닫은 것과 같은 결함이 KPI 타일에 남아 있었다.
+  const kpiHtml = (await (await get(`/discovery/found?state=${encodeURIComponent('미등록')}&act=open`, 'SEC_MGR')).text()).replace(/<!-- -->/g, '')
+  const kpiShown = Number((new RegExp("([0-9]+)건 \/ 전체 ([0-9]+)건").exec(kpiHtml) || [])[1] ?? -1)
+  const dashPlainK = dashMgr.replace(/<!-- -->/g, '')
+  const kpiAt = dashPlainK.indexOf('미등록 신규 발견')
+  const kpiNum = Number(([...dashPlainK.slice(Math.max(0, kpiAt - 400), kpiAt).matchAll(/>([0-9]+)</g)].pop() || [])[1] ?? -1)
+  check("미등록 신규 발견 KPI: 수 = 링크가 여는 목록의 표시 건수",
+    kpiNum > 0 && kpiNum === kpiShown, `KPI ${kpiNum} · 표시 ${kpiShown}`)
+  check('미등록 신규 발견 KPI: 링크가 미등록·미조치 필터를 켠 채 연다', dashMgr.includes('act=open'))
 
   // 큐 건수 ↔ 드릴다운 목록 일치 — 전수 스윕.
   //  이 세션에 큐마다 손으로 짝을 적어 대조를 걸었는데, 그 방식은 새 큐가 생기면 조용히 빠진다.

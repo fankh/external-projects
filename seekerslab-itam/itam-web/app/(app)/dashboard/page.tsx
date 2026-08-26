@@ -242,7 +242,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       <div className="stat-row">
         <Stat value={s.assets.length.toLocaleString()} label="총 등록 자산" delta={{ text: `사용중 ${inUse} · 유휴/반납 ${idle}`, dir: 'flat' }} href="/assets/register" />
-        <Stat value={newFound.length} label="미등록 신규 발견 (Shadow IT)" tone="err" delta={{ text: '소유자 확인·편입 필요', dir: 'up' }} href={session.role !== 'USER' ? '/discovery/found' : undefined} />
+        <Stat value={newFound.length} label="미등록 신규 발견 (Shadow IT)" tone="err" delta={{ text: '소유자 확인·편입 필요', dir: 'up' }} href={session.role !== 'USER' ? `/discovery/found?state=${encodeURIComponent('미등록')}&act=open` : undefined} />
         <Stat value={expiring.length} label={`만료 임박 (계약·라이선스 ${s.opsPolicy.expiryWindowDays}일)`} tone="warn"
           delta={{ text: expiring.some((x) => (x.d ?? 0) < 0) ? `만료 ${expiring.filter((x) => (x.d ?? 0) < 0).length}건 포함` : `최단 ${expiring[0]?.d ?? '-'}일`, dir: 'flat' }}
           href={['ASSET_MGR', 'ADMIN'].includes(session.role) ? '/inventory/contracts' : undefined} />
