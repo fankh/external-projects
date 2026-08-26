@@ -125,7 +125,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
         <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
           <input type="checkbox" checked={fmine} onChange={(e) => setFmine(e.target.checked)} /> 내 상신만
         </label>
-        <span className="cnt">{rows.length}건 / 전체 {approvals.length}건</span>
+        <span className="cnt" data-queue="/workflow/approvals">{rows.length}건 / 전체 {approvals.length}건</span>
         {canExport && (
           <a className="btn sm" style={{ marginLeft: 'auto' }} download
             href={`/api/export/approvals?${new URLSearchParams({ q: fq.trim(), status: fstatus, akind: fkind, ...(fmine ? { mine: '1' } : {}) }).toString()}`}>

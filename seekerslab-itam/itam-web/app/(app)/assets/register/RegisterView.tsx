@@ -410,7 +410,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             의존 영향 통지 ({props.impactNoticeCount})
           </button>
         )}
-        <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
+        <span className="cnt" data-queue="/assets/register">{rows.length}건 / 전체 {props.assets.length}건</span>
         {props.canExport && (
           <a className="btn sm" style={{ marginLeft: 'auto' }} download
             href={`/api/export/assets?${new URLSearchParams(
