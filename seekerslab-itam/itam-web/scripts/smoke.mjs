@@ -2270,6 +2270,21 @@ try {
   // 등급 칩은 큐가 세는 세 등급을 모두 내준다 — 필터가 P1 만 있으면 P2·P3 는 여전히 12건에서 잘린다.
   check('취약점 우선순위: P1·P2·P3 등급 필터 진입점 노출',
     vulnCard.includes('/ai/insights?tier=p1') && vulnCard.includes('/ai/insights?tier=p2') && vulnCard.includes('/ai/insights?tier=p3'))
+  // 대시보드 카드도 상위 몇 건만 보여 주고 나머지는 '외 N건'으로만 알렸다 — 다가오는 일정은 여러 화면에서
+  //  모아 만든 목록이라 대신 열 화면이 없고, 내게 온 알림은 발송 이력 화면이 운영 권한이라 사용자에겐 닫혀 있다.
+  const dashPlain = dashMgr.replace(/<!-- -->/g, '')
+  const dashCuts = [...dashPlain.matchAll(/외 [0-9]+건/g)].map((m) => m.index ?? -1)
+  const dashCutBad = dashCuts.filter((i) => !dashPlain.slice(i, i + 200).includes('전체 보기') && !dashPlain.slice(i, i + 200).includes('결재함에서 전체 처리'))
+  check('대시보드: 잘림 안내마다 남은 항목으로 가는 길이 있다(조용한 잘림 금지)',
+    dashCutBad.length === 0, `길 없는 잘림 안내=${dashCutBad.length}/${dashCuts.length}`)
+  // 펼침은 URL 로 받는다 — 딥링크·새로고침이 같은 목록을 연다. 시드에서 잘림이 실제로 일어나는 카드에만
+  //  접기 링크를 요구한다(잘리지 않으면 펼칠 것도 없다 — 그 경우는 파라미터가 화면을 깨지 않는지만 본다).
+  const dashUpAll = await get('/dashboard?upcoming=all', 'ASSET_MGR')
+  const dashUpAllText = (await dashUpAll.text()).replace(/<!-- -->/g, '')
+  const upcomingTruncated = dashPlain.includes('(날짜순) — 전체 보기')
+  check('대시보드: ?upcoming=all 가 화면을 깨지 않는다', dashUpAll.status === 200 && dashUpAllText.includes('다가오는 일정'))
+  check('대시보드: 잘린 일정 카드는 펼친 뒤 접기 링크를 낸다',
+    !upcomingTruncated || dashUpAllText.includes('가까운 8건만 보기'), `잘림=${upcomingTruncated}`)
   // 분석 화면의 네 패널이 모두 상위 12건에서 끊긴다 — 잘렸다고 적기만 하고 넘어갈 길이 없으면 그 뒤 항목은
   //  화면 어디에서도 볼 수 없다. 잘림 안내마다 등급 필터든 전체 목록 링크든 경로가 붙어 있어야 한다.
   const cutNotes = [...vulnPlain.matchAll(/… 외 [0-9]+[건대]/g)].map((m) => m.index ?? -1)

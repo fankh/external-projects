@@ -27,7 +27,16 @@ import { lowStockCategories } from '@/lib/stock'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardPage() {
+const NOTICE_TOP = 5
+const UPCOMING_TOP = 8
+
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ notices?: string; upcoming?: string }> }) {
+  // 대시보드 카드는 상위 몇 건만 보여 주고 나머지는 '외 N건'으로만 알렸다 — 그런데 그 N건을 볼 길이 없었다.
+  //  다가오는 일정은 여러 화면에서 모아 만든 목록이라 대신 열 화면도 없고, 내게 온 알림은 발송 이력 화면이
+  //  운영 권한이라 사용자에겐 아예 닫혀 있다. 카드 안에서 전부 펼칠 수 있게 한다(?notices=all · ?upcoming=all).
+  const { notices: noticesParam, upcoming: upcomingParam } = await searchParams
+  const showAllNotices = noticesParam === 'all'
+  const showAllUpcoming = upcomingParam === 'all'
   const session = (await getSession())!
   const s = getStore()
 
@@ -80,7 +89,7 @@ export default async function DashboardPage() {
   // 내게 온 알림 — 나를 수신자(to)로 발송된 통지의 수신자 측 요약. 그동안 발송 이력은 관리자(플랫폼 연동 화면)만 볼 수 있어,
   //  사용자는 이메일 밖에서 자신에게 온 통지(수령 확인·대여/반납 결과·QnA 답변·결재 결과·수리 결과 등)를 앱에서 확인할 곳이 없었다. 최근 5건.
   const myNoticesAll = s.dispatches.filter((m) => m.to === session.name)
-  const myNotices = myNoticesAll.slice(0, 5)
+  const myNotices = showAllNotices ? myNoticesAll : myNoticesAll.slice(0, NOTICE_TOP)
 
   // 운영 대기 — 화면마다 흩어진 담당 처리 대기열을 역할에 맞게 한 곳에 모은다
   const opsQueues: { label: string; count: number; href: string; tone: 'err' | 'warn' }[] = []
@@ -434,7 +443,9 @@ export default async function DashboardPage() {
                       ? <Link key={m.id} href={link.href} {...(link.external ? { target: '_blank' } : {})} className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>{inner}</Link>
                       : <div key={m.id} className="hstack" style={{ justifyContent: 'space-between', gap: 12 }}>{inner}</div>
                   })}
-                  {myNoticesAll.length > 5 && <span className="mut" style={{ fontSize: 12 }}>외 {myNoticesAll.length - 5}건</span>}
+                  {myNoticesAll.length > NOTICE_TOP && (showAllNotices
+                    ? <Link className="mut" style={{ fontSize: 12 }} href="/dashboard">전체 {myNoticesAll.length}건 표시 중 — 최근 {NOTICE_TOP}건만 보기</Link>
+                    : <Link className="mut" style={{ fontSize: 12 }} href="/dashboard?notices=all">외 {myNoticesAll.length - NOTICE_TOP}건 — 전체 보기</Link>)}
                 </div>
               )}
               <div className="hstack" style={{ justifyContent: 'space-between' }}>
@@ -485,7 +496,7 @@ export default async function DashboardPage() {
             <Card kicker="Planning" title="다가오는 일정 (향후 14일)"
               actions={upcoming.length > 0 ? <Chip tone="info" bare>{upcoming.length}건</Chip> : undefined}>
               <div className="vstack" style={{ gap: 7 }}>
-                {upcoming.length > 0 ? upcoming.slice(0, 8).map((u, i) => (
+                {upcoming.length > 0 ? (showAllUpcoming ? upcoming : upcoming.slice(0, UPCOMING_TOP)).map((u, i) => (
                   <Link key={i} href={u.href} className="hstack"
                     style={{ justifyContent: 'space-between', gap: 10, color: 'inherit', textDecoration: 'none', alignItems: 'baseline' }}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
@@ -494,7 +505,9 @@ export default async function DashboardPage() {
                     <span className="hstack" style={{ gap: 6 }}><span className="mut tnum" style={{ fontSize: 11 }}>D-{u.dday}</span><span className="mut">→</span></span>
                   </Link>
                 )) : <div className="mut">향후 14일 예정된 정비·갱신·대여 반환·입고·조사·리포트 일정이 없습니다.</div>}
-                {upcoming.length > 8 && <div className="dim" style={{ fontSize: 11.5 }}>… 외 {upcoming.length - 8}건 (날짜순)</div>}
+                {upcoming.length > UPCOMING_TOP && (showAllUpcoming
+                  ? <Link className="dim" style={{ fontSize: 11.5 }} href="/dashboard">전체 {upcoming.length}건 표시 중 (날짜순) — 가까운 {UPCOMING_TOP}건만 보기</Link>
+                  : <Link className="dim" style={{ fontSize: 11.5 }} href="/dashboard?upcoming=all">… 외 {upcoming.length - UPCOMING_TOP}건 (날짜순) — 전체 보기</Link>)}
               </div>
             </Card>
           )}
