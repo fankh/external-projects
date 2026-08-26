@@ -161,7 +161,7 @@ export default async function DashboardPage() {
     // 취약점 우선순위 P1 — 자산 중요도 × 노출도 스코어링(§05)의 즉시 조치 등급. 출처별 큐가 '얼마나'라면 이건 '무엇부터'.
     const p1 = buildVulnPriority().p1
     opsQueues.push(
-      { label: '취약점 우선순위 P1 (즉시 조치)', count: p1, href: '/ai/insights', tone: 'err' },
+      { label: '취약점 우선순위 P1 (즉시 조치)', count: p1, href: '/ai/insights?tier=p1', tone: 'err' },
       { label: '유출 · 침해 미조치', count: s.leaks.filter((l) => l.status !== '조치 완료').length, href: '/discovery/external?open=leaks', tone: 'err' },
       { label: '크리덴셜 노출 미조치 (인증 취약점)', count: s.credentials.filter((c) => c.status !== '조치 완료').length, href: '/discovery/external?open=creds', tone: 'err' },
       { label: 'IOC 상관 미조치 (위협 인텔·침해 징후)', count: s.iocMatches.filter((i) => !i.action).length, href: '/discovery/external?open=ioc', tone: 'err' },
