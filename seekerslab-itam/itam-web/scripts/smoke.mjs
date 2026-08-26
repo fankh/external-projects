@@ -1562,7 +1562,6 @@ try {
     orphanPages.length === 0 && deadNav.length === 0,
     `내비에 없는 화면=${orphanPages.join(',')} · 화면 없는 내비=${deadNav.join(',')}`)
 
-
   // 스냅샷 스키마 형태 가드 — 파일 영속화(ITAM_DATA_FILE)는 마이그레이션 없이 SCHEMA_VERSION 이 다르면 낡은 파일을
   //  버리고 시드로 시작한다. 그래서 형태(Store 키·엔티티 필드)를 바꾸면서 버전을 그대로 두면, 재기동 뒤 새 필드가
   //  없는 스냅샷이 그대로 로드돼 화면이 undefined 를 읽는다(볼륨을 쓰는 배포에서만 드러나 되돌리기 늦다).
@@ -1720,7 +1719,6 @@ try {
   }
   check(`통지 수신자: 보유자 표기가 lib/notify recipientOf 한 곳(액션 파일 ${actionFiles.length}개 검사)`,
     rawRecipients.length === 0, `직접 표기=${rawRecipients.join(',')}`)
-
 
 
   // CMDB 의존 그래프 형태 — 자기 참조·순환이 없어야 한다. 탐색(assetDependenciesFrom)은 방문 집합으로 순환에
@@ -2320,6 +2318,17 @@ try {
   const fndPageSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'found', 'page.tsx'), 'utf8')
   check('발견 자산 화면: 조치 표 노출 판정이 서버 가드와 같은 매트릭스를 본다',
     fndPageSrc.includes('&& canQuarantine'))
+
+  // 반납·유휴 화면은 표가 셋인데 '반납 접수 대기' 카드만 건수를 적지 않았다 — 형제 두 카드(수리 대기 N건 ·
+  //  대여 현황 N건)는 적는다. 대시보드 큐가 세는 집합이 바로 그 표라, 큐가 말한 수를 화면에서 맞대 볼 자리가 없었다.
+  const retHtmlP = (await (await get('/assets/returns', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '')
+  const retPendingShown = Number((/반납 접수 대기 ([0-9]+)건/.exec(retHtmlP) || [])[1] ?? -1)
+  const retPendingQueue = queueCount('반납 접수 대기')
+  check("반납 접수 대기 큐: 건수 = 카드가 적는 건수",
+    retPendingQueue > 0 && retPendingQueue === retPendingShown, `큐 ${retPendingQueue} · 표시 ${retPendingShown}`)
+  // 표가 여럿인 화면이라 큐 링크가 자기 표로 바로 내려가야 한다(앵커).
+  check('반납·유휴 큐: 링크가 해당 표 앵커로 내려간다',
+    dashMgr.includes('/assets/returns#receive') && dashMgr.includes('/assets/returns#repair'))
 
   // 큐 건수 ↔ 드릴다운 목록 일치 — 전수 스윕.
   //  이 세션에 큐마다 손으로 짝을 적어 대조를 걸었는데, 그 방식은 새 큐가 생기면 조용히 빠진다.

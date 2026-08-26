@@ -105,14 +105,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       // 검수 반려 로트 — 불량 반려 후 재검수(교체품 도착)·반품 확인이 필요한 후속 백로그. 방치하면 대금·자산 공백이 생긴다.
       { label: '검수 반려 (재검수 · 반품 확인)', count: s.intakeLots.filter((l) => l.status === '검수 반려').length, href: '/assets/intake?lot=rejected', tone: 'err' },
       { label: '불출 · 이동 집행 대기', count: issueDue + moveDue, href: '/assets/movement', tone: 'warn' },
-      { label: '반납 접수 대기', count: s.assets.filter((a) => a.status === '반납대기').length, href: '/assets/returns', tone: 'warn' },
+      { label: '반납 접수 대기', count: s.assets.filter((a) => a.status === '반납대기').length, href: '/assets/returns#receive', tone: 'warn' },
       // 수령 미확인 — 불출 배정 후 사용자 인수 확인이 안 된 자산(체인 오브 커스터디 공백). 방치하면 실물 인계를 감사에서 증명할 수 없다.
       { label: '수령 미확인 (불출 후 인수 대기)', count: s.assets.filter((a) => a.receiptPending && a.status === '사용중').length, href: '/assets/register?receipt=1', tone: 'warn' },
       // 대여 연장 요청 대기 — 대여자(사용자)가 올린 반환 기한 연장 요청. 통보만으론 놓칠 수 있어 대장 상세 밖 대시보드 큐로도 드러낸다(요청대로 연장·반려 처리).
       { label: '대여 연장 요청 대기 (요청대로 연장·반려 처리)', count: s.assets.filter((a) => a.loanExtendRequest).length, href: '/assets/register?loanext=1', tone: 'warn' },
       // 반납 신청 대기 — 대여자가 반납하겠다고 셀프서비스로 알린 건. 회수·점검 후 반환 접수로 마무리한다.
       { label: '반납 신청 대기 (회수·점검 후 반환 접수)', count: s.assets.filter((a) => a.returnRequest).length, href: '/assets/register?loanret=1', tone: 'warn' },
-      { label: '수리 진행 · 완료 확인', count: s.assets.filter((a) => a.status === '수리중').length, href: '/assets/returns', tone: 'warn' },
+      { label: '수리 진행 · 완료 확인', count: s.assets.filter((a) => a.status === '수리중').length, href: '/assets/returns#repair', tone: 'warn' },
       { label: '수리 예상 반환 경과 (업체 독촉)', count: s.assets.filter(isRepairOverdue).length, href: '/assets/returns?repair=overdue', tone: 'err' },
       // 정기 점검 대상 — 예방 정비 예정일 도래(30일 내·경과) 운영 자산. 반응형 수리와 별개의 사전 정비(§03 유지보수).
       { label: '정기 점검 대상 (예방 정비 도래)', count: s.assets.filter((a) => isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays)).length, href: '/assets/register?maint=1', tone: 'warn' },
