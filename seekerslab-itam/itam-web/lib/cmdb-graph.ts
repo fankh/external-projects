@@ -30,13 +30,17 @@ export function assetDependenciesFrom(assets: Asset[], assetNo: string): AssetDe
   const upstream = self?.dependsOn ?? []
   const directDependents = (no: string) => assets.filter((x) => (x.dependsOn ?? []).includes(no)).map((x) => x.assetNo)
   const dependents = directDependents(assetNo)
-  // 전이적 하위(BFS) — 순환 방어를 위해 방문 집합 사용
+  // 전이적 하위(BFS) — 순환 방어를 위해 방문 집합 사용.
+  //  자기 자신은 영향 범위에서 뺀다 — '이 자산이 죽으면 영향받는 자산'이 정의이므로 자기 자신은 대상이 아니다.
+  //  순환(A→B→A)이 있으면 방문 집합만으로는 A 가 자기 blast 에 들어가 SPOF 건수가 하나 부풀고,
+  //  의존 영향 통지가 자기 부서에 자기 자산을 알리게 된다. dependsOn 은 현재 쓰기 경로가 없어(시드 전용)
+  //  실제로 순환이 생기진 않지만, 정의상 틀린 값을 남겨 둘 이유는 없다 — 시드 그래프의 무결성은 스모크가 따로 고정한다.
   const blast = new Set<string>()
   let frontier = [...dependents]
   while (frontier.length) {
     const next: string[] = []
     for (const no of frontier) {
-      if (blast.has(no)) continue
+      if (no === assetNo || blast.has(no)) continue
       blast.add(no)
       next.push(...directDependents(no))
     }
