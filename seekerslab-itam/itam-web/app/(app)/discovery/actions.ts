@@ -396,6 +396,9 @@ export async function respondToAccount(accountId: string, kind: '비활성화' |
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '휴면 계정 조치 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '휴면 계정 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const a = s.accounts.find((x) => x.id === accountId)
   if (!a) return { ok: false, message: '계정을 찾을 수 없습니다.' }
@@ -422,6 +425,9 @@ export async function respondToAccountMany(ids: string[], kind: '비활성화' |
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '휴면 계정 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '휴면 계정 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const s = getStore()
   const targets = s.accounts.filter((a) => ids.includes(a.id) && !a.action)
@@ -452,6 +458,7 @@ export async function respondToAccountMany(ids: string[], kind: '비활성화' |
 export async function resolveAccountReview(accountId: string, keep: boolean) {
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '휴면 계정 확인 처리 권한이 없습니다 (보안담당·Admin).' }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: '휴면 계정 확인 처리 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   const s = getStore()
   const a = s.accounts.find((x) => x.id === accountId)
   if (!a) return { ok: false, message: '계정을 찾을 수 없습니다.' }
@@ -478,6 +485,9 @@ export async function respondToUnauthorizedSw(swId: string, kind: '제거' | '�
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '미인가 SW 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '미인가 SW 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const s = getStore()
   const w = s.unauthorizedSw.find((x) => x.id === swId)
@@ -516,6 +526,9 @@ export async function respondToUnauthorizedSwMany(ids: string[], kind: '제거' 
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '미인가 SW 조치 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '미인가 SW 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const targets = s.unauthorizedSw.filter((w) => ids.includes(w.id) && !w.action)
   if (targets.length === 0) return { ok: false, message: '조치할 미인가 SW 항목이 없습니다 (이미 처리된 건 제외).' }
@@ -552,6 +565,9 @@ export async function removeSwAllow(name: string) {
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: 'SW 정책 관리 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: 'SW 정책 관리 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const before = s.swAllowlist.length
   s.swAllowlist = s.swAllowlist.filter((e) => e.name.toLowerCase() !== name.toLowerCase())
@@ -567,6 +583,9 @@ export async function respondToUsb(usbId: string, kind: '차단' | '예외 승�
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: 'USB 저장매체 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: 'USB 저장매체 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const s = getStore()
   const u = s.usbFindings.find((x) => x.id === usbId)
@@ -595,6 +614,9 @@ export async function respondToLocalVm(vmId: string, kind: '회수' | '예외 �
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '로컬 VM 조치 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '로컬 VM 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const v = s.localVms.find((x) => x.id === vmId)
   if (!v) return { ok: false, message: '로컬 VM 검출 항목을 찾을 수 없습니다.' }
@@ -621,6 +643,9 @@ export async function respondToUsbMany(ids: string[], kind: '차단' | '예외 �
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: 'USB 저장매체 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: 'USB 저장매체 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const s = getStore()
   const targets = s.usbFindings.filter((u) => ids.includes(u.id) && !u.action)
@@ -652,6 +677,9 @@ export async function respondToLocalVmMany(ids: string[], kind: '회수' | '예�
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '로컬 VM 조치 권한이 없습니다 (보안담당·Admin).' }
   }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '로컬 VM 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
+  }
   const s = getStore()
   const targets = s.localVms.filter((v) => ids.includes(v.id) && !v.action)
   if (targets.length === 0) return { ok: false, message: '조치할 로컬 VM 검출 항목이 없습니다 (이미 처리된 건 제외).' }
@@ -681,6 +709,7 @@ export async function respondToLocalVmMany(ids: string[], kind: '회수' | '예�
 export async function revokeUsbException(usbId: string) {
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: 'USB 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: 'USB 예외 해제 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   const s = getStore()
   const u = s.usbFindings.find((x) => x.id === usbId)
   if (!u) return { ok: false, message: 'USB 검출 항목을 찾을 수 없습니다.' }
@@ -697,6 +726,7 @@ export async function revokeUsbException(usbId: string) {
 export async function revokeVmException(vmId: string) {
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '로컬 VM 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: '로컬 VM 예외 해제 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   const s = getStore()
   const v = s.localVms.find((x) => x.id === vmId)
   if (!v) return { ok: false, message: '로컬 VM 검출 항목을 찾을 수 없습니다.' }
@@ -715,6 +745,9 @@ export async function respondToCloudFinding(cldId: string, kind: '태그' | '회
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '클라우드 리소스 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) {
+    return { ok: false, message: '클라우드 리소스 조치 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   }
   const s = getStore()
   const c = s.cloudFindings.find((x) => x.id === cldId)
@@ -745,6 +778,7 @@ export async function respondToCloudFinding(cldId: string, kind: '태그' | '회
 export async function revokeCloudException(cldId: string) {
   const session = await getSession()
   if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '클라우드 리소스 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!can('발견 자산 · CMDB 대사', '격리요청', session.role)) return { ok: false, message: '클라우드 리소스 예외 해제 권한이 없습니다 (권한 · 정책의 격리요청 권한).' }
   const s = getStore()
   const c = s.cloudFindings.find((x) => x.id === cldId)
   if (!c) return { ok: false, message: '클라우드 리소스 검출 항목을 찾을 수 없습니다.' }

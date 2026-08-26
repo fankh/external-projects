@@ -2305,6 +2305,16 @@ try {
   const extPageSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'external', 'page.tsx'), 'utf8')
   check('외부 위협 화면: 조치 노출 판정이 서버 가드와 같은 매트릭스를 본다',
     extPageSrc.includes("can('발견 자산 · CMDB 대사', '격리요청', session.role)"))
+  // 발견 자산 화면의 다섯 조치 표(계정·미인가 SW·USB·로컬 VM·클라우드)도 같은 자리였다 — 같은 파일의
+  //  편입·격리는 매트릭스를 보는데 이 열넷은 역할만 봤다.
+  const fndActionsSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'actions.ts'), 'utf8')
+  const fndRoleGates = fndActionsSrc.split("['SEC_MGR', 'ADMIN'].includes(session.role)").length - 1
+  const fndMatrixGates = fndActionsSrc.split("can('발견 자산 · CMDB 대사', '격리요청', session.role)").length - 1
+  check('발견 자산 조치: 역할 가드마다 권한 매트릭스 가드가 함께 있다',
+    fndRoleGates > 0 && fndMatrixGates >= fndRoleGates, `역할 가드 ${fndRoleGates} · 매트릭스 가드 ${fndMatrixGates}`)
+  const fndPageSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'found', 'page.tsx'), 'utf8')
+  check('발견 자산 화면: 조치 표 노출 판정이 서버 가드와 같은 매트릭스를 본다',
+    fndPageSrc.includes('&& canQuarantine'))
   // 분석 화면의 네 패널이 모두 상위 12건에서 끊긴다 — 잘렸다고 적기만 하고 넘어갈 길이 없으면 그 뒤 항목은
   //  화면 어디에서도 볼 수 없다. 잘림 안내마다 등급 필터든 전체 목록 링크든 경로가 붙어 있어야 한다.
   const cutNotes = [...vulnPlain.matchAll(/… 외 [0-9]+[건대]/g)].map((m) => m.index ?? -1)
