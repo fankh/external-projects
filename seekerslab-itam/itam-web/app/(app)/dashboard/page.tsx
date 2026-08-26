@@ -104,7 +104,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       { label: '도입 예정 입고 지연 (SR·발주 독촉)', count: s.intakeLots.filter(isIntakeOverdue).length, href: '/assets/intake?lot=overdue', tone: 'err' },
       // 검수 반려 로트 — 불량 반려 후 재검수(교체품 도착)·반품 확인이 필요한 후속 백로그. 방치하면 대금·자산 공백이 생긴다.
       { label: '검수 반려 (재검수 · 반품 확인)', count: s.intakeLots.filter((l) => l.status === '검수 반려').length, href: '/assets/intake?lot=rejected', tone: 'err' },
-      { label: '불출 · 이동 집행 대기', count: issueDue + moveDue, href: '/assets/movement', tone: 'warn' },
+      { label: '불출 · 이동 집행 대기', count: issueDue + moveDue, href: '/assets/movement#issue', tone: 'warn' },
       { label: '반납 접수 대기', count: s.assets.filter((a) => a.status === '반납대기').length, href: '/assets/returns#receive', tone: 'warn' },
       // 수령 미확인 — 불출 배정 후 사용자 인수 확인이 안 된 자산(체인 오브 커스터디 공백). 방치하면 실물 인계를 감사에서 증명할 수 없다.
       { label: '수령 미확인 (불출 후 인수 대기)', count: s.assets.filter((a) => a.receiptPending && a.status === '사용중').length, href: '/assets/register?receipt=1', tone: 'warn' },
@@ -161,7 +161,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     // 안전재고 미달 — 불출형 유형(단말·주변기기) 가용 재고가 안전재고 미만. 신규 배정 수요 스톡아웃 예방(발주 검토). 재고 화면과 같은 판정.
     const lowStock = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
     if (lowStock.length > 0) {
-      opsQueues.push({ label: `안전재고 미달 (발주 검토 — ${lowStock.map((r) => r.category).join('·')})`, count: lowStock.length, href: '/inventory/stock', tone: lowStock.some((r) => r.available === 0) ? 'err' : 'warn' })
+      opsQueues.push({ label: `안전재고 미달 (발주 검토 — ${lowStock.map((r) => r.category).join('·')})`, count: lowStock.length, href: '/inventory/stock#alert', tone: lowStock.some((r) => r.available === 0) ? 'err' : 'warn' })
     }
   }
   if (['SEC_MGR', 'ADMIN'].includes(session.role)) {

@@ -73,7 +73,7 @@ export default async function StockPage() {
       </div>
 
       {lowStock.length > 0 && (
-        <Card kicker="Stock Alert" title={`안전재고 경보 — 가용 재고 부족 ${lowStock.length}종 (발주 검토)`}>
+        <Card id="alert" kicker="Stock Alert" title={`안전재고 경보 — 가용 재고 부족 ${lowStock.length}종 (발주 검토)`}>
           <div className="vstack" style={{ gap: 8 }}>
             <div className="mut" style={{ fontSize: 12 }}>불출 가능한 유형의 가용(유휴) 재고가 안전재고({s.opsPolicy.safetyStock}대) 미만입니다 — 신규 배정 수요에 대비해 발주를 검토하세요. 폐기 진행 중이거나 NAC 격리 중인 유휴 자산은 가용에서 제외됩니다(불출·대여 가드와 같은 판정).</div>
             {lowStock.map((r) => (
