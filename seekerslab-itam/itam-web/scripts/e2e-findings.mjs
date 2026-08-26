@@ -1473,7 +1473,12 @@ try {
   const extHref = await p3.locator('a', { hasText: '대여 연장 요청 대기' }).first().getAttribute('href')
   ok('대시보드: 대여 연장 요청 큐가 ?loanext=1 로 드릴다운(전체 대여중 아님)', !!extHref && decodeURIComponent(extHref).includes('/assets/register?loanext=1'))
   // 미등록 신규 발견(Shadow IT) KPI 클릭 → 발견 화면 이동 — 조치가 필요한 지표가 대시보드에서 상세로 바로 이어진다(비사용자만).
-  ok('대시보드(비사용자): Shadow IT KPI 가 발견 화면 링크', (await p3.locator('a[href="/discovery/found"]').filter({ hasText: '미등록 신규 발견' }).count()) > 0)
+  //  이 KPI 는 미등록 중 '미조치'만 세므로 링크도 그 필터를 켜고 연다 — 필터 없이 열면 조치 끝난 건까지 섞여
+  //  KPI 가 말한 수와 목록이 갈린다.
+  const shadowKpi = p3.locator('a[href^="/discovery/found?"]').filter({ hasText: '미등록 신규 발견' })
+  const shadowHref = (await shadowKpi.count()) > 0 ? decodeURIComponent((await shadowKpi.first().getAttribute('href')) || '') : ''
+  ok('대시보드(비사용자): Shadow IT KPI 가 미등록·미조치 필터로 드릴다운',
+    shadowHref.includes('/discovery/found?state=미등록') && shadowHref.includes('act=open'))
   // 신청·결재 뱃지(결재자) — 결재 권한자에겐 내 결재 차례 건수가 사이드바 워크플로 뱃지로 뜬다(전사 총계 아님).
   ok('결재자 사이드바: 워크플로 결재 뱃지 노출(내 결재 차례 ≥ 1)', (await p3.locator('nav.menubar button').filter({ hasText: '워크플로' }).locator('.bdg').count()) > 0)
   // 대여 연장 요청 승인(자산담당 측) — 사용자가 올린 연장 요청을 자산담당이 요청대로 반영한다. 위 pU 가 AST-2024-000230 에 실행일 파생 날짜로 연장 요청.

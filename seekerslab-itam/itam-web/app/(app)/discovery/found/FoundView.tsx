@@ -12,7 +12,7 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
 const STATES: ReconcileState[] = ['등록·일치', '등록·불일치', '미등록', '미확인']
 const RISKS: RiskLevel[] = ['높음', '중간', '낮음']
 
-export function FoundView({ items, observations, mergeCandidates, canExport, canOnboard, canQuarantine, initialState, initialSel, awaitOverdueIds, initialAwaitOverdue }: {
+export function FoundView({ items, observations, mergeCandidates, canExport, canOnboard, canQuarantine, initialState, initialSel, awaitOverdueIds, initialAwaitOverdue, initialUnactioned }: {
   items: DiscoveredAsset[]
   observations: ChannelObservation[]
   /** 지문이 갈렸지만 같은 장비로 의심되는 쌍 — 수동 병합 대상 */
@@ -31,6 +31,9 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
   awaitOverdueIds?: string[]
   /** 대시보드 '소유자 확인 미응답' 큐의 드릴다운으로 진입할 때 그 필터를 켠 채 연다 (?await=overdue) */
   initialAwaitOverdue?: boolean
+  /** 대시보드 '미등록 신규 발견' KPI 의 드릴다운 — 그 수는 미등록 중 '미조치'만 세는데(편입 요청·관리 제외된 건은 빠진다)
+   *  화면엔 그 축의 필터가 없어, KPI 를 눌러도 조치가 끝난 건까지 섞인 목록이 열렸다 (?act=open) */
+  initialUnactioned?: boolean
 }) {
   const [channel, setChannel] = useState<Channel | '전체'>('전체')
   const [fstate, setFstate] = useState<ReconcileState | '전체'>(initialState && STATES.includes(initialState) ? initialState : '전체')
@@ -40,6 +43,9 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
   //  목록에는 그 집합을 여는 수단이 없어, 큐가 말한 건을 전체 발견 목록에서 눈으로 찾아야 했다.
   const awaitOverdueSet = useMemo(() => new Set(awaitOverdueIds ?? []), [awaitOverdueIds])
   const [fAwait, setFAwait] = useState(Boolean(initialAwaitOverdue) && (awaitOverdueIds ?? []).length > 0)
+  // 미조치만 보기 — 처리(편입 요청·관리 제외·격리 등)가 끝난 건을 뺀다. 대시보드 KPI 가 세는 축이다.
+  const [fOpen, setFOpen] = useState(Boolean(initialUnactioned))
+  const openCount = items.filter((d) => !d.action).length
   const [selId, setSelId] = useState<string | null>(initialSel ?? null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [msg, setMsg] = useState<string | null>(null)
@@ -93,6 +99,7 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
       if (fstate !== '전체' && d.state !== fstate) return false
       if (frisk !== '전체' && d.risk !== frisk) return false
       if (fAwait && !awaitOverdueSet.has(d.id)) return false
+      if (fOpen && d.action) return false
       const needle = fq.trim().toLowerCase()
       if (needle && ![d.id, d.hostname, d.ip, d.mac, d.type].some((f) => f?.toLowerCase().includes(needle))) return false
       return true
@@ -102,7 +109,7 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
       const sw = (d: (typeof items)[number]) => (d.state === '미등록' && !d.action ? 0 : 1)
       return rw(a.risk) - rw(b.risk) || sw(a) - sw(b) || (b.lastSeen ?? '').localeCompare(a.lastSeen ?? '')
     }),
-    [items, channel, fstate, frisk, fq, fAwait, awaitOverdueSet, obsBy],
+    [items, channel, fstate, frisk, fq, fAwait, fOpen, awaitOverdueSet, obsBy],
   )
   const sel = items.find((d) => d.id === selId) ?? null
 
@@ -145,14 +152,18 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
           {RISKS.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
         <input className="input" style={{ width: 200 }} placeholder="호스트명·IP·MAC·발견ID 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
+        <button className={`btn sm ${fOpen ? 'pri' : 'ghost'}`} onClick={() => setFOpen((v) => !v)}
+          title="아직 처리하지 않은 발견만 — 대시보드 '미등록 신규 발견' KPI 와 같은 축">
+          {fOpen ? '✓ ' : ''}미조치만 {openCount}
+        </button>
         {awaitOverdueSet.size > 0 && (
           <button className={`btn sm ${fAwait ? 'err' : 'ghost'}`} onClick={() => setFAwait((v) => !v)}
             title="소유자 확인 요청에 기한 내 응답이 없는 자산만 — 위 에스컬레이션 바·대시보드 큐와 같은 집합">
             {fAwait ? '✓ ' : ''}확인 미응답 {awaitOverdueSet.size}
           </button>
         )}
-        {(fstate !== '전체' || frisk !== '전체' || fq.trim() !== '' || fAwait) && (
-          <button className="btn sm ghost" onClick={() => { setFstate('전체'); setFrisk('전체'); setFq(''); setFAwait(false) }}>필터 해제</button>
+        {(fstate !== '전체' || frisk !== '전체' || fq.trim() !== '' || fAwait || fOpen) && (
+          <button className="btn sm ghost" onClick={() => { setFstate('전체'); setFrisk('전체'); setFq(''); setFAwait(false); setFOpen(false) }}>필터 해제</button>
         )}
         <span className="cnt">{rows.length}건 / 전체 {items.length}건</span>
         {canExport && (
