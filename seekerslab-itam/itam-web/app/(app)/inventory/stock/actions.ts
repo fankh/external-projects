@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -13,9 +13,8 @@ import { lowStockCategories } from '@/lib/stock'
  *  부족 수량을 유형별로 담아 발송하고, 당일 중복 발송은 차단한다. 자산담당·Admin. */
 export async function requestReorder() {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) {
-    return { ok: false, message: '발주 요청 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '발주 요청 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return denied(session.name, '발주 요청 권한이 없습니다 (자산담당·Admin).', '/inventory/stock')
   const s = getStore()
   const low = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
   if (low.length === 0) return { ok: false, message: '발주 요청 대상이 없습니다 — 모든 불출형 재고가 안전재고 이상입니다.' }

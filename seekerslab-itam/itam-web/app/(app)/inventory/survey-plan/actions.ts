@@ -27,9 +27,8 @@ export async function planRound(input: {
   dueDate: string
 }) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) {
-    return { ok: false, message: '조사 계획 수립 권한이 없습니다.' }
-  }
+  if (!session) return { ok: false, message: '조사 계획 수립 권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return denied(session.name, '조사 계획 수립 권한이 없습니다.', '/inventory/survey-plan')
 
   const name = input.name.trim()
   if (!name) return { ok: false, message: '회차명을 입력해 주세요.' }
@@ -64,9 +63,8 @@ export async function planRound(input: {
  *  (제품안내서 §04 대사 결과별 처리: 미확인 → 유휴·분실 후보 → 재물조사 대상 자동 편성) */
 export async function composeUnconfirmedRound() {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) {
-    return { ok: false, message: '조사 계획 수립 권한이 없습니다.' }
-  }
+  if (!session) return { ok: false, message: '조사 계획 수립 권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return denied(session.name, '조사 계획 수립 권한이 없습니다.', '/inventory/survey-plan')
 
   const s = getStore()
   if (unconfirmedGhosts().length === 0) return { ok: false, message: '자동 편성할 미확인 자산이 없습니다.' }
@@ -102,9 +100,8 @@ export async function composeUnconfirmedRound() {
  *  이미 편성 중(계획·진행중)인 회차에 잡힌 자산은 중복 편성하지 않는다. 자산담당·Admin. */
 export async function composeStaleVerifyRound() {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) {
-    return { ok: false, message: '조사 계획 수립 권한이 없습니다.' }
-  }
+  if (!session) return { ok: false, message: '조사 계획 수립 권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return denied(session.name, '조사 계획 수립 권한이 없습니다.', '/inventory/survey-plan')
 
   const s = getStore()
   if (staleVerifyAssets().length === 0) return { ok: false, message: '장기 미실측 자산이 없습니다.' }
@@ -139,9 +136,8 @@ export async function composeStaleVerifyRound() {
  *  달리 신호에서 조치로 닫히지 않았다. 당일 중복 발송은 차단한다(수령·반환 독촉과 같은 컴플라이언스 독촉). 자산담당·Admin. */
 export async function remindRound(roundId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) {
-    return { ok: false, message: '재물조사 독촉 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '재물조사 독촉 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return denied(session.name, '재물조사 독촉 권한이 없습니다 (자산담당·Admin).', '/inventory/survey-plan')
   const s = getStore()
   const round = s.inventoryRounds.find((r) => r.id === roundId)
   if (!round) return { ok: false, message: '조사 회차를 찾을 수 없습니다.' }

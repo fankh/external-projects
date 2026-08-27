@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { appendAudit, appendDenial } from '@/lib/audit'
+import { appendAudit, appendDenial, denied } from '@/lib/audit'
 import { hasHolder, isPlaceholder } from '@/lib/quality'
 import { notifyDependents } from '@/lib/cmdb'
 import { addYears, isMaintenanceOverdue, isValidDate, today } from '@/lib/dates'
@@ -1130,9 +1130,8 @@ export async function bulkRegisterAssets(rows: { category: string; model: string
  *  해제하면 차단이 풀린 것이므로 이상 행위 신호도 다시 열린다 — 조치가 끝났는지는 제안 판정으로 닫는다. */
 export async function releaseQuarantine(assetNo: string, rawReason: string) {
   const session = await getSession()
-  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
-    return { ok: false, message: '격리 해제 권한이 없습니다 (보안담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '격리 해제 권한이 없습니다 (보안담당·Admin).' }
+  if (!['SEC_MGR', 'ADMIN'].includes(session.role)) return denied(session.name, '격리 해제 권한이 없습니다 (보안담당·Admin).', '/assets/register')
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
