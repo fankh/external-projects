@@ -2089,6 +2089,38 @@ try {
     .filter((rel) => rel !== 'lib/dates.ts')
   check(`보증 임박 판정: lib/dates 한 곳만 임계 비교(소스 ${sourceFiles.length}개 검사)`, warrantyHardcoded.length === 0, `직접 비교=${warrantyHardcoded.join(', ')}`)
 
+  // 자산 상태 전량의 런타임 짝 — ASSET_STATUSES 는 AssetStatus 타입과 정확히 같은 아홉 개여야 한다.
+  //  타입에 상태를 하나 더해도 이 배열을 안 고치면 대장 필터에서 안 보이고, 어시스턴트는 '총 보유 N대'라
+  //  말하면서 상태별 분포의 합은 N 이 안 되는 조용한 잘림이 난다(부분의 합이 전체와 다른 답).
+  const statusTypesSrc = readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8')
+  const declared = [...(/export type AssetStatus = ([^\n]+)/.exec(statusTypesSrc)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const runtime = [...(/export const ASSET_STATUSES: AssetStatus\[\] = \[([^\]]+)\]/.exec(statusTypesSrc)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+  check(`자산 상태 상수: 타입 선언과 같은 집합(${declared.length}종)`,
+    declared.length >= 9 && runtime.length === declared.length && declared.every((x) => runtime.includes(x)),
+    `타입=${declared.join('/')} 상수=${runtime.join('/')}`)
+
+  //  그리고 다른 파일이 이 목록을 또 적지 않는지 본다 — 사본이 생기는 순간 위 검사는 사본을 못 본다.
+  const relisted = sourceFiles
+    //  시드의 공통코드 대장(lib/store 의 ASSET_STATUS 코드 그룹)은 판정 사본이 아니라 운영자가 관리하는
+    //  코드 레지스트리라 여기서 제외한다. 다만 그 그룹이 실제 상태 전량과 맞는지는 아래에서 따로 본다.
+    .filter((f) => !['lib/types.ts', 'lib/store.ts'].includes(path.relative(ROOT, f).split(path.sep).join('/')))
+    .filter((f) => readFileSync(f, 'utf8').split(/\r?\n/).some((ln) => {
+      const lits = [...ln.matchAll(/'([^']+)'/g)].map((m) => m[1]).filter((x) => declared.includes(x))
+      return new Set(lits).size >= 6
+    }))
+    .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
+  check(`자산 상태 목록: lib/types 밖에 사본 없음(소스 ${sourceFiles.length}개 검사)`, relisted.length === 0, `사본=${relisted.join(', ')}`)
+
+  //  그리고 공통코드 대장의 '자산 상태' 그룹이 실제 상태 전량과 같은지 본다 — 공통코드 화면은 코드값마다
+  //  '사용 N건'을 세는데(lib/codes codeUsage: status === label), 값이 빠지면 그 상태의 자산이 어느 코드값에도
+  //  잡히지 않아 사용 건수의 합이 보유 대수에 못 미친다. 빠진 값은 미사용화·명칭 변경 관리도 불가능하다.
+  const statusStoreSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const statusGroup = /\{ id: 'ASSET_STATUS'[^\n]*values: v\((.+?)\) \},/.exec(statusStoreSrc)?.[1] ?? ''
+  const groupLabels = [...statusGroup.matchAll(/, '([^']+)'\]/g)].map((m) => m[1])
+  const missingCode = declared.filter((x) => !groupLabels.includes(x))
+  check(`공통코드 자산 상태: 상태 전량이 코드값으로 등록(${declared.length}종)`,
+    missingCode.length === 0 && groupLabels.length === declared.length, `누락=${missingCode.join(', ')} 등록=${groupLabels.length}`)
+
   // 폐기 절차 편입·해제의 자산 이력 — 자산 타임라인(대장 상세)은 그 자산에 무슨 일이 있었는지 읽는 곳이다.
   //  폐기 반려 복원은 이력을 남기는데 정작 '폐기 대상 선정'은 남기지 않아, 타임라인에 되돌림만 뜨고 그 앞에
   //  선정된 적이 있다는 기록이 없었다(원인 없는 결과). 반납·대여 반환 점검 경로는 이미 남기므로 직접 선정
