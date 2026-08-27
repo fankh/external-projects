@@ -3066,6 +3066,16 @@ try {
   const sampleFiles = readdirSync(path.join(ROOT, '..', 'docs')).filter((f) => f.startsWith('샘플_') && f.endsWith('.csv')).length
   const sampleClaims = [...claims(readme, /AI 리포트 샘플 (\d+)종/g), ...claims(summary, /AI 리포트 샘플 (\d+)종/g)]
   check(`문서: 리포트 샘플 ${sampleFiles}종 일치`, allSame(sampleClaims, sampleFiles), `주장=${sampleClaims.join(",")} 실제=${sampleFiles}`)
+  // 샘플이 리포트 종류 전체를 덮는가 — 위 검사는 '파일 수 = 문서 주장'만 봤다. 종류가 17 인데 샘플이 10 이면
+  //  일곱 리포트는 생성 결과를 아무도 고정하지 않은 채 나간다(드리프트 검사가 닿지 않는다). 실제로 그랬다.
+  const kindNames = [...reportsSrc.matchAll(new RegExp("  \\{ kind: '([^']+)'", 'g'))].map((m) => m[1])
+  const genSrc = readFileSync(path.join(ROOT, 'scripts', 'gen-samples.mjs'), 'utf8')
+  const genBlock = genSrc.split('const REPORTS = [')[1]?.split(String.fromCharCode(10) + ']')[0] ?? ''
+  const sampledKinds = [...genBlock.matchAll(new RegExp("\\['([^']+)',", 'g'))].map((m) => m[1])
+  const unsampled = kindNames.filter((k) => !sampledKinds.includes(k))
+  check(`리포트 샘플: 종류 ${kindNames.length}종을 모두 덮는다 (샘플 ${sampledKinds.length}종)`,
+    kindNames.length >= 15 && unsampled.length === 0,
+    `샘플 없는 종류: ${unsampled.join(', ')}`)
 
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
