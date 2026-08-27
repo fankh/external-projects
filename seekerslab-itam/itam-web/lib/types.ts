@@ -407,6 +407,16 @@ export const APPROVAL_STEP_ROLE: Record<string, Role> = {
   '보안담당': 'SEC_MGR',
 }
 
+/** 관리자가 결재선에 넣을 수 있는 결재자 단계 — 역할에 매핑되는 단계만 허용해 결재 라우팅이 항상 유효하다.
+ *  APPROVAL_STEP_ROLE 의 키가 곧 그 목록이다(매핑이 없는 단계는 라우팅할 수 없다).
+ *  화면(체크박스 목록·편집 가능 판정)과 서버(setApprovalLineSteps 검증)가 같은 배열을 각자 하드코딩하고 있었다 —
+ *  갈리면 화면이 내주는 단계를 서버가 거부하거나(조용한 거절) 서버가 받는 단계를 화면이 감춘다.
+ *  '신청자'는 첫 단계로 고정이라 여기 없다(선택 대상이 아니다). */
+//  순서가 뜻을 갖는다 — setApprovalLineSteps 가 이 배열 순으로 골라 담으므로 결재 진행 순서가 곧 이 순서다.
+//  APPROVAL_STEP_ROLE 의 키 순서(선언 순)와는 다르므로 Object.keys 로 파생하면 결재 순서가 바뀐다(실제로 e2e 가 잡았다).
+//  멤버십이 그 맵과 어긋나지 않는지는 스모크가 대조한다.
+export const APPROVER_STEPS: string[] = ['부서장', '자산담당', '보안담당', 'IT기획팀장']
+
 /** currentStep 표기(예: '자산담당 검토'·'보안담당 승인'·'IT기획팀장 결재'·'부서 확인')에서 단계 라벨을 뽑는다. */
 export function approvalStepLabel(currentStep: string): string {
   const s = currentStep.replace(/\s*(검토|승인|결재|확인)\s*$/, '').trim()

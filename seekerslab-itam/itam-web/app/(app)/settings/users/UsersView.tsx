@@ -1,12 +1,11 @@
 'use client'
 import { Fragment, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
-import { MANDATORY_APPROVAL_KINDS, ROLE_LABEL } from '@/lib/types'
+import { APPROVER_STEPS, MANDATORY_APPROVAL_KINDS, ROLE_LABEL } from '@/lib/types'
 import type { ApprovalLine, Role, UserAccount } from '@/lib/types'
 import { requireMfa, setApprovalLineSteps, setUserRole, toggleApprovalRequired } from './actions'
 
 const ROLES: Role[] = ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']
-const APPROVER_STEPS = ['부서장', '자산담당', '보안담당', 'IT기획팀장']
 const ROLE_TONE: Record<Role, 'neutral' | 'info' | 'warn' | 'err'> = {
   USER: 'neutral', ASSET_MGR: 'info', SEC_MGR: 'warn', ADMIN: 'err',
 }
