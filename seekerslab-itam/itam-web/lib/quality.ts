@@ -1,3 +1,4 @@
+import { ratioPct } from './dates'
 import type { Asset, AssetCategory } from './types'
 
 /** 보유자 이름 → 부서 맵 — 사용자 대장(store.users)에서 만든다. 정합성 검사가 보유자와 자산 부서의 불일치를 보는 데 쓴다. */
@@ -61,4 +62,16 @@ export function assetDataIssues(a: Asset, deptOf?: DeptOfOwner): string[] {
 export function hasDataIssue(a: Asset, deptOf?: DeptOfOwner): boolean {
   if (a.status === '폐기완료' || a.status === '폐기예정') return false
   return assetDataIssues(a, deptOf).length > 0
+}
+
+/** 대장 정합성(CMDB 정확도, %) — 폐기완료를 뺀 운영 자산 중 정합성 미흡이 아닌 비율.
+ *  감사 대응 자료·정보보호 컴플라이언스 증적·감사 요약 세 곳이 같은 수를 적어야 하는데,
+ *  각자 같은 식을 복사해 두고 있었다(hasDataIssue 의 범위를 한 곳에서 바꾸면 셋이 갈린다).
+ *  백분율 반올림은 lib/dates 의 ratioPct 한 곳을 쓴다 — 여기서 따로 반올림하면 화면·리포트의 다른 비율과
+ *  규약이 갈린다(lib/dates 는 아무것도 import 하지 않으므로 순환이 아니다). */
+export function cmdbAccuracyPct(assets: Asset[], deptOf?: DeptOfOwner): number {
+  const live = assets.filter((a) => a.status !== '폐기완료')
+  if (live.length === 0) return 100
+  const ok = live.length - live.filter((a) => hasDataIssue(a, deptOf)).length
+  return ratioPct(ok, live.length)
 }
