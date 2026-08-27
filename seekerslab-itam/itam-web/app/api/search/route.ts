@@ -1,3 +1,4 @@
+import { isApprovalVisibleToUser } from '@/lib/types'
 import { today } from '@/lib/dates'
 import { inNoticeAudience } from '@/lib/notice'
 import { assetHref, contractHref, noticeHref, qnaHref } from '@/lib/reflink'
@@ -90,7 +91,7 @@ export async function GET(req: Request) {
   }
 
   // 결재 — 사용자는 본인 기안분 + 우리 부서로 온 소유자 확인 요청(응답 대상). 결재함 화면(page.tsx)의 USER 스코핑과 동일 — 검색만 좁아 사용자가 응답할 건을 못 찾던 공백을 닫는다.
-  const aprs = (isUser ? s.approvals.filter((a) => a.requester === session.name || (a.kind === '소유자 확인' && a.dept === session.dept)) : s.approvals)
+  const aprs = (isUser ? s.approvals.filter((a) => isApprovalVisibleToUser(a, session)) : s.approvals)
     .filter((a) => hit(a.id, a.title, a.requester, a.kind)).slice(0, LIMIT)
     .map((a) => ({ label: `${a.id} · ${a.title}`, sub: `${a.kind} · ${a.requester} · ${a.status}`, href: '/workflow/approvals' }))
   if (aprs.length && canViewMenu('/workflow/approvals', role)) groups.push({ kind: '결재', items: aprs })

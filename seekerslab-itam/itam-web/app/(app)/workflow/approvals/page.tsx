@@ -1,4 +1,4 @@
-import { DISPOSAL_STATUSES } from '@/lib/types'
+import { DISPOSAL_STATUSES, isApprovalVisibleToUser } from '@/lib/types'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
@@ -19,7 +19,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   // 예외: 소유자 확인은 사람이 아니라 부서 앞으로 온 요청이라(answerOwnerConfirm 은 session.dept===a.dept 로 응답), 대상 부서 USER 는 응답하려면 봐야 한다.
   // 담당자·Admin 은 전체. (누락 시 USER 결재함에 전사 결재 id·제목·요청자·사유가 그대로 노출됐다.)
   const visibleApprovals = session.role === 'USER'
-    ? s.approvals.filter((a) => a.requester === session.name || (a.kind === '소유자 확인' && a.dept === session.dept))
+    ? s.approvals.filter((a) => isApprovalVisibleToUser(a, session))
     : s.approvals
   // KPI 도 목록과 같은 조회 스코프를 쓴다 — 목록만 스코핑하고 타일이 전사 집계를 쓰면 USER 결재함 머리에
   //  전사 대기 건수와 격리 요청 건수(보안 운영 지표)가 그대로 드러난다(목록에서 막은 것과 같은 누출).

@@ -1258,6 +1258,22 @@ export function isOpenExposure(e: Pick<ExternalAsset, 'state' | 'action'>): bool
   return !e.action && e.state !== '등록·일치'
 }
 
+/** 사용자(USER)가 볼 수 있는 결재 — 권한 매트릭스 '신청·결재 × 조회 = 부분(본인 범위)'을 화면이 강제하는 규칙.
+ *  본인이 상신한 건과, 사람이 아니라 부서 앞으로 온 소유자 확인 요청(응답하려면 봐야 한다)만 보인다.
+ *  결재함·대시보드·전역 검색 API 세 곳이 같은 규칙을 각자 복사해 두고 있었다 — 한쪽만 바꾸면 화면에서
+ *  가린 결재가 검색 결과로 새어 나간다(스코핑은 보안 경계라 조용한 불일치가 곧 유출이다). */
+export function isApprovalVisibleToUser(
+  a: Pick<Approval, 'requester' | 'kind' | 'dept'>,
+  viewer: { name: string; dept: string },
+): boolean {
+  return a.requester === viewer.name || (a.kind === '소유자 확인' && a.dept === viewer.dept)
+}
+
+/** 수령 미확인 — 불출됐지만 인수 확인이 안 된 사용중 자산. 대시보드 큐·대장 필터·리포트·어시스턴트가 같이 센다. */
+export function isReceiptPending(a: Pick<Asset, 'receiptPending' | 'status'>): boolean {
+  return Boolean(a.receiptPending) && a.status === '사용중'
+}
+
 export const PARTIAL_SCOPES: Record<string, string> = {
   '자산 대장|조회|USER': '본인 보유 자산만 — app/(app)/assets/register/page.tsx 가 owner 로 거른다',
   '자산 대장|엑셀|USER': '본인 보유 자산만 — lib/exports.ts buildSheets(assets)',

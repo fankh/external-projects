@@ -3101,6 +3101,9 @@ try {
   // '아직 분류 안 된 미등록 발견'은 대시보드 KPI·상단바 배지·발견 화면·AI 어시스턴트가 함께 쓰는 판정인데,
   //  이름 없이 여섯 곳에 그대로 복사돼 있었다(리포트의 onboardTargets 는 다른 질문에 답하는 별개 정의다).
   //  한쪽만 바꾸면 화면들이 조용히 갈리므로, 날 술어가 남아 있지 않은지 본다.
+  // USER 결재 조회 스코프는 보안 경계다 — 결재함·대시보드·전역 검색 API 세 곳이 같은 규칙을 각자 복사해
+  //  두고 있었다. 한쪽만 바뀌면 화면에서 가린 결재가 검색 결과로 새어 나간다(조용한 불일치 = 유출).
+  const rawScope = []
   const rawUntriaged = []
   const uiFiles = []
   const walkUi = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, e.name); if (e.isDirectory()) walkUi(p); else if (/[.]tsx?$/.test(e.name)) uiFiles.push(p) } }
@@ -3114,8 +3117,14 @@ try {
     if (body.includes("discovered.filter((d) => d.state === '미등록' && !d.action")) rawUntriaged.push(p.replace(ROOT, '') + ' (발견)')
     // 외부 노출의 '미조치' — 브리핑 리포트만 '미등록'으로 좁혀 세면서 같은 기준이라 적었다(7건 → 4건 과소 보고)
     if (body.includes("e.state !== '등록·일치'") || body.includes("x.state !== '등록·일치'")) rawUntriaged.push(p.replace(ROOT, '') + ' (외부 노출)')
+    // USER 결재 스코프·수령 미확인
+    if (body.includes("a.kind === '소유자 확인' && a.dept === session.dept")) rawScope.push(p.replace(ROOT, '') + ' (결재 스코프)')
+    if (body.includes("receiptPending && a.status === '사용중'")) rawScope.push(p.replace(ROOT, '') + ' (수령 미확인)')
   }
   const untriagedUses = uiFiles.filter((p) => { const b = readFileSync(p, 'utf8'); return b.includes('isUntriagedDiscovery') || b.includes('isOpenExposure') }).length
+  const scopeUses = uiFiles.filter((p) => { const b2 = readFileSync(p, 'utf8'); return b2.includes('isApprovalVisibleToUser') || b2.includes('isReceiptPending') }).length
+  check(`결재 스코프·수령 미확인: 판정이 각각 한 정의 (사용 ${scopeUses}곳)`,
+    scopeUses >= 7 && rawScope.length === 0, `날 술어가 남음: ${rawScope.join(', ')}`)
   check(`발견·노출: '미조치' 판정이 각각 한 정의 (사용 ${untriagedUses}곳)`,
     untriagedUses >= 8 && rawUntriaged.length === 0, `날 술어가 남음: ${rawUntriaged.join(', ')}`)
   const qualitySrc = readFileSync(path.join(ROOT, 'lib', 'quality.ts'), 'utf8')

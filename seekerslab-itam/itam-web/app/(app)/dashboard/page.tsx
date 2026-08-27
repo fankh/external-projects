@@ -1,5 +1,5 @@
 import { staleComposeTargets } from '@/lib/survey'
-import { DEGRADED_CONNECTOR_STATUSES, USER_REQUEST_KINDS, isUntriagedDiscovery, isOpenExposure } from '@/lib/types'
+import { DEGRADED_CONNECTOR_STATUSES, USER_REQUEST_KINDS, isApprovalVisibleToUser, isOpenExposure, isReceiptPending, isUntriagedDiscovery } from '@/lib/types'
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
@@ -56,7 +56,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   //  전사 대기 건수가 그대로 드러난다'고 적어 두었다) 대시보드 타일만 전사 집계를 쓰고 있었다 —
   //  같은 누출이 한 화면 앞에 그대로 남아 있던 셈이다.
   const visibleApr = session.role === 'USER'
-    ? s.approvals.filter((a) => a.requester === session.name || (a.kind === '소유자 확인' && a.dept === session.dept))
+    ? s.approvals.filter((a) => isApprovalVisibleToUser(a, session))
     : s.approvals
   const pendingApr = visibleApr.filter((a) => a.status === '대기')
   // 결재 지연 — SLA(3일) 초과한 대기 결재(정체). 상신 후 오래 방치된 결재를 드러낸다.
@@ -86,7 +86,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   )
   // 수령 확인 대기 — 불출로 배정받았으나 아직 인수 확인을 안 한 본인 자산. 불출 시 안내 메일은 가지만
   // 대시보드에서도 상기시켜 사용자가 직접 수령 확인(체인 오브 커스터디)하게 한다(로54 수령 확인 루프의 사용자 측 능동 접점).
-  const myReceipts = s.assets.filter((a) => a.receiptPending && a.status === '사용중' && a.owner === session.name)
+  const myReceipts = s.assets.filter((a) => isReceiptPending(a) && a.owner === session.name)
   // 내 대여 자산 — 본인이 빌린(대여중·소유자=본인) 자산의 반환 기한. 대여자 관점의 반환 마감 알림.
   // 담당자에게는 대여 현황(반납·유휴)·연체 큐가, 대여자에게는 여기 My Work 가 반환을 상기시킨다(v1.102 독촉 통지의 수신자 측).
   const myLoans = s.assets
@@ -114,7 +114,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       { label: '불출 · 이동 집행 대기', count: issueDue + moveDue, href: '/assets/movement#issue', tone: 'warn' },
       { label: '반납 접수 대기', count: s.assets.filter((a) => a.status === '반납대기').length, href: '/assets/returns#receive', tone: 'warn' },
       // 수령 미확인 — 불출 배정 후 사용자 인수 확인이 안 된 자산(체인 오브 커스터디 공백). 방치하면 실물 인계를 감사에서 증명할 수 없다.
-      { label: '수령 미확인 (불출 후 인수 대기)', count: s.assets.filter((a) => a.receiptPending && a.status === '사용중').length, href: '/assets/register?receipt=1', tone: 'warn' },
+      { label: '수령 미확인 (불출 후 인수 대기)', count: s.assets.filter(isReceiptPending).length, href: '/assets/register?receipt=1', tone: 'warn' },
       // 대여 연장 요청 대기 — 대여자(사용자)가 올린 반환 기한 연장 요청. 통보만으론 놓칠 수 있어 대장 상세 밖 대시보드 큐로도 드러낸다(요청대로 연장·반려 처리).
       { label: '대여 연장 요청 대기 (요청대로 연장·반려 처리)', count: s.assets.filter((a) => a.loanExtendRequest).length, href: '/assets/register?loanext=1', tone: 'warn' },
       // 반납 신청 대기 — 대여자가 반납하겠다고 셀프서비스로 알린 건. 회수·점검 후 반환 접수로 마무리한다.

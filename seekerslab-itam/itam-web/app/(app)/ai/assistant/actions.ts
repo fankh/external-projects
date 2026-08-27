@@ -20,7 +20,7 @@ import { getSession } from '@/lib/session'
 import { canViewMenu } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 import { canDecideApproval } from '@/lib/approval'
-import { ASSET_CATEGORIES, DISPOSAL_STATUSES, isUntriagedDiscovery, isOpenExposure } from '@/lib/types'
+import { ASSET_CATEGORIES, DISPOSAL_STATUSES, isUntriagedDiscovery, isOpenExposure, isReceiptPending } from '@/lib/types'
 import type { ChatMessage, ReportKind, Role } from '@/lib/types'
 
 /** 리포트 생성 인텐트 — 어시스턴트가 실제로 리포트를 만든다 (제품안내서 §05 리포트 자동화:
@@ -636,7 +636,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   // 수령 미확인(인수 대기) — 불출 후 사용자가 인수 확인을 안 한 사용 중 자산. 대시보드 큐·독촉과 같은 판정(receiptPending·사용중).
   //  status 게이트로 회수·반납·폐기된 자산의 스테일 플래그는 제외한다(대시보드 큐와 동일 정의).
   if (canAsset && (q.includes('수령 미확인') || q.includes('인수 미확인') || q.includes('수령 확인') || q.includes('인수 확인'))) {
-    const pend = s.assets.filter((a) => a.receiptPending && a.status === '사용중')
+    const pend = s.assets.filter(isReceiptPending)
     return {
       role: 'assistant',
       text: pend.length === 0
@@ -761,7 +761,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const overdue = s.assets.filter(isLoanOverdue)
     const repairing = s.assets.filter((a) => a.status === '수리중')
     const repairLate = s.assets.filter(isRepairOverdue)
-    const receiptPend = s.assets.filter((a) => a.receiptPending && a.status === '사용중')
+    const receiptPend = s.assets.filter(isReceiptPending)
     const sec = (label: string, arr: typeof lost, fmt: (a: (typeof lost)[number]) => string) =>
       `· ${label}: ${arr.length}건${arr.length ? `\n${arr.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}`
     return {
