@@ -207,6 +207,11 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
                   })()}
                   <div className="mut" style={{ fontSize: 10.5, marginTop: 3 }}>
                     {a.status === '대기' ? `현재: ${a.currentStep}` : `${a.status} · ${a.decidedBy ?? ''} ${a.decidedAt ?? ''}`}
+                    {/* 승인했으나 집행 불가로 종결된 건 — 대여는 미집행 대기열이 없어 이 표기가 없으면
+                        화면 어디에도 드러나지 않는다(승인 상태로 조용히 남는다). 반려 사유와 같은 자리에 밝힌다. */}
+                    {a.unfulfilledReason && (
+                      <span style={{ color: 'var(--warn)' }}> · 집행 불가: {a.unfulfilledReason}{a.unfulfilledAt ? ` (${a.unfulfilledAt})` : ''}</span>
+                    )}
                     {a.status === '반려' && a.rejectReason && (
                       <span style={{ color: 'var(--err)' }}> · 사유: {a.rejectReason}</span>
                     )}

@@ -312,6 +312,10 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       //  그냥 넘기면 신청자는 '승인' 통보만 받고 자산은 오지 않으며, 대여는 자산 신청·이동과 달리 미집행 대기열이 없어
       //  어디에도 드러나지 않는다(승인 상태로 조용히 사라진다). 사유를 감사에 남기고 신청자에게 알린다.
       const why = !asset ? '대상 자산 없음' : assetInDisposal ? '폐기 절차 진입' : asset.quarantinedAt ? `NAC 격리(${asset.quarantinedAt})` : `상태 ${asset.status}`
+      // 결재 건에도 남긴다 — 감사로그와 통지에만 있으면 결재 이력 반출은 이 건을 계속 '집행 대기'로
+      //  내보내, 이미 닫은 일이 미결 의무로 남는다(대여는 미집행 대기열도 없어 화면에서도 안 보인다).
+      a.unfulfilledReason = why
+      a.unfulfilledAt = today()
       appendAudit({ actor: session.name, action: `대여 승인 미집행 — ${a.refId} (${why}) · 재신청 안내`, target: a.id })
       dispatch({
         channel: '이메일',

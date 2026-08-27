@@ -890,12 +890,12 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 40
+const SCHEMA_VERSION = 41
 /** 스키마 형태 지문 — Store 의 키와 각 엔티티의 필드 이름에서 계산한다(scripts/smoke.mjs 가 같은 방식으로 대조).
  *  형태가 바뀐 채 SCHEMA_VERSION 이 그대로면 낡은 스냅샷이 그대로 로드돼 새 필드가 undefined 로 읽힌다
  *  (파일 영속화는 마이그레이션 없이 버전 불일치 시 시드로 폴백하는 설계다). 형태를 바꿨다면 SCHEMA_VERSION 을
  *  올리고 이 지문을 스모크가 알려주는 값으로 갱신한다 — 사람이 기억할 일이 아니라 테스트가 잡을 일이다. */
-export const SCHEMA_SHAPE = '598002ed'
+export const SCHEMA_SHAPE = '14f97cf4'
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

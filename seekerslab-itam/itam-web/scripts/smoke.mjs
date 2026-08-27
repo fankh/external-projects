@@ -2379,6 +2379,19 @@ try {
   check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
 
+  // 승인했으나 집행할 수 없는 건 — 요청~승인 사이에 자산이 대여·불출로 빠지거나 폐기 절차·NAC 격리에 들어가면
+  //  대여 결재는 승인 상태로 남고 fulfilled 가 서지 않는다. 그러면 결재 이력 반출이 그 건을 영원히 '집행 대기'로
+  //  내보낸다 — 이미 신청자에게 통보하고 닫은 일을 미결 의무로 주장하는 셈이고, 대여는 미집행 대기열도 없어
+  //  화면에서도 드러나지 않는다. 집행되지 않았으니 fulfilled 로 덮을 수도 없다(그건 거짓이다).
+  //  제3의 상태(unfulfilledReason)를 남기고, 반출·화면이 그 상태를 '집행 불가'로 구분해 말하는지 본다.
+  const aprActSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'workflow', 'approvals', 'actions.ts'), 'utf8')
+  const aprListSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'workflow', 'approvals', 'ApprovalList.tsx'), 'utf8')
+  const expUnfSrc = readFileSync(path.join(ROOT, 'lib', 'exports.ts'), 'utf8')
+  check('집행 불가 결재: 사유를 결재 건에 남기고 반출·화면이 집행 대기와 구분한다',
+    /a\.unfulfilledReason = /.test(aprActSrc)
+    && expUnfSrc.includes('집행 불가') && aprListSrc.includes('a.unfulfilledReason'),
+    `기록=${/a\.unfulfilledReason = /.test(aprActSrc)} 반출=${expUnfSrc.includes('집행 불가')} 화면=${aprListSrc.includes('a.unfulfilledReason')}`)
+
   // 종결 전이의 증적 세 요소 — 되돌릴 수 없는 판정을 담는 레코드는 누가·언제(·왜)를 그 레코드에 남긴다.
   //  결재는 decidedBy/decidedAt, 폐기 소거는 wipedBy/wipedAt, 입고 검수는 inspector 를 이미 남긴다.
   //  계약·라이선스 해지는 날짜만, 입고 반품 종결은 아무것도 남기지 않아 '언제·누가 끝냈나'를 전역
