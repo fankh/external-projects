@@ -45,7 +45,7 @@ const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
   폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays?: number; initialWarranty?: boolean; dqNos?: string[]; dqIssues?: Record<string, string[]>; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; initialLive?: boolean; availNos?: string[]; initialAvail?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays: number; maintenanceWindowDays: number; initialWarranty?: boolean; dqNos?: string[]; dqIssues?: Record<string, string[]>; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; initialLive?: boolean; availNos?: string[]; initialAvail?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -302,7 +302,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
         )}
         {warrantySet.size > 0 && (
           <button className={`btn sm ${warrantyOnly ? 'warn' : ''}`} onClick={() => setWarrantyOnly((v) => !v)}
-            title={`보증이 ${props.expiryWindowDays ?? 90}일 이내 만료·경과한 자산 — 보증 연장·교체 검토 대상(운영 정책 만료창)`}>
+            title={`보증이 ${props.expiryWindowDays}일 이내 만료·경과한 자산 — 보증 연장·교체 검토 대상(운영 정책 만료창)`}>
             {warrantyOnly ? '✓ ' : ''}보증 임박 {warrantySet.size}
           </button>
         )}
@@ -1150,7 +1150,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                         onClick={() => startTransition(async () => { const r = await scheduleMaintenance(sel.assetNo, schedDate); setSchedMsg(r.message); if (r.ok) { setSchedOpen(false); setSchedDate('') } })}>일정 등록</button>
                       <button className="btn sm ghost" disabled={pending} onClick={() => { setSchedOpen(false); setSchedMsg(null) }}>취소</button>
                     </div>
-                    <span className="mut" style={{ fontSize: 11 }}>예정일이 도래(30일 내·경과)하면 정기 점검 완료 대상으로 표시됩니다.</span>
+                    {/* 안내 문구도 판정과 같은 값을 쓴다 — 운영자가 '정기 점검 창'을 60 으로 바꿔도 화면이 30 이라고 말하면,
+                        날짜를 고르는 바로 그 자리에서 틀린 규칙을 알려 주는 셈이다(판정은 opsPolicy.maintenanceWindowDays). */}
+                    <span className="mut" style={{ fontSize: 11 }}>예정일이 도래({props.maintenanceWindowDays}일 내·경과)하면 정기 점검 완료 대상으로 표시됩니다.</span>
                   </div>
                 )}
               </div>
