@@ -235,6 +235,13 @@ export async function extendWarranty(assetNo: string, termYears: number) {
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (asset.warrantyEnd === '-') return { ok: false, message: '보증 정보가 없는 자산입니다 (SW·가상자원 등).' }
+  // 폐기 절차 자산은 제외한다 — 일괄 연장(extendWarrantyMany)은 이미 빼고 결과에 '폐기 자산 제외'라고 밝히는데
+  //  단건 경로만 그대로 받아, 같은 자산이 일괄로는 거절되고 단건으로는 연장됐다. 이미 처분한 장비의 보증을
+  //  늘리는 것은 실물이 없는 계약을 연장하는 셈이고, 이력에 폐기 뒤 '보증연장'이 찍혀 교체 검토·TCO 판단의
+  //  근거가 흐려진다(폐기 경로 자산은 조치 대상에서 뺀다 — 이 코드베이스의 공통 규약).
+  if (DISPOSAL_STATUSES.includes(asset.status)) {
+    return { ok: false, message: `${asset.status} 자산은 보증을 연장할 수 없습니다 — ${asset.assetNo} (폐기 절차 자산은 조치 대상이 아닙니다).` }
+  }
 
   const base = asset.warrantyEnd >= today() ? asset.warrantyEnd : today()
   const newEnd = addYears(base, termYears)
