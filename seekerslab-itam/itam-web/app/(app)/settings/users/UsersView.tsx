@@ -53,7 +53,7 @@ export function UsersView(props: {
     <>
       {msg && <div className="callout" style={{ margin: '0 0 12px' }}>{msg}</div>}
 
-      <Card kicker="Users · Groups" title="사용자 · 권한그룹 배정" pad={false}
+      <Card kicker="Users · Groups" title={<>사용자 · 권한그룹 배정 <span className="mut" style={{ fontSize: 12, fontWeight: 400 }}>— 시스템 관리자 {adminCount}명{adminCount <= 1 ? ' (마지막 1명은 강등 불가)' : ''}</span></>} pad={false}
         actions={mfaMissing > 0
           ? <button className="btn sm" disabled={pending || mfaTargets === 0} onClick={() => reqMfa()}
               title={mfaTargets === 0

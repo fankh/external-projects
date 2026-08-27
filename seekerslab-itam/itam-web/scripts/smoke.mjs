@@ -3139,6 +3139,16 @@ try {
   // 잠금 칸(Admin × 권한·정책 × 조회·저장)도 같은 규약 — 셋 중 가장 무겁다.
   //  저장된 'n' 하나로 Admin 이 권한 화면 밖으로 밀려나는데, 되돌릴 화면이 바로 그 화면이라
   //  앱 안에 복구 경로가 없다. 쓰기는 setPermission 이 막으므로 읽기도 같은 불변식을 봐야 한다.
+  // 관리자 0명 스냅샷은 운영할 수 없다 — 권한그룹 변경은 Admin 만 할 수 있어 앱 안에 복구 경로가 없다.
+  //  setUserRole 의 '마지막 관리자 강등 불가'는 쓰기 시점뿐이라, 로드에도 같은 불변식이 필요하다.
+  //  아무나 승격시키면 조용한 권한 부여가 되므로 깨진 파일과 같은 규약(시드 폴백)으로 처리한다.
+  check('스토어 로드: 관리자 0명 스냅샷은 시드로 폴백',
+    permStoreSrc.includes("!store.users.some((u: UserAccount) => u.role === 'ADMIN')"))
+  // 시드가 그 불변식을 실제로 만족하는지도 본다 — 소스 가드만 맞고 데이터가 어기면 첫 기동부터 폴백 루프다
+  const usersHtmlAdm = text(await (await get('/settings/users', 'ADMIN')).text())
+  const adminNum = /시스템 관리자 ([0-9]+)명/.exec(usersHtmlAdm)
+  check(`사용자·그룹: 시스템 관리자 수를 화면이 적고 최소 1명 (${adminNum ? adminNum[1] : '?'}명)`,
+    adminNum !== null && Number(adminNum[1]) >= 1 && usersHtmlAdm.includes('마지막 1명은 강등 불가'))
   check('권한 판정: 잠긴 칸은 저장값과 무관하게 허용',
     permSrc.includes('if (isLocked(menu, action, role)) return true'))
   check('권한 매트릭스: 저장된 스냅샷의 잠긴 칸도 로드 시 허용으로 되돌린다',
