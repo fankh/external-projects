@@ -1,3 +1,4 @@
+import { isReceiptPending } from '@/lib/types'
 import { isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceOverdue, isQnaOverdue, isRepairEtaMissing, isRepairOverdue, today } from './dates'
 import { impactSources } from './cmdb'
 import { missingContractDocs } from './contract'
@@ -30,7 +31,7 @@ function sentTodayRefs(kind: string, subjectIncludes?: string): Set<string | und
 /** 수령(인수) 미확인 독촉 대상 — 불출 후 인수 확인이 안 된 사용중 자산(현 보유자 보유분만). */
 export function receiptRemindTargets(): Asset[] {
   const sent = sentTodayRefs('수령 확인', '독촉')
-  return getStore().assets.filter((a) => a.receiptPending && a.status === '사용중' && !sent.has(a.assetNo))
+  return getStore().assets.filter((a) => isReceiptPending(a) && !sent.has(a.assetNo))
 }
 
 /** 정기 점검 독촉 대상 — 예방 정비 예정일이 지났는데도 미시행인 운영 자산(임박분 제외). */

@@ -21,7 +21,7 @@ import { criticalDependencies, impactSources } from './cmdb'
 // 양쪽 모두 함수 본문에서만 서로를 호출(모듈 최상위 미참조)해 순환이 안전하다.
 import { compositeRiskAssetNos, riskSignals } from './risk'
 import type { CellValue, Sheet } from './xlsx'
-import { DISPOSAL_STATUSES, IDLE_POOL_STATUSES, isUntriagedDiscovery, isOpenExposure } from './types'
+import { DISPOSAL_STATUSES, IDLE_POOL_STATUSES, isUntriagedDiscovery, isOpenExposure, isReceiptPending } from './types'
 import type { DiscoveredAsset, ReportKind, ReportSchedule, ReportSection, SaasUsage, SwLicense } from './types'
 
 /** 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 대상
@@ -854,7 +854,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const stale = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays))
     const overdue = s.assets.filter(isLoanOverdue)
     const repairLate = s.assets.filter((a) => a.status === '수리중' && isRepairOverdue(a))
-    const receiptPend = s.assets.filter((a) => a.receiptPending && a.status === '사용중')
+    const receiptPend = s.assets.filter(isReceiptPending)
     const total = lost.length + stale.length + overdue.length + repairLate.length + receiptPend.length
     const sec = (title: string, note: string, arr: typeof lost, detail: (a: (typeof lost)[number]) => string): ReportSection => ({
       title,
@@ -1176,7 +1176,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const staleN = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).length
     const overdueN = s.assets.filter(isLoanOverdue).length
     const repairLateN = s.assets.filter((a) => a.status === '수리중' && isRepairOverdue(a)).length
-    const receiptN = s.assets.filter((a) => a.receiptPending && a.status === '사용중').length
+    const receiptN = s.assets.filter(isReceiptPending).length
     return `자산 운영 리스크는 총 ${lostN + staleN + overdueN + repairLateN + receiptN}건입니다 — 분실·도난 ${lostN}건, 장기 미실측 ${staleN}건, 대여 반환 연체 ${overdueN}건, 수리 지연 ${repairLateN}건, 수령 미확인 ${receiptN}건. 각각 회수·폐기, 재물조사 편성, 반환 독촉, 업체 독촉, 수령 확인 독촉으로 조치가 필요합니다.`
   }
   if (kind === '복합 위험 자산') {

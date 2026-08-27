@@ -1,3 +1,4 @@
+import { isReceiptPending } from '@/lib/types'
 import { Card, ScreenHeader } from '@/components/ui'
 import { daysUntil, isMaintenanceDue, isMaintenanceOverdue, isWarrantyExpiring, isStaleVerify, today } from '@/lib/dates'
 import { isEolTarget } from '@/lib/eol'
@@ -36,7 +37,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   //  그전엔 화면이 미확인 자산 전부를 세고 액션만 당일 발송분을 제외해, 한 번 보낸 뒤에도 같은 건수로 남아 누르면 '대상 없음'이 됐다.
   const receiptPendingCount = canManage ? receiptRemindTargets().length : 0
   // 수령(인수) 미확인 — 불출 배정 후 사용자 인수 확인이 안 된 사용 중 자산(체인 오브 커스터디 공백). 대시보드 큐(?receipt=1)·어시스턴트 링크와 같은 판정.
-  const receiptNos = scoped.filter((a) => a.receiptPending && a.status === '사용중').map((a) => a.assetNo)
+  const receiptNos = scoped.filter(isReceiptPending).map((a) => a.assetNo)
   // 대여 셀프서비스 요청 대기 — 대여자가 올린 반환 기한 연장 요청·반납 신청. 대시보드 큐(?loanext=1·?loanret=1)와 같은 판정으로, 큐 건수=목록.
   const loanExtNos = scoped.filter((a) => a.loanExtendRequest).map((a) => a.assetNo)
   const loanRetNos = scoped.filter((a) => a.returnRequest).map((a) => a.assetNo)
