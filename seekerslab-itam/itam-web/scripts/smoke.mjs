@@ -1,7 +1,7 @@
 /** 스모크 테스트 — 프로덕션 서버를 띄우고 권한 매트릭스·데이터 스코핑·리다이렉트를 검증한다.
  *  사용: npm run build && npm run smoke  (edim-web-next scripts/smoke.mjs 패턴) */
 import { spawn } from 'node:child_process'
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { assertFreshBuild } from './build-guard.mjs'
@@ -3083,6 +3083,21 @@ try {
   const depAnnual = num(/년 연간 상각액은 ([0-9,]+)원/)
   const depYtd = num(/이 중 오늘까지 ([0-9,]+)원 계상/)
   const depRest = num(/연말까지 ([0-9,]+)원 잔여/)
+  // 0건인데 조치를 요구하지 않는다 — 리포트가 '…는 0건으로, 우선 조치가 필요합니다'라고 적으면
+  //  읽는 사람은 목록을 찾다가 빈손이 된다(SPOF 리포트가 실제로 그랬다). 커밋된 샘플 전체를 훑는다.
+  // 설명 문서(샘플_리포트_설명.md)는 산출물이 아니다 — csv 짝이 있는 것만 리포트 샘플이다
+  const docsDir = path.join(ROOT, '..', 'docs')
+  const sampleMd = readdirSync(docsDir).filter((x) => x.startsWith('샘플_') && x.endsWith('.md') && existsSync(path.join(docsDir, x.replace(/[.]md$/, '.csv'))))
+  const zeroDemands = []
+  for (const name of sampleMd) {
+    const body = readFileSync(path.join(ROOT, '..', 'docs', name), 'utf8')
+    for (const ln of body.split(new RegExp(String.fromCharCode(92) + 'r?' + String.fromCharCode(92) + 'n'))) {
+      // '0건' 바로 뒤에 조치를 요구하는 맺음이 오는 문장만 — 다른 항목이 0인 나열은 대상이 아니다
+      if (/0건(으로|이며|이고)[^.]{0,40}(필요합니다|대상입니다|해야 합니다)/.test(ln)) zeroDemands.push(`${name}: ${ln.trim().slice(0, 70)}`)
+    }
+  }
+  check(`리포트: 0건인데 조치를 요구하는 문장이 없다 (샘플 ${sampleMd.length}종)`,
+    sampleMd.length >= 15 && zeroDemands.length === 0, zeroDemands.join(' / '))
   check(`감가상각 명세: 오늘 기준 잔여 상각액 = 현재 잔존가 (${depRemain.toLocaleString()}원)`,
     depNowBook > 0 && depRemain === depNowBook, `잔존가 ${depNowBook} · 잔여 ${depRemain}`)
   check(`감가상각 명세: 올해 계상 + 잔여 = 연간 상각액 (${depAnnual.toLocaleString()}원)`,

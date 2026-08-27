@@ -1212,7 +1212,11 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const degH = impactSources()
     const maxB = spofH.length ? spofH[0].blastRadius.length : 0
     return `CMDB 의존 그래프 상 영향 범위 2대 이상인 단일 장애점(SPOF)은 ${spofH.length}건이며, 최대 영향 범위는 ${maxB}대입니다. `
-      + `이 중 현재 저하·이탈(분실·폐기·수리·반납대기) 상태로 하위에 장애가 전이될 수 있는 상위 자산은 ${degH.length}건으로, 우선 복구·이중화 검토가 필요합니다.`
+      // 0건일 때 '우선 복구가 필요합니다'라고 적으면 없는 일을 시킨다 — 읽는 사람은 목록을 찾다가 빈손이 된다.
+      //  건수가 0이면 '없다'고 말하고, SPOF 자체에 대한 이중화 검토만 남긴다(SPOF 는 0건이 아니다).
+      + (degH.length > 0
+        ? `이 중 현재 저하·이탈(분실·폐기·수리·반납대기) 상태로 하위에 장애가 전이될 수 있는 상위 자산은 ${degH.length}건으로, 우선 복구·이중화 검토가 필요합니다.`
+        : `현재 저하·이탈(분실·폐기·수리·반납대기) 상태로 하위에 장애를 전이 중인 상위 자산은 없습니다 — 전이 위험은 없으나, 위 SPOF ${spofH.length}건은 이중화 검토 대상으로 남습니다.`)
   }
   if (kind === '정보보호 컴플라이언스 증적') {
     return `정보보호 컴플라이언스 증적 — 대장 등록 운영 자산 ${s.assets.filter((a) => a.status !== '폐기완료').length}건, 미등록 발견 자산 ${onboardTargets().length}건이 편입 대상입니다. ISMS/ISO 27001 통제(자산 관리·접근 통제·매체 폐기·운영 보안·로깅)별 증적을 아래 섹션에 집약했습니다.`
