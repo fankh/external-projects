@@ -3142,6 +3142,28 @@ try {
   // 관리자 0명 스냅샷은 운영할 수 없다 — 권한그룹 변경은 Admin 만 할 수 있어 앱 안에 복구 경로가 없다.
   //  setUserRole 의 '마지막 관리자 강등 불가'는 쓰기 시점뿐이라, 로드에도 같은 불변식이 필요하다.
   //  아무나 승격시키면 조용한 권한 부여가 되므로 깨진 파일과 같은 규약(시드 폴백)으로 처리한다.
+  // 결재자 단계 목록은 화면(체크박스)과 서버(검증)가 같아야 한다 — 갈리면 화면이 내주는 단계를 서버가
+  //  거부하거나(조용한 거절) 서버가 받는 단계를 화면이 감춘다. 정의는 APPROVAL_STEP_ROLE 의 키 하나뿐이다.
+  const usersViewSrc2 = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'users', 'UsersView.tsx'), 'utf8')
+  const usersActSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'users', 'actions.ts'), 'utf8')
+  const hardcodedSteps = [usersViewSrc2, usersActSrc].filter((b) => b.includes("['부서장', '자산담당'")).length
+  check('결재선: 결재자 단계 목록이 한 정의(화면·서버 공용)',
+    permTypesSrc.includes('export const APPROVER_STEPS: string[] =')
+    && usersViewSrc2.includes('APPROVER_STEPS') && usersActSrc.includes('APPROVER_STEPS') && hardcodedSteps === 0,
+    `하드코딩 남은 파일 ${hardcodedSteps}개`)
+  // 화면이 실제로 그 네 단계를 체크박스로 내주는지 — 상수만 맞고 렌더가 비면 편집 자체가 안 된다
+  const usersHtmlSteps = text(await (await get('/settings/users', 'ADMIN')).text())
+  const stepNames = ['부서장', '자산담당', '보안담당', 'IT기획팀장']
+  const missingSteps = stepNames.filter((x) => !usersHtmlSteps.includes(x))
+  check(`결재선: 네 결재자 단계가 편집 UI 에 렌더 (${stepNames.length}종)`, missingSteps.length === 0, `누락: ${missingSteps.join(', ')}`)
+  // 순서는 결재 진행 순서라 파생할 수 없다 — 대신 멤버십이 APPROVAL_STEP_ROLE 과 어긋나지 않는지 본다
+  //  (역할 매핑이 없는 단계를 넣으면 결재 라우팅이 그 단계에서 멈춘다).
+  const roleMapStart = permTypesSrc.indexOf('APPROVAL_STEP_ROLE: Record<string, Role> = {')
+  const roleMapBlock = roleMapStart < 0 ? '' : permTypesSrc.slice(roleMapStart, permTypesSrc.indexOf('}', roleMapStart))
+  const mappedSteps = [...roleMapBlock.matchAll(new RegExp("'([^']+)':", 'g'))].map((m) => m[1])
+  const unmappedSteps = stepNames.filter((x) => !mappedSteps.includes(x))
+  check(`결재선: 결재자 단계가 모두 역할에 매핑돼 있다 (${mappedSteps.length}종 매핑)`,
+    mappedSteps.length >= 4 && unmappedSteps.length === 0, `매핑 없음: ${unmappedSteps.join(', ')}`)
   check('스토어 로드: 관리자 0명 스냅샷은 시드로 폴백',
     permStoreSrc.includes("!store.users.some((u: UserAccount) => u.role === 'ADMIN')"))
   // 시드가 그 불변식을 실제로 만족하는지도 본다 — 소스 가드만 맞고 데이터가 어기면 첫 기동부터 폴백 루프다

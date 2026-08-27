@@ -5,7 +5,7 @@ import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { mfaRemindTargets } from '@/lib/reminders'
-import { MANDATORY_APPROVAL_KINDS, ROLE_LABEL } from '@/lib/types'
+import { APPROVER_STEPS, MANDATORY_APPROVAL_KINDS, ROLE_LABEL } from '@/lib/types'
 import type { Role } from '@/lib/types'
 
 type Res = { ok: boolean; message: string }
@@ -79,7 +79,7 @@ export async function setApprovalLineSteps(id: string, approvers: string[]): Pro
   const session = await getSession()
   if (!session) return { ok: false, message: '결재선 변경은 Admin 만 가능합니다.' }
   if (session.role !== 'ADMIN') return denied(session.name, '결재선 변경은 Admin 만 가능합니다.', '/settings/users')
-  const VALID = ['부서장', '자산담당', '보안담당', 'IT기획팀장']
+  const VALID = APPROVER_STEPS // 화면 체크박스 목록과 같은 정의(lib/types)
 
   const s = getStore()
   const line = s.approvalLines.find((l) => l.id === id)
