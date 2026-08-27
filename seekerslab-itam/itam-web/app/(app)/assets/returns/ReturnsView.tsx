@@ -27,6 +27,8 @@ export function ReturnsView(props: {
   remindable: number
   /** 수리 예상 반환 경과(지연) 건수 — 수리 업체 독촉 발송 대상 */
   repairRemindable: number
+  /** 수리중인데 의뢰 정보(업체·의뢰일)가 없는 건 — 업체가 없어 독촉 대상이 아니다(등록이 먼저다) */
+  repairUnrecorded?: number
   /** 대여 대장 엑셀 반출 권한(권한 매트릭스의 '엑셀' 기능) */
   canExportLoans: boolean
   /** 기준일 YYYY-MM-DD — 연장 date input 의 최소값(과거·현재 기한 이전으로는 연장 불가) */
@@ -157,7 +159,7 @@ export function ReturnsView(props: {
       </Card>
 
       {props.repairing.length > 0 && (
-        <Card id="repair" kicker="Maintenance" title={<>수리 대기 <span data-queue="#repair">{props.repairing.length}</span>건</>} pad={false}
+        <Card id="repair" kicker="Maintenance" title={<>수리 대기 <span data-queue="#repair">{props.repairing.length}</span>건{(props.repairUnrecorded ?? 0) > 0 && <span className="mut" style={{ fontSize: 12, fontWeight: 400 }}> · 의뢰 정보 미기재 {props.repairUnrecorded}건(업체·일정 등록 필요 — 독촉 불가)</span>}</>} pad={false}
           actions={props.repairRemindable > 0
             ? <button className="btn sm" disabled={pending}
                 title="예상 반환일이 지났거나 아직 반환 일정을 받지 못한 수리 자산의 업체에 진행·반환 일정 회신을 독촉합니다 (발송 이력·감사)"

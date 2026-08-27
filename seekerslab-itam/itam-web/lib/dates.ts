@@ -245,6 +245,15 @@ export function isRepairEtaMissing(a: Asset): boolean {
   return a.status === '수리중' && !!a.repair && !a.repair.eta
 }
 
+/** 수리 의뢰 정보 미기재 — '수리중'인데 수리 의뢰(업체·의뢰일) 자체가 기록돼 있지 않다.
+ *  isRepairEtaMissing 은 '의뢰는 됐는데 일정만 없는' 경우라 repair 객체를 요구한다. 그래서 의뢰 기록이 아예 없는
+ *  자산은 두 판정(경과·일정 미기재) 어디에도 안 걸리고, 독촉은 a.repair.vendor 로 보내므로 보낼 곳도 없다 —
+ *  '수리중 N건'으로만 보이고 빠져나갈 길이 없는 상태가 된다(일정 없는 수리가 독촉에서 빠지는 역설의 한 칸 더 안쪽).
+ *  업체가 아니라 담당자가 해야 할 일이라, 독촉 대신 화면이 '의뢰 정보 등록 필요'로 드러낸다. 서버 전용. */
+export function isRepairUnrecorded(a: Asset): boolean {
+  return a.status === '수리중' && !a.repair
+}
+
 /** 도입 예정(발주) 입고 지연 — 도착 예정일이 지났는데 아직 입고되지 않은 사전 등록 로트.
  *  제품안내서 §06 ITSM·구매 연동(SR·발주 연계) — 발주처 독촉·납기 관리의 기준. 서버 전용. */
 export function isIntakeOverdue(l: IntakeLot): boolean {

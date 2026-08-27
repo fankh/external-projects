@@ -1,6 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, today } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, isRepairUnrecorded, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { warrantySavingsOf } from '@/lib/cost'
 import { buildRepairVendors } from '@/lib/repair-vendors'
@@ -70,6 +70,9 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
   const remindable = loanRemindTargets().length
   // 버튼 건수 = 실제 발송 대상(remindRepairs) — 예상 반환 경과 + 일정 미회신. 어긋나면 눌러도 안 나가는 건수가 생긴다.
   const repairRemindable = repairRemindTargets().length
+  // 수리중인데 의뢰 정보가 없는 건 — 업체가 없어 독촉 대상이 아니다(독촉 0건과 구분해 드러내야
+  //  담당자가 '독촉할 게 없다'로 읽지 않는다). 해야 할 일은 의뢰 정보 등록이다.
+  const repairUnrecorded = s.assets.filter(isRepairUnrecorded).length
   const todayStr = today()
 
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
@@ -105,7 +108,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
         <Stat value={warrantySaved > 0 ? `${warrantySaved.toLocaleString()}원` : '0'} label="보증 절감 (무상 청구)" tone={warrantySaved > 0 ? 'ok' : undefined} delta={{ text: '제조사 보증 수리 비용 회피', dir: 'flat' }} />
       </div>
 
-      <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} repairRemindable={repairRemindable} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} initialLoan={loan === '연체' || loan === '임박' ? loan : undefined} initialRepairOverdue={repair === 'overdue'} />
+      <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} repairRemindable={repairRemindable} repairUnrecorded={repairUnrecorded} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} initialLoan={loan === '연체' || loan === '임박' ? loan : undefined} initialRepairOverdue={repair === 'overdue'} />
 
       {repairVendors.length > 0 && (
         <Card kicker="Vendor Scorecard" title="수리 업체 성과" pad={false}>
