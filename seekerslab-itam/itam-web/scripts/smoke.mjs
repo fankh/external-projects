@@ -2095,6 +2095,29 @@ try {
   //  경로(단건·일괄·AI 제안 승인)와 선정 취소만 비어 있었다. 상태를 폐기예정으로 바꾸는 곳이 전부 이력을
   //  함께 남기는지 구조로 못박는다 — 경로가 늘어도 한쪽만 조용히 비지 않게.
   //  대상은 폐기예정에 그치지 않는다 — 자산 상태 전환 전부가 같은 규약이라야 타임라인이 생애주기를 온전히 담는다.
+  // 단건 ↔ 일괄의 폐기 경로 제외 — '폐기 절차 자산은 조치 대상에서 뺀다'는 이 코드베이스의 공통 규약인데,
+  //  일괄 경로에만 걸려 있고 단건 경로가 비어 있으면 같은 자산이 일괄로는 거절되고 단건으로는 통과한다.
+  //  실제로 보증 연장이 그랬다 — 일괄은 빼면서 결과에 '폐기 자산 제외'라고 밝히는데 단건은 그대로 받았다.
+  //  일괄(...Many)이 DISPOSAL_STATUSES 를 보면 짝이 되는 단건도 봐야 한다.
+  const actionSrcs = sourceFiles.filter((f) => f.endsWith(path.sep + 'actions.ts'))
+  const pairGap = []
+  for (const file of actionSrcs) {
+    const src = readFileSync(file, 'utf8')
+    const marks = [...src.matchAll(/export async function (\w+)\(/g)]
+    const bodyOf = (i) => src.slice(marks[i].index, i + 1 < marks.length ? marks[i + 1].index : src.length)
+    const bodies = new Map(marks.map((m, i) => [m[1], bodyOf(i)]))
+    for (const [name, body] of bodies) {
+      const mm = /^(\w+?)(Many|Bulk|All)$/.exec(name)
+      if (!mm || !body.includes('DISPOSAL_STATUSES')) continue
+      const single = bodies.get(mm[1])
+      if (single && !single.includes('DISPOSAL_STATUSES')) {
+        pairGap.push(path.relative(ROOT, file).split(path.sep).join('/') + ':' + mm[1])
+      }
+    }
+  }
+  check(`단건·일괄 폐기 경로 제외: 일괄이 거르는 조작은 단건도 거른다(actions ${actionSrcs.length}개 검사)`,
+    pairGap.length === 0, `단건에 누락=${pairGap.join(', ')}`)
+
   //  상태 목록은 lib/types 의 AssetStatus 선언에서 읽는다 — 여기 또 적으면 상태가 늘 때 이 가드만 옛 목록을
   //  보고 새 상태의 전환을 검사에서 빠뜨린다(이 가드가 잡으려는 '같은 개념 두 정의' 를 가드가 저지르는 꼴).
   const ASSET_STATES = [...(/export type AssetStatus = ([^\n]+)/.exec(readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8'))?.[1] ?? '')

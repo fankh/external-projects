@@ -1371,7 +1371,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       </div>
                     </div>
                   )}
-                  {sel.warrantyEnd !== '-' && (
+                  {/* 폐기 절차 자산에는 연장 컨트롤을 내주지 않는다 — 서버가 거절하고 일괄 바도 제외하는 조작이다 */}
+                  {sel.warrantyEnd !== '-' && !DISPOSAL_STATUSES.includes(sel.status) && (
                     <div style={{ marginTop: 10 }}>
                       {!wtyOpen ? (
                         <button className="btn sm" disabled={pending}
