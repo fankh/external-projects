@@ -105,6 +105,8 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
     const asset = s.assets.find((a) => a.assetNo === ins.refId)
     if (asset && !DISPOSAL_STATUSES.includes(asset.status) && !s.disposals.some((d) => d.assetNo === asset.assetNo)) {
       s.disposals.push({ id: nextId('DSP'), assetNo: asset.assetNo, model: asset.model, reason: `EOL·취약점 조치 1순위 — ${ins.title}`, status: '대상 선정', prevStatus: asset.status })
+      // 직접 선정(selectForDisposal)과 같은 이력을 남긴다 — AI 제안으로 편입된 자산만 타임라인이 비면 안 된다.
+      asset.history.push({ date: today(), kind: '폐기', detail: `폐기(교체) 대상 선정 — AI 제안 승인 ${ins.title} (${asset.status} → 폐기예정)`, actor: session.name })
       asset.status = '폐기예정'
       action = `폐기(교체) 대상 선정 — ${asset.assetNo}`
     } else if (asset) {

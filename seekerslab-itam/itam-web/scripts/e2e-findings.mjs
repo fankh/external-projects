@@ -2394,6 +2394,16 @@ try {
   ok('폐기 후보 단건 선정 취소: 원 상태 복원(후보 목록 복귀)',
     ((await p3.locator('body').textContent()) || '').includes(`${idleNo} 폐기 대상 선정을 취소했습니다`))
 
+  // 폐기 절차 편입·해제가 자산 타임라인에 남는가 — 폐기 반려 복원은 이력을 남기는데 정작 '대상 선정'은
+  //  남기지 않아, 자산 상세에 되돌림만 뜨고 그 앞에 선정된 적이 있다는 기록이 없었다(원인 없는 결과).
+  //  방금 선정·취소한 자산의 상세를 열어 두 사건이 모두 이력에 있는지 본다.
+  await p3.goto(`${BASE}/assets/register?sel=${idleNo}`, { waitUntil: 'networkidle' })
+  const tlText = ((await p3.locator('.tl').first().textContent()) || '').replace(/s+/g, ' ')
+  ok('자산 타임라인: 폐기 대상 선정이 이력에 남는다(전역 감사로그 말고 그 자산에서 읽힌다)',
+    tlText.includes('폐기 대상 선정 —'))
+  ok('자산 타임라인: 폐기 대상 선정 취소도 이력에 남는다(선정만 남고 해제가 비면 이력상 폐기 대기로 읽힌다)',
+    tlText.includes('폐기 대상 선정 취소 —'))
+
   // 결재 일괄 반려 — 중복·무효·예산 동결 등 한꺼번에 반려할 대기 결재를 같은 사유로 일괄 반려(일괄 승인의 반대편, 반려는 사유 필수). ADMIN 이 결재 가능한 자산 신청 APR-2607-120·121 선택 → 일괄 반려.
   await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   await p3.locator('input[aria-label="APR-2607-120 일괄 승인 선택"]').check()
@@ -4246,8 +4256,14 @@ try {
     .filter({ hasText: /^AST-\d{4}-\d{6}$/ }).first().textContent()) || '').trim()
   await pMG.goto(`${BASE}/assets/register?sel=${mgAsset}`, { waitUntil: 'networkidle' })
   const mgSecBody = (await pMG.textContent('body')) || ''
+  // 컨트롤 유무는 DOM 요소로 센다 — body 텍스트에는 RSC 페이로드(모든 자산의 이력 문자열 포함)가 섞여 있어,
+  //  버튼 라벨과 같은 낱말이 데이터에 등장하면 위양성이 난다. 실제로 '폐기 대상 선정' 은 이 화면의 컨트롤
+  //  라벨이 아니라 자산 이력 문구여서, 폐기 선정 이력이 생기자마자 이 검사가 깨졌다(검사가 없는 것을 찾고
+  //  있었으므로 그동안은 늘 통과했다 — 무증상 통과). 이 화면의 실제 컨트롤로 바꿔 검사한다.
   ok(`대장 조작 게이트: 보안담당 상세에 자산 운영 컨트롤 미노출 (${mgAsset})`,
-    !mgSecBody.includes('자산 재배정 (직접 인계)') && !mgSecBody.includes('폐기 대상 선정'))
+    (await pMG.locator('button', { hasText: /^자산 재배정 \(직접 인계\)$/ }).count()) === 0
+    && (await pMG.locator('a.btn', { hasText: /^폐기 처리$/ }).count()) === 0
+    && (await pMG.locator('button', { hasText: /미회수 확정 → 폐기/ }).count()) === 0)
   ok('대장 조작 게이트: 보안담당이 쓰는 컨트롤(라벨 인쇄)은 유지', mgSecBody.includes('라벨 인쇄'))
   // CSV 일괄 등록 패널도 같은 집합이어야 한다 — bulkRegisterAssets 가 자산담당·Admin 전용이라, 보안담당에게 패널을
   //  내주면 CSV 를 붙여넣고 미리보기까지 한 뒤 등록에서 거부된다(가장 늦게 거부되는 막다른 길).
@@ -4267,8 +4283,11 @@ try {
   await pMG2.goto(`${BASE}/assets/register?sel=${mgAsset}`, { waitUntil: 'networkidle' })
   ok('대장 조작 게이트: 자산담당에게는 CSV 일괄 등록 패널 노출(양성 대조)',
     (await pMG2.locator('button', { hasText: /일괄 등록$/ }).count()) >= 1)
+  // 양성 대조도 같은 방식(DOM)으로 센다 — 부정 검사만 고치면 '없음'은 엄밀해지고 '있음'은 여전히
+  //  데이터 문자열에 기대게 되어, 컨트롤이 사라져도 이력 문구만으로 통과할 수 있다.
   ok('대장 조작 게이트: 자산담당 상세에는 그대로 노출(양성 대조)',
-    ((await pMG2.textContent('body')) || '').includes('자산 재배정 (직접 인계)'))
+    (await pMG2.locator('button', { hasText: /^자산 재배정 \(직접 인계\)$/ }).count()) >= 1
+    && (await pMG2.locator('a.btn', { hasText: /^폐기 처리$/ }).count()) >= 1)
   await pMG2.goto(`${BASE}/assets/register?status=사용중`, { waitUntil: 'networkidle' })
   await pMG2.locator('tbody tr.clickable').first().locator('input[type="checkbox"]').first().check()
   await pMG2.waitForTimeout(300)

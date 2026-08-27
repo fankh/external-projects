@@ -2089,6 +2089,32 @@ try {
     .filter((rel) => rel !== 'lib/dates.ts')
   check(`보증 임박 판정: lib/dates 한 곳만 임계 비교(소스 ${sourceFiles.length}개 검사)`, warrantyHardcoded.length === 0, `직접 비교=${warrantyHardcoded.join(', ')}`)
 
+  // 폐기 절차 편입·해제의 자산 이력 — 자산 타임라인(대장 상세)은 그 자산에 무슨 일이 있었는지 읽는 곳이다.
+  //  폐기 반려 복원은 이력을 남기는데 정작 '폐기 대상 선정'은 남기지 않아, 타임라인에 되돌림만 뜨고 그 앞에
+  //  선정된 적이 있다는 기록이 없었다(원인 없는 결과). 반납·대여 반환 점검 경로는 이미 남기므로 직접 선정
+  //  경로(단건·일괄·AI 제안 승인)와 선정 취소만 비어 있었다. 상태를 폐기예정으로 바꾸는 곳이 전부 이력을
+  //  함께 남기는지 구조로 못박는다 — 경로가 늘어도 한쪽만 조용히 비지 않게.
+  //  대상은 폐기예정에 그치지 않는다 — 자산 상태 전환 전부가 같은 규약이라야 타임라인이 생애주기를 온전히 담는다.
+  //  상태 목록은 lib/types 의 AssetStatus 선언에서 읽는다 — 여기 또 적으면 상태가 늘 때 이 가드만 옛 목록을
+  //  보고 새 상태의 전환을 검사에서 빠뜨린다(이 가드가 잡으려는 '같은 개념 두 정의' 를 가드가 저지르는 꼴).
+  const ASSET_STATES = [...(/export type AssetStatus = ([^\n]+)/.exec(readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8'))?.[1] ?? '')
+    .matchAll(/'([^']+)'/g)].map((m) => m[1])
+  check('자산 상태 목록: AssetStatus 선언에서 읽어 온다(가드 자체가 공허해지지 않게)', ASSET_STATES.length >= 9, `읽은 상태=${ASSET_STATES.length}`)
+  const disposalEntry = []
+  for (const file of sourceFiles) {
+    const src = readFileSync(file, 'utf8')
+    const lines = src.split(/\r?\n/)
+    lines.forEach((ln, i) => {
+      const mv = /(\w+)\.status = '([^']+)'/.exec(ln)
+      if (!mv || !ASSET_STATES.includes(mv[2]) || !/^(asset|a|x|target|item)$/.test(mv[1])) return
+      const near = lines.slice(Math.max(0, i - 20), i + 24).join('\n')
+      if (near.includes('history.push')) return
+      disposalEntry.push(path.relative(ROOT, file).split(path.sep).join('/') + ':' + (i + 1))
+    })
+  }
+  check(`자산 상태 전환: ${ASSET_STATES.length}개 상태 전환마다 자산 이력을 남긴다(소스 ${sourceFiles.length}개 검사)`,
+    disposalEntry.length === 0, `이력 없음=${disposalEntry.join(', ')}`)
+
   // 스위트 포트 선점 가드 — 스위트는 저마다 전용 포트에 next start 를 띄우고 /login 이 200 이면 기동으로 본다.
   //  포트가 이미 물려 있으면 spawn 은 조용히 죽고 준비 확인만 남의 서버에서 통과해, '신선한 시드'라는 전제가
   //  깨진 채 앞 실행이 더럽혀 놓은 상태를 검사한다. 끝나며 죽은 spawn 만 kill 하니 다음 실행은 더 더러운 상태를
