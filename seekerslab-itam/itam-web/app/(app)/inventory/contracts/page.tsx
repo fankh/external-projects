@@ -7,7 +7,7 @@ import { ratioPct, daysUntil, fmtAmount } from '@/lib/dates'
 import { expiryNoticeTargets } from '@/lib/expiry'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { buildMaintenance } from '@/lib/maintenance'
-import { buildProcurement } from '@/lib/procurement'
+import { buildProcurement, UNDERORDER_RATE } from '@/lib/procurement'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { contractDocsTargets, maintenanceBudgetTargets, maintenanceExecTargets, maintenanceSlaTargets, procurementRemindTargets } from '@/lib/reminders'
 import { AddContract, ContractsTable } from './ContractsTable'
@@ -195,7 +195,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="num tnum">{r.inspectedValue > 0 ? `${fmtAmount(r.inspectedValue)}원` : '-'}</td>
                   <td className="c tnum">{r.lots}{r.rejected > 0 && <span className="dim" style={{ fontSize: 11 }}> (반려 {r.rejected})</span>}</td>
                   <td className="c tnum">{r.pendingInspection || <span className="dim">-</span>}</td>
-                  <td className="tnum">{r.end}{r.dday !== null && r.dday <= 90 && <span className="dim" style={{ fontSize: 11 }}> (D{r.dday >= 0 ? `-${r.dday}` : `+${-r.dday}`})</span>}</td>
+                  <td className="tnum">{r.end}{r.dday !== null && r.dday <= s.opsPolicy.expiryWindowDays && <span className="dim" style={{ fontSize: 11 }}> (D{r.dday >= 0 ? `-${r.dday}` : `+${-r.dday}`})</span>}</td>
                   <td className="c">{r.settled ? <Chip tone="neutral">정산 완료 {r.settledAt}</Chip> : r.atRisk ? <Chip tone="err">발주 미이행</Chip> : r.settleable ? <Chip tone="warn">정산 종결 가능</Chip> : r.pendingInspection > 0 ? <Chip tone="warn">검수 진행</Chip> : <Chip tone="ok">정상</Chip>}</td>
                 </tr>
               ))}
@@ -205,7 +205,8 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         </div>
         <div className="callout" style={{ margin: 14 }}>
           <b>계약 ↔ 입고 이행 추적.</b> 구매 계약의 입고 로트를 대사해 발주 소진률·검수 완료액(정산 근거)을 산출합니다.
-          <b>발주 미이행</b>은 발주율이 저조한데 만료가 임박한 계약으로, 잔여 발주 집행 또는 계약 연장·정산 종결이 필요합니다.
+          <b>발주 미이행</b>은 발주율 {UNDERORDER_RATE}% 미만이면서 만료가 {s.opsPolicy.expiryWindowDays}일 이내(운영 정책 만료 알림 창)로 임박한 계약으로,
+          잔여 발주 집행 또는 계약 연장·정산 종결이 필요합니다.
           검수 완료 로트의 금액이 대금 정산의 근거가 됩니다.
         </div>
       </Card>
