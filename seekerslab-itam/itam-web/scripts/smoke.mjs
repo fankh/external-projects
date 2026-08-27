@@ -1611,6 +1611,39 @@ try {
       inlineLeft += 1
     }
   }
+  // 거부 기록의 '대상'은 실재하는 화면 경로여야 한다 — 감사 로그 표가 그 경로를 링크로 내주므로,
+  //  오타 하나면 감사관이 누르는 순간 없는 화면으로 간다. 액션 파일마다 자기 화면 하나만 쓴다.
+  const pageRoutes = new Set()
+  const walkPages = (dir, base) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (!e.isDirectory()) { if (e.name === 'page.tsx') pageRoutes.add(base || '/'); continue }
+      const seg = e.name.startsWith('(') && e.name.endsWith(')') ? '' : `/${e.name}`
+      walkPages(path.join(dir, e.name), base + seg)
+    }
+  }
+  walkPages(path.join(ROOT, 'app'), '')
+  const denyTargets = []
+  for (const p of guardFiles) {
+    // 줄 단위로 읽는다 — 거부 메시지에 괄호가 들어 있어(예: '(자산담당·Admin).') 첫 ')' 로 끊으면 대상이 잘린다.
+    //  호출은 모두 한 줄이므로, 줄 끝의 "')" 앞 따옴표 쌍이 대상 경로다.
+    const set = new Set()
+    for (const ln of readFileSync(p, 'utf8').split(new RegExp(String.fromCharCode(92) + 'r?' + String.fromCharCode(92) + 'n'))) {
+      if (!ln.includes('denied(session.name,')) continue
+      const close = ln.lastIndexOf("')")
+      if (close < 0) continue
+      const open = ln.lastIndexOf("'", close - 1)
+      if (open > 0) set.add(ln.slice(open + 1, close))
+    }
+    if (set.size) denyTargets.push({ file: p.replace(ROOT, ''), targets: [...set] })
+  }
+  const badTargets = denyTargets.filter((x) => x.targets.length !== 1 || !pageRoutes.has(x.targets[0]))
+  check(`감사: 거부 기록의 대상이 실재하는 화면 (${denyTargets.length}개 액션 파일)`,
+    denyTargets.length >= 15 && badTargets.length === 0,
+    badTargets.map((x) => `${x.file} → ${x.targets.join(', ')}`).join(' / '))
+  // 대상 경로는 링크로 내준다 — 열 수 있는 사람에게만(감사 로그 표가 openableRoutes 로 이미 거른다)
+  const auditHtml = await (await get('/platform/integrations', 'ADMIN')).text()
+  check('감사 로그: 화면 경로 대상이 딥링크로 렌더(권한 있는 역할)',
+    auditHtml.includes('대상으로 이동') && auditHtml.includes('href="/settings/permissions"'))
   check(`감사: 액션 권한 거부 기록 ${inlineAudited}곳 (미기록 ${inlineLeft}곳)`, inlineAudited >= 55 && inlineAudited > inlineLeft / 2,
     `기록된 거부가 너무 적다 — denied() 이관이 되돌려졌는지 확인`)
   console.log(`    · 아직 손으로 적힌 권한 거부 ${inlineLeft}곳 — denied() 이관 대상(미로그인 거부는 제외)`)

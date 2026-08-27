@@ -12,6 +12,10 @@ export const qnaHref = (id: string) => `/board/qna?sel=${encodeURIComponent(id)}
  *  매핑되지 않는 값(부서명·'공지'·'Discovery' 등 라벨)은 null → 링크 없이 텍스트로 남긴다. */
 export function entityHref(ref?: string): { href: string; external?: boolean } | null {
   if (!ref) return null
+  // 화면 경로 그 자체가 대상인 기록 — 권한 거부(감사 '결과=실패')는 '어느 화면에서 시도했는가'를 경로로 남긴다.
+  //  ID 접두어 규칙에 걸리지 않아 텍스트로만 찍혔지만, 실제로 갈 수 있는 화면이라 링크로 내주는 편이 맞다.
+  //  열 수 있는지는 부르는 쪽(감사 로그 표)이 openableRoutes 로 이미 거른다 — 여기서는 형태만 판별한다.
+  if (ref.startsWith('/')) return { href: ref }
   if (ref.startsWith('AST-')) return { href: assetHref(ref) }
   if (ref.startsWith('APR-')) return { href: approvalHref(ref) }
   if (ref.startsWith('CT-') || ref.startsWith('LIC-')) return { href: contractHref(ref) }
