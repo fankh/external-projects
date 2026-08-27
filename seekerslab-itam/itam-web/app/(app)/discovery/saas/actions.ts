@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, appendDenial } from '@/lib/audit'
-import { decideSaasStatus } from '@/lib/saas'
+import { blockedSaasServices, decideSaasStatus } from '@/lib/saas'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import { can } from '@/lib/perm'
@@ -53,7 +53,7 @@ export async function consolidateSaas(category: string) {
   if (!session) return { ok: false, message: '통합 정리는 보안담당·Admin 만 가능합니다.' }
 
   const s = getStore()
-  const blocked = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
+  const blocked = blockedSaasServices()
   const group = s.saas.filter((x) => x.category === category && !blocked.has(x.service))
   const std = group.find((x) => x.sanctioned)
   if (!std) return { ok: false, message: `인가 표준이 없는 분류입니다 — 먼저 표준 서비스를 인가 카탈로그에 등재하세요 (${category}).` }

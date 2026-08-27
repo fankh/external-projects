@@ -3111,7 +3111,8 @@ try {
   walkUi(path.join(ROOT, 'lib'))
   for (const p of uiFiles) {
     const body = readFileSync(p, 'utf8')
-    if (p.endsWith('types.ts')) continue
+    // 정의 파일 자신은 대상이 아니다 — 판정이 사는 곳이다
+    if (p.endsWith('types.ts') || p.endsWith('saas.ts')) continue
     // 발견 자산의 '미분류 미등록'
     // onboardTargets 는 '편입 대상'이라는 다른 질문에 답하는 별개 정의다(관리 제외·격리요청까지 본다) — 대상이 아니다
     if (body.includes("discovered.filter((d) => d.state === '미등록' && !d.action")) rawUntriaged.push(p.replace(ROOT, '') + ' (발견)')
@@ -3120,11 +3121,13 @@ try {
     // USER 결재 스코프·수령 미확인
     if (body.includes("a.kind === '소유자 확인' && a.dept === session.dept")) rawScope.push(p.replace(ROOT, '') + ' (결재 스코프)')
     if (body.includes("receiptPending && a.status === '사용중'")) rawScope.push(p.replace(ROOT, '') + ' (수령 미확인)')
+    // SaaS 차단 판정 집합 — 브리핑·엑셀 반출·화면·어시스턴트가 각자 같은 Set 을 만들고 있었다(lib/saas 로 모았다)
+    if (body.includes("saasCatalog.filter((c) => c.status === '차단')")) rawScope.push(p.replace(ROOT, '') + ' (차단 SaaS)')
   }
   const untriagedUses = uiFiles.filter((p) => { const b = readFileSync(p, 'utf8'); return b.includes('isUntriagedDiscovery') || b.includes('isOpenExposure') }).length
-  const scopeUses = uiFiles.filter((p) => { const b2 = readFileSync(p, 'utf8'); return b2.includes('isApprovalVisibleToUser') || b2.includes('isReceiptPending') }).length
-  check(`결재 스코프·수령 미확인: 판정이 각각 한 정의 (사용 ${scopeUses}곳)`,
-    scopeUses >= 7 && rawScope.length === 0, `날 술어가 남음: ${rawScope.join(', ')}`)
+  const scopeUses = uiFiles.filter((p) => { const b2 = readFileSync(p, 'utf8'); return b2.includes('isApprovalVisibleToUser') || b2.includes('isReceiptPending') || b2.includes('blockedSaasServices') }).length
+  check(`결재 스코프·수령 미확인·차단 SaaS: 판정이 각각 한 정의 (사용 ${scopeUses}곳)`,
+    scopeUses >= 11 && rawScope.length === 0, `날 술어가 남음: ${rawScope.join(', ')}`)
   check(`발견·노출: '미조치' 판정이 각각 한 정의 (사용 ${untriagedUses}곳)`,
     untriagedUses >= 8 && rawUntriaged.length === 0, `날 술어가 남음: ${rawUntriaged.join(', ')}`)
   const qualitySrc = readFileSync(path.join(ROOT, 'lib', 'quality.ts'), 'utf8')
