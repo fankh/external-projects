@@ -1098,6 +1098,55 @@ try {
   const barcodeOf = (h) => (h.match(/<svg[^>]*viewBox="0 0 300 52"[\s\S]*?<\/svg>/) || [''])[0]
   const bc1 = barcodeOf(labelBody), bc2 = barcodeOf(label2Body)
   check('라벨 인쇄: 바코드가 자산번호별로 인코딩됨(상수·빈값 아님)', bc1.length > 0 && bc1 !== bc2 && (bc1.match(/<rect/g) || []).length > 20)
+  // 바코드가 '자산번호로 되읽히는가' — 위 검사는 바코드가 상수가 아니고 바가 여럿이라는 것만 본다.
+  //  패턴표 오타·체크섬 계산 오류·START/STOP 누락은 자산마다 다른 바코드를 그대로 만들어 내므로 통과한다.
+  //  그런데 재물조사 실사는 이 라벨을 스캔해 자산을 식별한다 — 스캐너가 다른 값을 읽으면 실사 결과가
+  //  통째로 어긋나고, 화면상으로는 아무 이상이 없다. 그려진 SVG 를 모듈 열로 되돌려 실제로 디코드한다.
+  //  (1) 패턴표 자체를 Code128 의 독립 성질로 검증한다 — 표를 그대로 써서 디코드하면 표 오타는
+  //      되읽기만으로 못 잡기 때문이다: 107개 · 11모듈 · 전부 상이 · '1'로 시작 · 런 6개(바3·공백3).
+  //  (2) 라벨 SVG 를 디코드해 자산번호와 같은지, 체크섬을 스모크가 직접 계산해 맞는지 본다.
+  const labelSrc = readFileSync(path.join(ROOT, 'lib', 'label.ts'), 'utf8')
+  const pat = [...(/const CODE128_PATTERNS = \[([\s\S]*?)\]/.exec(labelSrc)?.[1] ?? '').matchAll(/'(\d+)'/g)].map((m) => m[1])
+  const stopPat = /const STOP = '(\d+)'/.exec(labelSrc)?.[1] ?? ''
+  const runsOf = (x) => x.replace(/(.)\1*/g, 'x').length
+  const tableOk = pat.length === 107 && new Set(pat).size === 107
+    && pat.every((p) => p.length === 11 && p.startsWith('1') && runsOf(p) === 6)
+  check(`라벨 바코드: Code128 패턴표가 규격 성질을 만족(${pat.length}개 · 11모듈 · 상이 · 런 6)`, tableOk && stopPat.length === 13)
+
+  const decodeBarcode = (svg) => {
+    const vb = /viewBox="0 0 (\d+) \d+"/.exec(svg)
+    if (!vb) return { err: 'viewBox 없음' }
+    const rects = [...svg.matchAll(/<rect x="([\d.]+)"[^>]*width="([\d.]+)"/g)].map((m) => ({ x: Number(m[1]), w: Number(m[2]) }))
+    if (!rects.length) return { err: '바 없음' }
+    const mw = rects[0].w
+    const mods = new Array(Math.round(Number(vb[1]) / mw)).fill('0')
+    for (const r of rects) mods[Math.round(r.x / mw)] = '1'
+    let str = mods.join('')
+    if (!str.endsWith(stopPat)) return { err: 'STOP 없음' }
+    str = str.slice(0, -stopPat.length)
+    const codes = []
+    for (let i = 0; i + 11 <= str.length; i += 11) {
+      const idx = pat.indexOf(str.slice(i, i + 11))
+      if (idx < 0) return { err: '표에 없는 패턴' }
+      codes.push(idx)
+    }
+    if (codes.length < 3) return { err: '코드 부족' }
+    const chk = codes.pop()
+    const calc = codes.reduce((sum, c, i) => sum + (i === 0 ? c : c * i), 0) % 103
+    if (chk !== calc) return { err: `체크섬 ${chk} ≠ ${calc}` }
+    if (codes[0] !== 104) return { err: 'START-B 아님' }
+    return { text: codes.slice(1).map((c) => String.fromCharCode(c + 32)).join('') }
+  }
+  const decNos = ['AST-2023-000112', 'AST-2023-000113']
+  const decBad = []
+  for (const no of decNos) {
+    const body = no === 'AST-2023-000112' ? labelBody : label2Body
+    const d = decodeBarcode(barcodeOf(body))
+    if (d.text !== no) decBad.push(`${no}→${d.err ?? d.text}`)
+  }
+  check(`라벨 바코드: SVG 를 디코드하면 자산번호가 그대로 나온다(${decNos.length}건 · 체크섬 재계산 포함)`,
+    decBad.length === 0, `불일치=${decBad.join(', ')}`)
+
   // QR 도 자산번호별로 인코딩된다 — QR SVG(모듈 <path>)가 자산마다 다름(상수 QR 회귀 방지)
   const qrOf = (h) => ((h.match(/<svg[\s\S]*?<\/svg>/g) || []).find((s) => s.includes('<path')) || '')
   const qr1 = qrOf(labelBody), qr2 = qrOf(label2Body)
