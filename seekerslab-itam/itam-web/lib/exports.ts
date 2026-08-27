@@ -1,3 +1,4 @@
+import { blockedSaasServices } from './saas'
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf, repairTotalOf } from './cost'
 import { buildLicenseUsage } from './license-usage'
@@ -389,7 +390,7 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
     //  차단 판정이 끝난 서비스는 '판정 대기' 갭이 아니다 — sanctioned 는 인가/미인가 두 값뿐이라 차단을 담지 못한다.
     //  화면 KPI·부서별 요약과 주간 브리핑이 쓰는 기준(카탈로그 차단 목록)을 반출본도 그대로 쓴다. 사용 현황 시트는
     //  전 서비스를 담되 인가 여부 칸에 '차단 판정'을 구분해 적어, 판정 이력이 반출본에서 사라지지 않게 한다.
-    const blockedSaas = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
+    const blockedSaas = blockedSaasServices()
     const saasRows = s.saas.filter((x) => keep(x.id))
     const shadow = saasRows.filter((x) => !x.sanctioned && !blockedSaas.has(x.service))
     const deptAgg = Object.values(

@@ -13,6 +13,7 @@ import { ratioPct, addDays, addYears, dormantDaysOf, nowMinute, today, daysUntil
 import { ACQ_COST, USEFUL_LIFE_YEARS, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf, isEolTarget } from './eol'
 import { assetDataIssues, cmdbAccuracyPct, deptOfOwner, hasDataIssue } from './quality'
+import { blockedSaasServices, shadowSaasPending } from './saas'
 import { getStore } from './store'
 import { buildVulnPriority } from './vuln-priority'
 import { buildAnomalies } from './anomaly'
@@ -32,17 +33,13 @@ import type { DiscoveredAsset, ReportKind, ReportSchedule, ReportSection, SaasUs
  *  '소유자 확인 후 편입 또는 차단 판정이 필요합니다'라고 말하는 대상이 아니다.
  *  sanctioned 는 인가/미인가 두 값뿐이라 차단 판정을 담지 못한다 — 통합 후보 산정(saasConsolidationCandidates)이
  *  이미 쓰는 것과 같은 기준(카탈로그 차단 목록)으로 판정 완료분을 걷어낸다. 서버 전용. */
-export function shadowSaasPending(): SaasUsage[] {
-  const s = getStore()
-  const blocked = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
-  return s.saas.filter((x) => !x.sanctioned && !blocked.has(x.service))
-}
+export { shadowSaasPending }
 
 export function saasConsolidationCandidates(): { category: string; services: SaasUsage[]; users: number; shadowN: number; sanctioned?: SaasUsage }[] {
   const s = getStore()
   // 차단 판정된 서비스는 이미 정리(통합)된 것이므로 중복 후보에서 제외한다 — 통합 정리(로69)로 미인가 중복을
   // 표준으로 몰아 차단하면 해당 분류가 후보에서 빠져야 조치가 화면에 반영된다.
-  const blocked = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
+  const blocked = blockedSaasServices()
   return Object.values(
     s.saas.filter((x) => !blocked.has(x.service)).reduce<Record<string, { category: string; services: SaasUsage[] }>>((acc, x) => {
       ;(acc[x.category] ??= { category: x.category, services: [] }).services.push(x)

@@ -1,4 +1,5 @@
 'use server'
+import { blockedSaasServices, shadowSaasPending } from '@/lib/saas'
 import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
 import { isPlaceholder } from '@/lib/quality'
@@ -13,7 +14,7 @@ import { assetDependencies, criticalDependencies, impactSources } from '@/lib/cm
 import { availableAssets, lowStockCategories } from '@/lib/stock'
 import { upcomingSchedule } from '@/lib/upcoming'
 import { compositeRiskAssetNos, riskSignalCount } from '@/lib/risk'
-import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates, shadowSaasPending } from '@/lib/reports'
+import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { buildAnomalies } from '@/lib/anomaly'
 import { getSession } from '@/lib/session'
@@ -67,7 +68,7 @@ function buildContext(userName: string, isUser: boolean, canAsset: boolean): str
   // 보안담당·자산담당 공용 컨텍스트 — 발견 자산·Shadow SaaS·결재 대기·외부 위협·계정 위생(보안담당 정당 도메인)
   if (!isUser) {
     // 카탈로그 차단 판정 — sanctioned 는 인가/미인가 두 값뿐이라, LLM 컨텍스트에서도 이미 차단한 서비스가 미판정처럼 보인다.
-    const blockedSaas = new Set(s.saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
+    const blockedSaas = blockedSaasServices()
     lines.push(
       `[발견 자산] ${s.discovered.length}건`,
       ...s.discovered.map((d) => `- ${d.id} | ${d.hostname} | ${d.type} | ${d.channel} | ${d.state} | 위험도:${d.risk} | 최근:${d.lastSeen}${d.note ? ` | ${d.note}` : ''}`),

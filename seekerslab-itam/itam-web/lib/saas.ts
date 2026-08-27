@@ -1,13 +1,27 @@
 import { today } from './dates'
 import { escalate } from './notify'
 import { getStore } from './store'
-import type { SaasCatalogEntry } from './types'
+import type { SaasCatalogEntry, SaasUsage } from './types'
 
 /** SaaS 카탈로그 판정(상태 반영) — 설정 카탈로그(decideSaas)·Shadow SaaS(classifyShadowSaas) 두 진입점이
  *  동일한 판정 결과를 내도록 단일화한다. 그동안 차단 집행 요청은 설정 화면에서만 나가고 Shadow SaaS 화면에서
  *  차단하면 카탈로그 상태만 바뀌어, 문서가 광고한 '두 화면 동일 카탈로그' 대칭이 깨져 있었다.
  *  판정자·기한(검토중 SLA) 반영 + 부서별 사용 현황 인가 동기화 + 차단 신규 판정 시 보안운영팀 프록시·DNS
  *  차단 집행 요청(로37 검출→조치, 외부 노출 차단과 대칭). 감사 문구는 호출부가 newlyBlocked 로 보강한다. */
+/** 차단 판정이 난 SaaS 서비스명 집합 — 카탈로그가 곧 판정 대장이다.
+ *  브리핑·엑셀 반출·Shadow SaaS 화면·어시스턴트가 각자 같은 Set 을 만들고 있었다. */
+export function blockedSaasServices(): Set<string> {
+  return new Set(getStore().saasCatalog.filter((c) => c.status === '차단').map((c) => c.service))
+}
+
+/** 판정 대기 미인가 SaaS — 미인가지만 차단 판정까지는 나지 않은 것.
+ *  sanctioned 는 인가/미인가 두 값뿐이라 '차단'을 담지 못한다 — 차단 판정이 끝난 서비스는 판정 갭이 아니다.
+ *  화면 KPI·부서별 요약·주간 브리핑·엑셀 반출이 이 한 정의를 공유해야 같은 수를 말한다. */
+export function shadowSaasPending(): SaasUsage[] {
+  const blocked = blockedSaasServices()
+  return getStore().saas.filter((x) => !x.sanctioned && !blocked.has(x.service))
+}
+
 export function decideSaasStatus(entry: SaasCatalogEntry, status: SaasCatalogEntry['status'], actor: string): { newlyBlocked: boolean; newlyUnblocked: boolean } {
   const s = getStore()
   const prev = entry.status
