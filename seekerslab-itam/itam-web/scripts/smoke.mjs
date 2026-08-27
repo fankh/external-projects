@@ -3096,6 +3096,14 @@ try {
       if (/0건(으로|이며|이고)[^.]{0,40}(필요합니다|대상입니다|해야 합니다)/.test(ln)) zeroDemands.push(`${name}: ${ln.trim().slice(0, 70)}`)
     }
   }
+  // 대장 정합성(CMDB 정확도)은 세 리포트가 같은 수를 적어야 하는데, 각자 같은 식을 복사해 두고 있었다 —
+  //  hasDataIssue 의 범위를 한 곳에서 바꾸면 셋이 갈린다. 정의는 lib/quality 하나뿐이어야 한다.
+  const qualitySrc = readFileSync(path.join(ROOT, 'lib', 'quality.ts'), 'utf8')
+  const accuracyUses = reportsSrc.split('cmdbAccuracyPct(').length - 1
+  const inlineAccuracy = reportsSrc.split('ratioPct(live').length - 1
+  check(`대장 정합성: 정확도 정의는 lib/quality 한 곳 (리포트 ${accuracyUses - 0}곳이 사용)`,
+    qualitySrc.includes('export function cmdbAccuracyPct(') && accuracyUses >= 3 && inlineAccuracy === 0,
+    `직접 계산 ${inlineAccuracy}곳 · 헬퍼 사용 ${accuracyUses}곳`)
   check(`리포트: 0건인데 조치를 요구하는 문장이 없다 (샘플 ${sampleMd.length}종)`,
     sampleMd.length >= 15 && zeroDemands.length === 0, zeroDemands.join(' / '))
   check(`감가상각 명세: 오늘 기준 잔여 상각액 = 현재 잔존가 (${depRemain.toLocaleString()}원)`,
