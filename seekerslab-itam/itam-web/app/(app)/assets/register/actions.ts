@@ -12,7 +12,7 @@ import { getStore, nextAssetNo, nextId } from '@/lib/store'
 import { requiresApproval } from '@/lib/approval'
 import { can } from '@/lib/perm'
 import { eolNoticeTargets, impactNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
-import { ASSET_CATEGORIES, CRITICALITY_LEVELS, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES, TERMINAL_STATUSES } from '@/lib/types'
+import { ASSET_CATEGORIES, CRITICALITY_LEVELS, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
 
@@ -106,7 +106,11 @@ export async function setAssetContractMany(assetNos: string[], rawContractId: st
   if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
   if (c.status === '해지') return { ok: false, message: '해지된 계약에는 연계할 수 없습니다.' }
   // 종료(터미널) 상태 자산은 건너뛴다 — 이탈·폐기 자산이 유지보수 커버리지·연계 자산 수를 부풀리지 않게(단건 가드와 동형·멱등).
-  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.contractId !== contractId && !TERMINAL_STATUSES.includes(a.status))
+  //  판정 묶음은 단건과 같은 GONE_STATUSES 여야 한다 — TERMINAL_STATUSES 는 분실·폐기완료뿐이라 폐기예정이 빠진다.
+  //  그래서 같은 자산이 단건으로는 '종료 상태라 연계 불가'로 거절되고 일괄로는 조용히 연계됐다(주석은 '단건
+  //  가드와 동형'이라고 적혀 있었다). 폐기 절차에 들어간 자산이 유지보수 커버리지·연계 자산 수를 부풀리는
+  //  것이 두 주석이 함께 막으려던 바로 그 일이다.
+  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.contractId !== contractId && !GONE_STATUSES.includes(a.status))
   if (targets.length === 0) return { ok: false, message: '연계할 자산이 없습니다 (이미 연계된 건·종료 상태 자산 제외).' }
   for (const asset of targets) {
     const before = asset.contractId ?? '(없음)'
@@ -115,7 +119,7 @@ export async function setAssetContractMany(assetNos: string[], rawContractId: st
   }
   appendAudit({ actor: session.name, action: `자산–계약 일괄 연계 (${targets.length}건) → ${contractId} (${c.name})`, target: contractId })
   revalidatePath('/', 'layout')
-  const skippedC = assetNos.length - targets.length // 이미 연계됐거나 분실·폐기완료라 건너뛴 선택분
+  const skippedC = assetNos.length - targets.length // 이미 연계됐거나 분실·폐기예정·폐기완료라 건너뛴 선택분
   return { ok: true, message: `${targets.length}건 → ${contractId} (${c.name}) 계약 일괄 연계 완료${skippedC > 0 ? ` (이미 연계·종료 상태 ${skippedC}건 제외)` : ''}` }
 }
 
