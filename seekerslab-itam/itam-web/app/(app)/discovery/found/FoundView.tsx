@@ -3,7 +3,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import { classifyDiscoveredType } from '@/lib/classify'
 import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState, RiskLevel } from '@/lib/types'
-import { CHANNELS } from '@/lib/types'
+import { CHANNELS, isUntriagedDiscovery } from '@/lib/types'
 import { confirmReconcile, confirmSurvival, dismissDiscovered, dismissDiscoveredMany, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestOwnerConfirmMany, requestQuarantine, undismissDiscovered } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
@@ -106,7 +106,7 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
     }).sort((a, b) => {
       // 위험도 높은 순 → 같은 위험도면 처리 대기(미등록·미조치) 우선 → 최근 관측 순. 보안담당이 가장 급한 발견부터 조치(제품안내서 §04 위험도 분류 → 우선 처리).
       const rw = (r: RiskLevel) => (r === '높음' ? 0 : r === '중간' ? 1 : 2)
-      const sw = (d: (typeof items)[number]) => (d.state === '미등록' && !d.action ? 0 : 1)
+      const sw = (d: (typeof items)[number]) => (isUntriagedDiscovery(d) ? 0 : 1)
       return rw(a.risk) - rw(b.risk) || sw(a) - sw(b) || (b.lastSeen ?? '').localeCompare(a.lastSeen ?? '')
     }),
     [items, channel, fstate, frisk, fq, fAwait, fOpen, awaitOverdueSet, obsBy],

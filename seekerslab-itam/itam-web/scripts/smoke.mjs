@@ -3098,6 +3098,26 @@ try {
   }
   // 대장 정합성(CMDB 정확도)은 세 리포트가 같은 수를 적어야 하는데, 각자 같은 식을 복사해 두고 있었다 —
   //  hasDataIssue 의 범위를 한 곳에서 바꾸면 셋이 갈린다. 정의는 lib/quality 하나뿐이어야 한다.
+  // '아직 분류 안 된 미등록 발견'은 대시보드 KPI·상단바 배지·발견 화면·AI 어시스턴트가 함께 쓰는 판정인데,
+  //  이름 없이 여섯 곳에 그대로 복사돼 있었다(리포트의 onboardTargets 는 다른 질문에 답하는 별개 정의다).
+  //  한쪽만 바꾸면 화면들이 조용히 갈리므로, 날 술어가 남아 있지 않은지 본다.
+  const rawUntriaged = []
+  const uiFiles = []
+  const walkUi = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, e.name); if (e.isDirectory()) walkUi(p); else if (/[.]tsx?$/.test(e.name)) uiFiles.push(p) } }
+  walkUi(path.join(ROOT, 'app'))
+  walkUi(path.join(ROOT, 'lib'))
+  for (const p of uiFiles) {
+    const body = readFileSync(p, 'utf8')
+    if (p.endsWith('types.ts')) continue
+    // 발견 자산의 '미분류 미등록'
+    // onboardTargets 는 '편입 대상'이라는 다른 질문에 답하는 별개 정의다(관리 제외·격리요청까지 본다) — 대상이 아니다
+    if (body.includes("discovered.filter((d) => d.state === '미등록' && !d.action")) rawUntriaged.push(p.replace(ROOT, '') + ' (발견)')
+    // 외부 노출의 '미조치' — 브리핑 리포트만 '미등록'으로 좁혀 세면서 같은 기준이라 적었다(7건 → 4건 과소 보고)
+    if (body.includes("e.state !== '등록·일치'") || body.includes("x.state !== '등록·일치'")) rawUntriaged.push(p.replace(ROOT, '') + ' (외부 노출)')
+  }
+  const untriagedUses = uiFiles.filter((p) => { const b = readFileSync(p, 'utf8'); return b.includes('isUntriagedDiscovery') || b.includes('isOpenExposure') }).length
+  check(`발견·노출: '미조치' 판정이 각각 한 정의 (사용 ${untriagedUses}곳)`,
+    untriagedUses >= 8 && rawUntriaged.length === 0, `날 술어가 남음: ${rawUntriaged.join(', ')}`)
   const qualitySrc = readFileSync(path.join(ROOT, 'lib', 'quality.ts'), 'utf8')
   const accuracyUses = reportsSrc.split('cmdbAccuracyPct(').length - 1
   const inlineAccuracy = reportsSrc.split('ratioPct(live').length - 1

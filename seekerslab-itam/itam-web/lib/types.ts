@@ -1238,6 +1238,26 @@ export interface ChatMessage {
  *
  *  그래서 구현이 없는 칸에는 '본인'을 아예 주지 못하게 막고(setPermission 이 거부, 화면은 순환에서 건너뜀),
  *  범위를 좁히려면 여기에 구현과 함께 칸을 등록하도록 한다. */
+/** 아직 아무 조치도 시작되지 않은 미등록 발견 자산 — 대시보드 KPI·상단바 배지·발견 화면·AI 어시스턴트가 세는 그 집합.
+ *
+ *  lib/reports 의 onboardTargets 와 다른 질문에 답한다: 이쪽은 '분류(triage)가 아직 안 된 것'이고,
+ *  저쪽은 '편입 대상'이라 확인요청·편입요청처럼 이미 편입 경로 위에 오른 건도 포함한다(관리 제외·격리요청만 뺀다).
+ *  시드 기준 5건 대 7건으로 수가 다르며, 둘 다 맞는 수다 — 라벨이 다르므로(신규 발견 vs 편입 대상) 문제가 아니다.
+ *  다만 이쪽은 이름 없이 여섯 곳에 그대로 복사돼 있었다. 한쪽만 바꾸면 화면들이 조용히 갈리므로 이름을 준다.
+ *  순수 함수 — 클라이언트 컴포넌트(발견 목록 정렬)도 쓴다. */
+export function isUntriagedDiscovery(d: Pick<DiscoveredAsset, 'state' | 'action'>): boolean {
+  return d.state === '미등록' && !d.action
+}
+
+/** 미조치 외부 노출 — 대시보드 큐·외부 위협 화면·AI 어시스턴트가 세는 그 집합.
+ *  이미 대장과 일치(등록·일치)로 대사된 노출은 조치 대상이 아니고, 그 밖(미등록·등록·불일치·미확인)은 대상이다.
+ *  주간 Shadow IT 브리핑만 '미등록'으로 좁혀 세면서 주석에는 '형제 신호와 같은 기준'이라 적어,
+ *  시드 기준 7건을 4건으로(미확인 3건 누락) 보고했다 — 경영 보고용 문서라 과소 보고가 그대로 나간다.
+ *  순수 함수 — 클라이언트 표도 쓴다. */
+export function isOpenExposure(e: Pick<ExternalAsset, 'state' | 'action'>): boolean {
+  return !e.action && e.state !== '등록·일치'
+}
+
 export const PARTIAL_SCOPES: Record<string, string> = {
   '자산 대장|조회|USER': '본인 보유 자산만 — app/(app)/assets/register/page.tsx 가 owner 로 거른다',
   '자산 대장|엑셀|USER': '본인 보유 자산만 — lib/exports.ts buildSheets(assets)',

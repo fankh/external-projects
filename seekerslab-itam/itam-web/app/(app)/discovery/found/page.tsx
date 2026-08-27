@@ -4,7 +4,7 @@ import { can } from '@/lib/perm'
 import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { CHANNELS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
+import { CHANNELS, RECONCILE_STATES, type ReconcileState, isUntriagedDiscovery } from '@/lib/types'
 import { AccountTable } from './AccountTable'
 import { CloudTable } from './CloudTable'
 import { EscalateBar } from './EscalateBar'
@@ -27,7 +27,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
   const d = s.discovered
   // 전역 검색·딥링크(?sel=DSC-…)로 특정 발견 자산 상세를 바로 연다(대장·계약·게시판 딥링크와 동형)
   const initialSel = sel && d.some((x) => x.id === sel) ? sel : undefined
-  const unreg = d.filter((x) => x.state === '미등록' && !x.action)
+  const unreg = d.filter(isUntriagedDiscovery)
   // 편입·격리요청은 권한 매트릭스가 서버에서 강제하는 기능이다(메뉴 정의의 enforced 목록). 화면도 같은 원천을 봐야
   //  매트릭스에서 회수했을 때 버튼이 남아 눌러도 아무 일이 없는 상태가 되지 않는다(엑셀 반출과 같은 규약).
   const canOnboard = can('발견 자산 · CMDB 대사', '편입', session.role)

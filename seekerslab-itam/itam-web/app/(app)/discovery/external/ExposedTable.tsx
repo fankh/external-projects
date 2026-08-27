@@ -2,6 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import { certLiveness } from '@/lib/easm'
+import { isOpenExposure } from '@/lib/types'
 import type { ExternalAsset, ReconcileState } from '@/lib/types'
 import { acceptExternalRisk, requestExternalAction, requestExternalActionMany, revokeExternalRisk } from './actions'
 
@@ -26,7 +27,6 @@ export function ExposedTable({ externals, canAct, openOnly: openOnlyParam }: { e
   // 미조치만 보기 — 대시보드 '외부 노출 미조치' 큐의 드릴다운. 조치 완료분까지 함께 쌓이는 표라 큐가 말한 건수를
   //  화면에서 다시 세어야 했다(발견 자산 화면의 네 조치 표와 같은 규약).
   // 미조치 판정은 대시보드 큐와 같다 — 이미 대장과 일치(등록·일치)로 대사된 노출은 조치 대상이 아니다.
-  const isOpenExposure = (x: ExternalAsset) => !x.action && x.state !== '등록·일치'
   const openCount = sorted.filter(isOpenExposure).length
   const shown = openOnly ? sorted.filter(isOpenExposure) : sorted
   const toggle = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
