@@ -2111,6 +2111,32 @@ try {
     .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
   check(`자산 상태 목록: lib/types 밖에 사본 없음(소스 ${sourceFiles.length}개 검사)`, relisted.length === 0, `사본=${relisted.join(', ')}`)
 
+  // 실사 위치 레지스트리의 실물 커버리지 — 공통코드 LOCATION 은 재물조사 계획의 대상 범위이자 실사 스캔의
+  //  위치 선택지다(survey-plan · survey). 대장에 실물이 놓인 위치가 여기 없으면 그 자산은 회차에 편성될 수도
+  //  그 위치로 스캔될 수도 없어, 실물이 있는데 실사에서 구조적으로 빠진다 — 재물조사가 잡으려는 '유령 자산'
+  //  상태를 재물조사 자신이 만드는 셈이다. 실제로 본사 7F·6F·12F·2F 대회의실·5F 수리대기·IDC-A Rack 15 의
+  //  자산 8대가 그랬다. 물리 자산(가상자원·SW 제외, 폐기완료 제외, 위치 미지정 '-' 제외)만 따진다.
+  const locSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8').split(String.fromCharCode(13, 10)).join(String.fromCharCode(10))
+  const locGi = locSrc.indexOf("id: 'LOCATION'")
+  const locBlock = locSrc.slice(locGi, locSrc.indexOf(')', locSrc.indexOf('values: v(', locGi)) + 1)
+  const registered = [...locBlock.matchAll(/, '([^']+)'\]/g)].map((m) => m[1])
+  const seedStart = locSrc.indexOf('function seedAssets')
+  const seedEnd = locSrc.indexOf(String.fromCharCode(10) + 'function ', seedStart + 10)
+  const assetBlocks = locSrc.slice(seedStart, seedEnd > 0 ? seedEnd : undefined).split('mk({').slice(1)
+  const NON_PHYSICAL = ['가상자원', 'SW']
+  const unregistered = assetBlocks
+    .map((b) => ({
+      no: /assetNo: '([^']+)'/.exec(b)?.[1] ?? '?',
+      cat: /category: '([^']+)'/.exec(b)?.[1] ?? '',
+      st: /status: '([^']+)'/.exec(b)?.[1] ?? '',
+      loc: /location: '([^']+)'/.exec(b)?.[1] ?? '',
+    }))
+    .filter((x) => x.loc && x.loc !== '-' && !NON_PHYSICAL.includes(x.cat) && x.st !== '폐기완료')
+    .filter((x) => !registered.includes(x.loc))
+    .map((x) => `${x.no}@${x.loc}`)
+  check(`실사 위치 레지스트리: 실물 자산의 위치가 모두 등록됨(위치 ${registered.length}종 · 자산 ${assetBlocks.length}건 검사)`,
+    registered.length >= 10 && assetBlocks.length >= 20 && unregistered.length === 0, `미등록=${unregistered.join(', ')}`)
+
   //  그리고 공통코드 대장의 '자산 상태' 그룹이 실제 상태 전량과 같은지 본다 — 공통코드 화면은 코드값마다
   //  '사용 N건'을 세는데(lib/codes codeUsage: status === label), 값이 빠지면 그 상태의 자산이 어느 코드값에도
   //  잡히지 않아 사용 건수의 합이 보유 대수에 못 미친다. 빠진 값은 미사용화·명칭 변경 관리도 불가능하다.
