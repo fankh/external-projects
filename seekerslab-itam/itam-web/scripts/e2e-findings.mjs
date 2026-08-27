@@ -1717,6 +1717,16 @@ try {
   await ctReason.press('Enter')
   await p3.waitForTimeout(700)
   ok('계약 해지: 연계 라이선스·자산 영향 노출(검토 필요)', (await p3.textContent('body')).includes('라이선스 1건(구독 확인)') && (await p3.textContent('body')).includes('검토 필요'))
+
+  // 해지 사유가 계약에 남는가 — 사유는 필수인데 그동안 감사로그와 통지 제목에만 남고 계약에는 붙지 않았다.
+  //  해지된 계약을 나중에 보는 사람(재계약 검토·공급사 평가)에게는 '왜 끊었는가'가 곧 판단 근거다.
+  //  화면 표기(툴팁)와 계약 대장 반출 양쪽에서 확인한다 — 증적은 반출로 나간다.
+  const ctTip = await p3.locator('tr', { has: p3.locator('td', { hasText: 'CT-2023-002' }) }).first()
+    .locator('[title*="해지"]').first().getAttribute('title')
+  ok('계약 해지: 화면 표기에 사유가 담긴다', (ctTip || '').includes('공급사 변경'))
+  const ctXls = Buffer.from(await (await p3.request.get(`${BASE}/api/export/contracts`)).body()).toString('utf8')
+  ok('계약 해지: 계약 대장 반출에 해지 사유가 실린다(미기재 아님)',
+    ctXls.includes('해지 사유') && ctXls.includes('공급사 변경 — 신규 계약 이관'))
   // 역방향 교차 정합 — 근거 계약이 해지되면 그 라이선스(LIC-001 Microsoft 365)에 '근거 해지' 표기(v1.272 의 역방향)
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const licTable2 = p3.locator('table', { has: p3.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first()
