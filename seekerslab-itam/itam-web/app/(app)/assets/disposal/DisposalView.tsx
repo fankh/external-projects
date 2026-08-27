@@ -214,7 +214,12 @@ export function DisposalView({ candidates, records, initialStatus, canExport }: 
                           <input className="input" type="number" min={0} style={{ width: 90, height: 25, fontSize: 11 }} placeholder="매각 대금"
                             value={proceeds[d.id] ?? ''} onChange={(e) => setProceeds((m) => ({ ...m, [d.id]: e.target.value }))} />
                         )}
-                        <button className="btn sm danger" disabled={pending}
+                        {/* 매각인데 대금이 비면 서버가 거절한다 — 컨트롤도 같은 판정을 보여 막다른 클릭을 없앤다.
+                            (이 화면의 규약: 서버가 거절할 조작은 컨트롤을 그대로 내주지 않는다) */}
+                        <button className="btn sm danger"
+                          disabled={pending || ((disp[d.id] ?? DISPOSITIONS[0]) === '매각' && !(Number(proceeds[d.id] ?? 0) > 0))}
+                          title={(disp[d.id] ?? DISPOSITIONS[0]) === '매각' && !(Number(proceeds[d.id] ?? 0) > 0)
+                            ? '매각 대금을 입력하세요 — 소거 완료 후에는 대금을 기록할 경로가 없습니다' : '데이터 소거·물리 처분을 등록하고 확인서를 발급합니다'}
                           onClick={() => startTransition(async () => {
                             const r = await recordWipe(d.id, method[d.id] ?? METHODS[0], disp[d.id] ?? DISPOSITIONS[0], Number(proceeds[d.id] ?? 0))
                             setMsg({ ok: r.ok, text: r.message })
