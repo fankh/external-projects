@@ -480,7 +480,12 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
           // 반려 사유는 반려일 때만 뜻이 있다 — 다른 상태의 빈 칸과 섞이지 않게 '-' 로 구분한다.
           a.status === '반려' ? (a.rejectReason ?? '미기재') : '-',
           a.status === '반려' ? (a.resubmitted ? '재상신함' : '미재상신') : '-',
-          a.refId ?? '-', a.fulfilled ? '집행완료' : a.status === '승인' ? '집행 대기' : '-',
+          a.refId ?? '-',
+          // 집행 상태는 세 갈래다 — 완료 · 불가(승인했으나 대상이 사라져 종결) · 대기. 불가를 대기로 적으면
+          //  이미 닫은 건이 반출에서 영원히 미결로 읽힌다.
+          a.fulfilled ? '집행완료'
+            : a.unfulfilledReason ? `집행 불가 — ${a.unfulfilledReason}${a.unfulfilledAt ? ` (${a.unfulfilledAt})` : ''}`
+            : a.status === '승인' ? '집행 대기' : '-',
         ]
       }),
   }]
