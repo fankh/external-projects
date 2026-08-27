@@ -2379,6 +2379,19 @@ try {
   check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
 
+  // 해지 증적의 세 요소 — 언제(terminatedAt)·왜(terminateReason)·누가(terminatedBy). 결재는 decidedBy,
+  //  폐기 소거는 wipedBy, 입고 검수는 inspector 를 레코드에 남기는데 계약·라이선스 해지만 사람이 빠져 있었다.
+  //  해지는 되돌릴 수 없고 만료 임박 집계·알림·컴플라이언스에서 그 건을 빼는 결과를 낳는다 — 감사에서
+  //  '누가 끊었나'는 전역 로그가 아니라 그 계약에서 답해야 하는 질문이다.
+  const termSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'inventory', 'contracts', 'actions.ts'), 'utf8')
+  const termFns = ['terminateContract', 'retireLicense']
+  const termGaps = termFns.filter((fn) => {
+    const at = termSrc.indexOf('export async function ' + fn)
+    if (at < 0) return true
+    const body = termSrc.slice(at, at + 2500)
+    return !(/\.terminatedAt = /.test(body) && /\.terminateReason = /.test(body) && /\.terminatedBy = /.test(body))
+  })
+  check(`해지 증적: 언제·왜·누가를 모두 레코드에 남긴다(${termFns.length}개 액션)`, termGaps.length === 0, `누락=${termGaps.join(', ')}`)
   // 사유를 필수로 받는 조작은 그 사유를 레코드에도 남기는가 — 사유를 통지 제목·감사로그에만 적으면,
   //  나중에 그 레코드를 보는 사람은 '왜 이렇게 됐는지'를 전역 로그에서 뒤져야 한다. 반려·해지처럼 되돌릴 수
   //  없는 판정일수록 근거는 판정 옆에 있어야 한다(입고 검수 반려·계약 해지·라이선스 해지가 실제로 그랬다).

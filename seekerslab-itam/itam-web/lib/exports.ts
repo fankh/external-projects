@@ -286,22 +286,23 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
       {
         name: '계약',
         // 화면(ContractsTable)이 보여주는 SLA·집행(비용 이력 누계)을 감사 반출에도 담는다 — 벤더 SLA 검토·예산 집행 대사 증적.
-        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '집행(누계)', '연계 자산 수', '시작일', '만료일', '잔여일', '상태', '해지 사유', 'SLA', '부속서류 미비'],
+        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '집행(누계)', '연계 자산 수', '시작일', '만료일', '잔여일', '상태', '해지 사유', '해지 처리자', 'SLA', '부속서류 미비'],
         rows: s.contracts.filter((c) => keep(c.id)).map((c) => {
           const miss = missingContractDocs(c)
           const spent = (c.costs ?? []).reduce((n, x) => n + x.amount, 0)
-          return [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, (c.costs?.length ?? 0) > 0 ? spent : '', contractAssetCount(c.id), c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효', c.status === '해지' ? (c.terminateReason ?? '미기재') : '-', c.sla ?? '', miss.length > 0 ? miss.join('·') : '완비']
+          return [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, (c.costs?.length ?? 0) > 0 ? spent : '', contractAssetCount(c.id), c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효', c.status === '해지' ? (c.terminateReason ?? '미기재') : '-', c.status === '해지' ? (c.terminatedBy ?? '미기재') : '-', c.sla ?? '', miss.length > 0 ? miss.join('·') : '완비']
         }),
       },
       {
         name: 'SW 라이선스',
-        header: ['ID', '라이선스', '공급사', '근거 계약', '보유', '사용', '차이', '단가', '만료일', '판정', '해지 사유'],
+        header: ['ID', '라이선스', '공급사', '근거 계약', '보유', '사용', '차이', '단가', '만료일', '판정', '해지 사유', '해지 처리자'],
         rows: s.licenses.filter((l) => keep(l.id)).map((l) => {
           const gap = l.used - l.purchased
           return [
             l.id, l.name, l.vendor, l.contractId ?? '미연계', l.purchased, l.used, gap, l.unitCost, l.expiry,
             l.status === '해지' ? '해지' : gap > 0 ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정',
             l.status === '해지' ? (l.terminateReason ?? '미기재') : '-',
+            l.status === '해지' ? (l.terminatedBy ?? '미기재') : '-',
           ]
         }),
       },

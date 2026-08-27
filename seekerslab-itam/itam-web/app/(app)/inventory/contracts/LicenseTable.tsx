@@ -109,7 +109,7 @@ export function LicenseTable({ rows, sel, canEdit, expiryWindowDays, lic }: { ro
                     <span className="hstack" style={{ gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
                       {retired ? (
                         <span className="hstack" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-                          <span className="mut" style={{ fontSize: 11 }} title={`${l.terminatedAt ?? ''} 해지${l.terminateReason ? ` — ${l.terminateReason}` : ''}`}>해지됨</span>
+                          <span className="mut" style={{ fontSize: 11 }} title={`${l.terminatedAt ?? ''} 해지${l.terminatedBy ? ` · ${l.terminatedBy}` : ''}${l.terminateReason ? ` — ${l.terminateReason}` : ''}`}>해지됨</span>
                           {/* 해지해도 좌석·설치는 남는다 — 해지 라이선스는 사용 수집 대사에서 빠지므로 여기서 규모를 밝히지 않으면
                               구독은 끊겼는데 SW 는 깔린 채 남은 단말이 아무 화면에도 안 잡힌다(제거 대상 실종). */}
                           {((l.seats?.length ?? 0) > 0 || (l.installCount ?? 0) > 0) && (
