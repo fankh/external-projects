@@ -44,6 +44,8 @@ export async function closeReturnedLot(lotId: string) {
   if (lot.status !== '검수 반려') return { ok: false, message: '검수 반려된 로트만 반품 완료할 수 있습니다.' }
 
   lot.status = '반품 완료'
+  lot.closedAt = today()
+  lot.closedBy = session.name
   dispatch({ channel: '이메일', to: lot.vendor, subject: `${lot.id} ${lot.model} ${lot.qty}대 반품 완료 확인 — 교체 없이 종결`, kind: '입고 반려', ref: lot.id })
   appendAudit({ actor: session.name, action: `입고 반품 완료 — ${lot.model} ${lot.qty}대 (교체 없이 종결)`, target: lot.id })
   revalidatePath('/', 'layout')
