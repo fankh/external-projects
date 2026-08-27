@@ -289,6 +289,13 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0, in
                   <button className="btn sm danger" disabled={pending} onClick={() => setRejecting(true)}>검수 반려</button>
                 )
               )}
+              {/* 반려 사유를 후속 선택 바로 옆에 둔다 — '재검수(교체품 도착)'와 '반품 완료(교체 없음)' 중
+                  무엇을 고를지는 왜 반려됐는지에 달려 있는데, 그동안 사유는 전역 감사로그와 공급사 통지에만 있었다. */}
+              {sel.rejectReason && ['검수 반려', '반품 완료'].includes(sel.status) && (
+                <div className="callout" style={{ marginBottom: 8, fontSize: 12 }}>
+                  <b>반려 사유</b> — {sel.rejectReason}
+                </div>
+              )}
               {sel.status === '검수 반려' && (
                 <>
                   <button className="btn sm pri" disabled={pending}

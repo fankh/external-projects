@@ -73,6 +73,9 @@ export async function rejectIntakeLot(lotId: string, reason: string) {
 
   lot.status = '검수 반려'
   lot.inspector = session.name
+  // 사유를 로트에 남긴다 — 감사로그·공급사 메일 제목에만 있으면, 후속(재검수 vs 반품)을 고르는 사람이
+  //  그 판단 근거를 보려고 화면을 떠나 전역 감사로그를 뒤져야 한다.
+  lot.rejectReason = r
   dispatch({ channel: '이메일', to: lot.vendor, subject: `${lot.id} ${lot.model} ${lot.qty}대 입고 검수 반려 — 반품·교체 요청 (${r})`, kind: '입고 반려', ref: lot.id })
   appendAudit({ actor: session.name, action: `입고 검수 반려 — ${lot.model} · ${r}`, target: lot.id })
   revalidatePath('/', 'layout')

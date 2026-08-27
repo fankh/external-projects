@@ -1827,6 +1827,18 @@ try {
   const exportsNoBranch = exportKinds.filter((k) => !sheetBranches.has(k))
   check(`반출: 종류 ${exportKinds.length}종 모두 시트 분기 보유(라벨·내용 불일치 방지)`, exportsNoBranch.length === 0, `분기 없음=${exportsNoBranch.join(',')}`)
 
+  // 반려 사유가 그 판단이 필요한 화면에 있는가 — 반려는 사유를 필수로 받는데, 입고 검수 반려는 그 사유를
+  //  감사로그와 공급사 통지 제목에만 남기고 로트에는 붙이지 않았다. 반려 로트 앞에는 '재검수(교체품 도착)'와
+  //  '반품 완료(교체 없음)'가 나란히 놓이는데 둘 중 무엇을 고를지는 왜 반려됐는지에 달려 있다 — 판단 근거를
+  //  보려고 화면을 떠나 전역 감사로그를 뒤져야 했다. 결재 반려(rejectReason)와 같은 규약으로 맞춘다.
+  const rejectActSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'assets', 'intake', 'actions.ts'), 'utf8')
+  const rejectViewSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'assets', 'intake', 'IntakeView.tsx'), 'utf8')
+  check('입고 검수 반려: 사유를 로트에 남기고 화면이 보여 준다',
+    /lot\.rejectReason = /.test(rejectActSrc) && rejectViewSrc.includes('sel.rejectReason'),
+    `저장=${/lot\.rejectReason = /.test(rejectActSrc)} 표시=${rejectViewSrc.includes('sel.rejectReason')}`)
+  //  실제 렌더는 e2e 가 확인한다 — 이 화면의 상세 패널은 기본 선택이 첫 로트라 SSR 로는 반려 로트가 안 열리고,
+  //  RSC 페이로드 문자열을 뒤지면 렌더 여부와 무관하게 통과하는 위양성이 된다(대장 조작 게이트에서 실제로 겪었다).
+
   // 자산 카드(인쇄용 dossier)의 완전성 — 카드는 '전체 프로필·이력'을 표방하고 감사·인수인계 때 종이로 나가는
   //  산출물이다. 대장 상세에 필드를 하나 더 붙이면서 카드를 잊으면, 화면으로 보는 사람과 종이로 보는 사람이
   //  다른 자산을 보게 된다 — 종이 쪽은 무엇이 빠졌는지 알 길이 없어 '없는 정보'가 아니라 '없는 사실'로 읽힌다.

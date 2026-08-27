@@ -2896,6 +2896,14 @@ try {
   // 검수 반려 → 반품 완료(교체 없음) 종결 — 재검수의 짝. 시드 IN-2607-04(검수 반려) 마감 후 대시보드 백로그에서 제외
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   await p4.locator('tr.clickable', { has: p4.locator('td', { hasText: 'IN-2607-04' }) }).first().click()
+  await p4.waitForTimeout(300)
+  // 반려 사유는 후속 선택과 같은 화면에 있어야 한다 — '재검수(교체품 도착)'와 '반품 완료(교체 없음)' 중
+  //  무엇을 고를지는 왜 반려됐는지에 달려 있는데, 사유가 감사로그·공급사 통지 제목에만 있었다.
+  const rjBody = (await p4.locator('body').textContent()) || ''
+  ok('입고 검수 반려: 사유가 후속 선택(재검수·반품 완료)과 같은 화면에 있다',
+    rjBody.includes('반려 사유') && rjBody.includes('패널 멍')
+    && (await p4.locator('button', { hasText: /^재검수 \(교체품 도착\)$/ }).count()) > 0
+    && (await p4.locator('button', { hasText: /^반품 완료 \(교체 없음\)$/ }).count()) > 0)
   await p4.waitForTimeout(200)
   await p4.locator('button', { hasText: /^반품 완료 \(교체 없음\)$/ }).click()
   await p4.waitForTimeout(800)
@@ -4613,6 +4621,24 @@ try {
   const avRows = await pAV.locator('tbody tr.clickable').count()
   ok(`어시스턴트: 답한 대수와 링크가 여는 목록 행 수가 같다(답 ${avN} · 목록 ${avRows})`, avRows === avN)
   await ctxAV.close()
+
+  // 입고 검수 반려 사유가 후속 선택 옆에 있는가 — 반려 로트 앞에는 '재검수(교체품 도착)'와 '반품 완료(교체
+  //  없음)'가 나란히 놓이는데, 둘 중 무엇을 고를지는 왜 반려됐는지에 달려 있다. 그동안 사유는 감사로그와
+  //  공급사 통지 제목에만 있어, 판단 근거를 보려면 화면을 떠나야 했다. 실제로 반려 로트를 열어 확인한다.
+  const ctxRej = await browser.newContext(); await ctxRej.addCookies([cookie(ASSET)]); const pRej = await ctxRej.newPage()
+  await pRej.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  const rejRow = pRej.locator('tr.clickable', { hasText: 'IN-2607-04' }).first()
+  ok('입고: 검수 반려 로트가 목록에 있다(양성 대조)', (await rejRow.count()) > 0)
+  await rejRow.click()
+  await pRej.waitForTimeout(400)
+  const rejPanel = (await pRej.locator('body').textContent()) || ''
+  ok('입고 검수 반려: 사유가 상세에 표시된다(감사로그를 뒤지지 않아도 된다)',
+    rejPanel.includes('반려 사유') && rejPanel.includes('패널 멍'))
+  // 반품 완료로 종결된 뒤에도 사유는 남아야 한다 — '왜 돌려보냈는가'는 종결로 사라지는 사실이 아니다
+  //  (이 시점의 IN-2607-04 는 앞 시나리오가 이미 반품 완료로 닫아 둔 상태다).
+  ok('입고 검수 반려: 반품 완료로 종결된 뒤에도 사유가 남는다',
+    rejPanel.includes('반려 사유') && !(await pRej.locator('button', { hasText: /^재검수 \(교체품 도착\)$/ }).count()))
+  await ctxRej.close()
 
   await browser.close()
 } catch (err) {

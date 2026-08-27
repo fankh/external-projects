@@ -647,6 +647,7 @@ function seed(): Store {
         // 검수 반려 — 불량으로 반려된 로트(공급사 반품·교체 대기). 재검수(교체품 도착) 또는 반품 확인이 필요한 후속 백로그.
         id: 'IN-2607-04', contractId: 'CT-2023-021', model: 'Dell UltraSharp U2723QE', category: '주변기기',
         qty: 6, arrivedAt: '2026-07-25', vendor: '델테크놀로지스', status: '검수 반려', inspector: '박자산', unitCost: 620_000,
+        rejectReason: '6대 중 2대 패널 멍(사선 얼룩) · 1대 USB-C 허브 미인식 — 전량 교체 요청',
         checklist: checklistFor('주변기기').map((item) => ({ item, checked: false })),
         issued: [],
       },
@@ -889,12 +890,12 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 36
+const SCHEMA_VERSION = 37
 /** 스키마 형태 지문 — Store 의 키와 각 엔티티의 필드 이름에서 계산한다(scripts/smoke.mjs 가 같은 방식으로 대조).
  *  형태가 바뀐 채 SCHEMA_VERSION 이 그대로면 낡은 스냅샷이 그대로 로드돼 새 필드가 undefined 로 읽힌다
  *  (파일 영속화는 마이그레이션 없이 버전 불일치 시 시드로 폴백하는 설계다). 형태를 바꿨다면 SCHEMA_VERSION 을
  *  올리고 이 지문을 스모크가 알려주는 값으로 갱신한다 — 사람이 기억할 일이 아니라 테스트가 잡을 일이다. */
-export const SCHEMA_SHAPE = '60452102'
+export const SCHEMA_SHAPE = '08271977'
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
