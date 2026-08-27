@@ -130,6 +130,14 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
   const d = s.disposals.find((x) => x.id === id)
   if (!d) return { ok: false, message: '폐기 건을 찾을 수 없습니다.' }
   if (d.status !== '소거 대기') return { ok: false, message: '폐기 결재 승인 후 소거할 수 있습니다.' }
+  // 매각인데 대금이 없으면 거절한다 — 일괄 소거(recordWipeMany)는 바로 이 이유로 매각을 통째로 막아 두었는데,
+  //  정작 '건별 소거에서 입력하라'고 넘긴 이 단건 경로에는 가드가 없었다(막아 둔 쪽만 있고 받아 줄 쪽이 빈 꼴).
+  //  대금 입력칸은 비어 시작하고 Number('') 는 0 이라, 매각을 고르고 금액 없이 누르면 그대로 확정된다.
+  //  소거가 끝나면 상태가 '완료'라 recordWipe 로 다시 들어올 수 없어, 폐기 증적 대장의 매각 대금은
+  //  영구히 '미기재'로 남는다 — 자산 처분 대금은 회계 정산 근거라 나중에 채울 수 없으면 안 된다.
+  if (disposition === '매각' && !(Number.isFinite(rawProceeds) && rawProceeds > 0)) {
+    return { ok: false, message: '매각 대금을 입력하세요 — 소거 완료 후에는 대금을 기록할 경로가 없어 폐기 증적 대장에 영구히 미기재로 남습니다.' }
+  }
 
   const proceeds = disposition === '매각' && Number.isFinite(rawProceeds) ? Math.max(0, Math.round(rawProceeds)) : 0 // 비유한(Infinity/NaN) 방어 — 매각 대금이 ∞/NaN 로 리포트·집계를 오염하지 않게
 

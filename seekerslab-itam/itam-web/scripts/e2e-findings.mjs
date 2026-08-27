@@ -4571,6 +4571,33 @@ try {
   }
   await ctxEsc.close()
 
+  // 건별 소거의 매각 대금 — 일괄 소거는 '대금 0 인 매각이 대장에 확정되고 나중에 채울 경로가 없다'는 이유로
+  //  매각을 통째로 막고 '건별 소거에서 입력하라'고 넘긴다. 그런데 넘겨받은 단건 경로엔 가드가 없었다.
+  //  대금 입력칸은 비어 시작하고 Number('') 는 0 이라, 매각을 고르고 금액 없이 누르면 그대로 확정됐다.
+  //  소거 뒤에는 상태가 '완료'라 recordWipe 로 다시 못 들어와 폐기 증적 대장에 영구히 '미기재'로 남는다.
+  const ctxSaleP = await browser.newContext(); await ctxSaleP.addCookies([cookie(ASSET)]); const pSaleP = await ctxSaleP.newPage()
+  await pSaleP.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  const salRow = pSaleP.locator('tr', { has: pSaleP.locator('button', { hasText: /^소거 · 처분 등록$/ }) }).first()
+  const salHas = (await salRow.count()) > 0
+  ok('건별 소거: 소거 대기 건이 있어 컨트롤이 노출(양성 대조)', salHas)
+  if (salHas) {
+    const salBtn = salRow.locator('button', { hasText: /^소거 · 처분 등록$/ }).first()
+    ok('건별 소거: 기본 처분(폐기)에서는 버튼 활성(양성 대조)', await salBtn.isEnabled())
+    await salRow.locator('select').nth(1).selectOption('매각')
+    await pSaleP.waitForTimeout(300)
+    ok('건별 소거: 매각인데 대금이 비면 버튼 비활성(막다른 클릭 방지)', !(await salBtn.isEnabled()))
+    await salRow.locator('input[placeholder="매각 대금"]').fill('450000')
+    await pSaleP.waitForTimeout(300)
+    ok('건별 소거: 대금을 넣으면 다시 활성(가드가 정상 매각을 막지 않는다)', await salBtn.isEnabled())
+    await salBtn.click()
+    await pSaleP.waitForTimeout(900)
+    const salXlsx = await pSaleP.request.get(`${BASE}/api/export/disposals`)
+    const salText = Buffer.from(await salXlsx.body()).toString('utf8')
+    ok('건별 소거: 매각 대금이 폐기 증적 대장에 기록된다(미기재 아님)',
+      salXlsx.status() === 200 && salText.includes('450000') && !salText.includes('매각	미기재'))
+  }
+  await ctxSaleP.close()
+
   await browser.close()
 } catch (err) {
   fail++
