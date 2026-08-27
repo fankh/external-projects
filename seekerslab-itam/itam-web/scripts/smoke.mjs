@@ -3206,6 +3206,18 @@ try {
     refTotal += used.length
     for (const v of used) if (!pool.has(v)) dangling.push(`${field}=${v}`)
   }
+  // 관측(ChannelObservation)은 시드가 위치 인자 헬퍼 o(id, discoveredId, …) 로 만들어, 위 필드 기반 검사가
+  //  보지 못한다 — 'discoveredId:' 문자열이 아예 없다. 따로 훑는다.
+  const obsRefs = [...permStoreSrc.matchAll(new RegExp("o\\('(OBS-[0-9]+)', '(DSC-[0-9-]+)'", 'g'))].map((m) => ({ obs: m[1], dsc: m[2] }))
+  const obsDangling = obsRefs.filter((x) => !seedDiscovered.has(x.dsc)).map((x) => `${x.obs}→${x.dsc}`)
+  check(`관측 근거: 관측 ${obsRefs.length}건이 모두 실재 발견 자산을 가리킴`,
+    obsRefs.length >= 15 && obsDangling.length === 0, obsDangling.join(', '))
+  // 반대 방향 — 발견 자산에는 '어떻게 발견했는가'가 있어야 한다. 근거가 0건이면 화면의 채널별 관측이
+  //  비어 행의 설명·lastSeen 과 모순되고, 중복 병합의 대표 선정(관측 많은 쪽)도 0으로 계산된다.
+  const observed = new Set(obsRefs.map((x) => x.dsc))
+  const noEvidence = [...seedDiscovered].filter((d) => !observed.has(d))
+  check(`관측 근거: 발견 자산 ${seedDiscovered.size}종이 모두 관측 근거를 가진다`,
+    seedDiscovered.size >= 10 && noEvidence.length === 0, `근거 없음: ${noEvidence.join(', ')}`)
   check(`시드 참조 무결성: 끊긴 참조 없음 (${refTotal}종 참조 검사)`,
     refTotal >= 25 && dangling.length === 0, dangling.join(', '))
   check('스토어 로드: 관리자 0명 스냅샷은 시드로 폴백',
