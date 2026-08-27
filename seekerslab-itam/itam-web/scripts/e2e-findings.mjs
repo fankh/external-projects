@@ -4598,6 +4598,22 @@ try {
   }
   await ctxSaleP.close()
 
+  // 어시스턴트 근거 링크가 답과 같은 집합을 여는가 — '재배치 가능 N대'는 availableAssets(유휴 AND 폐기 절차
+  //  미진입 AND 격리 아님)로 세는데 근거 링크는 ?status=유휴 를 열어, 링크 목록이 답보다 많았다(시드에서도
+  //  2대라 답하고 3대가 떴다 — DSP-02 로 폐기 절차에 든 유휴 자산 때문에). 답의 수와 링크가 여는 목록의
+  //  행 수를 실제로 맞춰 본다(KPI 수 ≠ 링크가 여는 목록 계열).
+  const ctxAV = await browser.newContext(); await ctxAV.addCookies([cookie(ASSET)]); const pAV = await ctxAV.newPage()
+  await pAV.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+  const avAns = await askAssistant(pAV, '재배치 가능한 유휴 자산 알려줘')
+  const avN = Number((/재배치 가능한 유휴 자산입니다[^)]*·\s*(\d+)대/.exec(avAns) || [])[1] ?? NaN)
+  ok(`어시스턴트: 재배치 가능 유휴 자산 대수를 답한다(${avN})`, Number.isFinite(avN) && avN > 0)
+  const avHref = await pAV.locator('.msg.assistant a', { hasText: '자산 대장' }).last().getAttribute('href')
+  ok(`어시스턴트: 근거 링크가 가용 필터를 연다(${avHref})`, (avHref || '').includes('avail=1'))
+  await pAV.goto(`${BASE}${avHref}`, { waitUntil: 'networkidle' })
+  const avRows = await pAV.locator('tbody tr.clickable').count()
+  ok(`어시스턴트: 답한 대수와 링크가 여는 목록 행 수가 같다(답 ${avN} · 목록 ${avRows})`, avRows === avN)
+  await ctxAV.close()
+
   await browser.close()
 } catch (err) {
   fail++

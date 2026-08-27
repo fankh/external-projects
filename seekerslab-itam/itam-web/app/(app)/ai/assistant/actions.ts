@@ -689,7 +689,10 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
             .map(([c, arr]) => `· ${c} ${arr.length}대 — ${arr.slice(0, 5).map((a) => `${a.assetNo}(${a.location})`).join(', ')}${arr.length > 5 ? ` 외 ${arr.length - 5}대` : ''}`)
             .join('\n')}\n\n안전재고 미달 유형이 있으면 이 풀에서 우선 재배치하세요.`,
       evidence: [
-        { label: '자산 대장 (유휴)', href: '/assets/register?status=유휴' },
+        // 근거 링크는 답이 센 것과 같은 집합을 열어야 한다 — ?status=유휴 는 폐기 절차·NAC 격리 자산까지 담아
+        //  '재배치 가능 N대'라고 답해 놓고 링크에는 N 보다 많은 목록이 뜬다(시드에서도 2대라 답하고 3대가 열렸다).
+        //  대장에 이미 같은 판정의 필터(?avail=1 · availableAssets)가 있으므로 그것을 연다.
+        { label: '자산 대장 (재배치 가능)', href: '/assets/register?avail=1' },
         { label: '재고 현황', href: '/inventory/stock' },
       ],
     }
