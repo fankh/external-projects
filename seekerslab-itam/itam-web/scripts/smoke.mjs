@@ -1778,6 +1778,30 @@ try {
   const exportsNoBranch = exportKinds.filter((k) => !sheetBranches.has(k))
   check(`반출: 종류 ${exportKinds.length}종 모두 시트 분기 보유(라벨·내용 불일치 방지)`, exportsNoBranch.length === 0, `분기 없음=${exportsNoBranch.join(',')}`)
 
+  // 반출 시트의 열 정렬 — 헤더 칸수와 데이터 행의 칸수가 어긋나면 엑셀에서 그 행부터 모든 값이 옆 칸으로
+  //  밀린다. 소거일 칸에 처리자가, 처리자 칸에 확인서 번호가 들어가는 식이라 파일을 열기 전에는 드러나지
+  //  않는다 — 반출물은 감사·정산 증적이라 조용히 밀린 열이 가장 나쁘다. header 배열과 rows 의 길이를 맞추는
+  //  일은 사람이 손으로 지켜 왔고(시트 18개), 열을 하나 추가할 때 한쪽만 고치기 쉽다.
+  //  실제 산출물(.xlsx 는 무압축 ZIP + inlineStr)을 받아 <row> 마다 <c> 수를 세어 전수 대조한다.
+  let arityBad = []
+  let aritySheets = 0
+  for (const k of exportKinds) {
+    const res = await get(`/api/export/${k}`, 'ADMIN')
+    if (res.status !== 200) { arityBad.push(`${k}:HTTP${res.status}`); continue }
+    const xml = Buffer.from(await res.arrayBuffer()).toString('latin1')
+    for (const sm of xml.matchAll(/<sheetData>([\s\S]*?)<\/sheetData>/g)) {
+      aritySheets += 1
+      const cells = [...sm[1].matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)]
+        .map((r) => (r[1].match(/<c[ >]/g) || []).length)
+      if (!cells.length) continue
+      const head = cells[0]
+      const off = cells.map((n, i) => ({ n, i })).filter((x) => x.i > 0 && x.n !== head)
+      if (off.length) arityBad.push(`${k}: 헤더 ${head}칸 ≠ 행 ${off[0].i + 1} ${off[0].n}칸 (${off.length}행)`)
+    }
+  }
+  check(`반출 열 정렬: ${exportKinds.length}종 · 시트 ${aritySheets}개의 모든 행이 헤더와 같은 칸수`,
+    arityBad.length === 0 && aritySheets >= 10, `어긋남=${arityBad.join(' | ')}`)
+
   // 라우트 권한 3중 정합 — README 가 "라우트 권한을 바꿀 때는 세 곳(lib/authz requireRole · components/chrome/menus.ts ·
   //  스모크 ROUTES)을 함께 갱신하라"고 적어 둔 수작업 규칙이다. requireRole 은 위 접근 매트릭스(라우트 × 권한 HTTP 호출)가
   //  검증하지만 menus.ts 는 아무도 검증하지 않았다 — 어긋나면 내비에 보이는데 서버가 막거나(막다른 길),
