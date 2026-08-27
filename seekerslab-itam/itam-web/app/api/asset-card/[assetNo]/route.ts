@@ -6,7 +6,7 @@ import { qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
 import { getStore } from '@/lib/store'
-import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
+import { NON_OPERATIONAL_STATUSES, isReceiptPending } from '@/lib/types'
 
 /** 자산 카드 — 선택 자산의 전체 프로필(사양·소유·보증·계약)과 변경 이력 타임라인을 한 장의 인쇄용 문서로.
  *  자산 인수인계·감사 대응 자료(자산 dossier)용. 라벨(작은 스티커)과 달리 전체 정보를 담는다.
@@ -44,6 +44,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     //  막으며 사유를 밝히지만 인쇄 카드에는 흔적이 없어, 현장에서 평범한 재고로 다시 배정될 수 있다.
     row('폐기 절차', disposalStage ? `${disposalStage} · 재불출·대여 대상 아님` : undefined),
     row('업무 중요도', a.criticality ?? '일반'),
+    // 진행 중인 인수인계·요청 상태 — 화면 상세는 '수령 확인 대기' 칩과 반납·대여 연장 요청 배너를 세우는데
+    //  인쇄 카드에는 흔적이 없었다. 카드는 인수인계·감사 때 종이로 나가는 산출물이라, 아직 인수 확인이
+    //  안 된 자산이 '정상 사용중'으로만 읽히면 체인 오브 커스터디의 끊긴 고리가 그대로 덮인다.
+    //  판정은 화면·독촉과 같은 lib/types 의 isReceiptPending 을 쓴다(여기서 조건을 다시 적지 않는다).
+    row('수령 확인', isReceiptPending(a) ? '미확인 — 인수 확인 대기(체인 오브 커스터디 미완결)' : undefined),
+    row('반납 요청', a.returnRequest ? `${a.returnRequest.at} · ${a.returnRequest.by} 요청${a.returnRequest.note ? ` — ${a.returnRequest.note}` : ''}` : undefined),
+    row('대여 연장 요청', a.loanExtendRequest ? `${a.loanExtendRequest.at} · ${a.loanExtendRequest.by} 요청 (희망 반환 ${a.loanExtendRequest.newDueDate}) — ${a.loanExtendRequest.reason}` : undefined),
     row('소유자', a.owner), row('부서', a.dept), row('위치', a.location),
     row('OS', a.os), row('CPU', a.cpu), row('메모리', a.memory),
     row('IP', a.ip), row('MAC', a.mac),

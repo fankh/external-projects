@@ -1827,6 +1827,28 @@ try {
   const exportsNoBranch = exportKinds.filter((k) => !sheetBranches.has(k))
   check(`반출: 종류 ${exportKinds.length}종 모두 시트 분기 보유(라벨·내용 불일치 방지)`, exportsNoBranch.length === 0, `분기 없음=${exportsNoBranch.join(',')}`)
 
+  // 자산 카드(인쇄용 dossier)의 완전성 — 카드는 '전체 프로필·이력'을 표방하고 감사·인수인계 때 종이로 나가는
+  //  산출물이다. 대장 상세에 필드를 하나 더 붙이면서 카드를 잊으면, 화면으로 보는 사람과 종이로 보는 사람이
+  //  다른 자산을 보게 된다 — 종이 쪽은 무엇이 빠졌는지 알 길이 없어 '없는 정보'가 아니라 '없는 사실'로 읽힌다.
+  //  지금은 31개 필드가 양쪽에 다 있다. Asset 필드 중 상세 화면이 쓰는 것은 카드도 써야 한다는 관계로 고정한다.
+  const assetTypeSrc = readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8')
+  const assetIfStart = assetTypeSrc.indexOf('export interface Asset {')
+  const assetIfEnd = assetTypeSrc.indexOf('\n}', assetIfStart)
+  const assetFields = [...assetTypeSrc.slice(assetIfStart, assetIfEnd).matchAll(/^\s{2}(\w+)\??:/gm)].map((m) => m[1])
+  const dossierSrc = readFileSync(path.join(ROOT, 'app', 'api', 'asset-card', '[assetNo]', 'route.ts'), 'utf8')
+  const registerViewSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'assets', 'register', 'RegisterView.tsx'), 'utf8')
+  //  필드를 직접 읽지 않고 lib/types 의 공유 판정(isReceiptPending 등)을 거치는 것은 더 나은 코드다 —
+  //  그 판정이 참조하는 필드도 '담고 있다'로 센다. 그러지 않으면 이 가드가 단일 출처 사용을 벌주게 된다.
+  const typesPreds = new Map()
+  for (const m of assetTypeSrc.matchAll(/export function (\w+)\([^)]*\)[^{]*\{([^}]*)\}/g)) typesPreds.set(m[1], m[2])
+  const coveredByPred = (fl) => [...typesPreds].some(([name, body]) =>
+    dossierSrc.includes(name + '(') && new RegExp('\\b' + fl + '\\b').test(body))
+  const cardMissing = assetFields
+    .filter((fl) => new RegExp('\\bsel\\.' + fl + '\\b').test(registerViewSrc))
+    .filter((fl) => !new RegExp('\\ba\\.' + fl + '\\b').test(dossierSrc) && !coveredByPred(fl))
+  check(`자산 카드: 상세 화면이 쓰는 Asset 필드를 카드도 모두 담는다(필드 ${assetFields.length}개 검사)`,
+    assetFields.length >= 25 && cardMissing.length === 0, `카드 누락=${cardMissing.join(', ')}`)
+
   // 반출 시트의 열 정렬 — 헤더 칸수와 데이터 행의 칸수가 어긋나면 엑셀에서 그 행부터 모든 값이 옆 칸으로
   //  밀린다. 소거일 칸에 처리자가, 처리자 칸에 확인서 번호가 들어가는 식이라 파일을 열기 전에는 드러나지
   //  않는다 — 반출물은 감사·정산 증적이라 조용히 밀린 열이 가장 나쁘다. header 배열과 rows 의 길이를 맞추는
