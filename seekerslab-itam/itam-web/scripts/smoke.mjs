@@ -3210,6 +3210,22 @@ try {
   //  보지 못한다 — 'discoveredId:' 문자열이 아예 없다. 따로 훑는다.
   const obsRefs = [...permStoreSrc.matchAll(new RegExp("o\\('(OBS-[0-9]+)', '(DSC-[0-9-]+)'", 'g'))].map((m) => ({ obs: m[1], dsc: m[2] }))
   const obsDangling = obsRefs.filter((x) => !seedDiscovered.has(x.dsc)).map((x) => `${x.obs}→${x.dsc}`)
+  // 수리중인데 수리 의뢰(업체·의뢰일) 기록이 없는 자산 — 두 판정(예상 반환 경과·일정 미기재) 어디에도 안 걸리고,
+  //  독촉은 a.repair.vendor 로 보내므로 보낼 곳도 없다. '수리중 N건'으로만 보이고 빠져나갈 길이 없던 상태다.
+  //  업체가 아니라 담당자가 할 일(의뢰 정보 등록)이라, 독촉 0건과 구분해 화면이 건수를 적어야 한다.
+  const retHtmlR = text(await (await get('/assets/returns', 'ASSET_MGR')).text())
+  const unrecMatch = /의뢰 정보 미기재 ([0-9]+)건/.exec(retHtmlR)
+  // mk({…}) 항목은 줄바꿈될 수 있다 — 줄 단위로 세면 다음 줄의 repair 를 놓쳐 없는 결함을 만든다(실제로 그랬다).
+  //  자산 시드를 mk( 단위 블록으로 잘라 블록 안에서 본다.
+  const assetSeed = permStoreSrc.slice(permStoreSrc.indexOf('function seedAssets'), permStoreSrc.indexOf('function seedReportSchedules'))
+  const seedUnrecorded = assetSeed.split('mk({').filter((b) => b.includes("status: '수리중'") && !b.includes('repair:')).length
+  check(`수리 대기: 의뢰 정보 미기재 건수를 화면이 적는다 (${unrecMatch ? unrecMatch[1] : '?'}건)`,
+    seedUnrecorded > 0 && unrecMatch !== null && Number(unrecMatch[1]) === seedUnrecorded,
+    `시드 ${seedUnrecorded}건 · 화면 ${unrecMatch ? unrecMatch[1] : '없음'}`)
+  check('수리 대기: 미기재 건은 독촉이 아니라 등록이 필요하다고 밝힌다',
+    retHtmlR.includes('업체·일정 등록 필요 — 독촉 불가'))
+  check('수리 판정: 의뢰 기록 자체가 없는 경우를 별도 판정으로 둔다',
+    readFileSync(path.join(ROOT, 'lib', 'dates.ts'), 'utf8').includes('export function isRepairUnrecorded('))
   check(`관측 근거: 관측 ${obsRefs.length}건이 모두 실재 발견 자산을 가리킴`,
     obsRefs.length >= 15 && obsDangling.length === 0, obsDangling.join(', '))
   // 반대 방향 — 발견 자산에는 '어떻게 발견했는가'가 있어야 한다. 근거가 0건이면 화면의 채널별 관측이
