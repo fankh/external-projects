@@ -2111,6 +2111,18 @@ try {
     .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
   check(`자산 상태 목록: lib/types 밖에 사본 없음(소스 ${sourceFiles.length}개 검사)`, relisted.length === 0, `사본=${relisted.join(', ')}`)
 
+  // '운영 자산'이라는 말이 두 수를 가리키지 않는가 — 대장의 '운영 자산만' 필터와 계약 커버리지는 GONE_STATUSES
+  //  (분실·폐기예정·폐기완료)를 빼는데, 어시스턴트의 부서별·위치별·가치 집계는 폐기완료만 빼면서 같은 말을 썼다.
+  //  시드에서도 폐기완료만 뺀 수는 36대, 대장 '운영 자산만'은 34대다 — 같은 낱말로 두 수를 말하면 어느 쪽이
+  //  틀렸는지 사람이 가릴 수 없다. 폐기완료만 빼는 집계는 '보유 자산'이라 부른다(수는 그대로, 표기만 구분).
+  const asstSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'ai', 'assistant', 'actions.ts'), 'utf8')
+  const miscalled = asstSrc.split(/\r?\n/)
+    .map((ln, i) => ({ ln, i }))
+    .filter(({ ln }) => !ln.trim().startsWith('//') && !ln.trim().startsWith('*'))
+    .filter(({ ln }) => ln.includes('운영 자산') && ln.includes('폐기완료 제외'))
+    .map(({ i }) => 'ai/assistant/actions.ts:' + (i + 1))
+  check('어시스턴트 표기: 폐기완료만 뺀 집계를 "운영 자산"이라 부르지 않음', miscalled.length === 0, `충돌=${miscalled.join(', ')}`)
+
   // 운영 정책 기본값이 화면 문구에 리터럴로 박혀 있는가 — 운영자가 '정기 점검 창'·'만료 알림 창' 같은 값을
   //  바꾸면 판정은 따라가지만 안내 문구가 옛 숫자로 남아, 날짜를 고르는 바로 그 자리에서 틀린 규칙을 알려 준다.
   //  실제로 대장 상세의 점검 예약 안내가 '30일 내·경과'로 고정돼 있었다(판정은 opsPolicy.maintenanceWindowDays).

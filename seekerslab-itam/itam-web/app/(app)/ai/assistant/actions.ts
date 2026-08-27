@@ -24,6 +24,11 @@ import { canDecideApproval } from '@/lib/approval'
 import { ASSET_CATEGORIES, ASSET_STATUSES, DISPOSAL_STATUSES, isUntriagedDiscovery, isOpenExposure, isReceiptPending } from '@/lib/types'
 import type { ChatMessage, ReportKind, Role } from '@/lib/types'
 
+/** 어시스턴트 집계의 '운영 자산' 표기 규약 — 이 낱말은 대장의 '운영 자산만' 필터와 같은 뜻으로만 쓴다
+ *  (GONE_STATUSES = 분실·폐기예정·폐기완료 제외). 폐기완료만 뺀 집계는 '보유 자산'이라 부른다.
+ *  같은 말이 두 수를 가리키면 안 된다 — 시드에서도 폐기완료만 뺀 수는 36대, 대장 '운영 자산만'은 34대다.
+ *  가치·비용 집계가 폐기완료만 빼는 것은 회계 기준상 맞다(폐기예정 자산에도 장부가가 남는다) — 표기만 구분한다. */
+
 /** 리포트 생성 인텐트 — 어시스턴트가 실제로 리포트를 만든다 (제품안내서 §05 리포트 자동화:
  *  "자연어 자산 질의·리포트 생성"). 생성 동사 + (리포트 언급 또는 리포트 종류 매칭)일 때만 발동한다.
  *  반환: null=일반 질의 / {kind}=해당 종류 생성 / {}=종류 미지정(되물음). */
@@ -522,7 +527,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     return {
       role: 'assistant',
       text: [
-        `운영 자산 ${valued.length}대의 자산 가치입니다(정액법 감가상각 · 내용연수 5년, SW·가상자원 제외).`,
+        `보유 자산 ${valued.length}대의 자산 가치입니다(폐기완료 제외 · 정액법 감가상각 · 내용연수 5년, SW·가상자원 제외).`,
         ``,
         `· 총 취득가 ${totalAcq.toLocaleString()}원`,
         `· 총 잔존가치(장부가) ${totalBook.toLocaleString()}원 — 감가상각률 ${dep}%`,
@@ -580,7 +585,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const rows = [...byDept.entries()].sort((x, y) => y[1].total - x[1].total)
     return {
       role: 'assistant',
-      text: `부서별 자산 보유 현황입니다 (운영 자산 ${live.length}대 · 폐기완료 제외).\n\n${rows
+      text: `부서별 자산 보유 현황입니다 (보유 자산 ${live.length}대 · 폐기완료 제외).\n\n${rows
         .map(([d, v]) => `· ${d}: ${v.total}대 (사용중 ${v.inUse})`)
         .join('\n')}`,
       evidence: [
@@ -615,7 +620,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       const here = live.filter((a) => siteOf(a.location) === named)
       return {
         role: 'assistant',
-        text: `${named} 소재 자산 현황입니다 (운영 자산 ${here.length}대 · 폐기완료 제외).\n\n${here
+        text: `${named} 소재 자산 현황입니다 (보유 자산 ${here.length}대 · 폐기완료 제외).\n\n${here
           .slice(0, 14)
           .map((a) => `· ${a.assetNo} — ${a.model} · ${a.status} · ${a.owner || '미배정'} (${a.location})`)
           .join('\n')}${here.length > 14 ? `\n… 외 ${here.length - 14}대` : ''}`,
@@ -625,7 +630,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const siteRows = [...bySite.entries()].sort((x, y) => y[1].total - x[1].total)
     return {
       role: 'assistant',
-      text: `위치(사업장)별 자산 분포입니다 (운영 자산 ${live.length}대 · 폐기완료 제외).\n\n${siteRows
+      text: `위치(사업장)별 자산 분포입니다 (보유 자산 ${live.length}대 · 폐기완료 제외).\n\n${siteRows
         .map(([si, v]) => `· ${si}: ${v.total}대 (사용중 ${v.inUse})`)
         .join('\n')}\n\n특정 위치(예: IDC-A, 판교, 본사)를 말씀하시면 해당 위치의 자산 목록을 보여드립니다.`,
       evidence: [
