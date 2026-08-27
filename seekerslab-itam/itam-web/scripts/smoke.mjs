@@ -3065,6 +3065,19 @@ try {
   // 샘플 산출물 수 — 문서가 '샘플 N종'이라고 적는데 실제 파일 수와 갈리면(실제로 8종이라 적힌 채 10종이 있었다)
   //  받아 보는 쪽은 두 개가 빠진 줄 안다. 파일(샘플_*.csv — 설명 문서와 구분된다)과 주장을 맞춘다.
   const sampleFiles = readdirSync(path.join(ROOT, '..', 'docs')).filter((f) => f.startsWith('샘플_') && f.endsWith('.csv')).length
+  // 공통코드 그룹 수 — 화면이 '공통코드 N종'을 관리한다고 문서가 적는데, 시드 그룹 수와 갈리면
+  //  받아 보는 쪽은 관리 대상이 더/덜 있다고 읽는다(다른 열 개 수치 주장과 같은 규약).
+  const cgStart = permStoreSrc.indexOf('function seedCodeGroups')
+  const codeBlock = permStoreSrc.slice(cgStart, permStoreSrc.indexOf(String.fromCharCode(10) + 'function ', cgStart + 10))
+  const codeGroups = [...codeBlock.matchAll(new RegExp("^\\s*(?:\\{ )?id: '([A-Z_]+)',", 'gm'))].length
+  const codeClaims = claims(readme, /공통코드 (\d+)종/g)
+  check(`문서: 공통코드 ${codeGroups}종 일치`, codeGroups >= 5 && allSame(codeClaims, codeGroups), `주장=${codeClaims.join(',')} 실제=${codeGroups}`)
+  // 헬스가 내는 링크 권한 검사 건수 — 역할 4종 × 검사 종류에서 나오므로, 검사를 늘리면 문서가 조용히 어긋난다
+  const healthSrc2 = readFileSync(path.join(ROOT, 'scripts', 'client-health.mjs'), 'utf8')
+  const linkKinds = healthSrc2.split('링크 권한 정합').length - 1
+  const linkClaims = claims(readme, /API 링크 권한 (\d+)건/g)
+  check(`문서: 링크·API 링크 권한 검사 ${linkKinds * 4}건 일치(권한그룹 4종 × 검사 ${linkKinds}종)`,
+    linkKinds >= 1 && allSame(linkClaims, linkKinds * 4), `주장=${linkClaims.join(',')} 실제=${linkKinds * 4}`)
   const sampleClaims = [...claims(readme, /AI 리포트 샘플 (\d+)종/g), ...claims(summary, /AI 리포트 샘플 (\d+)종/g)]
   check(`문서: 리포트 샘플 ${sampleFiles}종 일치`, allSame(sampleClaims, sampleFiles), `주장=${sampleClaims.join(",")} 실제=${sampleFiles}`)
   // 샘플이 리포트 종류 전체를 덮는가 — 위 검사는 '파일 수 = 문서 주장'만 봤다. 종류가 17 인데 샘플이 10 이면
@@ -3182,6 +3195,9 @@ try {
     ['approvalId', new RegExp("approvalId: '([^']+)'", 'g'), seedApprovals],
     // 결재의 refId 는 대상 종류가 여럿이다(자산·라이선스·계약·폐기·발견·재물조사 회차)
     ['refId', new RegExp("refId: '([^']+)'", 'g'), new Set([...seedAssets, ...seedLicenses, ...seedContracts, ...seedDisposals, ...seedDiscovered, ...seedRounds])],
+    // 실사 스캔·차이가 붙는 회차, IOC·크리덴셜이 가리키는 외부 노출 — 끊기면 리포트가 어느 회차에도 안 잡힌다
+    ['roundId', new RegExp("roundId: '([^']+)'", 'g'), seedRounds],
+    ['extId', new RegExp("extId: '([^']+)'", 'g'), idsOf(new RegExp("id: '(EXT-[0-9-]+)'", 'g'))],
   ]
   const dangling = []
   let refTotal = 0
