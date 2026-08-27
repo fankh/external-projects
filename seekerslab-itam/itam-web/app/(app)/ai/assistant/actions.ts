@@ -21,7 +21,7 @@ import { getSession } from '@/lib/session'
 import { canViewMenu } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 import { canDecideApproval } from '@/lib/approval'
-import { ASSET_CATEGORIES, DISPOSAL_STATUSES, isUntriagedDiscovery, isOpenExposure, isReceiptPending } from '@/lib/types'
+import { ASSET_CATEGORIES, ASSET_STATUSES, DISPOSAL_STATUSES, isUntriagedDiscovery, isOpenExposure, isReceiptPending } from '@/lib/types'
 import type { ChatMessage, ReportKind, Role } from '@/lib/types'
 
 /** 리포트 생성 인텐트 — 어시스턴트가 실제로 리포트를 만든다 (제품안내서 §05 리포트 자동화:
@@ -697,7 +697,9 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   // 자산 현황·분포 — 총 보유·상태별 분포·대여 현황을 한 번에 답한다 (조직 집계, 비사용자).
   //  '대여 현황'·'대여 중'은 여기서(전체 대여), '대여 연체'는 아래 운영 리스크 인텐트에서 처리한다.
   if (canAsset && (q.includes('상태별') || q.includes('분포') || q.includes('보유 현황') || q.includes('보유 대수') || q.includes('몇 대') || q.includes('자산 현황') || q.includes('재고 규모') || q.includes('대여 현황') || q.includes('대여 중'))) {
-    const STATS = ['사용중', '유휴', '대여중', '수리중', '반납대기', '검수중', '분실', '폐기예정', '폐기완료'] as const
+    // 상태 목록은 lib/types 한 곳에서 온다 — 여기 또 적으면 상태가 늘 때 분포에서만 조용히 빠져
+    //  '총 보유 N대'와 분포의 합이 어긋난다(부분의 합이 전체와 다른 답).
+    const STATS = ASSET_STATUSES
     const byStatus = (st: string) => s.assets.filter((a) => a.status === st).length
     const dist = STATS.filter((st) => byStatus(st) > 0).map((st) => `${st} ${byStatus(st)}`)
     const loans = s.assets.filter((a) => a.status === '대여중')

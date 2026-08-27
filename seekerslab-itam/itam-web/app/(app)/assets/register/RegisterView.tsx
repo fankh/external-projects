@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { ASSET_CATEGORIES, CRITICALITY_LEVELS, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
+import { ASSET_CATEGORIES, ASSET_STATUSES, CRITICALITY_LEVELS, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus, BizCriticality } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
@@ -34,7 +34,8 @@ type SavedView = {
   loanExtOnly?: boolean; loanRetOnly?: boolean; liveOnly?: boolean; availOnly?: boolean
 }
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
-const STATUSES: (AssetStatus | '전체')[] = ['전체', '검수중', '사용중', '유휴', '대여중', '반납대기', '수리중', '분실', '폐기예정', '폐기완료']
+// 필터 선택지도 lib/types 의 상태 전량에서 만든다 — 새 상태가 늘 때 이 필터에만 안 뜨는 일이 없게.
+const STATUSES: (AssetStatus | '전체')[] = ['전체', ...ASSET_STATUSES]
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }

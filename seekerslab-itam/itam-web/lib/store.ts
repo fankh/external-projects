@@ -486,7 +486,11 @@ function seedCodeGroups(): CodeGroup[] {
     items.map(([code, label], i) => ({ code, label, sort: (i + 1) * 10, active: true }))
   return [
     { id: 'ASSET_CATEGORY', name: '자산 유형', desc: '자산 대장 대분류 — H/W · S/W · 가상자원', values: v(['HW_TERMINAL', '단말'], ['HW_SERVER', '서버'], ['HW_NETWORK', '네트워크'], ['HW_PERIPHERAL', '주변기기'], ['SW', 'SW'], ['VIRTUAL', '가상자원']) },
-    { id: 'ASSET_STATUS', name: '자산 상태', desc: '수명주기 5단계 연동 상태값', values: v(['INSPECT', '검수중'], ['IN_USE', '사용중'], ['IDLE', '유휴'], ['RETURN_WAIT', '반납대기'], ['DISPOSE_PLAN', '폐기예정'], ['DISPOSED', '폐기완료']) },
+    // 자산 상태 코드값은 AssetStatus 전량과 같아야 한다 — 공통코드 화면은 코드값마다 '사용 N건'을 세는데
+    //  (lib/codes codeUsage: status === label), 대여중·수리중·분실이 빠져 있어 그 상태의 자산이 어느 코드값에도
+    //  잡히지 않았다. 운영자에게는 사용 건수의 합이 보유 대수에 못 미치는 레지스트리로 보이고, 빠진 값은
+    //  미사용화·명칭 변경 같은 관리 자체가 불가능했다. 5단계는 요약 서술이지 상태의 전량이 아니다.
+    { id: 'ASSET_STATUS', name: '자산 상태', desc: '수명주기 5단계 연동 상태값(운영 분기 포함 전량)', values: v(['INSPECT', '검수중'], ['IN_USE', '사용중'], ['IDLE', '유휴'], ['ON_LOAN', '대여중'], ['RETURN_WAIT', '반납대기'], ['REPAIR', '수리중'], ['LOST', '분실'], ['DISPOSE_PLAN', '폐기예정'], ['DISPOSED', '폐기완료']) },
     { id: 'RECONCILE', name: '대사 결과', desc: 'CMDB 대사 4상태 — 상태별 후속 처리 자동 연결', values: v(['MATCH', '등록·일치'], ['MISMATCH', '등록·불일치'], ['UNREGISTERED', '미등록'], ['UNCONFIRMED', '미확인']) },
     { id: 'RISK', name: '위험도', desc: '발견 자산·SaaS·AI 제안 공통 등급', values: v(['HIGH', '높음'], ['MEDIUM', '중간'], ['LOW', '낮음']) },
     { id: 'DATA_GRADE', name: '데이터 등급', desc: 'SaaS 카탈로그·자산 중요도 산정 기준', values: v(['GENERAL', '일반'], ['SENSITIVE', '민감'], ['CONFIDENTIAL', '기밀']) },
@@ -875,7 +879,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 34
+const SCHEMA_VERSION = 35
 /** 스키마 형태 지문 — Store 의 키와 각 엔티티의 필드 이름에서 계산한다(scripts/smoke.mjs 가 같은 방식으로 대조).
  *  형태가 바뀐 채 SCHEMA_VERSION 이 그대로면 낡은 스냅샷이 그대로 로드돼 새 필드가 undefined 로 읽힌다
  *  (파일 영속화는 마이그레이션 없이 버전 불일치 시 시드로 폴백하는 설계다). 형태를 바꿨다면 SCHEMA_VERSION 을
