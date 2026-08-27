@@ -2379,19 +2379,29 @@ try {
   check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
 
-  // 해지 증적의 세 요소 — 언제(terminatedAt)·왜(terminateReason)·누가(terminatedBy). 결재는 decidedBy,
-  //  폐기 소거는 wipedBy, 입고 검수는 inspector 를 레코드에 남기는데 계약·라이선스 해지만 사람이 빠져 있었다.
-  //  해지는 되돌릴 수 없고 만료 임박 집계·알림·컴플라이언스에서 그 건을 빼는 결과를 낳는다 — 감사에서
-  //  '누가 끊었나'는 전역 로그가 아니라 그 계약에서 답해야 하는 질문이다.
-  const termSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'inventory', 'contracts', 'actions.ts'), 'utf8')
-  const termFns = ['terminateContract', 'retireLicense']
-  const termGaps = termFns.filter((fn) => {
-    const at = termSrc.indexOf('export async function ' + fn)
-    if (at < 0) return true
-    const body = termSrc.slice(at, at + 2500)
-    return !(/\.terminatedAt = /.test(body) && /\.terminateReason = /.test(body) && /\.terminatedBy = /.test(body))
-  })
-  check(`해지 증적: 언제·왜·누가를 모두 레코드에 남긴다(${termFns.length}개 액션)`, termGaps.length === 0, `누락=${termGaps.join(', ')}`)
+  // 종결 전이의 증적 세 요소 — 되돌릴 수 없는 판정을 담는 레코드는 누가·언제(·왜)를 그 레코드에 남긴다.
+  //  결재는 decidedBy/decidedAt, 폐기 소거는 wipedBy/wipedAt, 입고 검수는 inspector 를 이미 남긴다.
+  //  계약·라이선스 해지는 날짜만, 입고 반품 종결은 아무것도 남기지 않아 '언제·누가 끝냈나'를 전역
+  //  감사로그에서만 알 수 있었다. 각각을 따로 검사하면 '무엇이 한 벌인지'가 코드에 남지 않으므로
+  //  종결 전이를 한 표로 모아 본다 — 전이가 늘면 여기에 한 줄 더 적는 것이 규약이 된다.
+  const CLOSURE_EVIDENCE = [
+    { file: ['app', '(app)', 'inventory', 'contracts', 'actions.ts'], fn: 'terminateContract', fields: ['terminatedAt', 'terminateReason', 'terminatedBy'] },
+    { file: ['app', '(app)', 'inventory', 'contracts', 'actions.ts'], fn: 'retireLicense', fields: ['terminatedAt', 'terminateReason', 'terminatedBy'] },
+    { file: ['app', '(app)', 'assets', 'intake', 'actions.ts'], fn: 'rejectIntakeLot', fields: ['rejectReason', 'inspector'] },
+    { file: ['app', '(app)', 'assets', 'intake', 'actions.ts'], fn: 'closeReturnedLot', fields: ['closedAt', 'closedBy'] },
+    { file: ['app', '(app)', 'assets', 'disposal', 'actions.ts'], fn: 'recordWipe', fields: ['wipedAt', 'wipedBy', 'certNo'] },
+  ]
+  const closureGaps = []
+  for (const c of CLOSURE_EVIDENCE) {
+    const src = readFileSync(path.join(ROOT, ...c.file), 'utf8')
+    const at = src.indexOf('export async function ' + c.fn)
+    if (at < 0) { closureGaps.push(`${c.fn}: 없음`); continue }
+    const body = src.slice(at, at + 3000)
+    const miss = c.fields.filter((fl) => !new RegExp('\\.\\s*' + fl + '\\s*=').test(body))
+    if (miss.length) closureGaps.push(`${c.fn}: ${miss.join('/')}`)
+  }
+  check(`종결 증적: 종결 전이 ${CLOSURE_EVIDENCE.length}개가 누가·언제(·왜)를 레코드에 남긴다`,
+    closureGaps.length === 0, `누락=${closureGaps.join(', ')}`)
   // 사유를 필수로 받는 조작은 그 사유를 레코드에도 남기는가 — 사유를 통지 제목·감사로그에만 적으면,
   //  나중에 그 레코드를 보는 사람은 '왜 이렇게 됐는지'를 전역 로그에서 뒤져야 한다. 반려·해지처럼 되돌릴 수
   //  없는 판정일수록 근거는 판정 옆에 있어야 한다(입고 검수 반려·계약 해지·라이선스 해지가 실제로 그랬다).

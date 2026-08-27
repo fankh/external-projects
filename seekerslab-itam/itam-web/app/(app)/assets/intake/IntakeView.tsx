@@ -294,6 +294,11 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0, in
               {sel.rejectReason && ['검수 반려', '반품 완료'].includes(sel.status) && (
                 <div className="callout" style={{ marginBottom: 8, fontSize: 12 }}>
                   <b>반려 사유</b> — {sel.rejectReason}
+                  {sel.status === '반품 완료' && sel.closedAt && (
+                    <div className="mut" style={{ marginTop: 4, fontSize: 11 }}>
+                      반품 종결 {sel.closedAt}{sel.closedBy ? ` · ${sel.closedBy}` : ''} (교체 없이 종결)
+                    </div>
+                  )}
                 </div>
               )}
               {sel.status === '검수 반려' && (

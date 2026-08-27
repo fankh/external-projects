@@ -4648,6 +4648,8 @@ try {
     rejPanel.includes('반려 사유') && rejPanel.includes('패널 멍'))
   // 반품 완료로 종결된 뒤에도 사유는 남아야 한다 — '왜 돌려보냈는가'는 종결로 사라지는 사실이 아니다
   //  (이 시점의 IN-2607-04 는 앞 시나리오가 이미 반품 완료로 닫아 둔 상태다).
+  ok('입고 반품 종결: 종결 시점·처리자가 로트에 남는다(공급사 환불·품질 평가 기준 시점)',
+    rejPanel.includes('반품 종결'))
   ok('입고 검수 반려: 반품 완료로 종결된 뒤에도 사유가 남는다',
     rejPanel.includes('반려 사유') && !(await pRej.locator('button', { hasText: /^재검수 \(교체품 도착\)$/ }).count()))
   await ctxRej.close()
