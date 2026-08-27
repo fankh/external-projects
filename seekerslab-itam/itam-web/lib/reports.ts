@@ -21,7 +21,7 @@ import { criticalDependencies, impactSources } from './cmdb'
 // 양쪽 모두 함수 본문에서만 서로를 호출(모듈 최상위 미참조)해 순환이 안전하다.
 import { compositeRiskAssetNos, riskSignals } from './risk'
 import type { CellValue, Sheet } from './xlsx'
-import { DISPOSAL_STATUSES, IDLE_POOL_STATUSES } from './types'
+import { DISPOSAL_STATUSES, IDLE_POOL_STATUSES, isUntriagedDiscovery, isOpenExposure } from './types'
 import type { DiscoveredAsset, ReportKind, ReportSchedule, ReportSection, SaasUsage, SwLicense } from './types'
 
 /** 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 대상
@@ -191,7 +191,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const unreg = onboardTargets()
     const handled = s.discovered.filter((d) => d.action)
     const shadowSaas = shadowSaasPending() // 차단 판정 완료분 제외 — 이 절은 '판정이 필요한' 미인가를 센다
-    const extOpenUnreg = s.external.filter((e) => e.state === '미등록' && !e.action) // 미조치 외부 노출 — 형제 신호와 같은 기준
+    const extOpenUnreg = s.external.filter(isOpenExposure) // 미조치 외부 노출 — 대시보드·화면과 같은 판정(lib/types isOpenExposure)
     // 인증·계정·SW 위생 — 외부/내부 채널의 정책 위반 위협(크리덴셜 노출·휴면 계정·미인가 SW). 주간 브리핑이 결재·감사 증적이 되려면 함께 담아야 한다.
     const credOpen = s.credentials.filter((c) => c.status !== '조치 완료')
     const acctOpen = s.accounts.filter((a) => !a.action)
@@ -210,7 +210,8 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         // 조치가 걸린 노출(차단 요청 등)은 미등록 갭에서 뺀다 — 이 절의 형제 신호(크리덴셜·휴면 계정·미인가 SW·USB·로컬 VM)가
         //  모두 미조치만 세는데 외부 노출만 state 로만 걸러, 이미 차단 요청한 호스트가 손대지 않은 노출로 브리핑에 실렸다
         //  (표에 조치 상태 열이 없어 읽는 쪽은 구분할 수 없다). 어시스턴트 컨텍스트도 !e.action 으로 본다.
-        note: `외부 노출 ${s.external.length}건 중 미조치 미등록 ${extOpenUnreg.length}건, CVE 확인 ${s.external.filter((e) => e.cve).length}건`,
+        // '미등록'이 아니라 '미조치'다 — 등록·불일치·미확인 노출도 조치 대상이다(대시보드·화면과 같은 판정)
+        note: `외부 노출 ${s.external.length}건 중 미조치 ${extOpenUnreg.length}건, CVE 확인 ${s.external.filter((e) => e.cve).length}건`,
         columns: ['호스트', '발견 방법', '노출 서비스', 'CVE', '위험도'],
         rows: extOpenUnreg.map((e) => [e.host, e.method, e.services ?? '-', e.cve ?? '-', e.risk]),
       },
@@ -336,7 +337,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: 'Discovery 편입 실적',
         bullets: [
           `Discovery 채널로 편입된 자산 ${s.assets.filter((a) => a.discoveredVia).length}대`,
-          `대장 미등록 발견 잔여 ${s.discovered.filter((d) => d.state === '미등록' && !d.action).length}건`,
+          `대장 미등록 발견 잔여 ${s.discovered.filter(isUntriagedDiscovery).length}건`,
         ],
       },
     ]
@@ -758,7 +759,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       },
       {
         title: 'A.12 운영 보안 (취약점 노출)',
-        note: `조치 우선순위 P1 ${vulnC.p1}건 · P2 ${vulnC.p2}건 · 외부 노출 미조치 ${s.external.filter((e) => !e.action && e.state !== '등록·일치').length}건 · 크리덴셜 노출 미조치 ${s.credentials.filter((c) => c.status !== '조치 완료').length}건`,
+        note: `조치 우선순위 P1 ${vulnC.p1}건 · P2 ${vulnC.p2}건 · 외부 노출 미조치 ${s.external.filter(isOpenExposure).length}건 · 크리덴셜 노출 미조치 ${s.credentials.filter((c) => c.status !== '조치 완료').length}건`,
         bullets: ['외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 자산 중요도와 결합해 P1/P2/P3로 순위화(취약점 조치 우선순위 리포트와 동일 산출).'],
       },
       {
@@ -1149,7 +1150,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         ['미인가 SW (EDR)', String(s.unauthorizedSw.length), String(s.unauthorizedSw.filter((w) => w.action).length), String(s.unauthorizedSw.filter((w) => !w.action).length)],
         ['USB 저장매체 (EDR·DLP)', String(s.usbFindings.length), String(s.usbFindings.filter((u) => u.action).length), String(s.usbFindings.filter((u) => !u.action).length)],
         ['로컬 가상머신 (EDR)', String(s.localVms.length), String(s.localVms.filter((v) => v.action).length), String(s.localVms.filter((v) => !v.action).length)],
-        ['외부 노출 자산', String(s.external.length), String(s.external.filter((e) => e.action).length), String(s.external.filter((e) => !e.action && e.state !== '등록·일치').length)],
+        ['외부 노출 자산', String(s.external.length), String(s.external.filter((e) => e.action).length), String(s.external.filter(isOpenExposure).length)],
         ['위협 인텔 IOC 상관', String(s.iocMatches.length), String(s.iocMatches.filter((i) => i.action).length), String(s.iocMatches.filter((i) => !i.action).length)],
         ['다크웹 유출·침해', String(s.leaks.length), String(s.leaks.filter((l) => l.status === '조치 완료').length), String(s.leaks.filter((l) => l.status !== '조치 완료').length)],
       ],
@@ -1235,7 +1236,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     //  같은 리포트 안에서 'N건 중 높음 M건'의 M 이 N 을 넘을 수 있다.
     const unregW = onboardTargets()
     return `이번 주 편입 대상 미등록 자산은 ${n('신규 발견')}건이며, 이 중 위험도 높음은 ${unregW.filter((d) => d.risk === '높음').length}건입니다. `
-      + `외부 공격표면에서는 미등록 노출 자산 ${n('외부 공격표면')}건이 확인되었으며 CVE가 확인된 자산이 ${s.external.filter((e) => e.cve).length}건 포함됩니다. `
+      + `외부 공격표면에서는 미조치 노출 자산 ${n('외부 공격표면')}건이 확인되었으며 CVE가 확인된 자산이 ${s.external.filter((e) => e.cve).length}건 포함됩니다. `
       + `미인가 SaaS는 ${n('미인가 SaaS')}종으로, 소유자 확인 후 편입 또는 차단 판정이 필요합니다. `
       + `인증·계정·엔드포인트 위생에서는 크리덴셜 노출 ${credN}건·휴면 계정 ${acctN}건·미인가 SW ${swN}건·USB 매체 ${usbN}건·로컬 VM ${vmN}건이 미조치 상태로, 보안담당의 차단·제거·회수·비활성화·소유자 확인 조치가 필요합니다.`
   }

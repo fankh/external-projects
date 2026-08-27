@@ -20,7 +20,7 @@ import { getSession } from '@/lib/session'
 import { canViewMenu } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 import { canDecideApproval } from '@/lib/approval'
-import { ASSET_CATEGORIES, DISPOSAL_STATUSES } from '@/lib/types'
+import { ASSET_CATEGORIES, DISPOSAL_STATUSES, isUntriagedDiscovery, isOpenExposure } from '@/lib/types'
 import type { ChatMessage, ReportKind, Role } from '@/lib/types'
 
 /** 리포트 생성 인텐트 — 어시스턴트가 실제로 리포트를 만든다 (제품안내서 §05 리포트 자동화:
@@ -75,7 +75,7 @@ function buildContext(userName: string, isUser: boolean, canAsset: boolean): str
       ...s.saas.map((x) => `- ${x.service} | ${x.dept} | 사용자:${x.users} | ${x.sanctioned ? '인가' : blockedSaas.has(x.service) ? '차단 판정' : '미인가'} | 위험도:${x.risk}`),
       `[결재 대기] ${s.approvals.filter((a) => a.status === '대기').length}건`,
       ...s.approvals.filter((a) => a.status === '대기').map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.currentStep}`),
-      `[외부 위협] 외부 노출 미조치 ${s.external.filter((e) => !e.action && e.state !== '등록·일치').length} · 크리덴셜 노출 미조치 ${s.credentials.filter((c) => c.status !== '조치 완료').length} · IOC 상관 미조치 ${s.iocMatches.filter((i) => !i.action).length} · 다크웹 유출·침해 미조치 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
+      `[외부 위협] 외부 노출 미조치 ${s.external.filter(isOpenExposure).length} · 크리덴셜 노출 미조치 ${s.credentials.filter((c) => c.status !== '조치 완료').length} · IOC 상관 미조치 ${s.iocMatches.filter((i) => !i.action).length} · 다크웹 유출·침해 미조치 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
       ...s.iocMatches.filter((i) => !i.action).map((i) => `- ${i.id} | IOC 상관 | ${i.iocType} ${i.iocValue} | 귀속:${i.threatActor} | 상관:${i.matchedAsset} | 위험도:${i.severity}`),
       `[엔드포인트·계정 위생] 휴면 계정 미처리 ${s.accounts.filter((a) => !a.action).length} · 미인가 SW 미조치 ${s.unauthorizedSw.filter((w) => !w.action).length} · USB 매체 미조치 ${s.usbFindings.filter((u) => !u.action).length} · 로컬 VM 미조치 ${s.localVms.filter((v) => !v.action).length}`,
       ...s.credentials.filter((c) => c.status !== '조치 완료').map((c) => `- ${c.id} | 크리덴셜 노출 | ${c.service} ${c.host}:${c.port} | ${c.issue} | 위험도:${c.severity}`),
@@ -255,9 +255,9 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const byRisk = (r: string) => disc.filter((d) => d.risk === r).length
     const chan = [...new Set(disc.map((d) => d.channel))]
       .map((c) => `${c} ${disc.filter((d) => d.channel === c).length}`).join(' · ')
-    const untriaged = disc.filter((d) => d.state === '미등록' && !d.action).length
+    const untriaged = disc.filter(isUntriagedDiscovery).length
     const confirming = disc.filter((d) => d.action === '확인요청').length
-    const extOpen = s.external.filter((e) => !e.action && e.state !== '등록·일치').length
+    const extOpen = s.external.filter(isOpenExposure).length
     const leakOpen = s.leaks.filter((l) => l.status !== '조치 완료').length
     const credOpen = s.credentials.filter((c) => c.status !== '조치 완료').length
     // 엔드포인트·계정 위생(채널 04 EDR · 06 AD/IdP) — 대시보드·리포트와 동일 기준으로 브리핑에 함께 요약
@@ -290,7 +290,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
   if (!isUser && (q.includes('미등록') || q.includes('발견') || q.includes('shadow'))) {
-    const all = s.discovered.filter((d) => d.state === '미등록' && !d.action)
+    const all = s.discovered.filter(isUntriagedDiscovery)
     // 기간 스코프 — "이번 달 새로 발견된…"처럼 시점을 좁히면 최초 발견일(firstSeen) 기준으로 그 창 안만 답한다
     //  (안내서 §05 예시 질의 #1). 기간 토큰이 없으면 전량(처리 대기 미등록)을 답한다.
     const period = parsePeriodWindow(q, today())

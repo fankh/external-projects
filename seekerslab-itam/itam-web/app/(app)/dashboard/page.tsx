@@ -1,5 +1,5 @@
 import { staleComposeTargets } from '@/lib/survey'
-import { DEGRADED_CONNECTOR_STATUSES, USER_REQUEST_KINDS } from '@/lib/types'
+import { DEGRADED_CONNECTOR_STATUSES, USER_REQUEST_KINDS, isUntriagedDiscovery, isOpenExposure } from '@/lib/types'
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
@@ -42,7 +42,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const inUse = s.assets.filter((a) => a.status === '사용중').length
   const idle = s.assets.filter((a) => a.status === '유휴' || a.status === '반납대기').length
-  const newFound = s.discovered.filter((d) => d.state === '미등록' && !d.action)
+  const newFound = s.discovered.filter(isUntriagedDiscovery)
   // 라이선스 판정(초과·만료·미사용 회수)은 분석 화면 패널·리포트·어시스턴트와 동일한 licenseOptimization() 단일 소스.
   const licOpt = licenseOptimization()
   const maint = buildMaintenance()
@@ -181,7 +181,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       { label: '유출 · 침해 미조치', count: s.leaks.filter((l) => l.status !== '조치 완료').length, href: '/discovery/external?open=leaks', tone: 'err' },
       { label: '크리덴셜 노출 미조치 (인증 취약점)', count: s.credentials.filter((c) => c.status !== '조치 완료').length, href: '/discovery/external?open=creds', tone: 'err' },
       { label: 'IOC 상관 미조치 (위협 인텔·침해 징후)', count: s.iocMatches.filter((i) => !i.action).length, href: '/discovery/external?open=ioc', tone: 'err' },
-      { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external?open=exposure', tone: 'err' },
+      { label: '외부 노출 미조치', count: s.external.filter(isOpenExposure).length, href: '/discovery/external?open=exposure', tone: 'err' },
       { label: '휴면 계정 미처리 (AD/IdP 계정 위생)', count: s.accounts.filter((a) => !a.action).length, href: '/discovery/found?open=accounts', tone: 'warn' },
       // 소유자 확인 미응답 — 기한(운영 정책) 경과한 확인 요청은 격리 에스컬레이션 대상. 방치하면 미확인 자산이 계속 사내망에 남는다.
       { label: `소유자 확인 미응답 (${s.opsPolicy.confirmDeadlineDays}일 경과 · 격리 에스컬레이션)`, count: s.discovered.filter((d) => d.action === '확인요청' && d.confirmRequestedAt && -(daysUntil(d.confirmRequestedAt) ?? 0) >= s.opsPolicy.confirmDeadlineDays).length, href: '/discovery/found?await=overdue', tone: 'err' },

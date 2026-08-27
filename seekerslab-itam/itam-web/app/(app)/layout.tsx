@@ -7,7 +7,7 @@ import { canDecideApproval } from '@/lib/approval'
 import { canViewMenu } from '@/lib/perm'
 import { getSession, SESSION_COOKIE } from '@/lib/session'
 import { getStore } from '@/lib/store'
-import { ROLE_LABEL } from '@/lib/types'
+import { ROLE_LABEL, isUntriagedDiscovery } from '@/lib/types'
 
 async function logout() {
   'use server'
@@ -29,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // 그동안 전사 대기 결재 총계를 전 역할에 노출해, 결재 권한이 없는 사용자에게도 큰 숫자가 떠 실제 내 조치량과 어긋났다.
   const badges = {
     approvals: s.approvals.filter((a) => a.requester !== session.name && canDecideApproval(session.role, a)).length,
-    unregistered: s.discovered.filter((d) => d.state === '미등록' && !d.action).length,
+    unregistered: s.discovered.filter(isUntriagedDiscovery).length,
   }
 
   return (
