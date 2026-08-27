@@ -740,6 +740,9 @@ function seed(): Store {
       // 승인은 났으나 아직 집행되지 않은 이동 — 불출·이동 처리 화면의 대기열에 잡힌다.
       // targetLocation 은 공통코드 LOCATION 의 값이어야 대장에 그대로 반영할 수 있다.
       { id: 'APR-2607-101', kind: '이동', title: 'AST-2023-000112 좌석 이동 (본사 8F → 본사 9F)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-15', status: '승인', currentStep: '완료', refId: 'AST-2023-000112', decidedAt: '2026-07-16', decidedBy: '박자산', targetLocation: '본사 9F', note: '팀 좌석 재배치' },
+      // 폐기 증적이 참조하는 결재(DSP-00·DSP-03) — 대장에 없으면 증적의 결재번호가 조회되지 않는 번호가 된다.
+      { id: 'APR-2606-088', kind: '폐기', title: 'AST-2018-000090 노후 단말 폐기 (사용 연한 8년)', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-06-24', status: '승인', currentStep: '완료', decidedAt: '2026-06-26', decidedBy: '이기획', refId: 'AST-2018-000090' },
+      { id: 'APR-2606-090', kind: '폐기', title: 'AST-2020-000771 노후 단말 폐기 (배터리 팽창)', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-06-27', status: '승인', currentStep: '완료', decidedAt: '2026-06-29', decidedBy: '이기획', refId: 'AST-2020-000771' },
       { id: 'APR-2606-092', kind: '차이 조정', title: '2026 상반기 재물조사 차이 4건 조정', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-06-30', status: '승인', currentStep: '완료', decidedAt: '2026-07-02', decidedBy: '이기획' },
       { id: 'APR-2607-125', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — Linear', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-28', status: '대기', currentStep: '보안담당 결재', saasService: 'Linear', note: '이슈 트래킹 협업 — 인가 카탈로그 사전 등재 요청' },
       // 기존 검토중 카탈로그(CAT-07 FlowTrackr) 인가 요청 — 승인 시 reviewSince 해제 회귀 가드(신규 등재인 Linear 와 달리 기존 항목 갱신 경로).
