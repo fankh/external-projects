@@ -381,6 +381,8 @@ export async function retireLicense(id: string, rawReason: string) {
 
   l.status = '해지'
   l.terminatedAt = today()
+  // 계약 해지와 같은 규약 — 구독을 왜 끊었는지가 중복 구독 정리·재구독 판단의 근거다.
+  l.terminateReason = reason
 
   // 해지 연계 영향 — 해지하면 이 라이선스는 사용 수집 대사(lib/license-usage)에서 빠지므로, 남아 있던 배정 좌석과
   //  설치 단말이 조용히 시야에서 사라진다(구독은 끊겼는데 SW 는 깔린 채 남는 컴플라이언스 사각). 계약 해지와 같은 규약으로
@@ -411,6 +413,8 @@ export async function terminateContract(id: string, rawReason: string) {
 
   c.status = '해지'
   c.terminatedAt = today()
+  // 사유를 계약에 남긴다 — 통지 제목과 감사로그에만 있으면 재계약 검토 때 근거를 찾을 수 없다.
+  c.terminateReason = reason
 
   // 연계 영향 — 이 계약을 근거로 한 라이선스(구독)·자산(유지보수 커버리지)이 해지로 영향받는다.
   // 자동 해지/변경은 하지 않되(라이선스는 타 계약 이관 가능·자산은 소유 유지), 담당자가 검토하도록 규모를 드러낸다.

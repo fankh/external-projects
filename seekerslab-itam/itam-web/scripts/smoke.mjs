@@ -2379,6 +2379,32 @@ try {
   check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
 
+  // 사유를 필수로 받는 조작은 그 사유를 레코드에도 남기는가 — 사유를 통지 제목·감사로그에만 적으면,
+  //  나중에 그 레코드를 보는 사람은 '왜 이렇게 됐는지'를 전역 로그에서 뒤져야 한다. 반려·해지처럼 되돌릴 수
+  //  없는 판정일수록 근거는 판정 옆에 있어야 한다(입고 검수 반려·계약 해지·라이선스 해지가 실제로 그랬다).
+  //  사유를 필수 검증하는 서버 액션이 그 값을 레코드 필드에 대입하거나 이력에 push 하는지 본다.
+  const reasonGaps = []
+  for (const file of sourceFiles.filter((x) => x.endsWith(path.sep + 'actions.ts'))) {
+    const src = readFileSync(file, 'utf8')
+    const marks = [...src.matchAll(/export async function (\w+)\(([^)]*)\)/g)]
+    for (let i = 0; i < marks.length; i += 1) {
+      if (!/\b(reason|rawReason|note|rawNote)\b/.test(marks[i][2])) continue
+      const body = src.slice(marks[i].index, i + 1 < marks.length ? marks[i + 1].index : src.length)
+      const required = /return \{ ok: false[^\n]*(사유|내용|입력)/.test(body)
+      if (!required) continue
+      // 저장으로 인정: 레코드 필드 대입 · 이력 push · 다른 액션에 사유를 넘겨 위임
+      const stored = /\.(\w*[Rr]eason|\w*[Nn]ote|detail)\w* = /.test(body)
+        || /history\.push/.test(body) || /reason:/.test(body) || /note:/.test(body)
+        || /await \w+\([^)]*reason/.test(body)
+        // 객체 축약 저장도 인정한다: `x.y = { newDueDate, reason, ... }` — 다만 감사로그 템플릿의
+        //  `${reason}` 을 저장으로 오인하지 않게 대입식의 객체 리터럴 안으로 한정한다.
+        || /= \{[^}]*\breason\b[^}]*\}/.test(body)
+      if (!stored) reasonGaps.push(path.relative(ROOT, file).split(path.sep).join('/') + ':' + marks[i][1])
+    }
+  }
+  check(`사유 필수 조작: 사유를 레코드에도 남긴다(actions ${sourceFiles.filter((x) => x.endsWith(path.sep + 'actions.ts')).length}개 검사)`,
+    reasonGaps.length === 0, `저장 없음=${reasonGaps.join(', ')}`)
+
   // 정규식 리터럴의 역슬래시 유실 — 편집 중 문자 클래스의 역슬래시가 떨어지면 정규식은 문법 오류 없이 살아남고
   //  타입 검사·빌드도 통과하지만 아무것도 매칭하지 않는다. lib/dates 의 addDays 가 실제로 그렇게 깨져 있었고,
   //  날짜 파싱이 늘 실패해 입력을 그대로 반환하는 바람에 재물조사 기한(+14일)·리포트 다음 실행일(+7일)·

@@ -209,7 +209,7 @@ export function ContractsTable({ rows, sel, canEdit, expiryWindowDays, canExport
                 </td>
                 <td className="c">
                   {c.status === '해지' ? (
-                    <span className="mut" title={`${c.terminatedAt ?? ''} 해지`}>—</span>
+                    <span className="mut" title={`${c.terminatedAt ?? ''} 해지${c.terminateReason ? ` — ${c.terminateReason}` : ''}`}>—</span>
                   ) : openId === c.id ? (
                     <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
                       {[1, 2, 3].map((y) => (
