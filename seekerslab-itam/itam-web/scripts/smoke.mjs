@@ -3130,6 +3130,25 @@ try {
     scopeUses >= 11 && rawScope.length === 0, `날 술어가 남음: ${rawScope.join(', ')}`)
   check(`발견·노출: '미조치' 판정이 각각 한 정의 (사용 ${untriagedUses}곳)`,
     untriagedUses >= 8 && rawUntriaged.length === 0, `날 술어가 남음: ${rawUntriaged.join(', ')}`)
+  // 필수 고정 결재(폐기·격리 요청·소유자 확인·차이 조정)는 저장된 플래그가 아니라 상수가 정한다 —
+  //  낡은 스냅샷이나 결재선 누락 한 번에 '직접 실행' 경로가 열리면 안 되는 종류다(토글도 해제를 거부한다).
+  const approvalSrc = readFileSync(path.join(ROOT, 'lib', 'approval.ts'), 'utf8')
+  // 'ApprovalKind[]' 의 ']' 에 걸리지 않게 '=' 뒤의 여는 대괄호부터 자른다
+  const mandStart = permTypesSrc.indexOf('MANDATORY_APPROVAL_KINDS')
+  const mandOpen = mandStart < 0 ? -1 : permTypesSrc.indexOf('[', permTypesSrc.indexOf('=', mandStart))
+  const mandatoryKinds = mandOpen < 0 ? '' : permTypesSrc.slice(mandOpen, permTypesSrc.indexOf(']', mandOpen))
+  const mandatoryList = [...mandatoryKinds.matchAll(new RegExp("'([^']+)'", 'g'))].map((m) => m[1])
+  check(`필수 결재: 판정이 상수를 먼저 본다 (${mandatoryList.length}종)`,
+    mandatoryList.length === 4 && approvalSrc.includes('MANDATORY_APPROVAL_KINDS.includes(kind)) return true'),
+    `상수 ${mandatoryList.join(', ')}`)
+  check('필수 결재: 저장된 스냅샷도 로드 시 필수로 되돌린다',
+    permStoreSrc.includes('MANDATORY_APPROVAL_KINDS.includes(line.kind)) line.required = true'))
+  // 화면이 그 네 종을 실제로 '필수'로 그린다 — 상수만 맞고 화면이 '선택'이면 관리자가 해제 가능하다고 읽는다
+  const usersHtml = await (await get('/settings/users', 'ADMIN')).text()
+  const usersPlain = text(usersHtml)
+  const missingMandatory = mandatoryList.filter((k) => !usersPlain.includes(k))
+  check(`필수 결재: 결재선 화면에 네 종이 모두 있다 (${mandatoryList.length}종)`,
+    mandatoryList.length === 4 && missingMandatory.length === 0 && usersPlain.includes('필수'), `누락: ${missingMandatory.join(', ')}`)
   const qualitySrc = readFileSync(path.join(ROOT, 'lib', 'quality.ts'), 'utf8')
   const accuracyUses = reportsSrc.split('cmdbAccuracyPct(').length - 1
   const inlineAccuracy = reportsSrc.split('ratioPct(live').length - 1

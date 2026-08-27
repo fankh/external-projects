@@ -1,6 +1,6 @@
 import { can } from './perm'
 import { getStore } from './store'
-import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepIndex } from './types'
+import { APPROVAL_STEP_ROLE, MANDATORY_APPROVAL_KINDS, approvalRoute, approvalStepIndex } from './types'
 import type { Approval, Role } from './types'
 
 /** 지금 이 결재 건을 이 권한그룹이 결재할 수 있는가 — 결재 처리(decide)의 역할 게이트와 동일 로직.
@@ -35,5 +35,10 @@ export function canDecideApproval(role: Role, a: Approval): boolean {
  *  반납·자산 신청은 직접 실행 경로가 없다 — 신청 자체가 결재이고 그 뒤는 승인분 집행뿐이라 막을 대상이 없다.
  *  폐기·격리 요청·소유자 확인·차이 조정은 애초에 결재로만 진행되며 필수 해제도 불가(MANDATORY_APPROVAL_KINDS). */
 export function requiresApproval(kind: Approval['kind']): boolean {
+  // 필수 고정 종류는 저장된 플래그와 무관하게 필수다 — 토글이 해제를 거부하므로 required 는 늘 true 여야 하지만,
+  //  그 불변식을 '저장된 값'에서만 읽으면 낡은 스냅샷·결재선 누락 한 번에 조용히 깨진다(권한 매트릭스의
+  //  잔존 'p' 와 같은 자리다). 폐기·격리 요청·소유자 확인·차이 조정에 직접 실행 경로가 열리는 것은
+  //  선언된 정책이 강제되지 않는 계열의 가장 무거운 쪽이라, 판정에서 상수를 먼저 본다.
+  if (MANDATORY_APPROVAL_KINDS.includes(kind)) return true
   return getStore().approvalLines.some((l) => l.kind === kind && l.required)
 }
