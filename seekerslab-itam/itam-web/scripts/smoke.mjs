@@ -3037,7 +3037,27 @@ try {
     }
     return out
   }
-  const sweepTargets = [...sweepQueues(dashMgr, 'ASSET_MGR'), ...sweepQueues(dashSec, 'SEC_MGR')]
+  // 전수의 범위 — 큐는 역할마다 다르게 뜬다. 자산담당 30개 · 보안담당 17개(합집합 47개)에 더해 Admin 은
+  //  두 관리자 화면 어디에도 없는 큐를 갖는다(필독 공지 확인 미달 — 공지 관리가 Admin 전용이라). 그 한 개가
+  //  스윕 밖에 있었는데도 검사 이름은 '전수'였다 — 이름이 범위를 과장하면 통과가 곧 보증으로 읽힌다.
+  //  Admin 대시보드까지 넣어 이름과 범위를 맞춘다. 사용자(USER) 대시보드에는 운영 큐가 없어(0개) 대상이 없다.
+  const dashAdminSweep = await (await get('/dashboard', 'ADMIN')).text()
+  const sweepSeen = new Set()
+  const sweepTargets = [...sweepQueues(dashMgr, 'ASSET_MGR'), ...sweepQueues(dashSec, 'SEC_MGR'), ...sweepQueues(dashAdminSweep, 'ADMIN')]
+    .filter((q) => { const k = `${q.role} ${q.href}`; if (sweepSeen.has(k)) return false; sweepSeen.add(k); return true })
+  // '전수'가 참인지 검사 자신이 확인한다 — 역할이 늘거나 그 역할에만 뜨는 큐가 생기면 위 목록에
+  //  한 줄을 더해야 하는데, 안 더해도 검사는 조용히 통과하고 이름만 '전수'로 남는다(실제로 Admin 전용
+  //  큐 하나가 그렇게 빠져 있었다). 네 역할 대시보드의 큐가 모두 스윕 대상에 들어 있는지 대조한다.
+  const sweepRoleHtml = { ASSET_MGR: dashMgr, SEC_MGR: dashSec, ADMIN: dashAdminSweep, USER: await (await get('/dashboard', 'USER')).text() }
+  const sweepUncovered = []
+  for (const [role, html] of Object.entries(sweepRoleHtml)) {
+    for (const q of sweepQueues(html, role)) {
+      if (!sweepSeen.has(`${role} ${q.href}`)) sweepUncovered.push(`${role} ${q.href}`)
+    }
+  }
+  check(`큐 스윕 범위: 네 역할 대시보드의 큐가 모두 스윕 대상(${sweepTargets.length}종)`,
+    sweepUncovered.length === 0, `누락=${sweepUncovered.join(', ')}`)
+
   const sweepBad = []
   const sweepSkipped = []
   let sweepChecked = 0
@@ -3097,12 +3117,17 @@ try {
     }
     return out
   }
+  //  범위는 큐 스윕과 같이 Admin 대시보드까지 넣는다 — 타일도 역할마다 다르게 뜨고, 두 관리자 화면에만
+  //  기대면 Admin 전용 타일이 '전수'라는 이름 뒤에서 빠진다(큐에서 실제로 그랬다).
+  const statSeen = new Set()
   const statTargets = [
     ...sweepStats(dashMgr, 'ASSET_MGR'),
     ...sweepStats(dashSec, 'SEC_MGR'),
+    ...sweepStats(dashAdminSweep, 'ADMIN'),
     ...sweepStats(await (await get('/ai/insights', 'ASSET_MGR')).text(), 'ASSET_MGR'),
     ...sweepStats(await (await get('/settings/scan-policy', 'SEC_MGR')).text(), 'SEC_MGR'),
   ]
+    .filter((t) => { const k = `${t.role} ${t.href}`; if (statSeen.has(k)) return false; statSeen.add(k); return true })
   const statBad = []
   const statSkipped = []
   for (const t of statTargets) {
