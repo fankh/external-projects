@@ -23,7 +23,13 @@ export async function selectForDisposal(assetNo: string, reason: string): Promis
   if ((HELD_STATUSES as readonly string[]).includes(asset.status)) {
     return { ok: false, message: `${asset.status} 자산은 폐기 대상으로 선정할 수 없습니다 — ${assetNo} (먼저 회수·반환·검수 완료 후 유휴 상태에서 선정하세요).` }
   }
-  s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason, status: '대상 선정', prevStatus: asset.status })
+  const dspId = nextId('DSP')
+  s.disposals.push({ id: dspId, assetNo, model: asset.model, reason, status: '대상 선정', prevStatus: asset.status })
+  // 폐기 절차 편입도 자산 이력에 남긴다 — 반려 복원(decide)은 이력을 남기는데 선정은 남기지 않아, 자산
+  //  타임라인에 '폐기 반려 — 대상 해제'만 뜨고 그 앞에 선정된 적이 있다는 기록이 없었다(되돌림만 보이고
+  //  원인이 안 보인다). 반납·대여 반환 점검으로 편입되는 경로는 이미 이력을 남기므로 이 직접 선정 경로만
+  //  비어 있었다. 누가·왜 폐기 파이프라인에 넣었는지는 전역 감사로그가 아니라 그 자산에서 읽혀야 한다.
+  asset.history.push({ date: today(), kind: '폐기', detail: `폐기 대상 선정 — ${reason} (${dspId} · ${asset.status} → 폐기예정)`, actor: session.name })
   asset.status = '폐기예정'
   appendAudit({ actor: session.name, action: `폐기 대상 선정 — ${reason}`, target: assetNo })
   revalidatePath('/', 'layout')
@@ -42,7 +48,13 @@ export async function cancelDisposalCandidate(disposalId: string) {
   if (d.status !== '대상 선정') return { ok: false, message: `결재·소거가 진행 중이라 취소할 수 없습니다 — ${d.id} (${d.status})` }
 
   const asset = s.assets.find((a) => a.assetNo === d.assetNo)
-  if (asset) asset.status = d.prevStatus ?? '유휴'
+  if (asset) {
+    // 취소도 이력에 남긴다 — 선정 이력만 남고 해제가 안 남으면 타임라인이 '폐기 대상'에서 멈춰,
+    //  실제로는 운영에 복귀한 자산이 이력상 폐기 대기처럼 읽힌다(폐기 반려 복원과 같은 규약).
+    const back = d.prevStatus ?? '유휴'
+    asset.history.push({ date: today(), kind: '점검', detail: `폐기 대상 선정 취소 — ${back} 복원 (${d.id} · ${d.reason})`, actor: session.name })
+    asset.status = back
+  }
   s.disposals = s.disposals.filter((x) => x.id !== disposalId)
 
   appendAudit({ actor: session.name, action: `폐기 대상 선정 취소 — ${d.assetNo} (→ ${asset?.status ?? '유휴'})`, target: d.assetNo })
@@ -64,7 +76,10 @@ export async function selectForDisposalMany(items: { assetNo: string; reason: st
     if (!asset || s.disposals.some((x) => x.assetNo === it.assetNo)) { skippedD += 1; continue }
     // 보유자가 쥔·파이프라인 중 자산은 건너뛴다 — 회수·반환·검수 완료(유휴)해야 폐기 선정 대상(단건 가드와 동일).
     if ((HELD_STATUSES as readonly string[]).includes(asset.status)) { skippedD += 1; continue }
-    s.disposals.push({ id: nextId('DSP'), assetNo: it.assetNo, model: asset.model, reason: it.reason, status: '대상 선정', prevStatus: asset.status })
+    const bulkId = nextId('DSP')
+    s.disposals.push({ id: bulkId, assetNo: it.assetNo, model: asset.model, reason: it.reason, status: '대상 선정', prevStatus: asset.status })
+    // 단건 선정과 같은 이력을 남긴다 — 일괄로 넣었다고 자산 타임라인이 비면 안 된다.
+    asset.history.push({ date: today(), kind: '폐기', detail: `폐기 대상 선정 — ${it.reason} (${bulkId} · ${asset.status} → 폐기예정 · 일괄)`, actor: session.name })
     asset.status = '폐기예정'
     n += 1
   }
