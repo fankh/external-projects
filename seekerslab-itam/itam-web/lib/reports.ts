@@ -953,6 +953,9 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       futureDep += annual
       prevBook = endBook
     }
+    // 올해 들어 이미 계상된 상각액 = 연초 장부가 - 현재 장부가. 남은 몫과 나눠 적어야 예산이 부풀지 않는다.
+    const bookedYtd = Math.max(0, bookAtEnd(curY - 1) - nowBook)
+    const remainThisYear = Math.max(0, Number((years[0]?.[2] ?? '0').replace(/,/g, '')) - bookedYtd)
     const catRows = [...new Set(dep.map((a) => a.category))].map((c) => {
       const arr = dep.filter((a) => a.category === c)
       const acq = arr.reduce((n, a) => n + acquisitionCostOf(a), 0)
@@ -977,7 +980,11 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: '요약 · 회계 활용',
         bullets: [
           `운영 실물 자산 ${dep.length}대의 총 취득가는 ${totalAcq.toLocaleString()}원, 현재 잔존가(장부가)는 ${nowBook.toLocaleString()}원입니다(누적 상각 ${(totalAcq - nowBook).toLocaleString()}원).`,
-          `${curY}년 상각 예정액은 ${years[0]?.[2] ?? '0'}원이며, 향후 ${USEFUL_LIFE_YEARS + 1}개 연도에 걸쳐 총 ${futureDep.toLocaleString()}원이 상각됩니다.`,
+          // 연간 상각액은 회계 관행대로 연초(전년말) 기준이고, 잔여 상각액은 오늘 기준이다 — 두 기준을 한 문장에
+          //  섞어 '향후 총 상각액'으로 연초 기준 합계를 적으면, 올해 이미 계상된 몫만큼 남은 예산을 부풀린다
+          //  (시드 기준 4,007만원 vs 실제 잔여 3,173만원 — 26% 과대). 기준을 각각 밝히고 오늘 기준 잔여를 함께 적는다.
+          `${curY}년 연간 상각액은 ${years[0]?.[2] ?? '0'}원입니다(연초 장부가 기준 · 이 중 오늘까지 ${bookedYtd.toLocaleString()}원 계상, 연말까지 ${remainThisYear.toLocaleString()}원 잔여).`,
+          `오늘 기준 잔여 상각액 총계는 ${nowBook.toLocaleString()}원이며, 향후 ${USEFUL_LIFE_YEARS + 1}개 연도에 걸쳐 상각됩니다(연초 기준 전개 합계 ${futureDep.toLocaleString()}원).`,
           '연도별 상각액은 감가상각비 예산·고정자산 명세에, 상각 완료(잔존가 0) 시점은 재취득(교체) 예산 타이밍의 근거로 활용합니다. 자산별 상세는 대장 엑셀 내보내기(잔존가치 열)로 확인합니다.',
         ],
       },
@@ -1188,7 +1195,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const totalAcqH = depH.reduce((n, a) => n + acquisitionCostOf(a), 0)
     const nowBookH = depH.reduce((n, a) => n + bookValueOf(a, tD), 0)
     const curYearDepH = Math.max(0, depH.reduce((n, a) => n + bookValueOf(a, `${curYD - 1}-12-31`), 0) - depH.reduce((n, a) => n + bookValueOf(a, `${curYD}-12-31`), 0))
-    return `운영 실물 자산 ${depH.length}대의 총 취득가 ${fmtAmount(totalAcqH)}원 중 현재 잔존가(장부가)는 ${fmtAmount(nowBookH)}원입니다(누적 상각 ${fmtAmount(totalAcqH - nowBookH)}원). 정액법(내용연수 ${USEFUL_LIFE_YEARS}년) 기준 ${curYD}년 상각 예정액은 ${fmtAmount(curYearDepH)}원이며, 연도별 상각액과 상각 완료 시점을 아래 명세에 전개했습니다 — 감가상각비 예산·재취득(교체) 시점 근거로 활용합니다.`
+    return `운영 실물 자산 ${depH.length}대의 총 취득가 ${fmtAmount(totalAcqH)}원 중 현재 잔존가(장부가)는 ${fmtAmount(nowBookH)}원입니다(누적 상각 ${fmtAmount(totalAcqH - nowBookH)}원). 정액법(내용연수 ${USEFUL_LIFE_YEARS}년) 기준 ${curYD}년 연간 상각액은 ${fmtAmount(curYearDepH)}원(연초 장부가 기준)이고, 오늘 이후 남은 상각액은 잔존가와 같은 ${fmtAmount(nowBookH)}원입니다. 연도별 상각액과 상각 완료 시점을 아래 명세에 전개했습니다 — 감가상각비 예산·재취득(교체) 시점 근거로 활용합니다.`
   }
   if (kind === '계약 갱신 전망') {
     const tC = today()

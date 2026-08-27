@@ -3073,6 +3073,21 @@ try {
   const genBlock = genSrc.split('const REPORTS = [')[1]?.split(String.fromCharCode(10) + ']')[0] ?? ''
   const sampledKinds = [...genBlock.matchAll(new RegExp("\\['([^']+)',", 'g'))].map((m) => m[1])
   const unsampled = kindNames.filter((k) => !sampledKinds.includes(k))
+  // 감가상각 명세는 두 기준을 함께 쓴다 — 연간 상각액은 회계 관행대로 연초(전년말) 기준이고, 잔여 상각액은
+  //  오늘 기준이다. 한 문장에 섞어 '향후 총 상각액'으로 연초 합계를 적으면 올해 이미 계상된 몫만큼 예산이
+  //  부풀었다(4,007만 vs 실제 잔여 3,173만 — 26% 과대). 커밋된 샘플에서 두 식이 맞아떨어지는지 본다.
+  const depSample = readFileSync(path.join(ROOT, '..', 'docs', '샘플_감가상각명세.md'), 'utf8')
+  const num = (re) => { const m = re.exec(depSample); return m ? Number(m[1].replace(/,/g, '')) : -1 }
+  const depNowBook = num(/현재 잔존가\(장부가\)는 ([0-9,]+)원/)
+  const depRemain = num(/오늘 기준 잔여 상각액 총계는 ([0-9,]+)원/)
+  const depAnnual = num(/년 연간 상각액은 ([0-9,]+)원/)
+  const depYtd = num(/이 중 오늘까지 ([0-9,]+)원 계상/)
+  const depRest = num(/연말까지 ([0-9,]+)원 잔여/)
+  check(`감가상각 명세: 오늘 기준 잔여 상각액 = 현재 잔존가 (${depRemain.toLocaleString()}원)`,
+    depNowBook > 0 && depRemain === depNowBook, `잔존가 ${depNowBook} · 잔여 ${depRemain}`)
+  check(`감가상각 명세: 올해 계상 + 잔여 = 연간 상각액 (${depAnnual.toLocaleString()}원)`,
+    depAnnual > 0 && depYtd >= 0 && depRest >= 0 && depYtd + depRest === depAnnual,
+    `${depYtd} + ${depRest} ≠ ${depAnnual}`)
   check(`리포트 샘플: 종류 ${kindNames.length}종을 모두 덮는다 (샘플 ${sampledKinds.length}종)`,
     kindNames.length >= 15 && unsampled.length === 0,
     `샘플 없는 종류: ${unsampled.join(', ')}`)
