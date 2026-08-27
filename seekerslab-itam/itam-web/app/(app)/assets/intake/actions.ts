@@ -85,9 +85,8 @@ export async function rejectIntakeLot(lotId: string, reason: string) {
  *  (제품안내서 §03: 발주 연계 입고 → 검수 체크리스트 → 채번 → 라벨) */
 export async function registerIntakeLot(contractId: string, model: string, category: AssetCategory, qty: number, unitCost = 0) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '입고 등록 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '입고 등록 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '입고 등록 권한이 없습니다 (자산담당·Admin).', '/assets/intake')
 
   const s = getStore()
   const contract = s.contracts.find((c) => c.id === contractId && c.kind === '구매')
@@ -125,9 +124,8 @@ export async function registerIntakeLot(contractId: string, model: string, categ
  *  물리 입고 전 단계이므로 검수 체크리스트·채번은 아직 없다. 도착(markLotArrived) 시 입고 대기로 전환된다. 자산담당·Admin. */
 export async function preRegisterLot(input: { contractId: string; srNo: string; model: string; category: AssetCategory; qty: number; expectedDate: string; unitCost?: number }) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '도입 예정 등록 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '도입 예정 등록 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '도입 예정 등록 권한이 없습니다 (자산담당·Admin).', '/assets/intake')
 
   const s = getStore()
   const contract = s.contracts.find((c) => c.id === input.contractId && c.kind === '구매')
@@ -156,9 +154,8 @@ export async function preRegisterLot(input: { contractId: string; srNo: string; 
  *  입고 대기로 전환하며 기본 검수 체크리스트를 부여한다(이후 검수→채번→대장). 자산담당·Admin. */
 export async function markLotArrived(lotId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '입고 처리 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '입고 처리 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '입고 처리 권한이 없습니다 (자산담당·Admin).', '/assets/intake')
 
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
@@ -179,9 +176,8 @@ export async function markLotArrived(lotId: string) {
  *  방치하면 도착 예정일 경과 시 '입고 지연' 오알림·발주처 오독촉이 계속 뜬다(도착 후 반품(rejectIntakeLot)과 구분). 도입 예정 건만 대상. 자산담당·Admin. */
 export async function cancelPreRegisteredLot(lotId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '도입 예정 취소 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '도입 예정 취소 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '도입 예정 취소 권한이 없습니다 (자산담당·Admin).', '/assets/intake')
   const s = getStore()
   const lot = s.intakeLots.find((l) => l.id === lotId)
   if (!lot) return { ok: false, message: '입고 건을 찾을 수 없습니다.' }
@@ -198,9 +194,8 @@ export async function cancelPreRegisteredLot(lotId: string) {
  *  당일 이미 독촉한 로트는 건너뛴다(ref = 입고번호). 자산담당·Admin. */
 export async function remindIntakeOverdue() {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '입고 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '입고 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '입고 독촉 발송 권한이 없습니다 (자산담당·Admin).', '/assets/intake')
 
   // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 납기 경과 + 당일 발송분 제외.
   const due = intakeRemindTargets()

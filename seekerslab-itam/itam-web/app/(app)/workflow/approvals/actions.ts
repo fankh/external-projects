@@ -258,9 +258,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
 
   // 역할 게이트 — 대시보드 '내 결재 대기' 큐와 동일한 판정(canDecideApproval)을 쓴다.
   // 매트릭스는 필요조건일 뿐 — 켜준다고 결재 종류별 규칙을 넘지 못한다.
-  if (!canDecideApproval(session.role, a)) {
-    return { ok: false, message: `현재 단계(${a.currentStep})를 결재할 권한이 없습니다.` }
-  }
+  if (!canDecideApproval(session.role, a)) return denied(session.name, `현재 단계(${a.currentStep})를 결재할 권한이 없습니다.`, '/workflow/approvals')
 
   // 중간 단계 승인 — 다음 단계로 진행하고 효과는 아직 적용하지 않는다.
   if (verdict === '승인' && mapped && idx < route.length - 1) {

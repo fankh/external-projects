@@ -126,9 +126,8 @@ export async function raiseAdjustment(roundId: string) {
  *  실사와 차이 조정이 모두 끝나야 회차를 닫는다(제품안내서 §03 재물조사 마감). */
 export async function completeRound(roundId: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) {
-    return { ok: false, message: '조사 완료 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '조사 완료 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('재고 · 재물조사', '저장', session.role))) return denied(session.name, '조사 완료 권한이 없습니다 (자산담당·Admin).', '/inventory/survey')
   const s = getStore()
   const round = s.inventoryRounds.find((r) => r.id === roundId)
   if (!round) return { ok: false, message: '조사 회차를 찾을 수 없습니다.' }

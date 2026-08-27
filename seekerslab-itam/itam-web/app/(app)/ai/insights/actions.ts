@@ -1,7 +1,7 @@
 'use server'
 import { DISPOSAL_STATUSES } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
-import { appendAudit } from '@/lib/audit'
+import { appendAudit, denied } from '@/lib/audit'
 import { classifyDiscoveredType } from '@/lib/classify'
 import { today } from '@/lib/dates'
 import { raiseLicenseApproval } from '@/lib/license'
@@ -16,9 +16,8 @@ import { replacementNoticeTargets } from '@/lib/reminders'
  *  (제품안내서 §05 그림 4: 제안 → 담당자 확인·결재 → 대장 반영·조치 → 판정 결과 환류) */
 export async function decideInsight(insightId: string, verdict: '승인' | '반려', reason: string) {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'SEC_MGR', 'ADMIN'].includes(session.role)) {
-    return { ok: false, message: '제안 판정 권한이 없습니다.' }
-  }
+  if (!session) return { ok: false, message: '제안 판정 권한이 없습니다.' }
+  if (!['ASSET_MGR', 'SEC_MGR', 'ADMIN'].includes(session.role)) return denied(session.name, '제안 판정 권한이 없습니다.', '/ai/insights')
 
   const s = getStore()
   const ins = s.insights.find((i) => i.id === insightId)
@@ -162,9 +161,8 @@ export async function setRiskPolicy(input: { p1MinScore: number; p2MinScore: num
  *  근거는 연간 교체 계획 리포트·패널과 동일한 replacementCandidates(). 당일 중복 발송 차단. 자산담당·Admin. */
 export async function notifyReplacement() {
   const session = await getSession()
-  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
-    return { ok: false, message: '교체 검토 통보 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '교체 검토 통보 권한이 없습니다 (자산담당·Admin).' }
+  if (!['ASSET_MGR', 'ADMIN'].includes(session.role)) return denied(session.name, '교체 검토 통보 권한이 없습니다 (자산담당·Admin).', '/ai/insights')
   const t = today()
   // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 교체 대상 + 당일 발송분 제외.
   let n = 0

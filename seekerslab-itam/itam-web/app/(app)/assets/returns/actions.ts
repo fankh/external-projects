@@ -15,9 +15,8 @@ import type { ReturnCondition } from '@/lib/types'
  *  (제품안내서 §03 PHASE 4: 반납 접수·상태 점검, 유휴 자산 풀 관리) */
 export async function receiveReturn(assetNo: string, condition: ReturnCondition, location: string, note: string) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '반납 접수 권한이 없습니다.' }
-  }
+  if (!session) return { ok: false, message: '반납 접수 권한이 없습니다.' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '반납 접수 권한이 없습니다.', '/assets/returns')
 
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
@@ -133,9 +132,8 @@ export async function receiveReturnMany(assetNos: string[], condition: ReturnCon
  *  필독 미확인 안내 loop 39 와 같은 컴플라이언스 독촉의 대여판). 당일 중복 발송은 차단한다. 자산담당·Admin. */
 export async function remindLoans() {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '대여 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '대여 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '대여 독촉 발송 권한이 없습니다 (자산담당·Admin).', '/assets/returns')
 
   // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 연체·반환 임박 + 당일 발송분 제외.
 
@@ -164,9 +162,8 @@ export async function remindLoans() {
  *  당일 중복 발송은 차단한다. 자산담당·Admin. */
 export async function remindRepairs() {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '수리 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '수리 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '수리 독촉 발송 권한이 없습니다 (자산담당·Admin).', '/assets/returns')
 
   // 대상 판정은 화면 버튼 건수와 한 소스(lib/reminders) — 예상 반환 경과·일정 미회신 + 당일 발송분 제외.
 
@@ -201,9 +198,8 @@ export async function remindRepairs() {
  *  누구에게 언제까지 얼마에 맡겼는지 추적할 수 없었다(제품안내서 §03 유지보수). 자산담당·Admin. */
 export async function sendToRepair(assetNo: string, rawVendor: string, eta: string, estCost: number) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '수리 의뢰 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '수리 의뢰 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '수리 의뢰 권한이 없습니다 (자산담당·Admin).', '/assets/returns')
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
@@ -221,9 +217,8 @@ export async function sendToRepair(assetNo: string, rawVendor: string, eta: stri
 
 export async function completeRepair(assetNo: string, outcome: '수리 완료' | '수리 불가', note: string, actualCost = 0, warrantyClaimed = false) {
   const session = await getSession()
-  if (!session || (!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) {
-    return { ok: false, message: '수리 처리 권한이 없습니다 (자산담당·Admin).' }
-  }
+  if (!session) return { ok: false, message: '수리 처리 권한이 없습니다 (자산담당·Admin).' }
+  if ((!['ASSET_MGR', 'ADMIN'].includes(session.role) || !can('수명주기', '저장', session.role))) return denied(session.name, '수리 처리 권한이 없습니다 (자산담당·Admin).', '/assets/returns')
 
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
