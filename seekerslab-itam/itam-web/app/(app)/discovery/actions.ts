@@ -190,14 +190,18 @@ export async function escalateUnanswered() {
   if (overdue.length === 0) return { ok: false, message: `기한(${deadlineDays}일) 경과한 미응답 건이 없습니다.` }
 
   for (const d of overdue) {
-    // 진행 중이던 소유자 확인 결재는 반려 처리하고 격리 요청으로 승계한다
+    const id = nextApprovalId()
+    // 진행 중이던 소유자 확인 결재는 반려 처리하고 격리 요청으로 승계한다.
+    //  사람이 반려할 때(decide)는 사유가 필수인데 이 자동 반려만 사유를 안 남겨, 결재 이력 엑셀의
+    //  '반려 사유' 칸이 '미기재'로 나갔다 — 시스템이 이유를 정확히 알면서 증적에는 비워 둔 셈이다.
+    //  승계된 격리 요청 번호까지 적어 '왜 반려됐고 무엇으로 이어졌는지'가 한 줄로 추적되게 한다.
     for (const a of s.approvals.filter((x) => x.kind === '소유자 확인' && x.refId === d.id && x.status === '대기')) {
       a.status = '반려'
       a.currentStep = '완료'
       a.decidedAt = today()
       a.decidedBy = '정책 자동 (미응답)'
+      a.rejectReason = `소유자 확인 요청 ${deadlineDays}일 미응답 — 정책 에스컬레이션으로 격리 요청(${id}) 승계`
     }
-    const id = nextApprovalId()
     s.approvals.unshift({
       id,
       kind: '격리 요청',

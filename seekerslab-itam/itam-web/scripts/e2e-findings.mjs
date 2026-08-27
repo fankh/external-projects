@@ -4529,6 +4529,26 @@ try {
   ok('스테일 선택: 먼저 처리된 건은 건너뛰고 결과에 제외 건수를 밝힌다(조용한 누락 방지)',
     skMsg.includes('1건 편입 요청') && skMsg.includes('제외'))
   await ctxSK.close(); await ctxSK2.close()
+  // 자동 반려도 사람 반려와 같은 증적을 남기는가 — 소유자 확인 미응답 에스컬레이션은 대기 중이던 결재를
+  //  반려 처리하면서 결재자·일자는 남기는데 '반려 사유'만 비워, 결재 이력 엑셀이 '미기재'로 내보냈다.
+  //  시스템이 이유를 정확히 아는데 증적에는 비워 두던 자리다. 실제로 눌러 반출까지 확인한다.
+  const ctxEsc = await browser.newContext(); await ctxEsc.addCookies([cookie(SEC)]); const pEsc = await ctxEsc.newPage()
+  await pEsc.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  const escBtn = pEsc.locator('button', { hasText: /^미응답 에스컬레이션$/ }).first()
+  const escEnabled = await escBtn.isEnabled().catch(() => false)
+  ok('미응답 에스컬레이션: 기한 경과 건이 있어 버튼이 활성(양성 대조)', escEnabled)
+  if (escEnabled) {
+    await escBtn.click()
+    await pEsc.waitForTimeout(900)
+    const aprXlsx = await pEsc.request.get(`${BASE}/api/export/approvals`)
+    const aprText = Buffer.from(await aprXlsx.body()).toString('utf8')
+    ok('자동 반려: 결재 이력 반출에 반려 사유가 기록된다(미기재 아님)',
+      aprXlsx.status() === 200 && aprText.includes('미응답 — 정책 에스컬레이션으로 격리 요청'))
+    // 승계된 격리 요청 번호까지 사유에 남아야 '무엇으로 이어졌는지'가 한 줄로 추적된다
+    ok('자동 반려: 사유가 승계된 격리 요청 번호를 담는다', /격리 요청\(APR-[0-9-]+\) 승계/.test(aprText))
+  }
+  await ctxEsc.close()
+
   await browser.close()
 } catch (err) {
   fail++
