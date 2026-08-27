@@ -2099,6 +2099,10 @@ try {
   //  일괄 경로에만 걸려 있고 단건 경로가 비어 있으면 같은 자산이 일괄로는 거절되고 단건으로는 통과한다.
   //  실제로 보증 연장이 그랬다 — 일괄은 빼면서 결과에 '폐기 자산 제외'라고 밝히는데 단건은 그대로 받았다.
   //  일괄(...Many)이 DISPOSAL_STATUSES 를 보면 짝이 되는 단건도 봐야 한다.
+  //  비교 대상 묶음도 lib/types 에서 읽는다(여기 또 적으면 묶음이 늘 때 이 가드만 옛 목록을 본다)
+  const STATUS_SETS = [...readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8')
+    .matchAll(/export const (\w*STATUSES)\s*:/g)].map((m) => m[1])
+  check(`상태 묶음 상수: lib/types 에서 읽어 온다(${STATUS_SETS.length}종)`, STATUS_SETS.length >= 5, `읽은 묶음=${STATUS_SETS.join(', ')}`)
   const actionSrcs = sourceFiles.filter((f) => f.endsWith(path.sep + 'actions.ts'))
   const pairGap = []
   for (const file of actionSrcs) {
@@ -2108,15 +2112,24 @@ try {
     const bodies = new Map(marks.map((m, i) => [m[1], bodyOf(i)]))
     for (const [name, body] of bodies) {
       const mm = /^(\w+?)(Many|Bulk|All)$/.exec(name)
-      if (!mm || !body.includes('DISPOSAL_STATUSES')) continue
+      if (!mm) continue
       const single = bodies.get(mm[1])
-      if (single && !single.includes('DISPOSAL_STATUSES')) {
-        pairGap.push(path.relative(ROOT, file).split(path.sep).join('/') + ':' + mm[1])
-      }
+      if (!single) continue
+      // 위임형(일괄이 단건을 그대로 호출)은 가드를 자동 승계하므로 대상에서 뺀다
+      if (body.includes('await ' + mm[1] + '(')) continue
+      // 한쪽에만 있는 것뿐 아니라 '서로 다른 묶음을 쓰는' 것도 갈림이다 — 계약 연계가 실제로 그랬다:
+      //  단건은 GONE_STATUSES(분실·폐기예정·폐기완료), 일괄은 TERMINAL_STATUSES(분실·폐기완료)를 써서
+      //  폐기예정 자산이 단건으로는 거절되고 일괄로는 조용히 통과했다(일괄 주석은 '단건 가드와 동형'이었다).
+      // 주석은 걷어내고 비교한다 — 설명문에 적힌 상수 이름까지 세면 '무엇을 쓰는가'가 아니라
+      //  '무엇을 언급하는가'를 재게 되어, 왜 그 묶음을 안 쓰는지 적어 둔 주석이 곧 위양성이 된다.
+      const codeOf = (t) => t.split(/\r?\n/).filter((ln) => !ln.trim().startsWith('//') && !ln.trim().startsWith('*') && !ln.trim().startsWith('/*')).join('\n')
+      const setsIn = (t) => STATUS_SETS.filter((n) => codeOf(t).includes(n)).join('+')
+      const gb = setsIn(body), gs = setsIn(single)
+      if (gb !== gs) pairGap.push(path.relative(ROOT, file).split(path.sep).join('/') + ':' + mm[1] + `(단건 ${gs || '없음'} ≠ 일괄 ${gb || '없음'})`)
     }
   }
-  check(`단건·일괄 폐기 경로 제외: 일괄이 거르는 조작은 단건도 거른다(actions ${actionSrcs.length}개 검사)`,
-    pairGap.length === 0, `단건에 누락=${pairGap.join(', ')}`)
+  check(`단건·일괄 상태 가드 일치: 같은 조작은 같은 상태 묶음으로 거른다(actions ${actionSrcs.length}개 검사)`,
+    pairGap.length === 0, `불일치=${pairGap.join(', ')}`)
 
   //  상태 목록은 lib/types 의 AssetStatus 선언에서 읽는다 — 여기 또 적으면 상태가 늘 때 이 가드만 옛 목록을
   //  보고 새 상태의 전환을 검사에서 빠뜨린다(이 가드가 잡으려는 '같은 개념 두 정의' 를 가드가 저지르는 꼴).
