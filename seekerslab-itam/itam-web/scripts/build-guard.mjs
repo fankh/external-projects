@@ -62,3 +62,28 @@ export function assertFreshBuild(root, { remote = false } = {}) {
     process.exit(1)
   }
 }
+
+/** 포트 선점 가드 — 스위트는 저마다 전용 포트에 `next start` 를 띄우고 /login 이 200 이면 '기동됨'으로 본다.
+ *  포트가 이미 물려 있으면 spawn 은 바인드에 실패해 조용히 죽는데, 준비 확인은 남의 서버에서 200 을 받아
+ *  통과한다. 그래서 스위트는 '신선한 인메모리 시드'라는 자기 전제를 깬 채 앞 실행이 더럽혀 놓은 상태를
+ *  검사하고, 끝나며 죽은 spawn 만 kill 해 남의 서버는 계속 살아 있다 — 다음 실행은 더 더러운 상태를 본다.
+ *  실제로 중단된 e2e 가 남긴 서버 때문에 첫 검사(휴면 계정 조치)부터 엉뚱하게 실패했다.
+ *  검사 대상을 착각하느니 즉시 멈추고 무엇을 정리해야 하는지 알린다. */
+export async function assertPortFree(port) {
+  const ctl = new AbortController()
+  const t = setTimeout(() => ctl.abort(), 1500)
+  let taken = false
+  try {
+    await fetch(`http://localhost:${port}/login`, { signal: ctl.signal })
+    taken = true
+  } catch { /* 아무도 안 듣는다 = 정상 */ }
+  clearTimeout(t)
+  if (taken) {
+    console.error(
+      `포트 ${port} 가 이미 사용 중입니다 — 앞 실행이 남긴 서버일 가능성이 큽니다.\n` +
+      `  그대로 두면 이 스위트는 새 서버가 아니라 그 서버(오염된 상태)를 검사합니다.\n` +
+      `  정리: netstat -ano | findstr :${port}  →  taskkill /F /PID <PID>`,
+    )
+    process.exit(1)
+  }
+}

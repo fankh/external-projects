@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { assertFreshBuild } from './build-guard.mjs'
+import { assertFreshBuild, assertPortFree } from './build-guard.mjs'
 import { damagedRegexLiterals } from './regex-guard.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -18,6 +18,9 @@ const REMOTE = Boolean(process.env.SMOKE_BASE)
 
 // 빌드 신선도 — 소스가 .next 보다 새로우면 예전 빌드를 검증하게 되므로 시작하지 않는다(scripts/build-guard.mjs)
 assertFreshBuild(ROOT, { remote: REMOTE })
+// 포트 선점 — 앞 실행이 남긴 서버가 있으면 spawn 은 바인드에 실패하고 준비 확인만 그 서버에서 통과한다
+//  (신선한 시드라는 전제가 깨진 채 남의 상태를 검사한다). 착각하느니 멈춘다(scripts/build-guard.mjs)
+if (!REMOTE) await assertPortFree(PORT)
 
 const ACCOUNTS = {
   USER: { login: 'mj.kim', name: '김민준', dept: '플랫폼개발팀', role: 'USER' },
@@ -2085,6 +2088,17 @@ try {
     .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
     .filter((rel) => rel !== 'lib/dates.ts')
   check(`보증 임박 판정: lib/dates 한 곳만 임계 비교(소스 ${sourceFiles.length}개 검사)`, warrantyHardcoded.length === 0, `직접 비교=${warrantyHardcoded.join(', ')}`)
+
+  // 스위트 포트 선점 가드 — 스위트는 저마다 전용 포트에 next start 를 띄우고 /login 이 200 이면 기동으로 본다.
+  //  포트가 이미 물려 있으면 spawn 은 조용히 죽고 준비 확인만 남의 서버에서 통과해, '신선한 시드'라는 전제가
+  //  깨진 채 앞 실행이 더럽혀 놓은 상태를 검사한다. 끝나며 죽은 spawn 만 kill 하니 다음 실행은 더 더러운 상태를
+  //  본다 — 중단된 e2e 가 남긴 서버 때문에 실제로 첫 검사부터 엉뚱하게 실패했다. 서버를 띄우는 스위트가
+  //  하나도 빠짐없이 가드를 부르는지 본다(스위트가 늘어도 반쪽으로 남지 않게).
+  const suiteFiles = readdirSync(path.join(ROOT, 'scripts')).filter((n) => n.endsWith('.mjs'))
+  const spawners = suiteFiles.filter((n) => readFileSync(path.join(ROOT, 'scripts', n), 'utf8').includes("'start', '-p'"))
+  const portUnguarded = spawners.filter((n) => !readFileSync(path.join(ROOT, 'scripts', n), 'utf8').includes('assertPortFree(PORT)'))
+  check(`스위트 포트 가드: next start 를 띄우는 ${spawners.length}개 스위트 전부 선점 확인`,
+    spawners.length >= 6 && portUnguarded.length === 0, `누락=${portUnguarded.join(', ')}`)
 
   // 만료 임박 창의 두 번째 정의 — 보증(warrantyEnd)만 단속하던 위 가드의 사각지대였다. 구매 계약 이행 판정
   //  (lib/procurement)은 RISK_EXPIRY_DAYS = 90 을 따로 두고 dday 와 비교해, 운영자가 '만료 알림 창'을 30 으로

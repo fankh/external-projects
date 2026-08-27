@@ -16,13 +16,16 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertFreshBuild } from './build-guard.mjs'
+import { assertFreshBuild, assertPortFree } from './build-guard.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = 3379 // 스모크(3378)·헬스(3388)·레이아웃(3391)·e2e(3396)·샘플(3397) 과 겹치지 않는 대역
 const BASE = `http://localhost:${PORT}`
 
 assertFreshBuild(ROOT)
+// 포트 선점 — 앞 실행이 남긴 서버가 있으면 spawn 은 바인드에 실패하고 준비 확인만 그 서버에서 통과한다
+//  (신선한 시드라는 전제가 깨진 채 남의 상태를 검사한다). 착각하느니 멈춘다(scripts/build-guard.mjs)
+await assertPortFree(PORT)
 
 const ACCOUNTS = [
   ['USER', { login: 'mj.kim', name: '김민준', dept: '플랫폼개발팀', role: 'USER' }],
