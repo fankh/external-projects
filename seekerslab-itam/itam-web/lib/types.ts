@@ -1292,6 +1292,12 @@ export const PARTIAL_SCOPES: Record<string, string> = {
   '신청 · 결재|엑셀|USER': '본인 상신분만 — lib/exports.ts buildSheets(approvals)',
 }
 
+/** 절대 회수할 수 없는 칸 — Admin 이 권한 화면 자체를 잠가 스스로를 가두는 것을 막는다.
+ *  되돌릴 화면이 바로 그 화면이라 앱 안에 복구 경로가 없다 — can() 도 loadStore 도 이 불변식을 본다. */
+export function isLocked(menu: PermMenu, action: PermAction, role: Role): boolean {
+  return role === 'ADMIN' && menu === '권한 · 정책' && (action === '조회' || action === '저장')
+}
+
 /** 이 칸에 '본인(부분)'을 줄 수 있는가 — 범위를 좁히는 구현이 있는 칸만 참 */
 export function hasPartialScope(menu: PermMenu, action: PermAction, role: Role): boolean {
   return `${menu}|${action}|${role}` in PARTIAL_SCOPES
