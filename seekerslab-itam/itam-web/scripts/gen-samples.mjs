@@ -15,6 +15,8 @@ const CHECK = process.argv.includes('--check')
 // 개행 정규화 — git autocrlf 로 워킹트리가 CRLF 여도 생성기(LF)와 동등 비교되게 한다
 const norm = (buf) => buf.toString('utf8').replace(/\r\n/g, '\n')
 
+import { assertPortFree } from './build-guard.mjs'
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DOCS = path.join(ROOT, '..', 'docs')
 const PORT = 3397
@@ -55,6 +57,9 @@ const REPORTS = [
 // 신선한 시드 + 기준일 고정으로 서버 기동 (ITAM_DATA_FILE 는 명시적으로 제거)
 const env = { ...process.env, ITAM_TODAY: SEED_DATE }
 delete env.ITAM_DATA_FILE
+// 포트 선점 — 앞 실행이 남긴 서버가 있으면 spawn 은 바인드에 실패하고 준비 확인만 그 서버에서 통과한다
+//  (신선한 시드라는 전제가 깨진 채 남의 상태를 검사한다). 착각하느니 멈춘다(scripts/build-guard.mjs)
+await assertPortFree(PORT)
 const nextBin = path.join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next')
 const server = spawn(process.execPath, [nextBin, 'start', '-p', String(PORT)], { cwd: ROOT, stdio: 'ignore', env })
 

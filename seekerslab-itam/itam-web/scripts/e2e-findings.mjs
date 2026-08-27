@@ -5,7 +5,7 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertFreshBuild } from './build-guard.mjs'
+import { assertFreshBuild, assertPortFree } from './build-guard.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PORT = 3396
@@ -38,6 +38,9 @@ const dPlus = (n) => {
 
 // 빌드 신선도 — 예전 빌드로 회귀를 돌리면 고친 결함이 그대로인 채 초록으로 통과한다(scripts/build-guard.mjs)
 assertFreshBuild(ROOT, { remote: REMOTE })
+// 포트 선점 — 앞 실행이 남긴 서버가 있으면 spawn 은 바인드에 실패하고 준비 확인만 그 서버에서 통과한다
+//  (신선한 시드라는 전제가 깨진 채 남의 상태를 검사한다). 착각하느니 멈춘다(scripts/build-guard.mjs)
+if (!REMOTE) await assertPortFree(PORT)
 
 let server = null
 if (!REMOTE) {
