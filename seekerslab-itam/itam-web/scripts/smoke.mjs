@@ -702,7 +702,8 @@ try {
   // 저장된 스냅샷도 로드 시 한 번 정리한다 — 화면이 그리는 값과 can() 의 판정이 갈리지 않게
   check('스토어 로드: 구현 없는 칸의 잔존 본인을 불가로 정리', permStoreSrc.includes('hasPartialScope(row.menu, PERM_ACTIONS[i], role)'))
   // 칸 순서(PERM_ACTIONS)는 정의가 하나여야 한다 — store 와 perm 이 각자 배열을 들면 i 번째 기능이 갈린다
-  check('권한 기능 순서: 정의는 lib/types.ts 한 곳', permTypesSrc.includes("export const PERM_ACTIONS = ['조회'") && permSrc.includes("export { PARTIAL_SCOPES, PERM_ACTIONS, hasPartialScope } from './types'"))
+  const permReexports = permSrc.slice(permSrc.indexOf('export {'), permSrc.indexOf('export {') + 120)
+  check('권한 기능 순서: 정의는 lib/types.ts 한 곳', permTypesSrc.includes("export const PERM_ACTIONS = ['조회'") && permReexports.includes('PERM_ACTIONS') && permReexports.includes("from './types'"))
   // 엑셀 칸의 '본인'은 buildSheets 가 실제로 본인 범위를 거를 때만 뜻이 있다 — 등록된 엑셀 칸 수와
   //  exports.ts 의 USER 스코핑 지점 수가 같아야 한다(한쪽만 늘면 전사 반출이 조용히 열린다).
   const scopedExportCells = scopeKeys.filter((k) => k.split('|')[1] === '엑셀')
@@ -3135,6 +3136,13 @@ try {
   // 잠긴 AI 정책 토글도 같은 규약 — 저장된 플래그가 아니라 고정값이 답이다.
   //  화면이 저장값을 그리면 낡은 스냅샷 하나로 '권한 범위 필터 OFF'(빨강)가 떠, 감사관은 스코핑이
   //  꺼졌다고 읽는다(코드는 늘 적용한다). 필수 결재·권한 매트릭스 잔존 'p' 와 같은 자리다.
+  // 잠금 칸(Admin × 권한·정책 × 조회·저장)도 같은 규약 — 셋 중 가장 무겁다.
+  //  저장된 'n' 하나로 Admin 이 권한 화면 밖으로 밀려나는데, 되돌릴 화면이 바로 그 화면이라
+  //  앱 안에 복구 경로가 없다. 쓰기는 setPermission 이 막으므로 읽기도 같은 불변식을 봐야 한다.
+  check('권한 판정: 잠긴 칸은 저장값과 무관하게 허용',
+    permSrc.includes('if (isLocked(menu, action, role)) return true'))
+  check('권한 매트릭스: 저장된 스냅샷의 잠긴 칸도 로드 시 허용으로 되돌린다',
+    permStoreSrc.includes('isLocked(row.menu, PERM_ACTIONS[i], role)) row.cells[role][i] = ') && permStoreSrc.includes("'y'"))
   check('AI 정책: 잠긴 토글은 고정값으로 판정한다',
     permTypesSrc.includes('export function effectiveAiToggle(') && permTypesSrc.includes('lock ? lock.pinned : policy[field]'))
   check('AI 정책: 저장된 스냅샷도 로드 시 고정값으로 되돌린다',

@@ -1,5 +1,5 @@
 import { getStore } from './store'
-import { hasPartialScope, PERM_ACTIONS } from './types'
+import { hasPartialScope, isLocked, PERM_ACTIONS } from './types'
 import type { PermAction, PermMenu, Role } from './types'
 
 /** 기능 단위 권한 조회 — 매트릭스는 **필요조건**이다.
@@ -13,6 +13,11 @@ export function can(menu: PermMenu, action: PermAction, role: Role): boolean {
   if (!row) return false
   const idx = PERM_ACTIONS.indexOf(action)
   if (idx < 0) return false
+  // 잠긴 칸은 저장값과 무관하게 허용 — isLocked 는 'Admin 이 스스로를 권한 화면 밖으로 밀어내지 못한다'는
+  //  불변식인데, 그 판정을 저장된 칸에서만 읽으면 낡은 스냅샷의 'n' 하나로 잠금이 실현된다.
+  //  게다가 되돌릴 화면이 바로 그 화면이라 앱 안에 복구 경로가 없다 — 셋 중 가장 무거운 쪽이다.
+  //  쓰기는 setPermission 이 이미 막으므로, 읽기도 같은 불변식을 본다.
+  if (isLocked(menu, action, role)) return true
   const cell = row.cells[role]?.[idx]
   if (cell === 'n') return false
   // 'p'(부분)는 본인 범위 한정 허용 — 스코핑은 각 화면·반출이 따로 처리한다(PARTIAL_SCOPES).
@@ -22,7 +27,7 @@ export function can(menu: PermMenu, action: PermAction, role: Role): boolean {
   return true
 }
 
-export { PARTIAL_SCOPES, PERM_ACTIONS, hasPartialScope } from './types'
+export { PARTIAL_SCOPES, PERM_ACTIONS, hasPartialScope, isLocked } from './types'
 
 /** 기능(Action) 사전 — STEP 1 메뉴기능관리. 화면이 제공하는 버튼의 의미와 강제 지점을 정의한다.
  *  메뉴·기능 관리 화면 표시와 엑셀 반출이 같은 정의를 쓰도록 한 곳에 둔다. (제품안내서 §02) */
@@ -41,10 +46,7 @@ export const PERM_MENUS = [
   '발견 자산 · CMDB 대사', 'Shadow SaaS', 'AI 어시스턴트', '신청 · 결재', '권한 · 정책',
 ] as const
 
-/** 절대 회수할 수 없는 칸 — Admin 이 권한 화면 자체를 잠가 스스로를 가두는 것을 막는다 */
-export function isLocked(menu: PermMenu, action: PermAction, role: Role): boolean {
-  return role === 'ADMIN' && menu === '권한 · 정책' && (action === '조회' || action === '저장')
-}
+
 
 
 /** 화면(라우트) ↔ 권한 매트릭스 메뉴 — 매트릭스의 '조회' 칸을 실제 화면 진입에 강제하기 위한 단일 매핑.
