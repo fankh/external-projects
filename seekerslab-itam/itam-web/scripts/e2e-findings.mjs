@@ -1727,6 +1727,8 @@ try {
   const ctXls = Buffer.from(await (await p3.request.get(`${BASE}/api/export/contracts`)).body()).toString('utf8')
   ok('계약 해지: 계약 대장 반출에 해지 사유가 실린다(미기재 아님)',
     ctXls.includes('해지 사유') && ctXls.includes('공급사 변경 — 신규 계약 이관'))
+  ok('계약 해지: 반출에 해지 처리자도 실린다(언제·왜·누가)',
+    ctXls.includes('해지 처리자') && ctXls.includes(ADMIN.name))
   // 역방향 교차 정합 — 근거 계약이 해지되면 그 라이선스(LIC-001 Microsoft 365)에 '근거 해지' 표기(v1.272 의 역방향)
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const licTable2 = p3.locator('table', { has: p3.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first()
