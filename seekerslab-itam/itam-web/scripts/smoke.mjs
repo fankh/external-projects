@@ -2111,6 +2111,31 @@ try {
     .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
   check(`자산 상태 목록: lib/types 밖에 사본 없음(소스 ${sourceFiles.length}개 검사)`, relisted.length === 0, `사본=${relisted.join(', ')}`)
 
+  // 운영 정책 기본값이 화면 문구에 리터럴로 박혀 있는가 — 운영자가 '정기 점검 창'·'만료 알림 창' 같은 값을
+  //  바꾸면 판정은 따라가지만 안내 문구가 옛 숫자로 남아, 날짜를 고르는 바로 그 자리에서 틀린 규칙을 알려 준다.
+  //  실제로 대장 상세의 점검 예약 안내가 '30일 내·경과'로 고정돼 있었다(판정은 opsPolicy.maintenanceWindowDays).
+  //  정책 기본값과 같은 수가 '<숫자>일' 형태로 사용자 문구에 그대로 있으면 잡는다(변수 보간은 통과).
+  //  범위는 DEFAULT_OPS_POLICY 에 숫자 리터럴로 적힌 항목까지다(상수 참조분은 제외) — 그 수를 검사명에 밝힌다.
+  //  상수 참조분(만료 90·확인기한 7·미실측 180)까지 넓히면 개념이 다른데 수만 같은 문구('90일 이상 장기 유휴')를
+  //  잡아 버린다. 넓은 대신 시끄러운 가드보다 좁고 정확한 가드를 둔다.
+  const policyDefaults = [...(/export const DEFAULT_OPS_POLICY: OpsPolicy = \{([^}]+)\}/.exec(statusTypesSrc)?.[1] ?? '')
+    .matchAll(/(\w+): (\d+)/g)].map((m) => ({ key: m[1], n: Number(m[2]) }))
+    .filter((x) => /Days$/.test(x.key))
+  const policyLiterals = []
+  for (const file of sourceFiles.filter((f) => f.endsWith('.tsx'))) {
+    const rel = path.relative(ROOT, file).split(path.sep).join('/')
+    if (rel.includes('/settings/')) continue // 정책 설정 화면 자체는 기본값을 안내해도 된다
+    readFileSync(file, 'utf8').split(/\r?\n/).forEach((ln, i) => {
+      if (/^\s*(\/\/|\*)/.test(ln)) return
+      const m = /[>"'`]([^<>"'`]{0,40}?(\d{1,4})\s*일[^<>"'`]{0,40}?)[<"'`]/.exec(ln)
+      if (!m || ln.includes('${')) return
+      const hit = policyDefaults.find((d) => d.n === Number(m[2]))
+      if (hit) policyLiterals.push(`${rel}:${i + 1}(${hit.key}=${hit.n})`)
+    })
+  }
+  check(`운영 정책 문구: 화면이 정책 기본값을 리터럴로 적지 않음(정책 ${policyDefaults.length}종 · tsx 검사)`,
+    policyDefaults.length >= 2 && policyLiterals.length === 0, `리터럴=${policyLiterals.join(', ')}`)
+
   // 실사 위치 레지스트리의 실물 커버리지 — 공통코드 LOCATION 은 재물조사 계획의 대상 범위이자 실사 스캔의
   //  위치 선택지다(survey-plan · survey). 대장에 실물이 놓인 위치가 여기 없으면 그 자산은 회차에 편성될 수도
   //  그 위치로 스캔될 수도 없어, 실물이 있는데 실사에서 구조적으로 빠진다 — 재물조사가 잡으려는 '유령 자산'
