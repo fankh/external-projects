@@ -3132,6 +3132,16 @@ try {
     untriagedUses >= 8 && rawUntriaged.length === 0, `날 술어가 남음: ${rawUntriaged.join(', ')}`)
   // 필수 고정 결재(폐기·격리 요청·소유자 확인·차이 조정)는 저장된 플래그가 아니라 상수가 정한다 —
   //  낡은 스냅샷이나 결재선 누락 한 번에 '직접 실행' 경로가 열리면 안 되는 종류다(토글도 해제를 거부한다).
+  // 잠긴 AI 정책 토글도 같은 규약 — 저장된 플래그가 아니라 고정값이 답이다.
+  //  화면이 저장값을 그리면 낡은 스냅샷 하나로 '권한 범위 필터 OFF'(빨강)가 떠, 감사관은 스코핑이
+  //  꺼졌다고 읽는다(코드는 늘 적용한다). 필수 결재·권한 매트릭스 잔존 'p' 와 같은 자리다.
+  check('AI 정책: 잠긴 토글은 고정값으로 판정한다',
+    permTypesSrc.includes('export function effectiveAiToggle(') && permTypesSrc.includes('lock ? lock.pinned : policy[field]'))
+  check('AI 정책: 저장된 스냅샷도 로드 시 고정값으로 되돌린다',
+    permStoreSrc.includes('LOCKED_AI_POLICY_TOGGLES') && permStoreSrc.includes('lock.pinned'))
+  const aiPolHtml = text(await (await get('/settings/ai-policy', 'ADMIN')).text())
+  check('AI 정책 화면: 권한 범위 필터 ON · 자동 승인 OFF 를 고정값으로 표시',
+    aiPolHtml.includes('코드가 항상 적용 — 정책값으로 끌 수 없음') && aiPolHtml.includes('자동 승인 경로 없음'))
   const approvalSrc = readFileSync(path.join(ROOT, 'lib', 'approval.ts'), 'utf8')
   // 'ApprovalKind[]' 의 ']' 에 걸리지 않게 '=' 뒤의 여는 대괄호부터 자른다
   const mandStart = permTypesSrc.indexOf('MANDATORY_APPROVAL_KINDS')

@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname } from 'node:path'
 import { addDays, today } from './dates'
 import { checklistFor } from './intake'
-import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, GONE_STATUSES, MANDATORY_APPROVAL_KINDS, PERM_ACTIONS, fingerprintOf, hasPartialScope } from './types'
+import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, GONE_STATUSES, LOCKED_AI_POLICY_TOGGLES, MANDATORY_APPROVAL_KINDS, PERM_ACTIONS, fingerprintOf, hasPartialScope } from './types'
 import type {
   AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CloudFinding, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding, OpsPolicy, RiskPolicy, SwAllowEntry,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
@@ -882,6 +882,12 @@ function loadStore(): Store | null {
     const { __v: _v, ...store } = parsed
     // 최소 정합성 검사 — 깨진 파일이면 시드로 폴백
     if (!Array.isArray(store.assets) || !Array.isArray(store.approvals) || typeof store.seq !== 'number') return null
+    // 잠긴 AI 정책 토글도 고정값으로 되돌린다 — 화면이 저장된 값을 그리면 '스코핑 OFF' 같은 거짓 경보가 뜬다
+    if (store.aiPolicy) {
+      for (const [field, lock] of Object.entries(LOCKED_AI_POLICY_TOGGLES)) {
+        if (lock) (store.aiPolicy as AiPolicy)[field as 'scopeFilter' | 'autoApprove' | 'feedbackLearning'] = lock.pinned
+      }
+    }
     // 필수 고정 결재 종류는 저장값이 무엇이든 필수로 되돌린다 — requiresApproval 은 상수를 먼저 보므로
     //  판정은 이미 안전하지만, 화면이 저장된 '선택'을 그대로 그리면 '보이는 값 ≠ 실제 판정'이 된다.
     for (const line of (store.approvalLines ?? []) as ApprovalLine[]) {

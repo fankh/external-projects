@@ -1132,6 +1132,16 @@ export const LOCKED_AI_POLICY_TOGGLES: Partial<Record<'scopeFilter' | 'autoAppro
   autoApprove: { pinned: false, why: 'AI 제안은 담당자 판정(승인·반려)을 거쳐야 대장에 반영됩니다 — 자동 승인 경로 자체가 없습니다.' },
 }
 
+/** AI 정책 토글의 실효값 — 잠긴 항목은 저장값이 아니라 고정값이 답이다.
+ *  scopeFilter 는 코드가 항상 적용하고(buildContext 가 역할로 스코핑) autoApprove 는 경로 자체가 없다.
+ *  그런데 화면은 저장된 플래그를 그대로 ON/OFF 로 그렸다 — 낡은 스냅샷이 'scopeFilter OFF'(빨강)로 보이면
+ *  감사관은 권한 스코핑이 꺼졌다고 읽는다(실제로는 늘 켜져 있다). 필수 결재와 같은 자리다.
+ *  토글이 변경을 거부하는 항목은 판정도 상수를 먼저 봐야 '보이는 값 = 실제 동작'이 된다. */
+export function effectiveAiToggle(policy: AiPolicy, field: 'scopeFilter' | 'autoApprove' | 'feedbackLearning'): boolean {
+  const lock = LOCKED_AI_POLICY_TOGGLES[field]
+  return lock ? lock.pinned : policy[field]
+}
+
 export interface UserAccount {
   login: string
   name: string

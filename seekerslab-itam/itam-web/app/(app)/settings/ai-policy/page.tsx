@@ -1,3 +1,4 @@
+import { LOCKED_AI_POLICY_TOGGLES, effectiveAiToggle } from '@/lib/types'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { effectiveClassifyAccuracy, feedbackJudged } from '@/lib/ai-accuracy'
@@ -34,8 +35,8 @@ export default async function AiPolicyPage() {
       <div className="stat-row">
         <Stat value={effectiveClassifyAccuracy(p, s.insights).toFixed(1)} label="분류 정확도 (%)" tone="ok" delta={{ text: p.feedbackLearning ? `기준 ${p.classifyAccuracy}% · 판정 ${feedbackJudged(s.insights).judged}건 환류` : `프롬프트 ${p.promptVersion}`, dir: 'flat' }} />
         <Stat value={p.auditRetentionDays} label="AI 감사 로그 보존 (일)" />
-        <Stat value={p.scopeFilter ? 'ON' : 'OFF'} label="권한 범위 필터" tone={p.scopeFilter ? 'ok' : 'err'} />
-        <Stat value={p.autoApprove ? 'ON' : 'OFF'} label="AI 제안 자동 승인" tone={p.autoApprove ? 'err' : 'ok'} delta={{ text: p.autoApprove ? '담당자 확인 생략 — 권장하지 않음' : '담당자 확인·결재 원칙 유지', dir: 'flat' }} />
+        <Stat value={effectiveAiToggle(p, 'scopeFilter') ? 'ON' : 'OFF'} label="권한 범위 필터" tone={effectiveAiToggle(p, 'scopeFilter') ? 'ok' : 'err'} delta={{ text: LOCKED_AI_POLICY_TOGGLES.scopeFilter ? '코드가 항상 적용 — 정책값으로 끌 수 없음' : '정책값', dir: 'flat' }} />
+        <Stat value={effectiveAiToggle(p, 'autoApprove') ? 'ON' : 'OFF'} label="AI 제안 자동 승인" tone={effectiveAiToggle(p, 'autoApprove') ? 'err' : 'ok'} delta={{ text: effectiveAiToggle(p, 'autoApprove') ? '담당자 확인 생략 — 권장하지 않음' : '담당자 확인·결재 원칙 유지 — 자동 승인 경로 없음', dir: 'flat' }} />
       </div>
 
       <AiPolicyPanel policy={p} />
