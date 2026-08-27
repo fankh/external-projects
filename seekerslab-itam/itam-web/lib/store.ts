@@ -498,14 +498,24 @@ function seedCodeGroups(): CodeGroup[] {
       id: 'LOCATION',
       name: '위치',
       desc: '사업장·IDC 랙 단위 위치 코드 — 재물조사 실사 위치 목록의 원천. 클라우드 리전은 물리 실사 대상이 아니므로 제외한다.',
+      // 대장에 실물이 놓인 물리 위치는 빠짐없이 등록한다 — 이 목록이 재물조사 계획의 대상 범위이자
+      //  실사 스캔의 위치 선택지라(survey-plan · survey), 등록되지 않은 위치의 자산은 회차에 편성될 수도
+      //  그 위치로 스캔될 수도 없다. 실물이 있는데 실사에서 구조적으로 빠지는 자산이 생기는데, 그게 바로
+      //  재물조사가 잡으려는 '유령 자산' 상태다. 클라우드 리전·SW(위치 '-')는 물리 실사 대상이 아니라 제외.
       values: v(
+        ['HQ_1F_LOBBY', '본사 1F 로비'],
+        ['HQ_2F_MEET', '본사 2F 대회의실'],
+        ['HQ_3F_WH', '본사 3F 자산창고'],
+        ['HQ_3F_INSP', '본사 3F 검수실'],
+        ['HQ_5F_REPAIR', '본사 5F 수리대기'],
+        ['HQ_6F', '본사 6F'],
+        ['HQ_7F', '본사 7F'],
         ['HQ_8F', '본사 8F'],
         ['HQ_8F_NET', '본사 8F 통신실'],
         ['HQ_9F', '본사 9F'],
-        ['HQ_3F_WH', '본사 3F 자산창고'],
-        ['HQ_3F_INSP', '본사 3F 검수실'],
-        ['HQ_1F_LOBBY', '본사 1F 로비'],
+        ['HQ_12F', '본사 12F'],
         ['IDC_A_R12', 'IDC-A Rack 12'],
+        ['IDC_A_R15', 'IDC-A Rack 15'],
         ['IDC_A_R20', 'IDC-A Rack 20'],
         ['IDC_A_VC1', 'IDC-A vCluster1'],
         ['IDC_B_R3', 'IDC-B Rack 3'],
@@ -879,7 +889,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 35
+const SCHEMA_VERSION = 36
 /** 스키마 형태 지문 — Store 의 키와 각 엔티티의 필드 이름에서 계산한다(scripts/smoke.mjs 가 같은 방식으로 대조).
  *  형태가 바뀐 채 SCHEMA_VERSION 이 그대로면 낡은 스냅샷이 그대로 로드돼 새 필드가 undefined 로 읽힌다
  *  (파일 영속화는 마이그레이션 없이 버전 불일치 시 시드로 폴백하는 설계다). 형태를 바꿨다면 SCHEMA_VERSION 을
