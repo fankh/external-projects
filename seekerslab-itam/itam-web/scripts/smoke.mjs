@@ -68,8 +68,19 @@ function check(name, ok, detail = '') {
   else { failed += 1; console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`) }
 }
 
-const get = (p, role) =>
-  fetch(BASE + p, { redirect: 'manual', headers: role ? { cookie: cookie(role) } : {} })
+/** 요청 한 번 — 연결 수준 실패는 한 번 다시 시도한다.
+ *  스모크는 한 번에 900 회가 넘는 요청을 순차로 보내는데, 다른 스위트 직후에 돌리면 윈도우의 임시 포트가
+ *  TIME_WAIT 로 잠깐 말라 ECONNRESET/ECONNREFUSED 가 난다. 그 한 번 때문에 전체가 '실행 오류'로 끝나면
+ *  진짜 회귀와 구분이 안 된다 — 상태 코드가 돌아온 실패(4xx·5xx)는 그대로 두고, 연결 자체가 안 된 경우만 재시도한다. */
+const get = async (p, role) => {
+  const opts = { redirect: 'manual', headers: role ? { cookie: cookie(role) } : {} }
+  try {
+    return await fetch(BASE + p, opts)
+  } catch (e) {
+    await new Promise((r) => setTimeout(r, 300))
+    return fetch(BASE + p, opts)
+  }
+}
 
 /** React SSR 은 인접한 표현식 사이에 <!-- --> 를 넣는다 (`{n}일` → `7<!-- -->일`).
  *  텍스트를 그대로 검사하려면 주석을 걷어내야 한다. */
