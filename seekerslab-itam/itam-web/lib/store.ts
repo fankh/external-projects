@@ -882,6 +882,10 @@ function loadStore(): Store | null {
     const { __v: _v, ...store } = parsed
     // 최소 정합성 검사 — 깨진 파일이면 시드로 폴백
     if (!Array.isArray(store.assets) || !Array.isArray(store.approvals) || typeof store.seq !== 'number') return null
+    // 관리자 0명인 스냅샷은 운영할 수 없는 스토어다 — 권한그룹 변경은 Admin 만 할 수 있어 앱 안에 복구 경로가 없다.
+    //  setUserRole 이 '마지막 관리자 강등'을 막지만 그건 쓰기 시점뿐이고, 낡은·손상된 파일에는 그 보증이 없다.
+    //  여기서 아무나 승격시키면 조용한 권한 부여가 되므로, 깨진 파일과 같은 규약으로 시드로 폴백한다.
+    if (!Array.isArray(store.users) || !store.users.some((u: UserAccount) => u.role === 'ADMIN')) return null
     // 잠긴 AI 정책 토글도 고정값으로 되돌린다 — 화면이 저장된 값을 그리면 '스코핑 OFF' 같은 거짓 경보가 뜬다
     if (store.aiPolicy) {
       for (const [field, lock] of Object.entries(LOCKED_AI_POLICY_TOGGLES)) {
