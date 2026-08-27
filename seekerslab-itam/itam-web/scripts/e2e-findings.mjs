@@ -3364,6 +3364,18 @@ try {
   await pSG.locator('button', { hasText: /^1년$/ }).first().click()
   await pSG.waitForTimeout(800)
   ok('저장 게이트: 매트릭스 저장 회수 시 자산 대장 변경 액션 거부(사유 표기)', ((await pSG.textContent('body')) || '').includes('보증 연장 권한이 없습니다'))
+  // 거부는 조용히 끝나지 않는다 — 화면 진입·문서 반출과 같은 규약으로 '결과=실패' 감사 기록이 남아야 한다.
+  //  버튼을 숨겨도 액션 id 로 직접 호출할 수 있으므로, '권한 밖에서 무엇을 바꾸려 했는가'가 감사 질문이다.
+  //  브라우저에서 실제로 눌러 거부된 그 시도가 감사 로그에 보이는지까지 확인한다(소스 검사가 아닌 실동작).
+  const ctxSGA = await browser.newContext(); await ctxSGA.addCookies([cookie(ADMIN)]); const pSGA = await ctxSGA.newPage()
+  await pSGA.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const auditBody = (await pSGA.textContent('body')) || ''
+  ok('감사: 매트릭스 저장 회수 후의 변경 시도가 실패 기록으로 남는다',
+    auditBody.includes('권한 밖 변경 시도') && auditBody.includes('/assets/register'))
+  // 대상 경로는 눌러서 갈 수 있어야 한다 — 감사관이 경로를 손으로 옮겨 적지 않게(다른 대상과 같은 규약)
+  ok('감사: 거부 기록의 대상 화면이 링크로 열린다',
+    (await pSGA.locator('a[href="/assets/register"][title="대상으로 이동"]').count()) > 0)
+  await ctxSGA.close()
   await ctxSG.close()
   await wsCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
   ok('권한 매트릭스: 자산 대장 저장 권한 복원(허용)', ((await wsCell.textContent()) || '').includes('✓'))
