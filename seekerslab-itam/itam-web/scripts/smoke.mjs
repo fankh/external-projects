@@ -2086,6 +2086,21 @@ try {
     .filter((rel) => rel !== 'lib/dates.ts')
   check(`보증 임박 판정: lib/dates 한 곳만 임계 비교(소스 ${sourceFiles.length}개 검사)`, warrantyHardcoded.length === 0, `직접 비교=${warrantyHardcoded.join(', ')}`)
 
+  // 만료 임박 창의 두 번째 정의 — 보증(warrantyEnd)만 단속하던 위 가드의 사각지대였다. 구매 계약 이행 판정
+  //  (lib/procurement)은 RISK_EXPIRY_DAYS = 90 을 따로 두고 dday 와 비교해, 운영자가 '만료 알림 창'을 30 으로
+  //  줄여도 이 판정만 90 을 유지했다 — 계약·라이선스·대시보드·리포트가 임박으로 안 보는 계약을 구매 화면만
+  //  '발주 미이행 · 만료 임박'으로 올리고 이행 독촉까지 발송한다(설정 화면은 계약에도 적용된다고 안내한다).
+  //  잔여 기간(dday/daysUntil)을 숫자 리터럴과 직접 비교하는 곳이 정책 밖에 없는지 본다.
+  const ddayHardcoded = sourceFiles
+    .filter((f) => {
+      const src = readFileSync(f, 'utf8')
+      return src.split(/\r?\n/).some((ln) => !ln.trim().startsWith('//') && /\b(dday|daysUntil\([^)]*\))\s*<=?\s*\d{2,}/.test(ln))
+    })
+    .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
+    .filter((rel) => rel !== 'lib/dates.ts' && rel !== 'lib/types.ts')
+  check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
+    ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
+
   // 정규식 리터럴의 역슬래시 유실 — 편집 중 문자 클래스의 역슬래시가 떨어지면 정규식은 문법 오류 없이 살아남고
   //  타입 검사·빌드도 통과하지만 아무것도 매칭하지 않는다. lib/dates 의 addDays 가 실제로 그렇게 깨져 있었고,
   //  날짜 파싱이 늘 실패해 입력을 그대로 반환하는 바람에 재물조사 기한(+14일)·리포트 다음 실행일(+7일)·

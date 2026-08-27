@@ -4,9 +4,9 @@
 import { ratioPct, daysUntil } from './dates'
 import { getStore } from './store'
 
-/** 발주율이 이 비율 미만이면서 만료가 임박하면 발주 미이행 위험 */
-const UNDERORDER_RATE = 80
-const RISK_EXPIRY_DAYS = 90
+/** 발주율이 이 비율 미만이면서 만료가 임박하면 발주 미이행 위험(만료 창은 운영 정책 expiryWindowDays).
+ *  화면이 판정 기준을 그대로 밝힐 수 있도록 내보낸다 — 설명문에 숫자를 따로 적으면 기준과 문구가 갈린다. */
+export const UNDERORDER_RATE = 80
 
 export interface ProcurementRow {
   id: string
@@ -47,6 +47,10 @@ export function buildProcurement(): {
   totalInspected: number
 } {
   const s = getStore()
+  // 만료 임박 창은 운영 정책 한 곳에서 온다 — 여기서 90 을 다시 적으면 운영자가 '만료 알림 창'을 바꿔도
+  //  이 판정만 옛 값을 써, 대장·계약·라이선스·리포트가 임박으로 안 보는 계약을 구매 화면만 미이행 위험으로
+  //  올리고 독촉까지 나간다(설정 화면은 계약에도 적용된다고 안내한다). expiryWindowDays 를 그대로 따른다.
+  const expiryWindow = s.opsPolicy.expiryWindowDays
   const rows: ProcurementRow[] = s.contracts
     .filter((c) => c.kind === '구매' && c.status !== '해지')
     .map((c) => {
@@ -76,8 +80,8 @@ export function buildProcurement(): {
         // 정산 종결분은 미이행 위험에서 제외(생애주기 종착).
         // 입고 로트가 하나도 없는 계약도 그대로 판정한다 — 소진률 0% 는 미이행의 극단이고, 이 뷰가 잡으려는 바로 그 상황이다.
         //  예전엔 로트가 있는 계약만 대상으로 삼아, 만료가 코앞인데 한 건도 들어오지 않은 계약이 위험 큐·독촉에서 통째로 빠졌다
-        //  (아무것도 안 들어온 계약일수록 안 보이는 역설). 만료 임박(dday≤90) 조건은 그대로라 여력 있는 장기 계약은 잡히지 않는다.
-        atRisk: !c.settledAt && orderedValue < (c.amount * UNDERORDER_RATE) / 100 && dday !== null && dday <= RISK_EXPIRY_DAYS,
+        //  (아무것도 안 들어온 계약일수록 안 보이는 역설). 만료 임박(dday ≤ 운영 정책 만료 알림 창) 조건은 그대로라 여력 있는 장기 계약은 잡히지 않는다.
+        atRisk: !c.settledAt && orderedValue < (c.amount * UNDERORDER_RATE) / 100 && dday !== null && dday <= expiryWindow,
         // 정산 종결 가능 — 발주가 전량 입고(발주 소진 완료: orderedValue≥계약액)되고 활성 로트 전부 검수 완료이며 아직 미정산.
         //  대금 정산 근거(검수 완료액) 확정 → 종결. 발주 여력이 남은(미소진) 계약은 아직 종결 대상이 아니다.
         settleable: !c.settledAt && active.length > 0 && active.every((l) => l.status === '검수 완료') && orderedValue >= c.amount,
