@@ -3164,6 +3164,34 @@ try {
   const unmappedSteps = stepNames.filter((x) => !mappedSteps.includes(x))
   check(`결재선: 결재자 단계가 모두 역할에 매핑돼 있다 (${mappedSteps.length}종 매핑)`,
     mappedSteps.length >= 4 && unmappedSteps.length === 0, `매핑 없음: ${unmappedSteps.join(', ')}`)
+  // 시드 참조 무결성 — 끊긴 참조는 화면·반출에서 '조회되지 않는 번호'로 나간다.
+  //  폐기 증적 대장(ISMS A.8.3)의 결재번호가 대표 사례다: 대장에 없는 번호를 적으면 '결재를 받았다'고
+  //  주장하면서 근거를 댈 수 없고, 감사 로그의 대상 딥링크도 없는 문서로 향한다(실제로 두 건이 그랬다).
+  const idsOf = (re) => new Set([...permStoreSrc.matchAll(re)].map((m) => m[1]))
+  const seedAssets = idsOf(new RegExp("assetNo: '(AST-[0-9-]+)'", 'g'))
+  const seedContracts = idsOf(new RegExp("id: '(CT-[0-9-]+)'", 'g'))
+  const seedLicenses = idsOf(new RegExp("id: '(LIC-[0-9]+)'", 'g'))
+  const seedApprovals = idsOf(new RegExp("id: '(APR-[0-9-]+)'", 'g'))
+  const seedDisposals = idsOf(new RegExp("id: '(DSP-[0-9]+)'", 'g'))
+  const seedDiscovered = idsOf(new RegExp("id: '(DSC-[0-9-]+)'", 'g'))
+  const seedRounds = idsOf(new RegExp("id: '(INV-[0-9A-Za-z-]+)'", 'g'))
+  const refChecks = [
+    ['contractId', new RegExp("contractId: '([^']+)'", 'g'), seedContracts],
+    ['matchedAssetNo', new RegExp("matchedAssetNo: '([^']+)'", 'g'), seedAssets],
+    ['licenseId', new RegExp("licenseId: '([^']+)'", 'g'), seedLicenses],
+    ['approvalId', new RegExp("approvalId: '([^']+)'", 'g'), seedApprovals],
+    // 결재의 refId 는 대상 종류가 여럿이다(자산·라이선스·계약·폐기·발견·재물조사 회차)
+    ['refId', new RegExp("refId: '([^']+)'", 'g'), new Set([...seedAssets, ...seedLicenses, ...seedContracts, ...seedDisposals, ...seedDiscovered, ...seedRounds])],
+  ]
+  const dangling = []
+  let refTotal = 0
+  for (const [field, re, pool] of refChecks) {
+    const used = [...new Set([...permStoreSrc.matchAll(re)].map((m) => m[1]))]
+    refTotal += used.length
+    for (const v of used) if (!pool.has(v)) dangling.push(`${field}=${v}`)
+  }
+  check(`시드 참조 무결성: 끊긴 참조 없음 (${refTotal}종 참조 검사)`,
+    refTotal >= 25 && dangling.length === 0, dangling.join(', '))
   check('스토어 로드: 관리자 0명 스냅샷은 시드로 폴백',
     permStoreSrc.includes("!store.users.some((u: UserAccount) => u.role === 'ADMIN')"))
   // 시드가 그 불변식을 실제로 만족하는지도 본다 — 소스 가드만 맞고 데이터가 어기면 첫 기동부터 폴백 루프다
