@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
-import type { IocMatch } from '@/lib/types'
+import { IOC_RESPONSE, type IocMatch } from '@/lib/types'
 import { reopenIoc, respondToIoc, respondToIocMany } from './actions'
 
 const CONF_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
@@ -83,7 +83,13 @@ export function IocTable({ iocs, canRespond, openOnly: openOnlyParam }: { iocs: 
                   {i.note && <div className="mut" style={{ fontSize: 10.5, whiteSpace: 'normal' }}>{i.note}</div>}
                 </td>
                 <td className="strong">{i.threatActor}</td>
-                <td><Chip tone="info" bare>{i.matchType}</Chip> <span className="mut" style={{ fontSize: 10.5 }}>{i.source}</span></td>
+                <td style={{ whiteSpace: 'normal', maxWidth: 260 }}>
+                  <Chip tone="info" bare>{i.matchType}</Chip> <span className="mut" style={{ fontSize: 10.5 }}>{i.source}</span>
+                  {/* 관측 유형별 표준 권고 조치 — 유출·크리덴셜 표가 조치 노트를 권고문으로 미리 채워 주는 것의 IOC 판.
+                      그동안 이 권고문(lib/types IOC_RESPONSE)은 정의만 되고 어디에도 나오지 않아, 대응자는 무엇을 하라는
+                      말인지 없이 차단·조사 버튼만 눌렀다. 이미 조치한 건에는 다시 권하지 않는다. */}
+                  {!i.action && <div className="mut" style={{ fontSize: 10.5, whiteSpace: 'normal' }}>권고 — {IOC_RESPONSE[i.matchType]}</div>}
+                </td>
                 <td>{i.matchedAsset} <span className="dim">· {i.dept}</span></td>
                 <td className="c"><Chip tone={CONF_TONE[i.confidence]}>{i.confidence}</Chip></td>
                 <td className="c"><RiskChip risk={i.severity} /></td>
