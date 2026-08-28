@@ -55,7 +55,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('OS', a.os), row('CPU', a.cpu), row('메모리', a.memory),
     row('IP', a.ip), row('MAC', a.mac),
     row('도입일', a.purchaseDate),
-    row('보증 만료', a.warrantyEnd === '-' ? undefined : `${a.warrantyEnd}${({ covered: ' · 보증 내', soon: ' · 만료 임박', expired: ' · 보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())]}`),
+    row('보증 만료', a.warrantyEnd === '-' ? undefined : `${a.warrantyEnd}${({ covered: ' · 보증 내', soon: ' · 만료 임박', expired: ' · 보증 만료', none: '' })[warrantyState(a.warrantyEnd, today(), getStore().opsPolicy.expiryWindowDays)]}`),
     row('연계 계약', a.contractId), row('최초 발견 채널', a.discoveredVia),
     // 최근 실측도 날짜만 찍으면 인쇄물에서 실사 대상인지 알 수 없다 — 화면은 '장기 미실측' 칩·필터로 세는데
     //  카드만 맨 날짜였다. 운영 정책 임계값(staleVerifyDays)을 쓰는 화면·재물조사 편성과 같은 판정이다.

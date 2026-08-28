@@ -106,7 +106,7 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
         a.criticality ?? '일반', a.owner, a.dept, a.location,
         a.os ?? '', a.cpu ?? '', a.memory ?? '', a.ip ?? '', a.mac ?? '',
         a.purchaseDate, a.warrantyEnd,
-        ({ covered: '보증 내', soon: '만료 임박', expired: '보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())],
+        ({ covered: '보증 내', soon: '만료 임박', expired: '보증 만료', none: '' })[warrantyState(a.warrantyEnd, today(), s.opsPolicy.expiryWindowDays)],
         a.lastVerifiedAt ?? '',
         // 정기 점검 예정도 날짜만 반출하면 이 자산이 이미 점검을 넘긴 건지 알 수 없다 — 대여 반환 기한이 연체를
         //  함께 밝히는 것과 같은 규약으로 화면·큐와 같은 lib/dates 판정을 붙인다.

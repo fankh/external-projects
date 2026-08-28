@@ -588,7 +588,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   </td>
                   <td className="tnum">
                     {a.warrantyEnd}
-                    {a.warrantyEnd !== '-' && warrantyState(a.warrantyEnd, props.today!) === 'expired'
+                    {a.warrantyEnd !== '-' && warrantyState(a.warrantyEnd, props.today!, props.expiryWindowDays) === 'expired'
                       && !DISPOSAL_STATUSES.includes(a.status) && <> <Chip tone="err" bare>경과</Chip></>}
                   </td>
                 </tr>
@@ -854,7 +854,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <dd className="hstack" style={{ gap: 6 }}>
                 <span className="tnum">{sel.warrantyEnd}</span>
                 {props.today && (() => {
-                  const w = warrantyState(sel.warrantyEnd, props.today!)
+                  const w = warrantyState(sel.warrantyEnd, props.today!, props.expiryWindowDays)
                   return w === 'covered' ? <Chip tone="ok" bare>보증 내</Chip>
                     : w === 'soon' ? <Chip tone="warn" bare>만료 임박</Chip>
                       : w === 'expired' ? <Chip tone="err" bare>보증 만료</Chip> : null
