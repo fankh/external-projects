@@ -1114,6 +1114,21 @@ try {
   }
   ok(`안전재고 경보: 경보가 센 가용 수 = 드릴다운 목록 건수(${alertLinks.length}종)`, availMismatch.length === 0)
 
+  // 오프보딩 요약이 이름이 남은 나머지 보유를 세는가 — 사용중·대여중만 세면 수리중·반납대기 자산이 통째로 빠진다.
+  //  한도윤은 사용중 1대(AST-2024-000706)와 반납대기 1대(AST-2025-000513)를 갖는데, 그동안 요약은 앞의 하나만 셌다.
+  //  회수 지시가 나간 자산의 반납 의무가 인수인계에서 사라지는 자리다(명세서와 같은 기준이라야 한다).
+  {
+    const ctxOb = await browser.newContext(); await ctxOb.addCookies([cookie(ADMIN)])
+    const pAdmin = await ctxOb.newPage()
+    await pAdmin.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
+    const row = pAdmin.locator('tr', { hasText: '한도윤' }).first()
+    await row.locator('button').first().click()
+    await pAdmin.waitForTimeout(500)
+    const panel = (await pAdmin.locator('body').textContent()) || ''
+    ok('오프보딩 요약: 이름이 남은 나머지 보유(반납대기)를 센다', /그 밖에 이름이 남은 자산\s*1/.test(panel.replace(/\s+/g, ' ')))
+    await pAdmin.close(); await ctxOb.close()
+  }
+
   // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
   const recoverBtn = p2.locator('button', { hasText: /^자산 회수 \(반납 처리\)$/ })

@@ -37,8 +37,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ name: s
     .filter((l) => l.status !== '해지')
     .flatMap((l) => (l.seats ?? []).filter((st) => st.user === name).map((st) => ({ lic: l.name, assetNo: st.assetNo })))
   const pending = s.approvals.filter((a) => a.status === '대기' && a.requester === name)
+  // 사용중·대여중만 세면 이름이 아직 붙어 있는 나머지 상태가 명세서에서 통째로 빠진다 — 장애 신고로 수리에 들어간
+  //  자산은 소유자를 유지한 채 수리중이고(반납 접수분과 달리 보유자를 비우지 않는다), 회수 지시가 나간 자산은
+  //  실물이 돌아오기 전까지 반납대기로 이름이 남는다. 그 둘이 빠지면 수리에서 돌아온 장비가 퇴사자 앞으로 배정된 채
+  //  대장에 남고, 진행 중이던 반납 의무가 인수인계 문서에서 사라진다.
+  //  상태를 또 나열하지 않고 "이름이 붙어 있는 나머지 전부"로 잡는다 — 상태가 하나 늘어도 자동으로 포함된다.
+  const otherHeld = s.assets.filter((a) => a.owner === name && a.status !== '사용중' && a.status !== '대여중')
 
-  const total = inUse.length + loaned.length + seats.length + pending.length
+  const total = inUse.length + loaned.length + otherHeld.length + seats.length + pending.length
   const rowsOf = (arr: { c1: string; c2: string; c3: string }[], head: [string, string, string]) =>
     `<table><thead><tr><th style="width:26px"></th><th>${head[0]}</th><th>${head[1]}</th><th>${head[2]}</th></tr></thead><tbody>${
       arr.length
@@ -91,6 +97,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ name: s
     ${rowsOf(inUse.map((a) => ({ c1: a.assetNo, c2: a.model, c3: a.category })), ['자산번호', '모델', '유형'])}
     <h2>대여 자산 (반환 대상)</h2>
     ${rowsOf(loaned.map((a) => ({ c1: a.assetNo, c2: a.model, c3: a.loanDueDate ? `반환 ${a.loanDueDate}` : '-' })), ['자산번호', '모델', '반환 기한'])}
+    <h2>그 밖에 이름이 남아 있는 자산 (진행 중 · 확인 대상)</h2>
+    ${rowsOf(otherHeld.map((a) => ({ c1: a.assetNo, c2: a.model, c3: a.status })), ['자산번호', '모델', '상태'])}
     <h2>배정 라이선스 좌석 (회수 · 재배정)</h2>
     ${rowsOf(seats.map((st) => ({ c1: st.assetNo, c2: st.lic, c3: '' })), ['자산번호', '라이선스', ''])}
     <h2>미처리 상신 결재 (정리 대상)</h2>
