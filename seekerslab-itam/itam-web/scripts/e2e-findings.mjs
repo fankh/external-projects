@@ -2660,6 +2660,21 @@ try {
   await p4.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
   ok('분실 → 폐기: 폐기 기록에 사유(분실 미회수 확정)로 등장', (await p4.textContent('body')).includes(lostTarget) && (await p4.textContent('body')).includes('분실 미회수 확정'))
 
+  // CSV 미리보기의 위치 검증 — 서버는 공통코드 밖 위치를 가진 행을 건너뛰는데(위치 오류), 미리보기가 그 규칙을
+  //  모르면 초록으로 통과시켜 놓고 등록에서만 빠진다. 조작자는 왜 줄었는지 모른 채 결과 수만 본다
+  //  (화면이 내준 것을 서버가 거절하는 자리). 등록은 누르지 않는다 — 미리보기 판정만 본다.
+  await p4.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p4.locator('button', { hasText: /^＋ 일괄 등록$/ }).click()
+  await p4.waitForTimeout(200)
+  await p4.locator('textarea').fill([
+    '유형,모델,시리얼,소유자,부서,위치',
+    '단말,LocCheck E2E,SN-LOCCHK,홍길동,영업1팀,화성 3공장',
+  ].join('\n'))
+  await p4.locator('button', { hasText: /^미리보기$/ }).click()
+  await p4.waitForTimeout(300)
+  ok('CSV 미리보기: 공통코드 밖 위치를 오류로 표시(서버가 건너뛸 행을 미리 알린다)',
+    ((await p4.textContent('body')) || '').includes('위치 오류'))
+
   // CSV 일괄 등록 — 파싱·클라 검증(유형/모델)·서버 재검증(시리얼 중복)·생성 반영(자산 생성이라 마지막에 수행)
   await p4.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p4.locator('button', { hasText: /^＋ 일괄 등록$/ }).click()
@@ -2694,10 +2709,11 @@ try {
   await p4.waitForTimeout(300)
   ok('자산 템플릿: 그대로 붙여넣으면 헤더가 건너뛰어지고 예시 3행이 유효(BOM 내성)', ((await p4.textContent('body')) || '').includes('파싱 3행') && ((await p4.textContent('body')) || '').includes('유효 3'))
   // Excel CSV 의 따옴표 필드 — 값에 쉼표가 들어가면 감싸서 내보낸다(RFC4180). 단순 split(,) 이면 모델·시리얼이 통째로 밀린다.
+  //  쉼표를 품는 필드는 모델이 맡는다(파싱 검사 대상). 위치는 공통코드 값이라야 미리보기가 유효로 세므로 따옴표만 씌운다.
   await p4.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p4.locator('button', { hasText: /^＋ 일괄 등록$/ }).click()
   await p4.waitForTimeout(200)
-  await p4.locator('textarea').fill(['유형,모델,시리얼,소유자,부서,위치', '단말,"ThinkPad T14, Gen4",SN-CSVQ-1,홍길동,영업1팀,"본사 8F, A동"'].join(String.fromCharCode(10)))
+  await p4.locator('textarea').fill(['유형,모델,시리얼,소유자,부서,위치', '단말,"ThinkPad T14, Gen4",SN-CSVQ-1,홍길동,영업1팀,"본사 8F"'].join(String.fromCharCode(10)))
   await p4.locator('button', { hasText: /^미리보기$/ }).click()
   await p4.waitForTimeout(300)
   const csvqBody = (await p4.textContent('body')) || ''

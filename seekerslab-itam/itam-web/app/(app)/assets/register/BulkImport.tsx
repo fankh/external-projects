@@ -9,7 +9,7 @@ type Row = { category: string; model: string; serial: string; owner: string; dep
 
 /** CSV 일괄 자산 등록 — 기존 자산을 대장으로 온보딩. 붙여넣기 → 미리보기(클라 검증) → 등록(서버 재검증·중복 차단).
  *  형식: 유형,모델,시리얼,소유자,부서,위치 (유형·모델 필수). 헤더 행은 자동 무시. */
-export function BulkImport() {
+export function BulkImport({ locations }: { locations: string[] }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [preview, setPreview] = useState(false)
@@ -54,6 +54,10 @@ function splitCsvLine(line: string): string[] {
       let reason = ''
       if (!(ASSET_CATEGORIES as string[]).includes(row.category)) reason = `유형 오류 '${row.category || '-'}'`
       else if (!row.model) reason = '모델 누락'
+      //  위치는 공통코드 레지스트리 값만 — 서버가 같은 이유로 행을 건너뛴다(위치 오류). 미리보기가 이 규칙을
+      //  모르면 초록으로 통과시켜 놓고 등록에서만 빠져, 조작자는 왜 줄었는지 모른 채 결과 수만 본다
+      //  (화면이 내준 것을 서버가 거절하는 자리다). 비우면 서버가 기본 위치를 넣으므로 빈 값은 오류가 아니다.
+      else if (row.location && !locations.includes(row.location)) reason = `위치 오류 '${row.location}'`
       out.push({ row, valid: !reason, reason })
     }
     return out
@@ -75,7 +79,7 @@ function splitCsvLine(line: string): string[] {
       {open && (
         <div className="vstack" style={{ gap: 8, padding: '0 14px 14px' }}>
           <div className="hstack" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="mut" style={{ fontSize: 11.5, flex: 1, minWidth: 180 }}>형식: <span className="mono">유형,모델,시리얼,소유자,부서,위치</span> (유형·모델 필수 · 헤더 자동 무시 · 시리얼 비우면 자동 채번). 유형: {ASSET_CATEGORIES.join(' · ')}</span>
+            <span className="mut" style={{ fontSize: 11.5, flex: 1, minWidth: 180 }}>형식: <span className="mono">유형,모델,시리얼,소유자,부서,위치</span> (유형·모델 필수 · 헤더 자동 무시 · 시리얼 비우면 자동 채번 · 위치는 공통코드 값, 비우면 검수실). 유형: {ASSET_CATEGORIES.join(' · ')}</span>
             <a className="btn sm ghost" href="/api/asset-template.csv" download title="작성용 CSV 템플릿 내려받기">⤓ 샘플 CSV</a>
             <label className="btn sm" title="CSV 파일 불러오기" style={{ cursor: 'pointer' }}>
               📁 CSV 파일
