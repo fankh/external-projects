@@ -3322,6 +3322,18 @@ try {
   const ctxPM = await browser.newContext(); await ctxPM.addCookies([cookie(ADMIN)]); const pPM = await ctxPM.newPage()
   await pPM.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
   const pmRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '신청 · 결재' }) }).first()
+  // 매트릭스 칸의 상태 순환은 칸마다 길이가 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다).
+  //  '회수(불가)' 쪽은 원하는 상태가 될 때까지 돌리는데, '복원(허용)' 쪽은 한 번 클릭하고 고정 대기 뒤
+  //  한 번 읽는다 — 같은 기전인데 한쪽만 굳혀 뒀다. 순환이 3단계인 칸에서는 한 번 클릭이 '본인'에 멈추고,
+  //  재렌더가 대기보다 늦으면 옛 글리프를 읽는다(결재선 토글에서 실제로 겪은 경주 · #721).
+  //  원하는 글리프가 될 때까지 눌러서 맞춘다 — 끝내 안 되면 마지막 값을 남기므로 뒤 단언이 실패로 잡는다.
+  const cycleCellTo = async (pg, cell, want, max = 4) => {
+    for (let k = 0; k < max; k += 1) {
+      if (((await cell.textContent().catch(() => '')) || '').includes(want)) return
+      await cell.click()
+      await pg.waitForTimeout(300)
+    }
+  }
   const pmCell = pmRow.locator('td').nth(14) // 라벨(0) + 자산담당(역할 2번째) × 결재(기능 7번째) = 1*7 + 6 + 1
   // 순환 길이는 칸마다 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다) — 불가가 될 때까지 돌린다
   for (let k = 0; k < 4 && !((await pmCell.textContent()) || '').includes('·'); k++) { await pmCell.click(); await pPM.waitForTimeout(700) }
@@ -3331,7 +3343,7 @@ try {
   // 행(td) 안의 결재 버튼만 센다 — 목록 상단 상태 필터에도 '승인'·'반려' 버튼이 있어 page 전체로 세면 항상 >0 이다(양성 대조는 복원 후).
   ok('결재함: 매트릭스 결재 회수 시 승인 버튼 미노출(서버 decide 게이트와 정합)', (await pAM.locator('td button', { hasText: /^승인$/ }).count()) === 0)
   await ctxAM.close()
-  await pmCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
+  await cycleCellTo(pPM, pmCell, '✓') // 불가 → 허용 복원
   ok('권한 매트릭스: 결재 권한 복원(허용)', ((await pmCell.textContent()) || '').includes('✓'))
   // 양성 대조 — 복원하면 결재 버튼이 돌아온다(위 단언이 '버튼이 원래 없었다'로 통과하는 위양성 방지)
   const ctxAM2 = await browser.newContext(); await ctxAM2.addCookies([cookie(ASSET)]); const pAM2 = await ctxAM2.newPage()
@@ -3390,7 +3402,7 @@ try {
   ok('MDI 탭: 조회 회수 시 그 화면 탭도 사라진다(사이드바와 같은 집합)',
     !(await tabText()).includes('수명주기'))
   await ctxLC.close()
-  await lcCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
+  await cycleCellTo(pPM, lcCell, '✓') // 불가 → 허용 복원
   ok('권한 매트릭스: 수명주기 조회 권한 복원(허용)', ((await lcCell.textContent()) || '').includes('✓'))
   const ctxLC2 = await browser.newContext(); await ctxLC2.addCookies([cookie(ASSET)]); const pLC2 = await ctxLC2.newPage()
   await pLC2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
@@ -3428,7 +3440,7 @@ try {
     (await pSGA.locator('a[href="/assets/register"][title="대상으로 이동"]').count()) > 0)
   await ctxSGA.close()
   await ctxSG.close()
-  await wsCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
+  await cycleCellTo(pPM, wsCell, '✓') // 불가 → 허용 복원
   ok('권한 매트릭스: 자산 대장 저장 권한 복원(허용)', ((await wsCell.textContent()) || '').includes('✓'))
   const ctxSG2 = await browser.newContext(); await ctxSG2.addCookies([cookie(ASSET)]); const pSG2 = await ctxSG2.newPage()
   await pSG2.goto(`${BASE}/assets/register?sel=AST-2022-000640`, { waitUntil: 'networkidle' })
@@ -3454,7 +3466,7 @@ try {
   await pDEL.waitForTimeout(800)
   ok('삭제 게이트: 매트릭스 삭제 회수 시 리포트 삭제 거부(사유 표기)', ((await pDEL.textContent('body')) || '').includes('삭제 권한이 회수되었습니다'))
   await ctxDEL.close()
-  await aiCell.click(); await pPM.waitForTimeout(800) // 불가 → 허용 복원
+  await cycleCellTo(pPM, aiCell, '✓') // 불가 → 허용 복원
   ok('권한 매트릭스: AI 어시스턴트 삭제 권한 복원(허용)', ((await aiCell.textContent()) || '').includes('✓'))
   // 권한그룹 변경의 즉시 반영 — 세션(쿠키)에 박힌 역할을 그대로 믿으면 관리자가 권한그룹을 회수해도
   //  이미 로그인해 있는 사람은 다음 로그인까지 예전 권한으로 계속 움직인다(회수했는데 회수되지 않는다).
@@ -3507,7 +3519,7 @@ try {
   // 순환 길이는 칸마다 다르다(본인 범위 구현이 있는 칸만 '본인'을 거친다) — 불가가 될 때까지 돌린다
   for (let k = 0; k < 4 && !((await sqCell.textContent()) || '').includes('·'); k++) { await sqCell.click(); await pSQP.waitForTimeout(700) }
   ok('전역 검색: 조회 회수 시 계약 결과가 검색에서도 사라진다(막다른 링크 방지)', !(await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
-  await sqCell.click(); await pSQP.waitForTimeout(800) // 복원
+  await cycleCellTo(pSQP, sqCell, '✓') // 복원
   ok('전역 검색: 조회 복원 시 계약 결과 재노출(양성 대조)', (await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
   // 대시보드 운영 대기 큐도 같은 규약 — 큐는 '가서 처리하라'는 링크라, 조회를 회수한 화면의 큐가 남으면
   //  눌러도 대시보드로 되돌아오는 막다른 행이 된다(사이드바·검색은 이미 매트릭스를 따른다).
@@ -3521,7 +3533,7 @@ try {
   ok('권한 매트릭스: 자산담당 × 재고 · 재물조사 조회 회수(불가) 반영', ((await invCell.textContent()) || '').includes('·'))
   await pDQ.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('대시보드 큐: 조회 회수 시 그 화면 큐가 사라진다(막다른 행 방지)', (await pDQ.locator('a[href="/inventory/survey-plan"]').count()) === 0)
-  await invCell.click(); await pSQP.waitForTimeout(800) // 복원
+  await cycleCellTo(pSQP, invCell, '✓') // 복원
   await pDQ.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('대시보드 큐: 조회 복원 시 큐 재노출(양성 대조)', (await pDQ.locator('a[href="/inventory/survey-plan"]').count()) > 0)
   // 어시스턴트 근거 링크도 같은 규약 — 열 수 없는 화면으로 보내는 '자산 대장' 링크가 남으면 눌러도 튕긴다.
@@ -3540,7 +3552,7 @@ try {
   ok('권한 매트릭스: 자산담당 × 자산 대장 조회 회수(불가) 반영', ((await aeCell.textContent()) || '').includes('·'))
   const aeMsg2 = await askAE('유휴(재배치 가능) 자산 목록 알려줘')
   ok('어시스턴트 근거: 조회 회수 시 대장 링크가 사라진다(막다른 링크 방지)', (await aeMsg2.locator('.refs a[href^="/assets/register"]').count()) === 0)
-  await aeCell.click(); await pSQP.waitForTimeout(800) // 복원
+  await cycleCellTo(pSQP, aeCell, '✓') // 복원
   ok('권한 매트릭스: 자산 대장 조회 권한 복원(허용)', ((await aeCell.textContent()) || '').includes('✓'))
   // 필수 결재 지정(사용자·결재선 STEP 4) — 그동안 배지·지표·컴플라이언스 리포트에 표시만 되고 아무것도 막지 않아,
   //  '대여'를 필수로 지정해도 자산 대장에서 직접 대여가 그대로 됐다(선언된 정책이 강제되지 않는 계열).
@@ -3627,7 +3639,7 @@ try {
   ok('발견 자산: 매트릭스 편입 회수 시 편입 요청 버튼 미노출(서버 게이트와 정합)', !dgBody.includes('편입 요청 (결재)'))
   ok('발견 자산: 편입만 회수하면 NAC 격리 요청은 남는다(기능 단위 통제)', dgBody.includes('NAC 격리 요청'))
   await ctxDA.close()
-  await dgCell.click(); await pDG.waitForTimeout(800) // 불가 → 허용 복원
+  await cycleCellTo(pDG, dgCell, '✓') // 불가 → 허용 복원
   ok('권한 매트릭스: 발견 자산 × 편입 복원(허용)', ((await dgCell.textContent()) || '').includes('✓'))
   const ctxDA2 = await browser.newContext(); await ctxDA2.addCookies([cookie(ASSET)]); const pDA2 = await ctxDA2.newPage()
   await pDA2.goto(`${BASE}/discovery/found?sel=${dgTarget}`, { waitUntil: 'networkidle' })
@@ -3646,7 +3658,7 @@ try {
   ok('외부 위협: 매트릭스 격리요청 회수 시 조치 버튼 미노출(서버 게이트와 정합)',
     (await pXS.locator('button', { hasText: '차단 요청' }).count()) === 0)
   await ctxXS.close()
-  await xgCell.click(); await pDG.waitForTimeout(800) // 불가 → 허용 복원
+  await cycleCellTo(pDG, xgCell, '✓') // 불가 → 허용 복원
   ok('권한 매트릭스: 발견 자산 × 격리요청 복원(허용)', ((await xgCell.textContent()) || '').includes('✓'))
   const ctxXS2 = await browser.newContext(); await ctxXS2.addCookies([cookie(SEC)]); const pXS2 = await ctxXS2.newPage()
   await pXS2.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
@@ -4228,7 +4240,7 @@ try {
   for (let k = 0; k < 4 && !((await docCell.textContent()) || '').includes('·'); k++) { await docCell.click(); await pDocA.waitForTimeout(700) }
   ok('문서 API 게이트: 조회 회수 시 자산 카드도 403(화면 가드와 같은 집합)',
     ((await docCell.textContent()) || '').includes('·') && (await docCardStatus()) === 403)
-  await docCell.click(); await pDocA.waitForTimeout(800) // 복원
+  await cycleCellTo(pDocA, docCell, '✓') // 복원
   ok('문서 API 게이트: 조회 복원 시 다시 200(과잉 차단 아님)',
     ((await docCell.textContent()) || '').includes('✓') && (await docCardStatus()) === 200)
   await ctxDocB.close(); await ctxDocA.close()
@@ -4247,7 +4259,7 @@ try {
   for (let k = 0; k < 4 && !((await repMatrixCell.textContent()) || '').includes('·'); k++) { await repMatrixCell.click(); await pRepA.waitForTimeout(700) }
   ok('리포트 API 게이트: 조회 회수 시 리포트 열람도 403(화면 가드와 같은 집합)',
     ((await repMatrixCell.textContent()) || '').includes('·') && (await repApiStatus()) === 403)
-  await repMatrixCell.click(); await pRepA.waitForTimeout(800) // 복원
+  await cycleCellTo(pRepA, repMatrixCell, '✓') // 복원
   ok('리포트 API 게이트: 조회 복원 시 다시 200(과잉 차단 아님)',
     ((await repMatrixCell.textContent()) || '').includes('✓') && (await repApiStatus()) === 200)
   await ctxRepB.close(); await ctxRepA.close()
