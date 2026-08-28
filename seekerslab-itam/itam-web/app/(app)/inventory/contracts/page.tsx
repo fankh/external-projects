@@ -17,6 +17,7 @@ import { MaintenanceBudgetButton, MaintenanceExecButton, MaintenanceSlaButton } 
 import { ProcurementRemindButton, ProcurementSettleButton } from './ProcurementRemindButton'
 import { SeatResolveCell } from './SeatResolveCell'
 import { UsageCollect } from './UsageCollect'
+import { licenseVerdict } from '@/lib/reports'
 
 export const dynamic = 'force-dynamic'
 
@@ -217,6 +218,10 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           rows={shownLicenses.map((l) => ({
             ...l,
             d: daysUntil(l.expiry),
+            // 초과·미사용·만료 판정은 서버에서 한 번 — 대시보드 라이선스 큐 건수(licenseOptimization)와 이 화면의
+            //  드릴다운 필터(?lic=over|under|expired)가 같은 판정을 써야 '건수는 N인데 목록은 M'이 생기지 않는다.
+            //  클라이언트가 규칙을 다시 적으면 한쪽만 고쳐질 수 있다(d·baseTerminated 를 서버가 계산해 넘기는 것과 같은 규약).
+            verdict: licenseVerdict(l),
             // 근거 계약이 해지된 라이선스 — 구독 근거가 사라진 상태(계약 해지 연계 영향 v1.272 의 역방향). 이관·재계약 검토 필요.
             baseTerminated: !!l.contractId && s.contracts.some((c) => c.id === l.contractId && c.status === '해지'),
             pendingApproval: s.approvals.find((a) => a.status === '대기' && a.refId === l.id)?.id,

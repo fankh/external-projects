@@ -577,6 +577,11 @@ try {
   check('계약 엑셀: 부속서류 미비·근거 계약 컬럼 반출', ctXlsx.includes('부속서류 미비') && ctXlsx.includes('근거 계약') && ctXlsx.includes('CT-2023-002') && ctXlsx.includes('미연계'))
   // 라이선스 좌석 대사(STEP2) 시트 — EDR 설치 인벤토리 대사 결과(배정 밖 설치·미설치 좌석)를 계약·라이선스 엑셀에 담아 SAM 감사 증적으로 반출
   check('계약 엑셀: 라이선스 좌석 대사(STEP2) 시트 반출 (SAM 감사)', ctXlsx.includes('라이선스 좌석 대사') && ctXlsx.includes('배정 밖 설치') && ctXlsx.includes('미설치 좌석'))
+  // 라이선스 판정 열 — 반출본은 SAM 감사에 그대로 나가는 문서인데, 판정 규칙을 여기서 따로 적으면서 만료를 빼 두어
+  //  만료된 라이선스가 '적정'·'초과 사용'으로만 읽혔다(만료 사실이 문서에서 사라졌다). 시드 JetBrains 는 만료 경과이면서
+  //  초과 사용이라, 화면·컴플라이언스 리포트는 '만료·초과 사용'이라 부른다 — 반출본도 같은 판정을 실어야 한다.
+  check('계약 엑셀: 라이선스 판정이 만료를 함께 표기 (화면·리포트와 같은 판정)',
+    ctXlsx.includes('만료·초과 사용'), '반출본 판정 열이 만료를 빠뜨림')
   // 유지보수 계약 — SLA·비용 이력 관리 (제품안내서 §03 유지보수 계약). 상세는 토글 확장이라 SSR엔 버튼 title 만
   check('계약: 유지보수 계약에 SLA·비용 이력 관리 토글 노출', contractsHtml.includes('SLA · 비용 이력'))
   // 계약 카드(dossier) — 요약·부속서류·SLA·비용·연계 자산 인쇄용
@@ -2703,6 +2708,22 @@ try {
     && !repAuditSrc.includes('rows: s.auditLogs.slice(0, AUDIT_TOP)')
     && aiPredCopies.length === 0,
     `화면·리포트가 보존 기간 없이 직접 필터하고 있음(판정 사본=${aiPredCopies.join(', ') || '없음'})`)
+
+  // 라이선스 판정(초과 사용·미사용 보유·만료 경과)의 단일 소스 — 대시보드 큐 건수는 licenseOptimization 이 세고,
+  //  그 큐의 드릴다운(?lic=over|under|expired)은 계약·라이선스 화면 표가 거른다. 두 쪽이 규칙을 각자 적고 있었다
+  //  (표·라이선스 카드가 사용률 0.6·초과·만료를 따로 계산). 지금은 값이 같지만 한쪽만 고치는 순간
+  //  '건수는 N인데 목록은 M'이 되는 자리다 — 이 저장소가 반복해서 닫아 온 큐 건수 ↔ 드릴다운 계열.
+  //  판정은 lib/reports 하나만 두고, 사용률 임계값을 다른 파일이 다시 적지 않는지 본다.
+  const licRuleCopies = sourceFiles
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([rel]) => rel !== 'lib/reports.ts')
+    .flatMap(([rel, src]) => src.split(/\r?\n/)
+      .map((ln, i) => [rel, i + 1, ln])
+      .filter(([, , ln]) => !ln.trim().startsWith('//') && !ln.trim().startsWith('*')
+        && /used \/ [a-z.]*purchased \s*<\s*0\./.test(ln))  // 표시용 사용률 막대는 규칙이 아니라 제외
+      .map(([rel2, i]) => rel2 + ':' + i))
+  check(`라이선스 판정: 사용률 규칙이 lib/reports 밖에 없음(소스 ${sourceFiles.length}개 검사)`,
+    licRuleCopies.length === 0, `사본=${licRuleCopies.join(', ') || '없음'}`)
 
   // 정책 기준 증빙 완전성 — 감사 대응 자료의 「운영 · 거버넌스 정책 기준」 표는 "화면·리포트·스케줄러가 공유·강제하는
   //  임계값"을 증빙한다고 적어 두고도, 관리자가 설정 화면에서 바꾸는 운영 정책 항목 일부(정기 점검 창·안전재고)가

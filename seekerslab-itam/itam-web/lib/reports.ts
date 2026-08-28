@@ -82,7 +82,9 @@ export function isLicenseExpired(l: SwLicense): boolean {
  *  같은 행의 권고 조치는 '증설 — N석 초과'라고 말해 한 줄 안에서 두 컬럼이 서로 다른 판정을 보여준다.
  *  그래서 만료는 덮어쓰지 않고 접두로 붙인다(만료·초과 사용). rank 는 조치 시급 순 — 초과(감사 리스크) → 만료 → 미사용 → 적정.
  *  컴플라이언스 리포트 표와 최적화 패널이 이 한 함수를 공유한다(해지 라이선스는 판정 대상이 아니라 호출부가 '해지'로 표기). */
-export function licenseVerdict(l: SwLicense): { base: '초과 사용' | '미사용 보유' | '적정'; expired: boolean; label: string; rank: number } {
+/** 라이선스 판정 결과 — 서버가 계산해 클라이언트 표로 내려보낼 때 쓰는 타입(규칙을 화면이 다시 적지 않게 한다). */
+export type LicenseVerdict = { base: '초과 사용' | '미사용 보유' | '적정'; expired: boolean; label: string; rank: number }
+export function licenseVerdict(l: SwLicense): LicenseVerdict {
   const base = l.used > l.purchased ? '초과 사용' as const : l.used / l.purchased < 0.6 ? '미사용 보유' as const : '적정' as const
   const expired = isLicenseExpired(l)
   const label = expired ? (base === '적정' ? '만료 경과' : `만료·${base}`) : base
