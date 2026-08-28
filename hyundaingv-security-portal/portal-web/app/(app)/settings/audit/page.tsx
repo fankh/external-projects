@@ -41,10 +41,16 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   // (머지 strFields 는 비문자열은 강제하나 누락 undefined 는 옵셔널 보존 위해 두므로 호출부에서 방어)
   const configs = s.auditLogs.filter((l) => { const a = String(l.action ?? ''); return a.includes('변경') || a.includes('개정') }).length
 
+  // 이 화면의 감사 이력은 데모용 인메모리 스토어에서 읽는다. 실서비스에서는 DB 감사 테이블과
+  // 보존 정책이 그 자리를 대신한다. 화면 하단 콜아웃에 적혀 있던 문장을 여기로 옮겼다 —
+  // 데모라는 사실도, 기록 대상이 §VI에 정의돼 있다는 사실도 사용자가 아니라 개발자가 알 정보다.
+  // 기록 대상 목록은 따로 적지 않는다. 아래 표의 '행위' 열이 곧 그 목록이고, 둘을 같이 두면 어긋난다.
+  // 다만 '추적성'은 화면에 남아야 하는 낱말이다(§VI, smoke.mjs 의 /settings/audit 필수 문구).
+  // 설명을 걷어낼 때 이 낱말까지 지웠다가 스모크가 잡았다 — 헤더 설명문이 그 자리다.
   return (
     <>
       <ScreenHeader kicker="환경설정" title="감사 이력"
-        desc="결재 처리와 권한·설정 변경 이력. 기록은 수정·삭제되지 않는다." />
+        desc="결재 처리와 권한·설정 변경의 추적성 기록입니다. 남긴 기록은 고치거나 지울 수 없습니다." />
 
       <div className="stat-row">
         <Stat value={s.auditLogs.length} label="기록" note="최근 500건 보존" />
@@ -95,11 +101,6 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           </div>
         )}
       </Card>
-
-      <div className="callout">
-        <b>추적성</b> — 결재 상신·승인·반려, 결재선·연동 채널·공통코드 변경, 서약양식 개정, 배치(수동·알림)·이관
-        실행이 기록된다 (제품안내서 §VI). 실서비스에서는 DB 감사 테이블·보존 정책으로 대체된다.
-      </div>
     </>
   )
 }

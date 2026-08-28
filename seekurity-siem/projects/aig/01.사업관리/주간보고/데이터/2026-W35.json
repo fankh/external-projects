@@ -1,0 +1,218 @@
+{
+  "project": "AIG",
+  "title": "AIG Seekurity SIEM 구축",
+  "week": "2026-W35",
+  "period": {
+    "start": "2026-08-24",
+    "end": "2026-08-30"
+  },
+  "author": "SeekersLab SIEM Engineer",
+  "customer_manager": "",
+  "overall_progress": 62,
+  "summary": "서버 로그 수집 체계를 구축한 주간입니다. 고객사 보안 정책에 맞춘 수집 구조를 설계·검증하여 WAS 2대의 로그 수집을 개시했습니다. 애플리케이션·감사·무결성 로그 파서 8종을 신규 등록하여, 수집된 로그가 SIEM 표준 필드로 분석 가능한 상태가 되었습니다. 인프라 자산 7건을 등록해 Log Source 와 연결했고 콘솔 전 화면의 동작을 점검했습니다. 다음 주에는 WEB 2대와 Gateway 의 수집을 개시하고 전송 구간 보안을 적용할 예정입니다.",
+  "this_week": [
+    {
+      "category": "Log Source",
+      "task": "서버 로그 수집 구조 설계 및 검증",
+      "owner": "SeekersLab",
+      "planned": "08-24",
+      "done": "08-25",
+      "progress": 100,
+      "status": "완료",
+      "note": "고객사 보안 정책 충족, 수집 도달 검증 완료"
+    },
+    {
+      "category": "Log Source",
+      "task": "WAS01(10.1.30.2) 로그 수집 개시",
+      "owner": "SeekersLab",
+      "planned": "08-27",
+      "done": "08-27",
+      "progress": 100,
+      "status": "완료",
+      "note": "OS·애플리케이션·Tomcat 로그"
+    },
+    {
+      "category": "Log Source",
+      "task": "WAS02(10.1.30.3) 로그 수집 개시",
+      "owner": "SeekersLab",
+      "planned": "08-27",
+      "done": "08-27",
+      "progress": 100,
+      "status": "완료",
+      "note": "동일 구조 적용"
+    },
+    {
+      "category": "Log Source",
+      "task": "표준 수집목록 대조 및 감사·무결성 로그 수집 추가",
+      "owner": "SeekersLab",
+      "planned": "08-27",
+      "done": "08-27",
+      "progress": 100,
+      "status": "완료",
+      "note": "/var/log/audit, /var/log/aide 반영"
+    },
+    {
+      "category": "파서",
+      "task": "WAS 애플리케이션 로그 파서 5종 작성",
+      "owner": "SeekersLab",
+      "planned": "08-27",
+      "done": "08-27",
+      "progress": 100,
+      "status": "완료",
+      "note": "Spring Boot, Tomcat, Access, Transkey, 공통"
+    },
+    {
+      "category": "파서",
+      "task": "OS 감사·무결성 로그 파서 3종 작성",
+      "owner": "SeekersLab",
+      "planned": "08-27",
+      "done": "08-27",
+      "progress": 100,
+      "status": "완료",
+      "note": "WAS·WEB·Gateway 5대 사전 등록"
+    },
+    {
+      "category": "자산",
+      "task": "인프라 자산 7건 등록 및 Log Source 연결",
+      "owner": "SeekersLab",
+      "planned": "08-27",
+      "done": "08-27",
+      "progress": 100,
+      "status": "완료",
+      "note": "자산·로그소스 연계 완료"
+    },
+    {
+      "category": "콘솔",
+      "task": "콘솔 전 화면(35개) 동작 점검",
+      "owner": "SeekersLab",
+      "planned": "08-27",
+      "done": "08-27",
+      "progress": 100,
+      "status": "완료",
+      "note": "정상 33개 확인"
+    },
+    {
+      "category": "탐지",
+      "task": "탐지 룰 활성/비활성 반영 검증",
+      "owner": "SeekersLab",
+      "planned": "08-27",
+      "done": "08-27",
+      "progress": 100,
+      "status": "완료",
+      "note": "설정 변경이 탐지에 정상 반영됨"
+    },
+    {
+      "category": "산출물",
+      "task": "서버별 수집 설정 파일 및 설치 안내서 작성",
+      "owner": "SeekersLab",
+      "planned": "08-28",
+      "done": "08-28",
+      "progress": 100,
+      "status": "완료",
+      "note": "WEB·Gateway 담당자 전달용"
+    }
+  ],
+  "next_week": [
+    {
+      "category": "Log Source",
+      "task": "WEB01·WEB02·Gateway 로그 수집 개시",
+      "owner": "고객 서버 / SeekersLab",
+      "start": "09-01",
+      "end": "09-03",
+      "priority": "높음",
+      "note": "설정 파일 전달 완료, 접속 계정 또는 담당자 직접 적용 협의 필요"
+    },
+    {
+      "category": "보안",
+      "task": "로그 전송 구간 암호화 및 수신 포트 접근 제한 적용",
+      "owner": "SeekersLab / 고객 네트워크",
+      "start": "09-01",
+      "end": "09-04",
+      "priority": "높음",
+      "note": "WEB·Gateway 가 공인 대역이라 적용 필요"
+    },
+    {
+      "category": "파서",
+      "task": "WEB(nginx)·Gateway 로그 파서 작성",
+      "owner": "SeekersLab",
+      "start": "09-01",
+      "end": "09-04",
+      "priority": "높음",
+      "note": "수집 개시 전 선행 등록"
+    },
+    {
+      "category": "탐지",
+      "task": "WAS·감사 로그 기반 탐지 시나리오 추가 및 룰 튜닝",
+      "owner": "SeekersLab",
+      "start": "09-02",
+      "end": "09-05",
+      "priority": "중간",
+      "note": "계정 접근·권한 변경·무결성 위반 중심"
+    },
+    {
+      "category": "네트워크",
+      "task": "211.47.6.115 → 10.1.30.4:514 허용 정책 반영",
+      "owner": "고객 네트워크",
+      "start": "09-01",
+      "end": "09-03",
+      "priority": "중간",
+      "note": "전주 이월. 장비는 전송 중이나 정책에서 차단"
+    },
+    {
+      "category": "자산",
+      "task": "수집 범위 확정 및 미확인 자산 정리",
+      "owner": "고객 / SeekersLab",
+      "start": "09-01",
+      "end": "09-05",
+      "priority": "중간",
+      "note": "SIEM 자체 수집 여부, 10.1.40.x 대역, 네트워크 장비 IP"
+    }
+  ],
+  "issues": [
+    {
+      "category": "Log Source",
+      "issue": "WEB 2대와 Gateway 의 서버 접속 계정을 확보하지 못했습니다.",
+      "impact": "표준 수집 대상 5대 중 3대 수집 미개시",
+      "action": "접속 계정을 제공해 주시거나, 담당자께서 직접 적용하실지 회신 부탁드립니다.",
+      "owner": "고객 서버",
+      "due": "09-02",
+      "status": "미해결"
+    },
+    {
+      "category": "보안",
+      "issue": "WEB·Gateway 는 공인 대역에 위치하여 로그 전송 구간이 암호화되지 않습니다.",
+      "impact": "공인망 구간 평문 전송",
+      "action": "암호화 적용과 수신 포트 접근 제한 여부를 결정해 주시기 바랍니다.",
+      "owner": "고객 보안 / SeekersLab",
+      "due": "09-03",
+      "status": "미해결"
+    },
+    {
+      "category": "자산",
+      "issue": "AIDE 파일 무결성 점검이 정기적으로 실행되지 않는 것으로 보입니다.",
+      "impact": "무결성 위반 탐지 불가",
+      "action": "WAS01 은 08-12 이후 기록이 없고 WAS02 는 로그가 없습니다. 실행 주기 확인을 부탁드립니다.",
+      "owner": "고객 서버",
+      "due": "09-03",
+      "status": "미해결"
+    },
+    {
+      "category": "자산",
+      "issue": "수집 대상 목록과 실제 환경에 차이가 있습니다.",
+      "impact": "수집 범위 불명확",
+      "action": "OS 버전(목록 Rocky 8.* / 실제 9.8), SIEM 자체 수집 여부, 10.1.40.x 대역 제외 여부 확인을 부탁드립니다.",
+      "owner": "고객 / SeekersLab",
+      "due": "09-03",
+      "status": "미해결"
+    },
+    {
+      "category": "네트워크",
+      "issue": "211.47.6.115 장비의 Syslog 가 FortiGate 정책에서 차단되고 있습니다.",
+      "impact": "해당 장비 로그 수집 불가",
+      "action": "전주에 이어 허용 정책 추가를 요청드립니다.",
+      "owner": "고객 네트워크",
+      "due": "09-03",
+      "status": "미해결"
+    }
+  ]
+}

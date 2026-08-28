@@ -1,0 +1,133 @@
+# AIG SIEM 서버(10.1.30.4) Filebeat
+#
+#   1) 자기 OS 로그  : filestream  -> Kafka
+#   2) 원격 서버 수신 : lumberjack 5044 -> Kafka
+#
+# 원격 5대(WAS 10.1.30.2/3, WEB 211.47.20.228/229, GW 211.47.20.230)의 Filebeat 는
+# output.logstash 로 10.1.30.4:5044 에 보냅니다. lumberjack 입력이 이를 받습니다.
+# Kafka(19092)는 루프백 그대로 두고 외부에 열지 않습니다.
+#
+# 주의: processors 를 전역에 두면 relay 이벤트의 deviceIp 까지 10.1.30.4 로
+#       덮어쓰므로, 반드시 입력별로 둡니다.
+
+filebeat.inputs:
+  # ── SIEM 서버 자신의 OS 로그 ────────────────────────────────
+  - type: filestream
+    id: aig-linux-syslog
+    enabled: true
+    paths:
+      - /var/log/secure
+      - /var/log/messages
+      - /var/log/cron
+    processors:
+      - add_fields:
+          target: ""
+          fields:
+            deviceIp: "10.1.30.4"
+            protocol: "syslog"
+      - copy_fields:
+          fields:
+            - from: "message"
+              to: "rawData"
+          fail_on_error: false
+          ignore_missing: true
+      - script:
+          lang: javascript
+          id: local_generated_time
+          source: >
+            function process(event) {
+                var iso = norm(event.Get("@timestamp"));
+                if (iso) { event.Put("generatedTime", iso); }
+            }
+            function norm(d) {
+                if (!d) { return null; }
+                if (typeof d.toISOString === "function") {
+                    return d.toISOString().replace(/\.\d+Z$/, "Z");
+                }
+                var s = String(d);
+                var m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?\s*([+-])(\d{2}):?(\d{2})/);
+                if (m) {
+                    var base = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+                    var sign = (m[7] === "-") ? 1 : -1;
+                    var off = (+m[8]) * 3600000 + (+m[9]) * 60000;
+                    return new Date(base + sign * off).toISOString().replace(/\.\d+Z$/, "Z");
+                }
+                var z = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.\d+)?Z/);
+                return z ? (z[1] + "T" + z[2] + "Z") : null;
+            }
+      - drop_fields:
+          fields: ["agent", "ecs", "host", "input", "log"]
+          ignore_missing: true
+
+  # ── 원격 서버 Filebeat 수신 ─────────────────────────────────
+  # 수신 필드는 lumberjack.* 아래로 중첩되므로 루트로 끌어올립니다.
+  - type: lumberjack
+    listen_address: "0.0.0.0:5044"
+    processors:
+      - copy_fields:
+          fields:
+            - from: "lumberjack.deviceIp"
+              to: "deviceIp"
+            - from: "lumberjack.protocol"
+              to: "protocol"
+            - from: "lumberjack.rawData"
+              to: "rawData"
+            - from: "lumberjack.message"
+              to: "message"
+            - from: "lumberjack.generatedTime"
+              to: "generatedTime"
+            - from: "lumberjack.logKind"
+              to: "logKind"
+          fail_on_error: false
+          ignore_missing: true
+      # 원격이 generatedTime 을 못 보냈으면 원격 @timestamp -> SIEM 수신시각 순으로 보정.
+      # 어느 경우든 밀리초를 잘라냅니다 (인덱스 매핑이 strict_date_time_no_millis).
+      - script:
+          lang: javascript
+          id: relay_generated_time
+          source: >
+            function process(event) {
+                var g = event.Get("generatedTime");
+                var iso = norm(g) || norm(event.Get("lumberjack.@timestamp")) || norm(event.Get("@timestamp"));
+                if (iso) { event.Put("generatedTime", iso); }
+            }
+            function norm(d) {
+                if (!d) { return null; }
+                if (typeof d.toISOString === "function") {
+                    return d.toISOString().replace(/\.\d+Z$/, "Z");
+                }
+                var s = String(d);
+                var m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?\s*([+-])(\d{2}):?(\d{2})/);
+                if (m) {
+                    var base = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+                    var sign = (m[7] === "-") ? 1 : -1;
+                    var off = (+m[8]) * 3600000 + (+m[9]) * 60000;
+                    return new Date(base + sign * off).toISOString().replace(/\.\d+Z$/, "Z");
+                }
+                var z = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.\d+)?Z/);
+                return z ? (z[1] + "T" + z[2] + "Z") : null;
+            }
+      - drop_fields:
+          fields: ["lumberjack", "source", "agent", "ecs", "host", "input", "log"]
+          ignore_missing: true
+
+processors:
+  - drop_fields:
+      fields: ["@metadata.beat", "@metadata.type", "@metadata.version"]
+      ignore_missing: true
+
+output.kafka:
+  hosts: ["localhost:19092"]
+  topic: "siem-logs"
+  required_acks: 1
+  compression: gzip
+  max_message_bytes: 1000000
+  codec.json:
+    pretty: false
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7

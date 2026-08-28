@@ -1,0 +1,123 @@
+# AIG 서버 로그 수집 Filebeat 설정
+#
+# 서버 로그를 수집 서버로 전송하는 Filebeat 설정입니다.
+
+# 수집 경로
+#   WAS01     10.1.30.2       /logs/dars, /logs/tomcat, /logs/keypad, /var/log
+#   WAS02     10.1.30.3       동일
+#   WEB01     211.47.20.228   /logs/nginx, /var/log
+#   WEB02     211.47.20.229   동일
+#   Gateway   211.47.20.230   /logs/gateway, /logs/tomcat, /var/log
+#       filebeat test output -c /etc/filebeat/filebeat.yml
+
+filebeat.inputs:
+  # ── OS 로그 ────────────────────────────────────────────────
+  - type: filestream
+    id: aig-os-syslog
+    enabled: true
+    paths:
+      - /var/log/messages
+      - /var/log/secure
+      - /var/log/cron
+    fields_under_root: true
+    fields:
+      logKind: os
+
+  # ── 애플리케이션 로그 ──────────────────────────────────────
+  # 해당 서버에 존재하는 경로만 남기고 나머지 줄은 삭제합니다.
+  - type: filestream
+    id: aig-app-log
+    enabled: true
+    paths:
+      # WAS
+      - /logs/dars/*.log
+      - /logs/tomcat/catalina.out
+      - /logs/tomcat/localhost_access_log.*.txt
+      - /logs/keypad/transkey-*.log
+      # WEB
+      - /logs/nginx/access.log
+      - /logs/nginx/error.log
+      # Gateway
+      - /logs/gateway/vxb-adapter.log
+    fields_under_root: true
+    fields:
+      logKind: app
+    # Java 스택트레이스를 한 이벤트로 묶습니다.
+    parsers:
+      - multiline:
+          type: pattern
+          pattern: '^\d{4}-\d{2}-\d{2}|^\[|^\w{3}\s+\d{1,2}\s'
+          negate: true
+          match: after
+          max_lines: 200
+          timeout: 5s
+
+processors:
+  # 이 서버의 IP 입니다. 실제 IP 와 일치해야 합니다.
+  - add_fields:
+      target: ""
+      fields:
+        deviceIp: "__SERVER_IP__"
+        protocol: "syslog"
+
+  # 원본 로그 한 줄을 그대로 보존합니다.
+  - copy_fields:
+      fields:
+        - from: "message"
+          to: "rawData"
+      fail_on_error: false
+      ignore_missing: true
+
+  # 시각 형식을 초 단위 UTC 로 고정합니다. 이 블록은 수정하지 마십시오.
+  - script:
+      lang: javascript
+      id: generated_time_no_millis
+      source: >
+        function process(event) {
+            var iso = norm(event.Get("@timestamp"));
+            if (iso) { event.Put("generatedTime", iso); }
+        }
+        function norm(d) {
+            if (!d) { return null; }
+            if (typeof d.toISOString === "function") {
+                return d.toISOString().replace(/\.\d+Z$/, "Z");
+            }
+            var s = String(d);
+            var m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?\s*([+-])(\d{2}):?(\d{2})/);
+            if (m) {
+                var base = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+                var sign = (m[7] === "-") ? 1 : -1;
+                var off = (+m[8]) * 3600000 + (+m[9]) * 60000;
+                return new Date(base + sign * off).toISOString().replace(/\.\d+Z$/, "Z");
+            }
+            var z = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.\d+)?Z/);
+            return z ? (z[1] + "T" + z[2] + "Z") : null;
+        }
+
+  # 불필요한 메타데이터를 제거합니다.
+  - drop_fields:
+      fields: ["agent", "ecs", "host", "input", "log"]
+      ignore_missing: true
+
+output.logstash:
+  hosts: ["10.1.30.4:5044"]
+  loadbalance: false
+  backoff.init: 1s
+  backoff.max: 60s
+  # TLS 적용 시 아래 주석을 해제하고 인증서를 배포합니다.
+  # ssl.enabled: true
+  # ssl.certificate_authorities: ["/etc/filebeat/certs/ca.crt"]
+  # ssl.certificate: "/etc/filebeat/certs/client.crt"
+  # ssl.key: "/etc/filebeat/certs/client.key"
+
+# 전송이 끊겨도 보관했다가 재전송합니다.
+queue.disk:
+  max_size: 1GB
+  path: /var/lib/filebeat/diskqueue
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7

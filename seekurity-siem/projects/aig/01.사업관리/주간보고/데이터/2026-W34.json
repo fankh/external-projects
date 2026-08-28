@@ -1,0 +1,233 @@
+{
+  "project": "AIG",
+  "title": "AIG Seekurity SIEM 구축",
+  "week": "2026-W34",
+  "period": { "start": "2026-08-17", "end": "2026-08-23" },
+  "author": "SeekersLab SIEM Engineer",
+  "customer_manager": "",
+  "overall_progress": 45,
+  "summary": "SIEM 설치는 완료된 상태였으나, 로그가 7일간 한 건도 색인되지 않는 문제가 확인되었습니다. 원인은 ① Log Source 미등록 ② Filebeat 타임스탬프 형식 불일치 ③ 수신측 방화벽 미개방 세 가지였으며, 금주 중 모두 조치하여 FortiGate(AIG_SSLVPN_FW)와 SIEM 서버 로그가 정상 수집되고 있습니다. 다만 수집 대상 13종 중 실제 수집은 2종이므로, 전체 진척은 45%로 판단하였습니다. 잔여 11종은 발신측 설정과 방화벽 정책이 선행되어야 하며, 이는 고객사 협조가 필요한 사항입니다. 한편 방화벽 로그를 수집하면서 수집정보 문서에 없는 자산과, 로그를 전송하고 있으나 정책에 차단되고 있는 장비가 확인되었습니다. 차주에는 해당 자산 확인과 발신측 설정을 우선 진행할 예정입니다.",
+  "this_week": [
+    {
+      "category": "설치/점검",
+      "task": "SIEM v3 설치 상태 점검 (서비스 12종, 포트, 데이터 볼륨 분리 확인)",
+      "owner": "SeekersLab",
+      "planned": "08-17",
+      "done": "08-18",
+      "progress": 100,
+      "status": "완료",
+      "note": "기설치 확인, 재설치 불필요"
+    },
+    {
+      "category": "장애조치",
+      "task": "로그 색인 0건 원인 규명 (Log Source 미등록으로 수신 로그 전량 폐기)",
+      "owner": "SeekersLab",
+      "planned": "08-19",
+      "done": "08-21",
+      "progress": 100,
+      "status": "완료",
+      "note": "7일간 미인지 상태였음"
+    },
+    {
+      "category": "장애조치",
+      "task": "Filebeat 타임스탬프 형식 조정 (밀리초 포함으로 전건 색인 거부)",
+      "owner": "SeekersLab",
+      "planned": "08-21",
+      "done": "08-22",
+      "progress": 100,
+      "status": "완료",
+      "note": "기존 설정 백업 보관"
+    },
+    {
+      "category": "네트워크",
+      "task": "수신측 방화벽 개방 (514/udp, 514/tcp, 162/udp)",
+      "owner": "SeekersLab",
+      "planned": "08-22",
+      "done": "08-22",
+      "progress": 100,
+      "status": "완료",
+      "note": "개방 전에는 수신 자체가 불가"
+    },
+    {
+      "category": "Log Source",
+      "task": "Log Source 7종 등록 및 Parser 구성 (Linux, Syslog wire, FortiGate)",
+      "owner": "SeekersLab",
+      "planned": "08-22",
+      "done": "08-23",
+      "progress": 100,
+      "status": "완료",
+      "note": "Source 당 Parser 2~3종"
+    },
+    {
+      "category": "Log Source",
+      "task": "FortiGate(AIG_SSLVPN_FW, 10.1.1.1) 수집 개시 및 정규화 검증",
+      "owner": "SeekersLab",
+      "planned": "08-23",
+      "done": "08-23",
+      "progress": 100,
+      "status": "완료",
+      "note": "약 260 EPM, 주요 필드 추출 확인"
+    },
+    {
+      "category": "콘솔",
+      "task": "웹 콘솔 접속 복구 및 대시보드 오류 조치",
+      "owner": "SeekersLab",
+      "planned": "08-23",
+      "done": "08-23",
+      "progress": 100,
+      "status": "완료",
+      "note": "계정 정보 별도 전달 예정"
+    },
+    {
+      "category": "탐지",
+      "task": "탐지 시나리오 정의서 v1.1 작성 (12종: 즉시 6, 대기 5, 운영 1)",
+      "owner": "SeekersLab",
+      "planned": "08-23",
+      "done": "08-23",
+      "progress": 100,
+      "status": "완료",
+      "note": "임계치는 실수집 데이터 기준"
+    },
+    {
+      "category": "자산",
+      "task": "방화벽 로그 기반 자산 식별 (수집정보 문서 미기재 호스트 확인)",
+      "owner": "SeekersLab",
+      "planned": "08-23",
+      "done": "08-23",
+      "progress": 100,
+      "status": "완료",
+      "note": "고객사 확인 요청 예정"
+    },
+    {
+      "category": "Log Source",
+      "task": "서버 5종(WAS 2, WEB 2, GW) 및 네트워크 장비 6종 수집 연동",
+      "owner": "SeekersLab",
+      "planned": "08-22",
+      "done": "",
+      "progress": 10,
+      "status": "지연",
+      "note": "SIEM 등록만 완료, 발신측 미설정으로 수신 없음"
+    }
+  ],
+  "next_week": [
+    {
+      "category": "네트워크",
+      "task": "211.47.6.115 → 10.1.30.4:514 허용 정책 반영 (현재 FortiGate policy 35 차단)",
+      "owner": "고객 네트워크",
+      "start": "08-25",
+      "end": "08-26",
+      "priority": "높음",
+      "note": "장비는 전송 중이나 정책에 차단"
+    },
+    {
+      "category": "자산",
+      "task": "수집정보 문서 미기재 호스트 용도 확인 및 수집 대상 여부 결정",
+      "owner": "고객 보안",
+      "start": "08-25",
+      "end": "08-27",
+      "priority": "높음",
+      "note": "211.47.6.115/116/118, 10.1.10.4 등"
+    },
+    {
+      "category": "Log Source",
+      "task": "서버 5종 발신측 설정 (OS 로그 rsyslog, 애플리케이션 로그 Filebeat)",
+      "owner": "고객 서버",
+      "start": "08-25",
+      "end": "08-29",
+      "priority": "높음",
+      "note": "설정 가이드 제공 예정"
+    },
+    {
+      "category": "Log Source",
+      "task": "네트워크 장비 6종 관리 IP 확보 후 Log Source 등록",
+      "owner": "고객 네트워크",
+      "start": "08-25",
+      "end": "08-29",
+      "priority": "높음",
+      "note": "WAF, Fortigate 2, Piolink 2, HP L3"
+    },
+    {
+      "category": "탐지",
+      "task": "탐지룰 6종 콘솔 등록 및 오탐 조정",
+      "owner": "SeekersLab",
+      "start": "08-25",
+      "end": "08-28",
+      "priority": "높음",
+      "note": "수집경로 차단, Deny 급증, Telnet, 포트스캔, SSH, sudo"
+    },
+    {
+      "category": "탐지",
+      "task": "수집 중단 감지 룰 구성 (30분 무수신 시 알람)",
+      "owner": "SeekersLab",
+      "start": "08-26",
+      "end": "08-28",
+      "priority": "높음",
+      "note": "금주 확인된 미인지 상황 재발 방지"
+    },
+    {
+      "category": "대시보드",
+      "task": "보안 모니터링 대시보드 및 일간 리포트 템플릿 구성",
+      "owner": "SeekersLab",
+      "start": "08-27",
+      "end": "08-29",
+      "priority": "중간",
+      "note": "수집 안정화 이후 착수"
+    },
+    {
+      "category": "운영",
+      "task": "Syslog Receiver 로그 파일 권한 정정",
+      "owner": "SeekersLab",
+      "start": "08-25",
+      "end": "08-25",
+      "priority": "낮음",
+      "note": "장애 추적성 확보"
+    }
+  ],
+  "issues": [
+    {
+      "category": "네트워크",
+      "issue": "211.47.6.115 장비가 SIEM 으로 Syslog 를 전송하고 있으나 FortiGate 정책(policy 35)에서 전량 차단되고 있습니다.",
+      "impact": "해당 장비 로그 수집 불가",
+      "action": "허용 정책 추가 요청드립니다.",
+      "owner": "고객 네트워크",
+      "due": "08-26",
+      "status": "미해결"
+    },
+    {
+      "category": "Log Source",
+      "issue": "서버 5종에 로그 발신 설정이 없어 수신 건수가 0건입니다. 장비 가동 및 네트워크 경로는 정상입니다.",
+      "impact": "WAS/WEB/GW 로그 미수집",
+      "action": "각 서버에 rsyslog 및 Filebeat 설정이 필요합니다.",
+      "owner": "고객 서버",
+      "due": "08-29",
+      "status": "미해결"
+    },
+    {
+      "category": "Log Source",
+      "issue": "네트워크 장비 6종의 관리 IP 가 수집정보 문서에 기재되어 있지 않습니다.",
+      "impact": "장비 로그 미수집, 연동 일정 지연",
+      "action": "관리 IP 목록을 회신 부탁드립니다.",
+      "owner": "고객 네트워크",
+      "due": "08-29",
+      "status": "미해결"
+    },
+    {
+      "category": "자산",
+      "issue": "방화벽 로그에서 수집정보 문서에 없는 호스트가 다수 확인되었습니다.",
+      "impact": "수집 범위 및 라이선스 산정 영향",
+      "action": "자산 목록 갱신이 필요합니다.",
+      "owner": "고객 보안",
+      "due": "08-27",
+      "status": "조치중"
+    },
+    {
+      "category": "콘솔",
+      "issue": "관리자 계정 비밀번호를 고객 승인 하에 재설정하였습니다. 기존 값은 복구 가능하도록 백업하였습니다.",
+      "impact": "계정 인수인계 필요",
+      "action": "변경된 계정 정보를 별도 경로로 전달드립니다.",
+      "owner": "SeekersLab",
+      "due": "08-25",
+      "status": "조치중"
+    }
+  ]
+}
