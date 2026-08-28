@@ -14,6 +14,7 @@ import { can } from '@/lib/perm'
 import { eolNoticeTargets, impactNoticeTargets, maintenanceRemindTargets, receiptRemindTargets } from '@/lib/reminders'
 import { ASSET_CATEGORIES, CRITICALITY_LEVELS, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
+import { isKnownLocation } from '@/lib/codes'
 
 
 /** 업무 중요도 지정 — 자산이 담당하는 업무의 중요도를 운영자가 설정한다(제품안내서 §05 취약점 우선순위의 '자산 중요도' 축).
@@ -207,6 +208,9 @@ export async function correctField(assetNo: string, field: StewardField, rawValu
   //  소유자를 '미지정'으로 '보정'하는 것이 통과했다. 그러면 보정은 성공하고 감사에도 남는데 자산은 같은 사유로
   //  정합성 큐에 그대로 남아, 눌러도 아무것도 낫지 않는 조치를 얼마든지 반복하게 된다.
   if (isPlaceholder(value)) return { ok: false, message: `${field} 의 값을 입력하세요 — 자리표시자(미지정 · -)는 값이 아닙니다.` }
+  // 위치 보정도 레지스트리 값만 — 임의 문자열로 채우면 대장은 채워졌는데 그 위치로는 실사를 돌 수 없어,
+  //  '위치 누락'이 '실사 불가'로 바뀔 뿐이다(대장-실물 일치를 회복하려는 보정의 목적과 어긋난다).
+  if (field === '위치' && !isKnownLocation(value)) return { ok: false, message: `등록되지 않은 위치입니다 — ${value} (위치는 공통코드에서 관리합니다).` }
 
   const before = (asset[key] ?? '').trim()
   // 자리표시자는 값이 아니다 — 정합성 판정(lib/quality)이 보유자 미지정·위치 실사 확인 필요를 "없는 값"으로 보므로
@@ -1120,6 +1124,11 @@ export async function bulkRegisterAssets(rows: { category: string; model: string
     if (!ASSET_CATEGORIES.includes(category as AssetCategory)) { skipped.push({ line, reason: `유형 오류 '${category || '-'}'` }); return }
     if (!model) { skipped.push({ line, reason: '모델 누락' }); return }
     if (serial && (existingSerials.has(serial) || batchSerials.has(serial))) { skipped.push({ line, reason: `시리얼 중복 '${serial}'` }); return }
+    // 위치는 공통코드 레지스트리 값만 — 온보딩은 위치가 가장 자유롭게 들어오는 자리다. 레지스트리 밖 값이 실리면
+    //  그 자산은 재물조사 회차에 편성될 수도 그 위치로 스캔될 수도 없어, 실물이 있는데 실사에서 구조적으로 빠진다.
+    //  배치 전체를 되돌리지 않고 행 단위로 건너뛰며 사유를 밝힌다(유형 오류·시리얼 중복과 같은 규약).
+    const loc = (r.location ?? '').trim() || '본사 3F 검수실'
+    if (!isKnownLocation(loc)) { skipped.push({ line, reason: `위치 오류 '${loc}'` }); return }
 
     const assetNo = nextAssetNo()
     const sn = serial || `SN-${assetNo.slice(-6)}`
@@ -1131,7 +1140,7 @@ export async function bulkRegisterAssets(rows: { category: string; model: string
       status: '검수중',
       owner: (r.owner ?? '').trim() || '-',
       dept: (r.dept ?? '').trim() || '자산관리팀',
-      location: (r.location ?? '').trim() || '본사 3F 검수실',
+      location: loc,
       purchaseDate: today(),
       warrantyEnd: '-',
       history: [{ date: today(), kind: '등록', detail: `CSV 일괄 등록 — 데이터 온보딩 (검수중)`, actor: session.name }],
