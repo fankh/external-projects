@@ -41,3 +41,22 @@ export function codeUsage(groupId: string, label: string): number {
       return 0
   }
 }
+
+/** 사용 중인 위치 코드 목록 — 공통코드 LOCATION 그룹에서 미사용 처리분을 뺀 표시 순서대로.
+ *  위치를 고르는 화면(이동 신청·실사 스캔)이 모두 이 목록에서 선택지를 만든다. 서버 전용. */
+export function activeLocations(): string[] {
+  return (getStore().codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
+    .filter((v) => v.active)
+    .sort((a, b) => a.sort - b.sort)
+    .map((v) => v.label)
+}
+
+/** 이 위치가 레지스트리에 있는가 — 대장에 위치를 쓰는 서버 액션의 입력 검사.
+ *  화면은 드롭다운으로 레지스트리 값만 내주지만, 서버 액션은 화면을 거치지 않고도 호출된다
+ *  (권한 가드가 '버튼을 숨겨도 액션 id 로 직접 호출할 수 있다'고 적어 둔 것과 같은 이유).
+ *  레지스트리 밖 위치가 대장에 실리면 그 자산은 재물조사 회차에 편성될 수도, 그 위치로 스캔될 수도 없어
+ *  실물이 있는데 실사에서 구조적으로 빠진다 — 재물조사가 잡으려는 '유령 자산'을 재물조사 자신이 만드는 셈이다.
+ *  (스모크의 위치 레지스트리 커버리지 검사는 시드를 보는 것이라, 운영 중 들어오는 값은 여기서 막아야 한다.) */
+export function isKnownLocation(label: string): boolean {
+  return activeLocations().includes(label.trim())
+}

@@ -10,6 +10,7 @@ import { can } from '@/lib/perm'
 import { loanRemindTargets, repairRemindTargets } from '@/lib/reminders'
 import { reclaimLicenseSeats } from '@/lib/license'
 import type { ReturnCondition } from '@/lib/types'
+import { isKnownLocation } from '@/lib/codes'
 
 /** 반납 접수 · 상태 점검 — 회수한 실물을 점검해 유휴 풀에 넣을지, 수리·폐기로 뺄지 가른다.
  *  (제품안내서 §03 PHASE 4: 반납 접수·상태 점검, 유휴 자산 풀 관리) */
@@ -24,6 +25,11 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
   if (asset.status !== '반납대기') {
     return { ok: false, message: `반납 접수 대상이 아닙니다 — ${assetNo} (${asset.status})` }
   }
+
+  // 위치 정리·기본값은 일괄 경로(receiveReturnMany)와 같게 — 단건만 원문을 그대로 써서 빈 위치가 대장에 실렸다
+  //  (빈 위치는 정합성 큐가 '위치 누락'으로 세는 값이다). 그리고 레지스트리 밖 위치는 받지 않는다.
+  const loc = location.trim() || '본사 3F 자산창고'
+  if (!isKnownLocation(loc)) return { ok: false, message: `등록되지 않은 위치입니다 — ${loc} (위치는 공통코드에서 관리합니다).` }
 
   const prevOwner = asset.owner
 
@@ -46,13 +52,13 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
     asset.status = '수리중'
     asset.owner = '미지정'
     asset.dept = '자산관리팀'
-    asset.location = location
+    asset.location = loc
     if (note.trim()) asset.faultNote = note.trim() // 점검 사유를 수리 대기 화면에 노출(장애 신고 증상과 동일 필드)
   } else {
     asset.status = '유휴'
     asset.owner = '미지정'
     asset.dept = '자산관리팀'
-    asset.location = location
+    asset.location = loc
   }
 
   asset.history.push({
@@ -68,8 +74,8 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
   if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (반납 접수)`, actor: session.name })
 
   const next = condition === '폐기 권고' ? '폐기 절차 대상으로 전환'
-    : condition === '수리 필요' ? `수리중 편성 — 수리 완료 후 유휴 풀로 (${location})`
-    : `유휴 풀 편성 — ${location}`
+    : condition === '수리 필요' ? `수리중 편성 — 수리 완료 후 유휴 풀로 (${loc})`
+    : `유휴 풀 편성 — ${loc}`
 
   // 반납자에게 회수·점검 결과를 통보한다 — 결재 승인(반납 접수 예정)과 별개로, 실물이 실제로 회수·점검됐고
   // 점검 결과(정상·수리 필요·폐기 권고)가 무엇인지 알려 반납자 루프를 닫는다. 특히 파손(수리·폐기)은 반납자에게 중요.
@@ -94,6 +100,7 @@ export async function receiveReturnMany(assetNos: string[], condition: ReturnCon
   const s = getStore()
   const note = rawNote.trim()
   const loc = location.trim() || '본사 3F 자산창고'
+  if (!isKnownLocation(loc)) return { ok: false, message: `등록되지 않은 위치입니다 — ${loc} (위치는 공통코드에서 관리합니다).` }
   const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.status === '반납대기')
   if (targets.length === 0) return { ok: false, message: '반납 접수할 자산이 없습니다 (반납대기 건만 대상).' }
   let notified = 0

@@ -8,6 +8,7 @@ import { availableAssets } from '@/lib/stock'
 import { getStore } from '@/lib/store'
 import { loanRemindTargets, repairRemindTargets } from '@/lib/reminders'
 import { ReturnsView } from './ReturnsView'
+import { activeLocations } from '@/lib/codes'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,10 +76,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
   const repairUnrecorded = s.assets.filter(isRepairUnrecorded).length
   const todayStr = today()
 
-  const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
-    .filter((v) => v.active)
-    .sort((a, b) => a.sort - b.sort)
-    .map((v) => v.label)
+  const locations = activeLocations() // 선택지·서버 검사 모두 lib/codes 한 곳에서(isKnownLocation 과 같은 원천)
 
   const openRequests = s.approvals.filter(
     (a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.unfulfilledReason && !a.refId?.startsWith('DSC-'),

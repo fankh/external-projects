@@ -4,6 +4,7 @@ import { assignableAssets } from '@/lib/stock'
 import { getStore } from '@/lib/store'
 import { GONE_STATUSES } from '@/lib/types'
 import { MovementView } from './MovementView'
+import { activeLocations } from '@/lib/codes'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,10 +37,7 @@ export default async function MovementPage() {
   const pool = assignableAssets(s.assets, s.disposals)
     .map((a) => ({ assetNo: a.assetNo, model: a.model, category: a.category, location: a.location, status: a.status }))
 
-  const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
-    .filter((v) => v.active)
-    .sort((a, b) => a.sort - b.sort)
-    .map((v) => v.label)
+  const locations = activeLocations() // 선택지·서버 검사 모두 lib/codes 한 곳에서(isKnownLocation 과 같은 원천)
 
   // 집행 불가로 종결된 건도 여기 남긴다 — 대기 큐에서는 뺐지만(빠져나갈 문 없는 큐 방지) 처리 완료에도
   //  없으면 담당자가 '이동 처리'를 눌러 종결한 그 건이 화면에서 통째로 사라진다. 결재함에는 '집행 불가'로
