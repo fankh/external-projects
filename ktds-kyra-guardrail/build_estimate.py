@@ -57,7 +57,7 @@ ITEMS = [
      "  · 응답 범위 제한(Topic Restriction), 사용자 권한별 기능 접근통제, 통합 관리 콘솔\n"
      "  · 비정상 쿼리 패턴 · 반복적 우회 시도 · 과도한 요청(Rate Abuse) 탐지 및 관리자 경보\n"
      "  · 전체 입·출력 이력 보존, 원인 추적 · 감사 기능, Syslog / SIEM 연동\n"
-     "  · AI 플랫폼 탑재 및 다중망(AI망 · 운영망 · 개발망 · DMZ · AI개발망) 설치 · 구성,\n"
+     "  · 다중망(AI망 · 운영망 · 개발망 · DMZ · AI개발망) 설치 · 구성,\n"
      "    운영자 교육 및 기술 이전",
      70_000_000, "SEC-006\nSEC-008"),
 ]
@@ -90,12 +90,12 @@ ws.row_dimensions[2].height = 31.5
 ws.row_dimensions[3].height = 31.5
 
 ws.merge_cells("B4:F5")
-put(ws, "B4", "케이티디에스(주) 귀중", sz=18, bold=True, color="FF000000", h="left")
+put(ws, "B4", "주식회사 케이티디에스 귀중", sz=18, bold=True, color="FF000000", h="left")
 ws.row_dimensions[4].height = 31.5
 ws.row_dimensions[5].height = 13.5
 
 LEFT = [
-    "견  적   명 : AI 가드레일 구축 (공공사업 RFI 요건 SEC-006 · SEC-008 대응)",
+    "견  적   명 : AI 가드레일 구축 (RFI 요건 SEC-006 · SEC-008 대응)",
     "참       조 : AX솔루션개발팀 박준현 님",
     "견 적 일 자 : 2026년 8월 28일",
     "유 효 기 간 : 견적일로부터 30일",
@@ -141,7 +141,7 @@ for col in "BCDEFGHIJ":
     put(ws, "%s16" % col, None, sz=12, bold=True, color="FF808080", fill=LIME, h="center",
         bd=B("medium" if col == "B" else None,
              "medium" if col == "J" else None, "medium", "medium"))
-ws["B16"].value = "AI 가드레일 구축 — KYRA AI Guardrail (다중화 가드레일 · AI 플랫폼 탑재)"
+ws["B16"].value = "AI 가드레일 구축 — KYRA AI Guardrail (다중화 가드레일 1식)"
 ws.row_dimensions[16].height = 39.95
 
 # 품목 행
@@ -266,8 +266,8 @@ row += 2
 # 비고
 NOTE = (
     "※ 비 고\n"
-    "   - 본 견적은 공공사업 RFI 요건 SEC-006(AI시스템 가드레일 다중화 구성) 및 "
-    "SEC-008(AI 플랫폼 내 가드레일 탑재) 대응 범위에 대한 견적입니다.\n"
+    "   - 본 견적은 RFI 요건 SEC-006(AI시스템 가드레일 다중화 구성) 및 SEC-008 "
+    "대응 범위에 대한 견적입니다.\n"
     "   - 당사 KYRA AI Guardrail 1식 정액으로 산정하였으며, "
     "재경비 및 기술료는 적용하지 않았습니다.\n"
     "   - 상기 금액은 부가가치세(VAT) 별도 금액이며, 계약 조건은 계약서에 따릅니다.\n"
