@@ -203,7 +203,10 @@ export async function correctField(assetNo: string, field: StewardField, rawValu
 
   const value = rawValue.trim()
   const note = rawNote.trim()
-  if (!value || value === '-') return { ok: false, message: `${field} 의 값을 입력하세요.` }
+  // 새 값도 자리표시자면 값이 아니다 — 바로 아래 '기존 값' 판정은 isPlaceholder 를 쓰는데 여기만 '-' 만 걸러,
+  //  소유자를 '미지정'으로 '보정'하는 것이 통과했다. 그러면 보정은 성공하고 감사에도 남는데 자산은 같은 사유로
+  //  정합성 큐에 그대로 남아, 눌러도 아무것도 낫지 않는 조치를 얼마든지 반복하게 된다.
+  if (isPlaceholder(value)) return { ok: false, message: `${field} 의 값을 입력하세요 — 자리표시자(미지정 · -)는 값이 아닙니다.` }
 
   const before = (asset[key] ?? '').trim()
   // 자리표시자는 값이 아니다 — 정합성 판정(lib/quality)이 보유자 미지정·위치 실사 확인 필요를 "없는 값"으로 보므로

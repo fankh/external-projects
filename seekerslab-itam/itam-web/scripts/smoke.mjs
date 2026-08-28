@@ -2444,8 +2444,12 @@ try {
   const lendEmpty = lendSrc.map((ln, i) => (ln.includes('대여자와 부서를 입력해 주세요') ? i : -1)).filter((i) => i >= 0)
   //  빈 값 검사 바로 다음 세 줄 안에 자리표시자 검사가 있는지 본다(주석은 건너뛴다)
   const lendGuarded = lendEmpty.filter((i) => lendSrc.slice(i + 1, i + 8).some((ln) => /isPlaceholder\(/.test(ln) && !ln.trim().startsWith('//')))
-  check(`대여 보유자: 단건·일괄 두 경로 모두 자리표시자를 거부(입력 검사 ${lendEmpty.length}곳)`,
-    lendEmpty.length === 2 && lendGuarded.length === 2, `검사 있음=${lendGuarded.length}/${lendEmpty.length}`)
+  //  정합성 보정도 같은 자리다 — 새 값 검사만 "=== '-'" 사본을 써서, 소유자를 '미지정'으로 '보정'하는 것이 통과했다.
+  //  (바로 다음 줄의 기존 값 판정은 isPlaceholder 를 쓴다 — 한 함수 안에서 판정이 갈렸다.) 보정은 성공·감사되는데
+  //  자산은 같은 사유로 정합성 큐에 남아, 눌러도 아무것도 낫지 않는 조치를 반복하게 된다.
+  const fixOk = lendSrc.some((ln) => ln.includes('isPlaceholder(value)')) && !lendSrc.some((ln) => !ln.trim().startsWith('//') && ln.includes("value === '-'"))
+  check(`대장 입력: 대여 두 경로·정합성 보정이 자리표시자를 거부(대여 입력 검사 ${lendEmpty.length}곳)`,
+    lendEmpty.length === 2 && lendGuarded.length === 2 && fixOk, `대여=${lendGuarded.length}/${lendEmpty.length} 보정=${fixOk}`)
 
   // 발송 이력의 시간 순서 — 화면(NotificationLog)도 반출(dispatch-export)도 정렬하지 않고 배열 순서를 그대로
   //  쓴다. 그 순서는 dispatch() 의 unshift 로 유지되는 '최신 먼저'다. 그래서 기존 행의 at 을 고치는 코드는
