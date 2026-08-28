@@ -5,9 +5,10 @@ import { Chip } from '@/components/ui'
 import { contractHref } from '@/lib/reflink'
 import type { SwLicense } from '@/lib/types'
 import { LicenseAction, LicenseRecontract, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
+import { type LicenseVerdict } from '@/lib/reports'
 
 // 근거 계약 해지 여부·대기 결재는 서버에서 미리 계산해 넘긴다(클라이언트는 계약·결재 원본을 모른다)
-type LicRow = SwLicense & { d: number | null; baseTerminated: boolean; pendingApproval?: string; installCount?: number }
+type LicRow = SwLicense & { d: number | null; baseTerminated: boolean; pendingApproval?: string; installCount?: number; verdict: LicenseVerdict }
 
 type Verdict = '전체' | '초과' | '미사용' | '만료'
 // 대시보드 라이선스 큐 → 계약·라이선스 화면 딥링크(?lic=)를 판정 필터로 매핑. over=초과 사용, under=미사용 보유, expired=만료 경과.
@@ -19,12 +20,16 @@ export function LicenseTable({ rows, sel, canEdit, expiryWindowDays, lic }: { ro
   const [fverdict, setFverdict] = useState<Verdict>((lic && LIC_PARAM[lic]) || '전체')
   const [fq, setFq] = useState('')
 
+  // 판정은 서버가 lib/reports licenseVerdict 로 계산해 넘긴다 — 여기서 규칙(사용률 0.6·초과·만료)을 다시 적지 않는다.
+  //  해지 건은 판정 대상이 아니라 호출부가 걸러 낸다(licenseVerdict 규약).
   const derive = (l: LicRow) => {
     const retired = l.status === '해지'
-    const expired = !retired && l.expiry !== '-' && l.d !== null && l.d < 0
-    const over = !retired && l.used > l.purchased
-    const low = !retired && !over && l.used / l.purchased < 0.6
-    return { retired, expired, over, low }
+    return {
+      retired,
+      expired: !retired && l.verdict.expired,
+      over: !retired && l.verdict.base === '초과 사용',
+      low: !retired && l.verdict.base === '미사용 보유',
+    }
   }
 
   const filtered = useMemo(() => {

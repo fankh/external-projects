@@ -2704,6 +2704,22 @@ try {
     && aiPredCopies.length === 0,
     `화면·리포트가 보존 기간 없이 직접 필터하고 있음(판정 사본=${aiPredCopies.join(', ') || '없음'})`)
 
+  // 라이선스 판정(초과 사용·미사용 보유·만료 경과)의 단일 소스 — 대시보드 큐 건수는 licenseOptimization 이 세고,
+  //  그 큐의 드릴다운(?lic=over|under|expired)은 계약·라이선스 화면 표가 거른다. 두 쪽이 규칙을 각자 적고 있었다
+  //  (표·라이선스 카드가 사용률 0.6·초과·만료를 따로 계산). 지금은 값이 같지만 한쪽만 고치는 순간
+  //  '건수는 N인데 목록은 M'이 되는 자리다 — 이 저장소가 반복해서 닫아 온 큐 건수 ↔ 드릴다운 계열.
+  //  판정은 lib/reports 하나만 두고, 사용률 임계값을 다른 파일이 다시 적지 않는지 본다.
+  const licRuleCopies = sourceFiles
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([rel]) => rel !== 'lib/reports.ts')
+    .flatMap(([rel, src]) => src.split(/\r?\n/)
+      .map((ln, i) => [rel, i + 1, ln])
+      .filter(([, , ln]) => !ln.trim().startsWith('//') && !ln.trim().startsWith('*')
+        && /used \/ [a-z.]*purchased/.test(ln))
+      .map(([rel2, i]) => rel2 + ':' + i))
+  check(`라이선스 판정: 사용률 규칙이 lib/reports 밖에 없음(소스 ${sourceFiles.length}개 검사)`,
+    licRuleCopies.length === 0, `사본=${licRuleCopies.join(', ') || '없음'}`)
+
   // 정책 기준 증빙 완전성 — 감사 대응 자료의 「운영 · 거버넌스 정책 기준」 표는 "화면·리포트·스케줄러가 공유·강제하는
   //  임계값"을 증빙한다고 적어 두고도, 관리자가 설정 화면에서 바꾸는 운영 정책 항목 일부(정기 점검 창·안전재고)가
   //  표에서 빠져 있었다. 빠진 항목은 바꿔도 증빙에 흔적이 없어 감사가 보는 기준선이 실제 운영값과 갈린다.

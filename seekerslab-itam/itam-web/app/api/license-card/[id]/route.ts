@@ -3,6 +3,7 @@ import { daysUntil, fmtAmount } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
 import { getStore } from '@/lib/store'
+import { licenseVerdict } from '@/lib/reports'
 
 /** 라이선스 컴플라이언스 카드 — SW 라이선스의 보유·사용 대사, 판정, 비용 노출을 한 장의 인쇄용 문서로.
  *  SAM(소프트웨어 자산관리) 감사 대응용. 라이선스는 계약 화면(자산담당·Admin) 소관이므로 그 외 권한그룹은 차단한다. */
@@ -21,10 +22,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const retired = l.status === '해지'
   const gap = l.used - l.purchased
-  const over = !retired && gap > 0
-  const low = !retired && l.used / l.purchased < 0.6
-  // 만료 경과 — 미갱신 만료 라이선스 사용은 컴플라이언스 위반이므로 SAM 감사 카드 판정에도 명시한다(화면·리포트·대시보드와 정합).
-  const expired = !retired && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
+  // 판정은 화면·리포트·대시보드 큐와 같은 lib/reports licenseVerdict — 카드가 규칙을 다시 적으면
+  //  인쇄물만 다른 판정을 말할 수 있다(문구는 카드 고유로 둔다).
+  const v = licenseVerdict(l)
+  const over = !retired && v.base === '초과 사용'
+  const low = !retired && v.base === '미사용 보유'
+  const expired = !retired && v.expired
   const usageVerdict = over ? '초과 사용 (감사 리스크)' : low ? '미사용 보유 (비용 낭비)' : '적정'
   const verdict = retired ? `해지 (${l.terminatedAt ?? '-'})` : `${expired ? '만료 경과 · ' : ''}${usageVerdict}`
   const verdictClass = retired ? 'neutral' : expired || over ? 'err' : low ? 'warn' : 'ok'
