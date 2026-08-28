@@ -15,7 +15,14 @@ export function codeUsage(groupId: string, label: string): number {
 
   switch (groupId) {
     case 'LOCATION':
+      // 위치는 대장 밖에서도 살아 있다 — 아직 집행되지 않은 이동 신청의 목적지, 진행 중인 재물조사 회차의 범위가
+      //  모두 이 코드값을 들고 있다. 대장만 세면 "사용 중 아님"으로 읽혀 미사용 전환·개명이 통과하고,
+      //  그 뒤 이동 집행은 사라진 위치를 대장에 쓰거나 막히고 회차는 없는 범위를 가리킨다
+      //  (이 함수의 규약이 "해당 코드 체계를 저장하는 모든 컬렉션을 센다"인데 위치만 한 곳이었다).
+      //  종결된 기록(집행·종결된 신청, 완료 회차)은 증거라 세지 않는다 — 살아있는 참조만 막는다.
       return s.assets.filter((a) => a.location === label).length
+        + s.approvals.filter((a) => a.targetLocation === label && (a.status === '대기' || (a.status === '승인' && !a.fulfilled && !a.unfulfilledReason))).length
+        + s.inventoryRounds.filter((r) => r.scope === label && r.status !== '완료').length
     case 'ASSET_CATEGORY':
       // 대장뿐 아니라 아직 자산이 되지 않은 유형 참조까지 — 도입 로트(채번 전), AI 자동분류 확정·제안 유형,
       //  자산 신청의 희망 유형. 이들이 참조하는 유형을 미사용화하면 채번·판정·불출 추천이 사라진 코드를 가리킨다.

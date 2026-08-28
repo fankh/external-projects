@@ -1114,6 +1114,24 @@ try {
   }
   ok(`안전재고 경보: 경보가 센 가용 수 = 드릴다운 목록 건수(${alertLinks.length}종)`, availMismatch.length === 0)
 
+  // 위치 코드의 참조 무결성 — 위치는 대장 밖에서도 살아 있다. 시드의 이동 신청(APR-2607-101)은 목적지가 본사 9F 인데
+  //  본사 9F 에 놓인 자산은 0대다. 대장만 세면 "참조 없음"으로 읽혀 미사용 전환 버튼이 열리고, 승인된 그 이동은
+  //  사라진 위치로 집행되거나 집행 대기 큐에 갇힌다. 참조가 있으면 화면이 버튼을 잠그므로(눌러야 막히는 컨트롤 방지)
+  //  잠금 여부로 확인한다 — 상태를 바꾸지 않는 검사다.
+  {
+    const ctxCode = await browser.newContext(); await ctxCode.addCookies([cookie(ADMIN)])
+    const pCode = await ctxCode.newPage()
+    await pCode.goto(`${BASE}/settings/codes`, { waitUntil: 'networkidle' })
+    await pCode.locator('button', { hasText: '위치' }).first().click()
+    await pCode.waitForTimeout(400)
+    const row9F = pCode.locator('tr', { hasText: '본사 9F' }).first()
+    const rowText = (await row9F.textContent()) || ''
+    ok('위치 코드 참조 무결성: 집행 대기 이동 신청의 목적지가 사용 중으로 잡힌다', /\d+건 사용 중/.test(rowText))
+    const toggle = row9F.locator('button', { hasText: /^미사용$/ }).first()
+    ok('위치 코드 참조 무결성: 참조가 남은 위치는 미사용 전환 버튼이 잠긴다', await toggle.isDisabled())
+    await pCode.close(); await ctxCode.close()
+  }
+
   // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
   const recoverBtn = p2.locator('button', { hasText: /^자산 회수 \(반납 처리\)$/ })
@@ -2384,7 +2402,14 @@ try {
   await p3.locator('button', { hasText: /^추가$/ }).click()
   await p3.waitForTimeout(600)
   ok('공통코드: 중복 명칭 신규 추가 차단(label 유일성 가드)', ((await p3.textContent('body')) || '').includes('이미 같은 명칭의 코드가 있습니다'))
-  const locFreeRow = p3.locator('tr', { has: p3.locator('td', { hasText: '본사 9F' }) }).first()
+  // 참조 없는 코드의 미사용 전환 — 시드 위치는 모두 참조가 남아 있어 여기서 새 코드를 만들어 쓴다.
+  //  예전엔 '본사 9F' 를 썼다: 그 위치에 놓인 자산이 0대라 자유로워 보였지만, 집행 대기 이동 신청(APR-2607-101)의
+  //  목적지라 실제로는 참조가 살아 있다. 참조 집계가 대장만 세던 시절엔 그 사실이 보이지 않았을 뿐이다.
+  await p3.locator('input[placeholder="코드 (예: IDC-C-01)"]').fill('HQ_FREE_T')
+  await p3.locator('input[placeholder="명칭"]').fill('본사 20F 임시')
+  await p3.locator('button', { hasText: /^추가$/ }).click()
+  await p3.waitForTimeout(600)
+  const locFreeRow = p3.locator('tr', { has: p3.locator('td', { hasText: '본사 20F 임시' }) }).first()
   await locFreeRow.locator('button', { hasText: /^미사용$/ }).click()
   await p3.waitForTimeout(600)
   ok('공통코드: 참조 없는 코드는 미사용 전환 허용(사용 버튼으로 전환)', (await locFreeRow.locator('button', { hasText: /^사용$/ }).count()) > 0)
