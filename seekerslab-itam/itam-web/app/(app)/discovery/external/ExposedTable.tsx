@@ -10,7 +10,8 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
 }
 
-export function ExposedTable({ externals, canAct, openOnly: openOnlyParam }: { externals: ExternalAsset[]; canAct: boolean; openOnly?: boolean }) {
+// today 는 서버가 넘긴다 — 인증서 잔여일을 브라우저 시계로 계산하면 서버 HTML 과 갈린다(AccountTable 과 같은 규약)
+export function ExposedTable({ externals, canAct, openOnly: openOnlyParam, today }: { externals: ExternalAsset[]; canAct: boolean; openOnly?: boolean; today: string }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [acceptId, setAcceptId] = useState<string | null>(null)
@@ -82,7 +83,7 @@ export function ExposedTable({ externals, canAct, openOnly: openOnlyParam }: { e
           </thead>
           <tbody>
             {shown.map((e) => {
-              const cl = certLiveness(e.certValidUntil)
+              const cl = certLiveness(e.certValidUntil, today)
               return (
               <tr key={e.id}>
                 {canAct && <td className="c" onClick={(ev) => ev.stopPropagation()}>

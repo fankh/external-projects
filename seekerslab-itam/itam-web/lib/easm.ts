@@ -32,9 +32,12 @@ export interface CertLiveness {
 /** CT(인증서 투명성) 채널로 수집한 인증서 유효기간으로 호스트 생존 여부를 추정한다.
  *  유효한 인증서 = 최근 갱신·운영 중 → 생존 유력, 만료 = 방치·폐기 후보 → 생존 불명.
  *  수동 수집 단계의 트라이애지 신호로, 능동 확인 전까지 생존을 확정하지 않는다(제품안내서 §04). */
-export function certLiveness(certValidUntil: string | undefined): CertLiveness | null {
+export function certLiveness(certValidUntil: string | undefined, today: string): CertLiveness | null {
   if (!certValidUntil) return null
-  const days = daysUntil(certValidUntil)
+  //  today 인자로 계산 — 이 함수는 클라이언트 표(외부 공격표면 · 노출 자산)가 쓴다. 내부에서 today() 를 부르면
+  //  브라우저 시계로 계산돼 서버 HTML 과 어긋난다(하이드레이션 불일치). dormantDaysOf 와 같은 규약.
+  const raw = Math.round((Date.parse(certValidUntil) - Date.parse(today)) / 86_400_000)
+  const days = Number.isFinite(raw) ? raw : null
   if (days === null) return null
   if (days >= 0) return { state: 'valid', days, aliveGuess: true, label: `유효 ${days}일 — 생존 유력` }
   return { state: 'expired', days, aliveGuess: false, label: `만료 ${-days}일 경과 — 생존 불명` }

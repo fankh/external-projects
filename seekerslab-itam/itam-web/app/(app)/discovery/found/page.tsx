@@ -2,7 +2,7 @@ import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { can } from '@/lib/perm'
 import { canExport } from '@/lib/exports'
-import { daysUntil } from '@/lib/dates'
+import { daysUntil, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { CHANNELS, RECONCILE_STATES, type ReconcileState, isUntriagedDiscovery } from '@/lib/types'
 import { AccountTable } from './AccountTable'
@@ -111,7 +111,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
       </Card>
 
       <Card kicker="Account Hygiene · Channel 06" title="휴면 계정 — AD/IdP·SSO 계정 위생" pad={false}>
-        <AccountTable accounts={s.accounts} canAct={canAccount} openOnly={open === 'accounts'} />
+        <AccountTable accounts={s.accounts} canAct={canAccount} openOnly={open === 'accounts'} today={today()} />
       </Card>
 
       <Card kicker="Unauthorized Software · Channel 04 (EDR)" title="미인가 SW — 설치 SW 정책 위반" pad={false}>

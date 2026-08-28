@@ -1,6 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
-import { daysUntil } from '@/lib/dates'
+import { daysUntil, today } from '@/lib/dates'
 import { isEasmRescanOverdue, nextEasmRescan } from '@/lib/easm'
 import { can } from '@/lib/perm'
 import { CredTable } from './CredTable'
@@ -143,7 +143,7 @@ export default async function ExternalPage({ searchParams }: { searchParams: Pro
       </div>
 
       <Card kicker="Exposed Assets" title="외부 노출 자산" pad={false}>
-        <ExposedTable externals={ext} canAct={canRespond} openOnly={open === 'exposure'} />
+        <ExposedTable externals={ext} canAct={canRespond} openOnly={open === 'exposure'} today={today()} />
       </Card>
 
       <Card kicker="Credential Exposure" title="인증 취약점 점검 — 기본·취약 크리덴셜 노출" pad={false}>

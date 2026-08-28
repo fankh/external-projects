@@ -2423,6 +2423,46 @@ try {
   check(`어시스턴트 스코핑: 질의 분기 ${asstBranches.length}개가 모두 역할 게이트 또는 본인 범위`,
     asstBranches.length >= 25 && asstUngated.length === 0, `게이트 없음=${asstUngated.join(', ') || '없음'}`)
 
+  // 클라이언트가 서버 시계를 읽지 않는가 — lib/dates 첫머리는 '서버 전용 모듈 — 클라이언트에서 쓰면 하이드레이션
+  //  불일치가 생긴다'고 적어 두었다. 그런데 발견 자산 계정 표는 dormantDaysOf 를, 외부 노출 표는 certLiveness 를
+  //  import 했고, 그 함수들이 내부에서 today() 를 불렀다 — 서버는 컨테이너 시각으로, 브라우저는 자기 시계로 같은 값을
+  //  따로 계산한다. 두 날짜가 갈리는 구간(UTC 컨테이너 ↔ KST 브라우저의 자정~09시)에 서버 HTML 과 어긋나 React #418
+  //  로 하이드레이션이 깨진다. ITAM_TODAY 를 미래로 두고 돌렸을 때 그 두 화면에서만 재현됐다(PAGEERROR 48건 → 0건).
+  //  **호출을 직접 찾는 것으로는 부족하다** — 컴포넌트 본문에는 시계가 없고 import 한 함수 안에 있었다.
+  //  그래서 lib 의 export 중 (전이적으로) 시계를 읽는 것을 먼저 모으고, 그것을 import 하는 클라이언트 파일을 잡는다.
+  const CLOCK = ['today(', 'nowStamp(', 'nowMinute(']
+  const libFiles = sourceFiles.filter((f) => path.relative(ROOT, f).split(path.sep)[0] === 'lib')
+  const fnBodies = new Map()
+  for (const f of libFiles) {
+    const FL = readFileSync(f, 'utf8').split(/\r?\n/)
+    const starts = FL.map((ln, i) => { const m = /^export (?:async )?function (\w+)/.exec(ln); return m ? [i, m[1]] : null }).filter(Boolean)
+    starts.forEach(([i, name], k) => {
+      const stop = k + 1 < starts.length ? starts[k + 1][0] : FL.length
+      fnBodies.set(name, FL.slice(i, stop).filter((ln) => { const t = ln.trim(); return !t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*') }).join('\n'))
+    })
+  }
+  //  전이 폐쇄 — 시계를 직접 읽거나, 이미 표시된 함수를 부르는 함수를 반복해서 표시한다
+  const clockFns = new Set()
+  for (const [name, body] of fnBodies) if (CLOCK.some((c) => body.includes(c))) clockFns.add(name)
+  for (let pass = 0; pass < 5; pass++) {
+    for (const [name, body] of fnBodies) {
+      if (clockFns.has(name)) continue
+      if ([...clockFns].some((c) => new RegExp('\\b' + c + '\\s*\\(').test(body))) clockFns.add(name)
+    }
+  }
+  const clientClock = sourceFiles
+    .filter((f) => f.endsWith('.tsx'))
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([, src]) => /^['"]use client['"]/m.test(src))
+    .flatMap(([rel, src]) => {
+      const imported = [...src.matchAll(/import \{([^}]*)\} from ['"]@\/lib\/[^'"]+['"]/g)]
+        .flatMap((m) => m[1].split(',').map((x) => x.trim().replace(/^type /, '')))
+      const bad = imported.filter((n) => clockFns.has(n))
+      return bad.length ? [rel + '(' + bad.join(',') + ')'] : []
+    })
+  check(`하이드레이션 안전: 클라이언트가 서버 시계를 읽는 함수를 쓰지 않음(시계 의존 함수 ${clockFns.size}종)`,
+    clockFns.size >= 5 && clientClock.length === 0, `시계 의존=${clientClock.join(', ') || '없음'}`)
+
   // 운영 정책 기본값이 화면 문구에 리터럴로 박혀 있는가 — 운영자가 '정기 점검 창'·'만료 알림 창' 같은 값을
   //  바꾸면 판정은 따라가지만 안내 문구가 옛 숫자로 남아, 날짜를 고르는 바로 그 자리에서 틀린 규칙을 알려 준다.
   //  실제로 대장 상세의 점검 예약 안내가 '30일 내·경과'로 고정돼 있었다(판정은 opsPolicy.maintenanceWindowDays).

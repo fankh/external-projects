@@ -160,9 +160,14 @@ export const QNA_SLA_DAYS = 3
  *  마지막 로그인과 어긋났다(시드 기준 24일 차이). 계약 연계 자산 수(contractAssetCount)를 실측 파생으로
  *  돌린 것과 같은 이유 — 갱신되지 않는 저장 카운터는 화면에서 조용히 틀린 숫자가 된다.
  *  로그인 이력이 아예 없는 계정은 경과일을 셀 수 없지만 휴면 위험이 가장 큰 쪽이므로 호출부가 강조 처리한다. */
-export function dormantDaysOf(a: { lastLogin: string }): number | null {
+/** 휴면 경과일 — today 인자로만 계산해 서버·클라이언트가 같은 값을 낸다(하이드레이션 안전).
+ *  그전에는 내부에서 today() 를 불러, 이 함수를 쓰는 클라이언트 표(발견 자산 · 계정)가 브라우저 시계로 계산했다 —
+ *  서버(UTC 컨테이너)와 브라우저(KST)의 날짜가 갈리는 자정~09시 구간에 서버 HTML 과 값이 어긋나 하이드레이션이 깨진다
+ *  (이 모듈 첫머리가 경고하는 바로 그 상황이다). warrantyState·isApprovalOverdue 와 같은 규약. */
+export function dormantDaysOf(a: { lastLogin: string }, today: string): number | null {
   if (!a.lastLogin || a.lastLogin === '-') return null
-  return Math.max(0, -(daysUntil(a.lastLogin) ?? 0))
+  const d = Math.round((Date.parse(today) - Date.parse(a.lastLogin)) / 86_400_000)
+  return Number.isFinite(d) ? Math.max(0, d) : 0
 }
 
 export function qnaAgeDays(createdAt: string): number {
