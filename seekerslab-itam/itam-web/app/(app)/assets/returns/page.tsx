@@ -81,7 +81,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
     .map((v) => v.label)
 
   const openRequests = s.approvals.filter(
-    (a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.refId?.startsWith('DSC-'),
+    (a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.unfulfilledReason && !a.refId?.startsWith('DSC-'),
   ).length
 
   const longIdle = idle.filter((a) => (a.idleDays ?? 0) >= 90).length

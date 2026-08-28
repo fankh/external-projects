@@ -95,8 +95,19 @@ export async function moveAsset(approvalId: string) {
   //  없으면 폐기·분실 확정 자산의 위치만 바뀌고 신청자에게는 '이동 완료' 통보가 나간다 — 대장이 실물과 어긋나고
   //  통보가 사실과 다르다. 신청 자체는 남겨 둔다(반려·취소로 정리할 대상이라 조용히 지우지 않는다).
   if (GONE_STATUSES.includes(asset.status)) {
-    appendAudit({ actor: session.name, action: `자산 이동 미적용 — ${asset.assetNo} (${asset.status}) · ${ap.id}`, target: asset.assetNo })
-    return { ok: false, message: `${asset.status} 자산은 이동 처리할 수 없습니다 — ${asset.assetNo} (신청 ${ap.id} 은 반려·취소로 정리하세요).` }
+    // 이 신청은 영원히 집행할 수 없다 — 이동 대상 자산은 결재에 고정돼 있어(refId) 다른 자산으로 바꿀 수 없고,
+    //  그 자산이 분실·폐기로 떠났기 때문이다(불출은 담당자가 다른 자산을 고르면 되므로 이 경우가 아니다).
+    //  예전에는 '반려·취소로 정리하세요'라고 안내했는데, 반려(decide)도 상신 취소(withdrawRequest)도 '대기'
+    //  건만 받는다 — 이미 승인된 이 건에는 두 길이 다 막혀 있어, 따를 수 없는 안내였다. 그동안 이 신청은
+    //  '이동 집행 대기' 큐에 영원히 남았다(빠져나갈 문이 없는 큐).
+    //  시스템이 불가능을 확정한 지금 그 사실을 결재 건에 적어 큐에서 닫는다(대여 승인 미집행과 같은 규약).
+    const why = `${asset.status} 이탈`
+    ap.unfulfilledReason = why
+    ap.unfulfilledAt = today()
+    appendAudit({ actor: session.name, action: `자산 이동 미적용 — ${asset.assetNo} (${asset.status}) · ${ap.id} 집행 불가 종결`, target: asset.assetNo })
+    dispatch({ channel: '이메일', to: ap.requester, subject: `[결재 결과] 자산 이동 승인 — 다만 ${asset.assetNo} 는 ${why}로 집행되지 않았습니다 (${ap.id})`, kind: '결재 결과', ref: ap.id })
+    revalidatePath('/', 'layout')
+    return { ok: false, message: `${asset.status} 자산은 이동 처리할 수 없습니다 — ${asset.assetNo} (신청 ${ap.id} 을 집행 불가로 종결하고 신청자에게 통보했습니다).` }
   }
 
   const from = asset.location

@@ -14,11 +14,11 @@ export default async function MovementPage() {
   // 승인됐지만 아직 집행되지 않은 건 = 실제 처리 대기열.
   // 결재 승인과 실물 처리를 분리해야 대장이 '승인만 되고 움직이지 않은' 상태를 드러낸다.
   const issues = s.approvals
-    .filter((a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.refId?.startsWith('DSC-'))
+    .filter((a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.unfulfilledReason && !a.refId?.startsWith('DSC-'))
     .map((a) => ({ id: a.id, title: a.title, requester: a.requester, dept: a.dept, requestedAt: a.decidedAt ?? a.requestedAt, note: a.note, desiredCategory: a.desiredCategory }))
 
   const moves = s.approvals
-    .filter((a) => a.kind === '이동' && a.status === '승인' && !a.fulfilled)
+    .filter((a) => a.kind === '이동' && a.status === '승인' && !a.fulfilled && !a.unfulfilledReason)
     .map((a) => {
       const asset = s.assets.find((x) => x.assetNo === a.refId)
       return {
