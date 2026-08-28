@@ -2348,6 +2348,23 @@ try {
     .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
   check(`자산 상태 목록: lib/types 밖에 사본 없음(소스 ${sourceFiles.length}개 검사)`, relisted.length === 0, `사본=${relisted.join(', ')}`)
 
+  // 변경 이력 강조 분류의 단일 소스 — 화면 타임라인과 인쇄 카드가 여섯 종류를 각자 나열하고 있었고,
+  //  카드 주석은 '화면 변경 이력 타임라인과 동일 언어'라고 적어 두었다. 종류를 하나 더하거나 옮길 때 한쪽만
+  //  고치면 그 주석이 거짓이 되고, 같은 자산의 같은 이력이 화면에서는 강조되는데 인쇄물에서는 평범하게 나간다
+  //  (인수인계·감사에 종이로 나가는 산출물이다). 분류는 lib/types 하나만 두고 표현(톤·hex)만 각자 정한다.
+  //  판정에 쓰이는 이력 종류 여섯 개를 한 줄에 나열한 곳이 types 밖에 있는지 본다.
+  const EMPH_KINDS = ['폐기', '분실', '점검', '수리', '등록', '편입']
+  const emphDupes = sourceFiles
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([rel]) => rel !== 'lib/types.ts')
+    .filter(([, src]) => src.split(/\r?\n/).some((ln) => {
+      if (ln.trim().startsWith('//') || ln.trim().startsWith('*')) return false
+      return EMPH_KINDS.every((k) => ln.includes(k + String.fromCharCode(58)))
+    }))
+    .map(([rel]) => rel)
+  check(`변경 이력 강조: 분류가 lib/types 밖에 없음(소스 ${sourceFiles.length}개 검사)`,
+    emphDupes.length === 0, `사본=${emphDupes.join(', ') || '없음'}`)
+
   // '운영 자산'이라는 말이 두 수를 가리키지 않는가 — 대장의 '운영 자산만' 필터와 계약 커버리지는 GONE_STATUSES
   //  (분실·폐기예정·폐기완료)를 빼는데, 어시스턴트의 부서별·위치별·가치 집계는 폐기완료만 빼면서 같은 말을 썼다.
   //  시드에서도 폐기완료만 뺀 수는 36대, 대장 '운영 자산만'은 34대다 — 같은 낱말로 두 수를 말하면 어느 쪽이
