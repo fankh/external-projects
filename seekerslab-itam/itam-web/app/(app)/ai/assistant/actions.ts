@@ -113,9 +113,6 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   const canAsset = role === 'ASSET_MGR' || role === 'ADMIN'
 
   // 내 신청 상태 — 본인이 상신한 결재 (전 권한그룹, 본인 범위). 조직 결재 큐(비사용자)와 구분해 '내 신청'으로 잡는다.
-  if (q.includes('전사 자산 목록')) {
-    return { role: 'assistant', text: s.assets.map((a) => a.assetNo).join(', ') }
-  }
   if (q.includes('내 신청') || q.includes('신청 상태') || q.includes('내 요청')) {
     const mine = s.approvals.filter((a) => a.requester === userName)
     const cnt = (st: string) => mine.filter((a) => a.status === st).length
