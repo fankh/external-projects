@@ -140,6 +140,11 @@ export async function completeRound(roundId: string) {
 
   // 미실사 대상 마감 가드(§03 재물조사 완결성) — 회차 대상 중 아직 실사되지 않고 이탈 처리(분실·폐기)도 안 된 대장 자산이 남으면
   // 마감할 수 없다. 실사 스캔하거나 분실 신고(미실사 남은 대상 카드)로 처리해야 회차가 전 대상을 실제로 계상하고 종결된다.
+  // 이 회차가 '대상 자산번호 목록'을 갖고 있는지 — 앱이 만든 회차(planRound·자동 편성)는 저장하지만
+  //  손으로 쓴 시드 회차에는 없다. 목록이 없으면 아래 미실사 가드는 검사할 대상이 없어 통과한다.
+  //  그 자체는 막을 수 없지만(범위 문자열이 위치와 맞지 않는 회차가 있다), 검증하지 않은 것을
+  //  검증한 것처럼 말하지는 않는다 — 완료 문구·감사·배포 통지가 커버리지 근거를 밝힌다.
+  const hasTargetList = (round.targets ?? []).length > 0
   const scanned = new Set(s.surveyScans.filter((x) => x.roundId === roundId).map((x) => x.assetNo).filter(Boolean))
   const unaccounted = (round.targets ?? []).filter((no) => {
     if (scanned.has(no)) return false
@@ -157,9 +162,10 @@ export async function completeRound(roundId: string) {
   // 완료 즉시 '재물조사 결과 요약' 리포트를 산출해 담당·주관 부서에 배포한다 —
   // 실사 종료가 종결 표시로 끝나지 않고 결과 보고서(증적)로 남는다. (그동안 리포트는 스케줄·수동 생성뿐이었다.)
   const reportId = await createReport('재물조사 결과 요약', session.name)
-  dispatch({ channel: '이메일', to: `${round.assignee} · IT기획팀`, subject: `${round.name} 완료 — 재물조사 결과 요약 리포트 배포 (${reportId})`, kind: '리포트 배포', ref: reportId })
+  dispatch({ channel: '이메일', to: `${round.assignee} · IT기획팀`, subject: `${round.name} 완료 — 재물조사 결과 요약 리포트 배포 (${reportId} · ${hasTargetList ? '전 대상 계상 확인' : '전 대상 계상 미검증'})`, kind: '리포트 배포', ref: reportId })
 
-  appendAudit({ actor: session.name, action: `재물조사 완료 (스캔 ${round.scanned}/${round.planned}) · 결과 요약 리포트 ${reportId} 배포`, target: roundId })
+  const basis = hasTargetList ? '전 대상 계상 확인' : '대상 목록 없음 — 전 대상 계상 미검증'
+  appendAudit({ actor: session.name, action: `재물조사 완료 (스캔 ${round.scanned}/${round.planned} · ${basis}) · 결과 요약 리포트 ${reportId} 배포`, target: roundId })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${round.name} 완료 — 스캔 ${round.scanned}/${round.planned}건, 차이 전건 조정 완료 · 결과 요약 리포트 ${reportId} 자동 배포` }
+  return { ok: true, message: `${round.name} 완료 — 스캔 ${round.scanned}/${round.planned}건, 차이 전건 조정 완료 (${basis}) · 결과 요약 리포트 ${reportId} 자동 배포` }
 }

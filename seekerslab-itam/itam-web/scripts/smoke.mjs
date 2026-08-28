@@ -2379,6 +2379,18 @@ try {
   check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
 
+  // 재물조사 마감의 커버리지 근거 — 완료 가드는 회차의 '대상 자산번호 목록'(targets)에 대해서만 미실사를 센다.
+  //  앱이 만든 회차(planRound·자동 편성)는 목록을 저장하지만 손으로 쓴 시드 회차에는 없고, 그 범위 문자열은
+  //  위치와 매칭되지 않는 서술형이라(예: '본사 전층 + IDC-A') 범위로 되짚을 수도 없다. 그런 회차에서는 가드가
+  //  검사할 대상이 없어 그냥 통과한다 — 312/1240 짜리 회차도 닫히고 결과 요약 리포트가 배포된다.
+  //  목록 없는 회차를 막을 수는 없지만(정당한 회차일 수 있다), 검증하지 않은 것을 검증한 것처럼 말해서는 안 된다.
+  //  완료 문구·감사·배포 통지가 커버리지 근거를 밝히는지 본다.
+  const roundSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'inventory', 'survey', 'actions.ts'), 'utf8')
+  const covBits = ['hasTargetList', '전 대상 계상 확인', '전 대상 계상 미검증']
+  const covMissing = covBits.filter((b) => !roundSrc.includes(b))
+  check('재물조사 마감: 커버리지 근거(전 대상 계상 확인·미검증)를 문구·감사·통지에 밝힌다',
+    covMissing.length === 0, `누락=${covMissing.join(', ')}`)
+
   // 안전재고 경보의 드릴다운 — 큐 스윕은 대시보드 큐만, KPI 스윕은 네 화면의 stat 타일만 훑는다. 재고 화면의
   //  경보 링크는 둘 다에 안 잡히는데(대시보드가 아니고 stat 타일도 아니다), '가용 N' 이라는 수를 말하고 그 수의
   //  목록을 연다는 점에서 같은 계약이다. 이 링크는 한 번 잘못 열린 적이 있다 — status=유휴 로 열어 폐기 절차·
