@@ -2398,6 +2398,26 @@ try {
     .map(({ i }) => 'ai/assistant/actions.ts:' + (i + 1))
   check('어시스턴트 표기: 폐기완료만 뺀 집계를 "운영 자산"이라 부르지 않음', miscalled.length === 0, `충돌=${miscalled.join(', ')}`)
 
+  // 어시스턴트 질의 분기의 스코핑 — AI 정책의 권한 범위 필터는 끌 수 없는 잠금 항목이다(LOCKED_AI_POLICY_TOGGLES:
+  //  "스코핑은 코드가 항상 적용하므로 끌 수 없다"). 그 약속을 지키는 것은 분기마다 손으로 넣은 게이트뿐이라,
+  //  게이트 없는 분기를 하나 추가하면 사용자 권한그룹이 조직 전체 데이터를 답변으로 받아 간다 — 화면 접근은
+  //  막혀 있는데 어시스턴트로 새는 셈이고, 아무 검사도 울지 않는다(거버넌스 리포트는 필터가 ON 이라고 계속 진술한다).
+  //  질의 분기는 역할 게이트(canAsset·canSec·role)를 갖거나, 본인 범위로만 답해야 한다(본문이 userName 으로 거른다).
+  const asstLines = asstSrc.split(/\r?\n/)
+  const asstBranches = asstLines.map((ln, i) => ({ ln: ln.trim(), i })).filter(({ ln }) =>
+    !ln.startsWith('//') && !ln.startsWith('*') && /^if \(/.test(ln) && /q\.includes\(|q\.startsWith\(/.test(ln))
+  const asstUngated = asstBranches.filter(({ ln, i }) => {
+    if (/canAsset|canSec|canView|isUser|role ===|role !==/.test(ln)) return false
+    //  본인 범위 분기 허용 — 뒤따르는 본문이 userName 으로 거르면 조직 데이터가 아니다
+    //  창은 그 분기의 본문까지만 본다 — 다음 형제 분기까지 훑으면 옆 분기의 userName 이 이 분기를 본인 범위로
+    //  잘못 통과시킨다(가드를 처음 넣고 게이트 없는 분기를 주입했을 때 실제로 그렇게 통과했다).
+    const bodyEnd = asstLines.findIndex((b, k) => k > i && /^if \(/.test(b.trim()))
+    const body = asstLines.slice(i, bodyEnd > i ? Math.min(bodyEnd, i + 20) : i + 20)
+    return !body.some((b) => b.includes('userName'))
+  }).map(({ i }) => "ai/assistant/actions.ts:" + (i + 1))
+  check(`어시스턴트 스코핑: 질의 분기 ${asstBranches.length}개가 모두 역할 게이트 또는 본인 범위`,
+    asstBranches.length >= 25 && asstUngated.length === 0, `게이트 없음=${asstUngated.join(', ') || '없음'}`)
+
   // 운영 정책 기본값이 화면 문구에 리터럴로 박혀 있는가 — 운영자가 '정기 점검 창'·'만료 알림 창' 같은 값을
   //  바꾸면 판정은 따라가지만 안내 문구가 옛 숫자로 남아, 날짜를 고르는 바로 그 자리에서 틀린 규칙을 알려 준다.
   //  실제로 대장 상세의 점검 예약 안내가 '30일 내·경과'로 고정돼 있었다(판정은 opsPolicy.maintenanceWindowDays).
