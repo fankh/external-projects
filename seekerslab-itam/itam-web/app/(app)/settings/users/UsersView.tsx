@@ -12,7 +12,7 @@ const ROLE_TONE: Record<Role, 'neutral' | 'info' | 'warn' | 'err'> = {
 
 export function UsersView(props: {
   /** 오늘 아직 MFA 등록 요구를 보내지 않은 미적용 계정 수 — 버튼 건수 = 발송 건수(lib/reminders) */
-  mfaRemindCount?: number; /** 오늘 아직 안 보낸 미적용 계정 로그인 — 행 컨트롤도 같은 판정 */ mfaPending?: string[]; users: UserAccount[]; lines: ApprovalLine[]; me: string; owned: Record<string, number>; offboard?: Record<string, { inUse: number; loaned: number; seats: { lic: string; assetNo: string }[]; pendingReqs: number }> }) {
+  mfaRemindCount?: number; /** 오늘 아직 안 보낸 미적용 계정 로그인 — 행 컨트롤도 같은 판정 */ mfaPending?: string[]; users: UserAccount[]; lines: ApprovalLine[]; me: string; owned: Record<string, number>; offboard?: Record<string, { inUse: number; loaned: number; other: number; seats: { lic: string; assetNo: string }[]; pendingReqs: number }> }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [obOpen, setObOpen] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -71,7 +71,7 @@ export function UsersView(props: {
                 // 본인 관리자 강등 방지 · 마지막 관리자 강등 방지 — 서버와 같은 규칙을 화면에도 반영
                 const lastAdmin = u.role === 'ADMIN' && (u.login === props.me || adminCount <= 1)
                 const ob = props.offboard?.[u.name]
-                const obHas = !!ob && (ob.inUse > 0 || ob.loaned > 0 || ob.seats.length > 0 || ob.pendingReqs > 0)
+                const obHas = !!ob && (ob.inUse > 0 || ob.loaned > 0 || ob.other > 0 || ob.seats.length > 0 || ob.pendingReqs > 0)
                 return (
                   <Fragment key={u.login}>
                   <tr>
@@ -127,6 +127,9 @@ export function UsersView(props: {
                           <div className="hstack" style={{ gap: 14, flexWrap: 'wrap', fontSize: 12.5 }}>
                             <span>사용중 보유 <b>{ob.inUse}</b>대{ob.inUse > 0 && <> · <a href={`/assets/register?q=${encodeURIComponent(u.name)}&status=사용중`} style={{ color: 'var(--accent-deep)' }} title="대장에서 일괄 회수(선택 후 일괄 회수)">일괄 회수 →</a></>}</span>
                             <span>대여중 <b>{ob.loaned}</b>대{ob.loaned > 0 && <> · <a href={`/assets/register?q=${encodeURIComponent(u.name)}&status=대여중`} style={{ color: 'var(--accent-deep)' }} title="대여 반환 처리">반환 처리 →</a></>}</span>
+                            {/* 이름이 아직 붙어 있는 나머지 상태(수리중·반납대기 등) — 사용중·대여중만 세면 수리에서 돌아온 장비가
+                                퇴사자 앞으로 배정된 채 남고, 진행 중이던 반납 의무가 인수인계에서 사라진다. 명세서와 같은 기준이다. */}
+                            <span>그 밖에 이름이 남은 자산 <b>{ob.other}</b>대{ob.other > 0 && <> · <a href={`/assets/register?q=${encodeURIComponent(u.name)}`} style={{ color: 'var(--accent-deep)' }} title="수리중·반납대기 등 진행 중 보유">대장에서 확인 →</a></>}</span>
                             <span>배정 라이선스 좌석 <b>{ob.seats.length}</b>석{ob.seats.length > 0 && <> · <a href="/inventory/contracts" style={{ color: 'var(--accent-deep)' }} title="라이선스 좌석 회수(계약·라이선스)">좌석 회수 →</a></>}</span>
                             <span>미처리 상신 결재 <b>{ob.pendingReqs}</b>건{ob.pendingReqs > 0 && <> · <a href="/workflow/approvals" style={{ color: 'var(--accent-deep)' }}>결재함 →</a></>}</span>
                           </div>

@@ -4,6 +4,7 @@ import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { GONE_STATUSES } from '@/lib/types'
 import { UsersView } from './UsersView'
+import { hasHolder } from '@/lib/quality'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,11 +21,14 @@ export default async function UsersPage() {
   }
   // 오프보딩 요약 — 퇴직·부서이동 시 회수·재배정 대상을 한 사람 기준으로 모은다(대장 소유자 검색·라이선스 좌석·대여가 흩어져 있던 것).
   //  사용중 보유(일괄 회수 대상)·대여중·배정 라이선스 좌석·미처리 상신 결재를 사용자별로 집계한다. 담당자 자산 회수(로 오프보딩)의 진입 요약.
-  const offboard: Record<string, { inUse: number; loaned: number; seats: { lic: string; assetNo: string }[]; pendingReqs: number }> = {}
-  const bump = (name: string) => (offboard[name] ??= { inUse: 0, loaned: 0, seats: [], pendingReqs: 0 })
+  const offboard: Record<string, { inUse: number; loaned: number; other: number; seats: { lic: string; assetNo: string }[]; pendingReqs: number }> = {}
+  const bump = (name: string) => (offboard[name] ??= { inUse: 0, loaned: 0, other: 0, seats: [], pendingReqs: 0 })
   for (const a of s.assets) {
     if (a.status === '사용중') bump(a.owner).inUse += 1
     else if (a.status === '대여중') bump(a.owner).loaned += 1
+    // 이름이 아직 붙어 있는 나머지 상태(수리중·반납대기 등)도 센다 — 명세서와 같은 기준이라야 화면이 말한 수와
+    //  인쇄물이 어긋나지 않는다. 자리표시자 보유자는 사람이 아니므로 제외한다.
+    else if (hasHolder(a.owner)) bump(a.owner).other += 1
   }
   // 해지 라이선스 좌석은 오프보딩 회수 대상이 아니다(라이선스 종료) — 오프보딩 확인서(offboard-sheet)는 이미 해지 제외하나 이 화면 집계가 빠뜨려 과다 계상하던 것 정합(화면=증적).
   for (const l of s.licenses) { if (l.status === '해지') continue; for (const st of l.seats ?? []) bump(st.user).seats.push({ lic: l.name, assetNo: st.assetNo }) }
