@@ -2392,6 +2392,27 @@ try {
     && expUnfSrc.includes('집행 불가') && aprListSrc.includes('a.unfulfilledReason'),
     `기록=${/a\.unfulfilledReason = /.test(aprActSrc)} 반출=${expUnfSrc.includes('집행 불가')} 화면=${aprListSrc.includes('a.unfulfilledReason')}`)
 
+  // e2e 카드 로케이터와 감사 문구의 충돌 — e2e 는 화면의 카드를 제목 문구로 찾는 곳이 있는데(.card + text=),
+  //  같은 화면에는 감사 로그 카드도 있고 그 행에는 서버가 남긴 '동작' 문구가 그대로 실린다. 어떤 감사 문구가
+  //  카드 제목 문구를 포함하면 감사 카드가 먼저 매칭돼(.first()) 검사는 엉뚱한 카드의 텍스트를 읽는다.
+  //  실제로 '알림 발송 이력' 로케이터가 '알림 발송 이력 내보내기' 감사 문구와 충돌해, 발송 이력 반출을
+  //  한 번 호출하는 것만으로 이웃 검사가 깨졌다(원인을 좁히는 데 e2e 를 네 번 돌렸다).
+  //  로케이터가 아니라 감사 문구가 나중에 추가돼도 같은 일이 나므로, 양쪽을 함께 대조해 둔다.
+  const cardE2eSrc = readFileSync(path.join(ROOT, 'scripts', 'e2e-findings.mjs'), 'utf8')
+  const cardPhrases = [...cardE2eSrc.matchAll(/locator\('\.card', \{ has: [^}]*text=([^'"}]{2,40})/g)]
+    .map((m) => m[1].trim()).filter((x) => x.length >= 2)
+  const auditPhrases = []
+  for (const file of sourceFiles) {
+    for (const m of readFileSync(file, 'utf8').matchAll(/action: [`'"]([^`'"]{4,120})/g)) auditPhrases.push(m[1])
+  }
+  const cardClashes = []
+  for (const ph of [...new Set(cardPhrases)]) {
+    const clash = auditPhrases.find((x) => x.includes(ph))
+    if (clash) cardClashes.push(`${ph} ⊂ ${clash.slice(0, 40)}`)
+  }
+  check(`e2e 카드 로케이터: 감사 동작 문구와 충돌 없음(로케이터 ${new Set(cardPhrases).size}종 · 감사 문구 ${auditPhrases.length}개)`,
+    cardPhrases.length > 0 && cardClashes.length === 0, `충돌=${cardClashes.join(', ')}`)
+
   // 종결 전이의 증적 세 요소 — 되돌릴 수 없는 판정을 담는 레코드는 누가·언제(·왜)를 그 레코드에 남긴다.
   //  결재는 decidedBy/decidedAt, 폐기 소거는 wipedBy/wipedAt, 입고 검수는 inspector 를 이미 남긴다.
   //  계약·라이선스 해지는 날짜만, 입고 반품 종결은 아무것도 남기지 않아 '언제·누가 끝냈나'를 전역
