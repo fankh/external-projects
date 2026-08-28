@@ -2,7 +2,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { ExportButton } from '@/components/ExportButton'
 import { requireView } from '@/lib/authz'
 import { nowMinute } from '@/lib/dates'
-import { isScanOverdue, overdueScanChannels } from '@/lib/scan-policy'
+import { isScanOverdue, overdueScanChannels, lastCollectionByChannel } from '@/lib/scan-policy'
 import { getStore } from '@/lib/store'
 import { ScanConsole } from './ScanConsole'
 import { ScanRerunButton } from './ScanRerunButton'
@@ -34,13 +34,15 @@ export default async function ScanPage() {
     inWindow: inWindow(p.window, clock),
   }))
 
-  // 채널별 마지막 수집 시각·관측 수 — 관측 저장소가 원천이다
+  // 채널별 마지막 수집 시각·관측 수 — 관측 저장소가 원천이다.
+  //  '마지막 수집'은 lib/scan-policy 의 lastCollectionByChannel 하나만 쓴다 — 같은 행에 붙는 '재탐지 지연' 배지가
+  //  그 함수로 판정되기 때문이다(overdueScanChannels). 여기서 최대 seenAt 을 다시 구하면 한 줄 안에서 시각과
+  //  판정이 서로 다른 계산에서 나오고, 한쪽만 바뀌면 화면이 "방금 수집했는데 지연"이라고 말하게 된다.
+  const lastByChannel = lastCollectionByChannel(s.observations)
+  const countByChannel = new Map<string, number>()
+  for (const o of s.observations) countByChannel.set(o.channel, (countByChannel.get(o.channel) ?? 0) + 1)
   const byChannel = new Map<string, { last: string; count: number }>()
-  for (const o of s.observations) {
-    const cur = byChannel.get(o.channel)
-    if (!cur) byChannel.set(o.channel, { last: o.seenAt, count: 1 })
-    else { cur.count += 1; if (o.seenAt > cur.last) cur.last = o.seenAt }
-  }
+  for (const [ch, last] of lastByChannel) byChannel.set(ch, { last, count: countByChannel.get(ch) ?? 0 })
 
   const runs = s.scanRuns
   const last = runs[0]
