@@ -13,6 +13,11 @@ export interface UpcomingItem { date: string; dday: number; kind: string; label:
  *  (정기 점검 창 문구가 실제로 그렇게 굳어 있었다 — #695). 한 곳에서 읽는다. */
 export const UPCOMING_WINDOW_DAYS = 14
 
+/** 어시스턴트 아젠다 창(일) — 어시스턴트는 대시보드 카드(14일)보다 넓게 본다(질의 시점의 주/월 계획 지원).
+ *  대시보드와 같은 이유로 상수 하나에서 읽는다 — 호출과 두 문구('향후 N일 …')에 각자 적어 두면 창을 바꿀 때
+ *  문구만 옛 수로 남는다. 값이 다른 것은 의도이고, 값을 여러 번 적는 것이 문제다. */
+export const ASSISTANT_UPCOMING_WINDOW_DAYS = 30
+
 export function upcomingSchedule(days = UPCOMING_WINDOW_DAYS): UpcomingItem[] {
   const s = getStore()
   const items: UpcomingItem[] = []
