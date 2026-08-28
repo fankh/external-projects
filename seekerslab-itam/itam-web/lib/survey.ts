@@ -9,6 +9,7 @@
 import { isStaleVerify } from './dates'
 import { getStore } from './store'
 import type { Asset, DiscoveredAsset } from './types'
+import { PHYSICAL_CATEGORIES } from './quality'
 
 /** 장기 미실측 자산 전량 — 최근 실측이 없거나 운영 정책 기한(staleVerifyDays)을 넘긴 것 */
 export function staleVerifyAssets(): Asset[] {
@@ -23,7 +24,8 @@ export function staleComposeTargets(): Asset[] {
   const pending = new Set(
     s.inventoryRounds.filter((r) => r.status !== '완료').flatMap((r) => r.targets ?? []),
   )
-  return staleVerifyAssets().filter((a) => !pending.has(a.assetNo))
+  // 편성 대상은 물리 실물이 있는 유형만 — 큐 판정(isStaleVerify)은 그대로 두고 회차에 넣을 대상만 좁힌다.
+  return staleVerifyAssets().filter((a) => !pending.has(a.assetNo) && PHYSICAL_CATEGORIES.includes(a.category))
 }
 
 /** 대사 '미확인'(유령) 발견 자산 전량 */
