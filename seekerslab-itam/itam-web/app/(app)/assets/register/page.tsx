@@ -14,6 +14,7 @@ import { eolNoticeTargets, impactNoticeTargets, maintenanceRemindTargets, receip
 import { getStore } from '@/lib/store'
 import { BulkImport } from './BulkImport'
 import { RegisterView } from './RegisterView'
+import { activeLocations } from '@/lib/codes'
 
 export const dynamic = 'force-dynamic'
 
@@ -109,7 +110,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
         <div className="callout"><b>사용자 권한 범위.</b> 본인 보유 자산만 표시됩니다. 자산 신청·반납·이동 요청은 워크플로 › 신청·결재에서 상신할 수 있습니다.</div>
       )}
       {/* CSV 일괄 등록은 bulkRegisterAssets(자산담당·Admin)를 부른다 — 보안담당에게 내주면 붙여넣고 눌러야 거부된다 */}
-      {canManage && <BulkImport />}
+      {canManage && <BulkImport locations={activeLocations()} />}
       <Card pad={false}>
         <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canDoc={['ASSET_MGR', 'ADMIN'].includes(session.role)} canQuarantine={['SEC_MGR', 'ADMIN'].includes(session.role)} canManage={canManage} loanNeedsApproval={loanNeedsApproval} moveNeedsApproval={moveNeedsApproval} terminatedContracts={terminatedContracts} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} initialStale={stale === '1'} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} expiryWindowDays={s.opsPolicy.expiryWindowDays} maintenanceWindowDays={s.opsPolicy.maintenanceWindowDays} dqNos={dqNos} dqIssues={dqIssues} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} receiptNos={receiptNos} initialReceipt={receipt === '1'} loanExtNos={loanExtNos} initialLoanExt={loanext === '1'} loanRetNos={loanRetNos} initialLoanRet={loanret === '1'} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} eolNoticeCount={eolNoticeCount} impactNoticeCount={impactNoticeCount} impactNos={impactNos} initialImpact={impact === '1'} spofNos={spofNos} initialSpof={spof === '1'} replaceNos={replaceNos} initialReplace={replace === '1'} riskNos={riskNos} initialRisk={risk === '1'} initialLive={live === '1'} availNos={availNos} initialAvail={avail === '1'} disposalNos={disposalNos} licenseSeatsByAsset={licenseSeatsByAsset} users={session.role === 'USER' ? undefined : s.users.map((u) => ({ name: u.name, dept: u.dept }))} />
       </Card>
