@@ -2433,6 +2433,20 @@ try {
   check(`복합 위험 캐시: riskSignals 소비자는 compositeRiskAssetNos 로 캐시를 비운 뒤 쓴다(소비자 ${riskUsers.length}곳)`,
     riskUsers.length > 0 && riskUnbatched.length === 0, `배치 호출 없음=${riskUnbatched.join(', ')}`)
 
+  // 아젠다 창의 문구와 실제 창이 같은가 — 대시보드 '다가오는 일정' 카드는 제목과 빈 상태 문구에서 창 일수를
+  //  말하고, 같은 수를 upcomingSchedule 에 넘긴다. 세 곳에 14 를 각자 적어 두면 창을 바꿀 때 문구만 옛 수로
+  //  남아 화면이 거짓을 말한다(정기 점검 창 문구가 실제로 그렇게 굳어 있었다 — #695).
+  //  대시보드가 창 일수를 리터럴로 적지 않고 상수를 쓰는지 본다.
+  const upSrc = readFileSync(path.join(ROOT, 'lib', 'upcoming.ts'), 'utf8')
+  const dashUpSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'dashboard', 'page.tsx'), 'utf8')
+  const upConst = /export const UPCOMING_WINDOW_DAYS = (\d+)/.exec(upSrc)
+  //  주석은 걷어내고 본다 — 설명문이 창 일수를 언급하는 것은 문제가 아니다(화면에 나가는 문구만 대상).
+  const dashUpCode = dashUpSrc.split(/\r?\n/).filter((ln) => !ln.trim().startsWith('//') && !ln.trim().startsWith('*')).join('\n')
+  const upLiteral = upConst ? new RegExp('향후 ' + upConst[1] + '일').test(dashUpCode) : false
+  check(`아젠다 창: 화면 문구가 창 일수를 상수에서 읽는다(리터럴 재기술 없음${upConst ? ` · ${upConst[1]}일` : ''})`,
+    !!upConst && dashUpSrc.includes('UPCOMING_WINDOW_DAYS') && !upLiteral,
+    `상수=${!!upConst} 사용=${dashUpSrc.includes('UPCOMING_WINDOW_DAYS')} 리터럴=${upLiteral}`)
+
   // CMDB 정확도의 분모와 판정 범위가 같은가 — 정확도는 '정합성 미흡이 아닌 비율'이므로 분모(모수)와
   //  판정(hasDataIssue)이 같은 집합을 봐야 한다. 판정은 폐기 경로(폐기완료·폐기예정)를 빼는데 분모만
   //  폐기완료를 뺐던 적이 있다 — 그러면 폐기예정 자산이 '무조건 정합'으로 분모·분자에 함께 들어가

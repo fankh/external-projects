@@ -8,7 +8,12 @@ export interface UpcomingItem { date: string; dday: number; kind: string; label:
 /** 다가오는 일정(향후 N일·미경과) — 반응형 큐(경과·미조치·임박 카운트)와 달리, 아직 도래하지 않은 예정 작업을
  *  한 타임라인(날짜순 아젠다)으로 모아 주/월 단위 사전 계획을 돕는다. 정기 점검·계약/라이선스/보증 갱신·재물조사
  *  마감·정례 리포트 배포를 한 곳에서 "무엇을 언제" 순서로 본다(카운트가 아니라 순번). 자산담당·Admin 관점. */
-export function upcomingSchedule(days = 14): UpcomingItem[] {
+/** 아젠다 창(일) — 대시보드 카드 제목·빈 상태 문구가 이 수를 그대로 말한다.
+ *  세 곳(호출·제목·빈 문구)에 14 를 각자 적어 두면 창을 바꿀 때 문구만 옛 수로 남아 화면이 거짓을 말한다
+ *  (정기 점검 창 문구가 실제로 그렇게 굳어 있었다 — #695). 한 곳에서 읽는다. */
+export const UPCOMING_WINDOW_DAYS = 14
+
+export function upcomingSchedule(days = UPCOMING_WINDOW_DAYS): UpcomingItem[] {
   const s = getStore()
   const items: UpcomingItem[] = []
   const push = (date: string, kind: string, label: string, href: string) => {

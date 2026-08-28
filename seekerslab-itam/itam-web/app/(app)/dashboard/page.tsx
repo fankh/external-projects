@@ -6,7 +6,7 @@ import { canDecideApproval } from '@/lib/approval'
 import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isWarrantyExpiring, isQnaOverdue, isRepairOverdue, nowMinute, roundProgressPct, today } from '@/lib/dates'
 import { isEasmRescanOverdue } from '@/lib/easm'
 import { criticalDependencies } from '@/lib/cmdb'
-import { upcomingSchedule } from '@/lib/upcoming'
+import { UPCOMING_WINDOW_DAYS, upcomingSchedule } from '@/lib/upcoming'
 import { overdueScanChannels } from '@/lib/scan-policy'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { isEolTarget } from '@/lib/eol'
@@ -50,7 +50,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const replCands = replacementCandidates().cands
   // 다가오는 일정(향후 14일 아젠다) — 계약·라이선스 링크가 자산담당·Admin 화면이라 그 역할에만 산출(SEC_MGR 은 dead-end 방지).
   // 일정 항목도 처리 화면으로 가는 링크다 — 큐와 같은 규약으로 매트릭스 조회를 회수한 화면 항목은 뺀다.
-  const upcoming = (['ASSET_MGR', 'ADMIN'].includes(session.role) ? upcomingSchedule(14) : []).filter((u) => canViewMenu(u.href, session.role))
+  const upcoming = (['ASSET_MGR', 'ADMIN'].includes(session.role) ? upcomingSchedule(UPCOMING_WINDOW_DAYS) : []).filter((u) => canViewMenu(u.href, session.role))
   // 결재함 화면과 같은 조회 스코프를 쓴다 — USER 는 본인 상신분(과 부서 앞 소유자 확인)만 본다.
   //  결재함은 목록도 타일도 이 스코프를 지키는데(주석에 '타일이 전사 집계를 쓰면 USER 결재함 머리에
   //  전사 대기 건수가 그대로 드러난다'고 적어 두었다) 대시보드 타일만 전사 집계를 쓰고 있었다 —
@@ -500,7 +500,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           )}
 
           {['ASSET_MGR', 'ADMIN'].includes(session.role) && (
-            <Card kicker="Planning" title="다가오는 일정 (향후 14일)"
+            <Card kicker="Planning" title={`다가오는 일정 (향후 ${UPCOMING_WINDOW_DAYS}일)`}
               actions={upcoming.length > 0 ? <Chip tone="info" bare>{upcoming.length}건</Chip> : undefined}>
               <div className="vstack" style={{ gap: 7 }}>
                 {upcoming.length > 0 ? (showAllUpcoming ? upcoming : upcoming.slice(0, UPCOMING_TOP)).map((u, i) => (
@@ -511,7 +511,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     </span>
                     <span className="hstack" style={{ gap: 6 }}><span className="mut tnum" style={{ fontSize: 11 }}>D-{u.dday}</span><span className="mut">→</span></span>
                   </Link>
-                )) : <div className="mut">향후 14일 예정된 정비·갱신·대여 반환·입고·조사·리포트 일정이 없습니다.</div>}
+                )) : <div className="mut">향후 {UPCOMING_WINDOW_DAYS}일 예정된 정비·갱신·대여 반환·입고·조사·리포트 일정이 없습니다.</div>}
                 {upcoming.length > UPCOMING_TOP && (showAllUpcoming
                   ? <Link className="dim" style={{ fontSize: 11.5 }} href="/dashboard">전체 {upcoming.length}건 표시 중 (날짜순) — 가까운 {UPCOMING_TOP}건만 보기</Link>
                   : <Link className="dim" style={{ fontSize: 11.5 }} href="/dashboard?upcoming=all">… 외 {upcoming.length - UPCOMING_TOP}건 (날짜순) — 전체 보기</Link>)}
