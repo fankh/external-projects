@@ -120,7 +120,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: '주간' | '월간' | '�
   { kind: '자산 운영 리스크', period: '수시', desc: '분실·도난, 장기 미실측(유령 자산 후보), 대여 반환 연체, 수리 지연, 수령 미확인을 한 문서로 집약한 운영 리스크 현황 — 대시보드 운영 큐와 같은 판정, 항목별 조치(회수·재물조사·독촉) 연결' },
   { kind: '복합 위험 자산', period: '수시', desc: '정합성 미흡·EOL OS·보증 임박·정기 점검 도래·단일 장애점(SPOF)·교체 대상·장기 미실측 중 2개 이상이 겹치는 자산 — 신호가 중첩된 우선 조치 대상을 자산별 신호 조합·부서별 분포로 집약(대장 ?risk=1 필터·대시보드 복합 위험 큐와 같은 판정)' },
   { kind: '감가상각 명세', period: '월간', desc: '정액법(내용연수 5년) 기준 연도별 감가상각 명세 — 연초·연말 장부가·연간 상각액·상각 완료 대수의 향후 전개, 유형별 상각 현황, 상각 완료 예정 연도. 고정자산 회계·감가상각비 예산·교체(재취득) 시점 근거(부서별 IT 비용 배분의 현재 스냅샷과 달리 전방 전개)' },
-  { kind: '계약 갱신 전망', period: '월간', desc: '구매·유지보수 계약의 분기별 갱신 전망 — 향후 8개 분기 만료 계약 수·예상 갱신액(유지보수/구매 구분)·만료 경과(미갱신) 집계, 갱신 임박 계약 상세. 계약 갱신 예산·현금흐름 계획 근거(계약 관리 현황의 D-90 스냅샷과 달리 다분기 전방 전개)' },
+  { kind: '계약 갱신 전망', period: '월간', desc: '구매·유지보수 계약의 분기별 갱신 전망 — 향후 8개 분기 만료 계약 수·예상 갱신액(유지보수/구매 구분)·만료 경과(미갱신) 집계, 갱신 임박 계약 상세. 계약 갱신 예산·현금흐름 계획 근거(계약 관리 현황의 현재 시점 스냅샷과 달리 다분기 전방 전개)' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -624,9 +624,12 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const live = s.contracts.filter((c) => c.status !== '해지')
     const purchase = live.filter((c) => c.kind === '구매')
     const maintC = live.filter((c) => c.kind === '유지보수')
+    // 만료 임박 창은 운영 정책(expiryWindowDays)을 따른다 — 월간 자산 현황 리포트·만료 알림 통지·발주 미이행 위험과 같은 기준.
+    //  여기만 90 을 박아 두면 관리자가 '만료 알림 창'을 줄여도 계약을 다루는 바로 이 리포트의 '만료 임박' 만 90일로 남아,
+    //  같은 화면의 '만료 임박 알림 발송 (N)' 버튼 건수와 리포트의 '만료 임박 계약 N건'이 갈린다.
     const isExpiring = (c: (typeof live)[number]) => {
       const d = daysUntil(c.end)
-      return d !== null && d <= 90
+      return d !== null && d <= s.opsPolicy.expiryWindowDays
     }
     const expiring = live.filter(isExpiring).sort((a, b) => (daysUntil(a.end) ?? 0) - (daysUntil(b.end) ?? 0))
     const mb = buildMaintenance()
@@ -640,15 +643,15 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     return [
       {
         title: '계약 포트폴리오 요약',
-        note: '유효 계약(해지 제외) — 구분별 계약 수·총 계약액·만료 임박(D-90 이내)',
-        columns: ['구분', '계약 수', '총 계약액', '만료 임박(D-90)'],
+        note: `유효 계약(해지 제외) — 구분별 계약 수·총 계약액·만료 임박(D-${s.opsPolicy.expiryWindowDays} 이내)`,
+        columns: ['구분', '계약 수', '총 계약액', `만료 임박(D-${s.opsPolicy.expiryWindowDays})`],
         rows: [
           ['구매 계약', String(purchase.length), `${fmtAmount(sumAmt(purchase))}원`, String(purchase.filter(isExpiring).length)],
           ['유지보수 계약', String(maintC.length), `${fmtAmount(sumAmt(maintC))}원`, String(maintC.filter(isExpiring).length)],
         ],
       },
       {
-        title: '만료 임박 계약 (D-90 이내)',
+        title: `만료 임박 계약 (D-${s.opsPolicy.expiryWindowDays} 이내)`,
         note: '갱신·정산·재계약 검토 대상 — D-day 오름차순',
         columns: ['계약', '구분', '공급사', '만료일', '기한'],
         rows: expiring.length
@@ -675,7 +678,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: '계약 거버넌스 점검',
         note: '계약 이행·정산·문서 리스크 — 조치 대상',
         bullets: [
-          `만료 임박 계약 ${expiring.length}건 (D-90 이내) — 갱신·정산·재계약 검토`,
+          `만료 임박 계약 ${expiring.length}건 (D-${s.opsPolicy.expiryWindowDays} 이내) — 갱신·정산·재계약 검토`,
           `발주 미이행 위험 ${proc.atRisk.length}건 — 발주율 저조 + 만료 임박(집행·정산 종결 필요)`,
           `유지보수 예산 초과 ${mb.overBudget}건 — 추가 예산·재협상 대상`,
           `SLA 미설정 유지보수 계약 ${mb.noSla}건 — 서비스 수준 협약(장애 대응·가동률) 기록 필요`,
@@ -989,7 +992,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
   }
 
   if (kind === '계약 갱신 전망') {
-    // 계약 만료(=갱신 시점)를 분기 버킷으로 전방 전개해 갱신 예산·현금흐름을 계획한다. 계약 관리 현황(현재 포트폴리오·D-90 스냅샷)과 달리 다분기 전망.
+    // 계약 만료(=갱신 시점)를 분기 버킷으로 전방 전개해 갱신 예산·현금흐름을 계획한다. 계약 관리 현황(현재 포트폴리오·만료 알림 창 스냅샷)과 달리 다분기 전망.
     //  갱신액 추정은 현재 계약액(amount) 기준(갱신 시 유사 규모 가정) — 라이선스 갱신·트루업(라이선스 엔티티)과 별개로 구매·유지보수 계약을 다룬다.
     const t = today()
     const live2 = s.contracts.filter((c) => c.status !== '해지')
@@ -1300,10 +1303,10 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   }
   if (kind === '계약 관리 현황') {
     const live = s.contracts.filter((c) => c.status !== '해지')
-    const expiring = live.filter((c) => { const d = daysUntil(c.end); return d !== null && d <= 90 }).length
+    const expiring = live.filter((c) => { const d = daysUntil(c.end); return d !== null && d <= s.opsPolicy.expiryWindowDays }).length
     const mb = buildMaintenance()
     const proc = buildProcurement()
-    return `유효 계약 ${live.length}건(구매 ${live.filter((c) => c.kind === '구매').length} · 유지보수 ${live.filter((c) => c.kind === '유지보수').length}) 중 만료 임박(D-90) ${expiring}건입니다. `
+    return `유효 계약 ${live.length}건(구매 ${live.filter((c) => c.kind === '구매').length} · 유지보수 ${live.filter((c) => c.kind === '유지보수').length}) 중 만료 임박(D-${s.opsPolicy.expiryWindowDays}) ${expiring}건입니다. `
       + `유지보수 예산 초과 ${mb.overBudget}건, 구매 발주 미이행 위험 ${proc.atRisk.length}건이 조치 대상입니다. `
       + '만료·예산 집행·발주 이행·SLA·부속서류를 한 곳에서 점검해 계약 갱신·정산·재협상 결정의 근거로 씁니다.'
   }

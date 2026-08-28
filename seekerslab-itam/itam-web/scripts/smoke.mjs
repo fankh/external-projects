@@ -2277,18 +2277,24 @@ try {
     .matchAll(/(\w+): (\d+)/g)].map((m) => ({ key: m[1], n: Number(m[2]) }))
     .filter((x) => /Days$/.test(x.key))
   const policyLiterals = []
-  for (const file of sourceFiles.filter((f) => f.endsWith('.tsx'))) {
+  //  대상은 화면(tsx)과 app 의 서버 액션·라우트(ts) — 어시스턴트 답변 문구가 여기 있는데 그동안 tsx 만 봤다.
+  const policyScanned = sourceFiles.filter((f) => f.endsWith('.tsx')
+    || (f.endsWith('.ts') && path.relative(ROOT, f).split(path.sep)[0] === 'app'))
+  for (const file of policyScanned) {
     const rel = path.relative(ROOT, file).split(path.sep).join('/')
     if (rel.includes('/settings/')) continue // 정책 설정 화면 자체는 기본값을 안내해도 된다
     readFileSync(file, 'utf8').split(/\r?\n/).forEach((ln, i) => {
       if (/^\s*(\/\/|\*)/.test(ln)) return
-      const m = /[>"'`]([^<>"'`]{0,40}?(\d{1,4})\s*일[^<>"'`]{0,40}?)[<"'`]/.exec(ln)
-      if (!m || ln.includes('${')) return
-      const hit = policyDefaults.find((d) => d.n === Number(m[2]))
-      if (hit) policyLiterals.push(`${rel}:${i + 1}(${hit.key}=${hit.n})`)
+      //  보간 구간(${...})만 지우고 본다 — 줄에 ${ 가 하나라도 있으면 통째로 건너뛰던 예외 때문에,
+      //  값은 보간하면서 창 일수만 리터럴로 적은 긴 답변 문구가 그대로 빠져나갔다(정확히 이번에 고친 증상).
+      const stripped = ln.replace(/\$\{[^}]*}/g, '~')
+      for (const m of stripped.matchAll(/[>"'`]([^<>"'`]*?(\d{1,4})\s*일[^<>"'`]*?)[<"'`]/g)) {
+        const hit = policyDefaults.find((d) => d.n === Number(m[2]))
+        if (hit) policyLiterals.push(`${rel}:${i + 1}(${hit.key}=${hit.n})`)
+      }
     })
   }
-  check(`운영 정책 문구: 화면이 정책 기본값을 리터럴로 적지 않음(정책 ${policyDefaults.length}종 · tsx 검사)`,
+  check(`운영 정책 문구: 화면·답변이 정책 기본값을 리터럴로 적지 않음(정책 ${policyDefaults.length}종 · 소스 ${policyScanned.length}개)`,
     policyDefaults.length >= 2 && policyLiterals.length === 0, `리터럴=${policyLiterals.join(', ')}`)
 
   // 실사 위치 레지스트리의 실물 커버리지 — 공통코드 LOCATION 은 재물조사 계획의 대상 범위이자 실사 스캔의
@@ -2405,15 +2411,29 @@ try {
   //  줄여도 이 판정만 90 을 유지했다 — 계약·라이선스·대시보드·리포트가 임박으로 안 보는 계약을 구매 화면만
   //  '발주 미이행 · 만료 임박'으로 올리고 이행 독촉까지 발송한다(설정 화면은 계약에도 적용된다고 안내한다).
   //  잔여 기간(dday/daysUntil)을 숫자 리터럴과 직접 비교하는 곳이 정책 밖에 없는지 본다.
+  //  세 가지를 본다. (1) 잔여 기간을 그 자리에서 숫자와 비교(dday <= 90), (2) daysUntil 을 지역 변수로 받아
+  //  다음 줄에서 비교(const d = daysUntil(c.end) / return d <= 90) — 리포트가 정확히 이 모양으로 빠져나갔다,
+  //  (3) 사용자에게 나가는 'D-90' 라벨 — 판정을 고쳐도 표 제목·열 이름이 옛 수를 말하면 문서가 거짓이 된다.
+  //  기준값은 lib/types 의 EXPIRY_WINDOW_DAYS 에서 읽는다(가드가 90 을 다시 적지 않는다).
+  const expWin = Number(/export const EXPIRY_WINDOW_DAYS = (\d+)/.exec(statusTypesSrc)?.[1])
+  const labelRe = new RegExp('(^|[^A-Za-z])D-' + expWin + '\\b') // CRED-2607 같은 ID 는 제외
+  const winRe = new RegExp('<=\\s*' + expWin + '\\b')
   const ddayHardcoded = sourceFiles
-    .filter((f) => {
-      const src = readFileSync(f, 'utf8')
-      return src.split(/\r?\n/).some((ln) => !ln.trim().startsWith('//') && /\b(dday|daysUntil\([^)]*\))\s*<=?\s*\d{2,}/.test(ln))
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([rel]) => rel !== 'lib/dates.ts' && rel !== 'lib/types.ts')
+    .flatMap(([rel, src]) => {
+      const lines = src.split(/\r?\n/)
+      return lines.flatMap((ln, i) => {
+        if (ln.trim().startsWith('//') || ln.trim().startsWith('*')) return []
+        const inline = /\b(dday|daysUntil\([^)]*\))\s*<=?\s*\d{2,}/.test(ln)
+        //  별칭 바인딩 — 바로 앞 두 줄 안에서 daysUntil 로 받은 값을 만료창과 비교하는 경우
+        const aliased = winRe.test(ln) && lines.slice(Math.max(0, i - 2), i + 1).join(' ').includes('daysUntil(')
+        const labeled = labelRe.test(ln)
+        return inline || aliased || labeled ? [rel + ':' + (i + 1)] : []
+      })
     })
-    .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
-    .filter((rel) => rel !== 'lib/dates.ts' && rel !== 'lib/types.ts')
-  check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
-    ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
+  check(`만료 임박 창: 잔여 기간 비교·D-day 라벨에 만료창 값(${expWin})을 박지 않음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
+    Number.isFinite(expWin) && ddayHardcoded.length === 0, `직접 비교·라벨=${ddayHardcoded.join(', ') || '없음'}`)
 
   // 발송 이력의 시간 순서 — 화면(NotificationLog)도 반출(dispatch-export)도 정렬하지 않고 배열 순서를 그대로
   //  쓴다. 그 순서는 dispatch() 의 unshift 로 유지되는 '최신 먼저'다. 그래서 기존 행의 at 을 고치는 코드는

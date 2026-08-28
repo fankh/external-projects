@@ -12,7 +12,7 @@ import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
 import { assetDependencies, criticalDependencies, impactSources } from '@/lib/cmdb'
 import { availableAssets, lowStockCategories } from '@/lib/stock'
-import { upcomingSchedule } from '@/lib/upcoming'
+import { ASSISTANT_UPCOMING_WINDOW_DAYS, upcomingSchedule } from '@/lib/upcoming'
 import { compositeRiskAssetNos, riskSignalCount } from '@/lib/risk'
 import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { buildVulnPriority } from '@/lib/vuln-priority'
@@ -733,7 +733,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       role: 'assistant',
       text: due.length === 0
         ? '정기 점검(예방 정비) 예정이 도래한 자산이 없습니다. 자산 대장 상세의 ‘정기 점검 일정 등록’으로 운영 자산을 정비 사이클에 편입할 수 있습니다.'
-        : `정기 점검(예방 정비) 대상 현황입니다 (예정일 30일 내·경과 · 자산팀 사전 정비 대상).\n\n· 예정일 경과(미시행): ${overdue.length}건${overdue.length ? `\n${overdue.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}\n· 점검 임박(D-30 내): ${soon.length}건${soon.length ? `\n${soon.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}\n\n경과분은 정기 점검 독촉으로 소유 부서에 시행을 요청하고, 점검 완료 시 다음 회차가 12개월 후로 재예약됩니다.`,
+        : `정기 점검(예방 정비) 대상 현황입니다 (예정일 ${s.opsPolicy.maintenanceWindowDays}일 내·경과 · 자산팀 사전 정비 대상).\n\n· 예정일 경과(미시행): ${overdue.length}건${overdue.length ? `\n${overdue.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}\n· 점검 임박(D-30 내): ${soon.length}건${soon.length ? `\n${soon.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}\n\n경과분은 정기 점검 독촉으로 소유 부서에 시행을 요청하고, 점검 완료 시 다음 회차가 12개월 후로 재예약됩니다.`,
       evidence: [
         { label: '자산 대장 (정기 점검 대상)', href: '/assets/register?maint=1' },
         { label: '대시보드', href: '/dashboard' },
@@ -794,15 +794,15 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   // 다가오는 일정(사전 계획) — 대시보드 '다가오는 일정' 카드와 같은 upcomingSchedule() 단일 소스를 공유한다.
   //  반응형 큐(경과·미조치 카운트)가 아니라, 아직 도래하지 않은 예정 작업을 날짜순 아젠다로 답해 주/월 계획을 돕는다.
-  //  자산담당·Admin 관점(계약·라이선스 갱신 포함) — canAsset 게이트. 어시스턴트는 대시보드(14일)보다 넓게 30일 본다.
+  //  자산담당·Admin 관점(계약·라이선스 갱신 포함) — canAsset 게이트. 어시스턴트는 대시보드보다 넓게 본다(ASSISTANT_UPCOMING_WINDOW_DAYS).
   if (canAsset && (q.includes('다가오는') || q.includes('다가올') || q.includes('예정 작업') || q.includes('향후 일정') || q.includes('사전 계획') || q.includes('갱신 예정') || q.includes('정비 예정') || q.includes('일정 알려'))) {
-    const up = upcomingSchedule(30)
+    const up = upcomingSchedule(ASSISTANT_UPCOMING_WINDOW_DAYS)
     const byKind = (k: string) => up.filter((u) => u.kind === k).length
     return {
       role: 'assistant',
       text: [
-        `향후 30일 다가오는 일정은 ${up.length}건입니다 (날짜순 · 미경과 예정분).`,
-        ...(up.length === 0 ? ['', '향후 30일 예정된 정기 점검·계약/라이선스/보증 갱신·대여 반환·입고 예정·재물조사 마감·리포트 배포가 없습니다.'] : []),
+        `향후 ${ASSISTANT_UPCOMING_WINDOW_DAYS}일 다가오는 일정은 ${up.length}건입니다 (날짜순 · 미경과 예정분).`,
+        ...(up.length === 0 ? ['', `향후 ${ASSISTANT_UPCOMING_WINDOW_DAYS}일 예정된 정기 점검·계약/라이선스/보증 갱신·대여 반환·입고 예정·재물조사 마감·리포트 배포가 없습니다.`] : []),
         ...(up.length ? [''] : []),
         ...up.slice(0, 14).map((u) => `· ${u.date} (D-${u.dday}) — [${u.kind}] ${u.label}`),
         up.length > 14 ? `… 외 ${up.length - 14}건` : '',
