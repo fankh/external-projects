@@ -201,7 +201,7 @@ export function PlanView(props: {
               대사 미확인(위 카드)이 발견 저장소를 원천으로 한다면, 이 편성은 <b>대장 실사 데이터</b>를 원천으로 합니다.
               수시 조사로 묶어 실물 확인을 마치면 대장 최근 실측일이 갱신되어 목록에서 빠집니다.
               편성 대상은 <b>현장에서 스캔할 실물이 있는 유형</b>(단말·서버·네트워크·주변기기)입니다 — SW·가상자원은 실물이 없어 제외되므로,
-              위 '장기 미실측' 건수보다 '편성 대기'가 적을 수 있습니다.
+              위 ‘장기 미실측’ 건수보다 ‘편성 대기’가 적을 수 있습니다.
             </p>
             <div className="hstack" style={{ gap: 6, marginTop: 8 }}>
               <Chip tone={props.staleVerify ? 'warn' : 'ok'}>장기 미실측 {props.staleVerify}건</Chip>
