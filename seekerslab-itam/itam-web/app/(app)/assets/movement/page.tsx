@@ -41,9 +41,15 @@ export default async function MovementPage() {
     .sort((a, b) => a.sort - b.sort)
     .map((v) => v.label)
 
+  // 집행 불가로 종결된 건도 여기 남긴다 — 대기 큐에서는 뺐지만(빠져나갈 문 없는 큐 방지) 처리 완료에도
+  //  없으면 담당자가 '이동 처리'를 눌러 종결한 그 건이 화면에서 통째로 사라진다. 결재함에는 '집행 불가'로
+  //  남지만, 조작을 한 화면에 아무 흔적이 없으면 처리했는지조차 확인할 수 없다.
   const done = s.approvals
-    .filter((a) => a.fulfilled)
-    .map((a) => ({ id: a.id, kind: a.kind === '이동' ? '이동' : '불출', title: a.title, requester: a.requester }))
+    .filter((a) => a.fulfilled || a.unfulfilledReason)
+    .map((a) => ({
+      id: a.id, kind: a.kind === '이동' ? '이동' : '불출', title: a.title, requester: a.requester,
+      unfulfilled: a.unfulfilledReason ? `${a.unfulfilledReason}${a.unfulfilledAt ? ` (${a.unfulfilledAt})` : ''}` : undefined,
+    }))
 
   return (
     <>
