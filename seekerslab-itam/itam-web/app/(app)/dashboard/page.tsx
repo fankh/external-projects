@@ -101,8 +101,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // 운영 대기 — 화면마다 흩어진 담당 처리 대기열을 역할에 맞게 한 곳에 모은다
   const opsQueues: { label: string; count: number; href: string; tone: 'err' | 'warn' }[] = []
   if (['ASSET_MGR', 'ADMIN'].includes(session.role)) {
-    const issueDue = s.approvals.filter((a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.refId?.startsWith('DSC-')).length
-    const moveDue = s.approvals.filter((a) => a.kind === '이동' && a.status === '승인' && !a.fulfilled).length
+    const issueDue = s.approvals.filter((a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.unfulfilledReason && !a.refId?.startsWith('DSC-')).length
+    const moveDue = s.approvals.filter((a) => a.kind === '이동' && a.status === '승인' && !a.fulfilled && !a.unfulfilledReason).length
     const spof = criticalDependencies() // 영향 집중 자산(단일 장애점) — 이 자산 장애 시 blast radius ≥2
     const compositeRiskNos = compositeRiskAssetNos(s.assets) // 복합 위험(≥2 주의 신호) — 대장 필터·도시어 요약과 lib/risk 단일 소스
     opsQueues.push(

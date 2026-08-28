@@ -2379,6 +2379,22 @@ try {
   check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
 
+  // 집행 대기 큐에 빠져나갈 문이 있는가 — '승인 && !fulfilled' 로 세는 큐는 집행이 영원히 불가능한 건까지
+  //  담는다. 이동 신청이 그랬다: 대상 자산이 결재에 고정돼 있어(refId) 그 자산이 분실·폐기로 떠나면 다른
+  //  자산으로 바꿀 수 없는데, 서버는 '반려·취소로 정리하세요'라고 안내했다 — 반려도 상신 취소도 '대기' 건만
+  //  받으므로 이미 승인된 그 건에는 두 길이 다 막혀 있었다. 따를 수 없는 안내였고 큐는 영원히 안 줄었다.
+  //  집행 불가로 종결한 건(unfulfilledReason)은 큐에서 빠져야 큐가 '남은 할 일'을 뜻한다.
+  const dueQueueFiles = ['app/(app)/dashboard/page.tsx', 'app/(app)/assets/movement/page.tsx', 'app/(app)/assets/returns/page.tsx']
+  const dueGaps = []
+  for (const rel of dueQueueFiles) {
+    const src = readFileSync(path.join(ROOT, ...rel.split('/')), 'utf8')
+    for (const line of src.split(/\r?\n/)) {
+      if (!/!a\.fulfilled/.test(line)) continue
+      if (!line.includes('unfulfilledReason')) dueGaps.push(rel + ': ' + line.trim().slice(0, 60))
+    }
+  }
+  check(`집행 대기 큐: 집행 불가 종결분을 제외한다(${dueQueueFiles.length}개 화면)`, dueGaps.length === 0, `누락=${dueGaps.join(' | ')}`)
+
   // 승인했으나 집행할 수 없는 건 — 요청~승인 사이에 자산이 대여·불출로 빠지거나 폐기 절차·NAC 격리에 들어가면
   //  대여 결재는 승인 상태로 남고 fulfilled 가 서지 않는다. 그러면 결재 이력 반출이 그 건을 영원히 '집행 대기'로
   //  내보낸다 — 이미 신청자에게 통보하고 닫은 일을 미결 의무로 주장하는 셈이고, 대여는 미집행 대기열도 없어
