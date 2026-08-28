@@ -1132,6 +1132,20 @@ try {
     await pCode.close(); await ctxCode.close()
   }
 
+  // 회차 등록 폼의 모수 안내 — 편성은 현장에서 스캔할 실물이 있는 유형만 담는다(SW·가상자원·폐기완료 제외).
+  //  폼이 '폐기 완료 제외'만 적어 두면 담당자가 전사로 회차를 만들 때 기대한 모수보다 적은 수가 잡히고,
+  //  왜 줄었는지 화면 어디에도 없다. 수를 설명 없이 줄이지 않는다.
+  {
+    const ctxPlan = await browser.newContext(); await ctxPlan.addCookies([cookie(ASSET)])
+    const pPlan = await ctxPlan.newPage()
+    await pPlan.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+    await pPlan.locator('button', { hasText: /^계획 수립$/ }).first().click()
+    await pPlan.waitForTimeout(400)
+    ok('재물조사 계획: 등록 폼이 편성 모수 규칙(실물 유형만)을 밝힌다',
+      ((await pPlan.locator('body').textContent()) || '').includes('현장에서 스캔할 실물이 있는 유형'))
+    await pPlan.close(); await ctxPlan.close()
+  }
+
   // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
   const recoverBtn = p2.locator('button', { hasText: /^자산 회수 \(반납 처리\)$/ })
