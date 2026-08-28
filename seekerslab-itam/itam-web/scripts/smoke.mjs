@@ -2196,6 +2196,42 @@ try {
     .filter((rel) => rel !== 'lib/dates.ts')
   check(`보증 임박 판정: lib/dates 한 곳만 임계 비교(소스 ${sourceFiles.length}개 검사)`, warrantyHardcoded.length === 0, `직접 비교=${warrantyHardcoded.join(', ')}`)
 
+  // 보증 '만료 임박' 칩·열의 창 — 위 가드는 daysUntil(...warrantyEnd) <= 형태만 봤고, warrantyState 는 Date.parse 차이를
+  //  직접 비교해 90 을 박은 채 빠져나갔다. 그래서 같은 대장 화면에서 '보증 임박' 필터 설명은 정책 일수를 말하는데 행의
+  //  칩은 90일로 서고, 같은 반출본이 정책 창으로 거른 행 목록 옆에 90일로 매긴 '보증 상태' 열을 나란히 실었다.
+  //  창은 운영 정책 하나만 따르게 하고(기본값 상수만 허용), 렌더하는 호출부가 정책값을 넘기는지 본다.
+  const wsSrc = readFileSync(path.join(ROOT, 'lib/dates.ts'), 'utf8')
+  const wsBody = (wsSrc.split('export function warrantyState')[1] ?? '').split('\n}')[0]
+  const wsLiteral = /<=\s*\d/.test(wsBody)
+  const wsParam = /windowDays: number = EXPIRY_WINDOW_DAYS/.test(wsBody)
+  check('보증 상태: 임박 창을 상수로 박지 않고 인자로 받는다(기본값=운영 정책 기본)', !wsLiteral && wsParam, `리터럴 비교=${wsLiteral} 인자=${wsParam}`)
+
+  // 렌더하는 호출부는 정책값을 넘긴다 — 기본값이 있어 두 인자로 불러도 컴파일은 되지만, 그러면 관리자가 창을 줄여도
+  //  그 화면만 기본 90일로 남는다(정확히 이번에 고친 증상). 인자 개수만 세면 되므로 넘긴 값까지는 보지 않는다.
+  //  인자에 today()·getStore().opsPolicy 처럼 괄호가 중첩되므로 정규식이 아니라 괄호 균형으로 최상위 콤마를 센다
+  //  (정규식으로 세면 today() 를 인자 끝으로 읽어 정상 호출을 '창 미전달'로 잘못 잡는다).
+  const topLevelArgs = (src, from) => {
+    let depth = 0, args = 1
+    for (let i = from; i < src.length; i++) {
+      const c = src[i]
+      if (c === '(' || c === '[' || c === '{') depth++
+      else if (c === ')' || c === ']' || c === '}') { if (depth === 0) return args; depth-- }
+      else if (c === ',' && depth === 0) args++
+    }
+    return args
+  }
+  const wsCallers = sourceFiles
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([rel]) => rel !== 'lib/dates.ts')
+    .flatMap(([rel, src]) => src.split(/\r?\n/).flatMap((ln, i) => {
+      if (ln.trim().startsWith('*') || ln.trim().startsWith('//')) return []
+      const at = ln.indexOf('warrantyState(')
+      return at < 0 ? [] : [[rel, i + 1, topLevelArgs(ln, at + 'warrantyState('.length)]]
+    }))
+  const wsBare = wsCallers.filter(([, , n]) => n < 3)
+  check(`보증 상태 호출부 ${wsCallers.length}곳: 모두 운영 정책 만료창을 넘긴다`, wsCallers.length >= 3 && wsBare.length === 0,
+    `창 미전달=${wsBare.map(([r, i]) => r + ':' + i).join(', ') || '없음'}`)
+
   // 자산 상태 전량의 런타임 짝 — ASSET_STATUSES 는 AssetStatus 타입과 정확히 같은 아홉 개여야 한다.
   //  타입에 상태를 하나 더해도 이 배열을 안 고치면 대장 필터에서 안 보이고, 어시스턴트는 '총 보유 N대'라
   //  말하면서 상태별 분포의 합은 N 이 안 되는 조용한 잘림이 난다(부분의 합이 전체와 다른 답).
