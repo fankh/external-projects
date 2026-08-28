@@ -10,7 +10,7 @@
  *  시연에서 특정 날짜를 재현하려면 `ITAM_TODAY=YYYY-MM-DD`, 표준시를 바꾸려면 `ITAM_TZ`.
  *  서버 전용 모듈 — 클라이언트에서 쓰면 하이드레이션 불일치가 생긴다.
  */
-import { DISPOSAL_STATUSES } from './types'
+import { DISPOSAL_STATUSES, EXPIRY_WINDOW_DAYS } from './types'
 import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, IntakeLot } from '@/lib/types'
 
@@ -291,12 +291,16 @@ export function isMaintenanceOverdue(a: Asset): boolean {
 }
 
 /** 보증 상태 — 자산의 보증 만료일 대비 현재 상태. 상세·카드에서 한눈에 보증 여부를 드러낸다(수리 무상 판단·교체 시점).
- *  none=보증 정보 없음(SW 등) / expired=만료 / soon=90일 내 만료 임박 / covered=보증 내. today 인자로 하이드레이션 안전. */
-export function warrantyState(warrantyEnd: string, today: string): 'none' | 'expired' | 'soon' | 'covered' {
+ *  none=보증 정보 없음(SW 등) / expired=만료 / soon=만료 임박 / covered=보증 내. today 인자로 하이드레이션 안전.
+ *  임박 창(windowDays)은 운영 정책 opsPolicy.expiryWindowDays 를 호출부가 넘긴다(isWarrantyExpiring 과 동일 규약).
+ *  그전에는 여기만 90 을 박아 둬, 관리자가 만료창을 줄여도 대장 칩·자산 카드·반출본의 '만료 임박' 은 90일 기준으로 남았다 —
+ *  같은 대장 화면에서 '보증 임박' 필터 설명은 정책 일수를 말하는데 행 옆 칩은 90일로 서고, 같은 반출본이 정책 창으로 거른
+ *  행 목록과 90일로 매긴 '보증 상태' 열을 나란히 실었다. */
+export function warrantyState(warrantyEnd: string, today: string, windowDays: number = EXPIRY_WINDOW_DAYS): 'none' | 'expired' | 'soon' | 'covered' {
   if (!warrantyEnd || warrantyEnd === '-') return 'none'
   if (warrantyEnd < today) return 'expired'
   const d = Math.round((Date.parse(warrantyEnd) - Date.parse(today)) / 86_400_000)
-  return d <= 90 ? 'soon' : 'covered'
+  return d <= windowDays ? 'soon' : 'covered'
 }
 
 /** 상신 후 경과일 — 서버가 준 today(YYYY-MM-DD) 인자로만 계산해 서버·클라이언트 모두 하이드레이션 안전하게 쓴다. */
