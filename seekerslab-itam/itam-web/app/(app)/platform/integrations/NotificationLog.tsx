@@ -114,6 +114,13 @@ export function NotificationLog({ dispatches, canExport, canManage, role, openab
                           <Chip tone="err">전달 실패</Chip>
                           {canManage && <button className="btn sm" disabled={pending} onClick={() => resend(m.id)} title="배치·연동 서버로 다시 발송합니다">재발송</button>}
                         </span>
+                      ) : m.failedAt ? (
+                        // 재발송으로 성공한 건 — 그냥 '발송'으로만 두면 이 행은 처음부터 정상 발송된 것처럼
+                        //  읽힌다. 통지 증적은 '보냈다'가 아니라 '언제·몇 번 보냈다'까지가 사실이다.
+                        <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                          <Chip tone="ok">발송</Chip>
+                          <span className="mut" style={{ fontSize: 11 }} title={`최초 ${m.failedAt} 발송 실패 후 재발송${m.resentBy ? ` · ${m.resentBy}` : ''}`}>재발송</span>
+                        </span>
                       ) : <Chip tone="ok">발송</Chip>}
                     </td>
                   </tr>

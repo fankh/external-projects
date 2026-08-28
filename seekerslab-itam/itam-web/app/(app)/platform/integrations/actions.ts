@@ -54,6 +54,10 @@ export async function resendDispatch(id: string) {
   const msg = s.dispatches.find((m) => m.id === id)
   if (!msg) return { ok: false, message: '발송 이력을 찾을 수 없습니다.' }
   if (msg.deliveryStatus !== '실패') return { ok: false, message: '전달 실패 건만 재발송할 수 있습니다.' }
+  // 실패했던 시각을 먼저 보존한다 — at 은 최신 시도로 덮인다(당일 중복 억제가 at 을 본다).
+  //  덮기만 하면 이 행은 '처음부터 정상 발송'으로 읽혀 재발송했다는 사실 자체가 사라진다.
+  msg.failedAt ??= msg.at
+  msg.resentBy = session.name
   msg.deliveryStatus = '발송'
   msg.at = nowMinute()
   appendAudit({ actor: session.name, action: `알림 재발송 — ${msg.channel} ${msg.kind} (${msg.to})`, target: id, result: '성공' })

@@ -34,8 +34,10 @@ export async function GET(req: Request) {
   })
   const sheet: Sheet = {
     name: '알림 발송 이력',
-    header: ['발송 ID', '채널', '종류', '수신', '제목', '연결 문서', '발송 시각', '전달 상태'],
-    rows: rows.map((m) => [m.id, m.channel, m.kind, m.to, m.subject, m.ref ?? '-', m.at, m.deliveryStatus ?? '발송']),
+    header: ['발송 ID', '채널', '종류', '수신', '제목', '연결 문서', '발송 시각', '전달 상태', '재발송 증적'],
+    rows: rows.map((m) => [m.id, m.channel, m.kind, m.to, m.subject, m.ref ?? '-', m.at, m.deliveryStatus ?? '발송',
+      // 재발송 증적 — '보냈다'가 아니라 '언제·몇 번 보냈다'까지가 통지 증적의 사실이다.
+      m.failedAt ? `재발송 (최초 ${m.failedAt} 실패${m.resentBy ? ` · ${m.resentBy}` : ''})` : '-']),
   }
   const buf = buildXlsx([sheet])
 
