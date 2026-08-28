@@ -2418,6 +2418,30 @@ try {
   check(`어시스턴트 스코핑: 질의 분기 ${asstBranches.length}개가 모두 역할 게이트 또는 본인 범위`,
     asstBranches.length >= 25 && asstUngated.length === 0, `게이트 없음=${asstUngated.join(', ') || '없음'}`)
 
+  // 서버 액션의 화면 갱신 — 스토어를 바꾸고 revalidatePath 를 부르지 않으면 RSC 캐시가 이전 HTML 을 그대로 내준다.
+  //  버튼은 성공 메시지를 띄우는데 표는 그대로라, 조작자는 눌러도 아무 일이 없는 것처럼 보고 같은 조작을 반복한다
+  //  (일괄 조치에서는 같은 대상에 두 번 처리를 시도하게 된다). 액션마다 손으로 넣는 한 줄이라 빠뜨려도 아무도 모른다.
+  //  다른 액션에 위임하는 형태(일괄이 단건을 부르고 그쪽이 갱신)는 정상이므로 위임도 인정한다.
+  const actionFiles = sourceFiles.filter((f) => path.basename(f) === 'actions.ts')
+  const staleActions = revalFiles.flatMap((f) => {
+    const rel = path.relative(ROOT, f).split(path.sep).join('/').replace('app/(app)/', '')
+    const AL = readFileSync(f, 'utf8').split(/\r?\n/)
+    const starts = AL.map((ln, i) => { const m = /^export async function (\w+)/.exec(ln); return m ? [i, m[1]] : null }).filter(Boolean)
+    const names = starts.map(([, n]) => n)
+    return starts.flatMap(([i, name], k) => {
+      const stop = k + 1 < starts.length ? starts[k + 1][0] : AL.length
+      const body = AL.slice(i, stop).join('\n')
+      const mutates = /getStore\(\)/.test(body) && /\.push\(|\.splice\(|\.unshift\(|delete s\./.test(body)
+      if (!mutates) return []
+      if (body.includes('revalidatePath')) return []
+      //  같은 파일의 다른 액션에 위임하면 그쪽이 갱신한다
+      if (names.some((n) => n !== name && new RegExp(n + '\\(').test(body))) return []
+      return [rel + '::' + name]
+    })
+  })
+  check(`서버 액션 화면 갱신: 스토어를 바꾸는 액션이 revalidatePath 를 부른다(actions ${revalFiles.length}개 검사)`,
+    revalFiles.length >= 15 && staleActions.length === 0, `갱신 없음=${staleActions.join(', ') || '없음'}`)
+
   // 운영 정책 기본값이 화면 문구에 리터럴로 박혀 있는가 — 운영자가 '정기 점검 창'·'만료 알림 창' 같은 값을
   //  바꾸면 판정은 따라가지만 안내 문구가 옛 숫자로 남아, 날짜를 고르는 바로 그 자리에서 틀린 규칙을 알려 준다.
   //  실제로 대장 상세의 점검 예약 안내가 '30일 내·경과'로 고정돼 있었다(판정은 opsPolicy.maintenanceWindowDays).
