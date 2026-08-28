@@ -75,7 +75,10 @@ function seedAssets(): Asset[] {
     warrantyEnd: '2026-03-14',
 
     // 대부분 상반기 정기 재물조사(INV-2026-H1, 2026-02 완료)에서 실측된 상태. 일부는 아래에서 장기 미실측으로 덮어쓴다.
-    lastVerifiedAt: '2026-05-20',
+    // 최근 실측 기본값은 오늘 기준 상대값 — 절대 날짜로 두면 장기 미실측 임계(기본 180일)를 지나는 순간
+    //  대장 대부분이 한꺼번에 미실측으로 뒤집혀, 코드 변경 없이 스위트가 붉어진다(2026-12-01 로 돌려 확인했다).
+    //  101일 전이라는 관계(임계 안쪽)를 고정한다.
+    lastVerifiedAt: addDays(today(), -101),
     history: [{ date: a.purchaseDate ?? '2023-03-15', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' }],
     ...a,
   })
@@ -110,7 +113,10 @@ function seedAssets(): Asset[] {
     // 대여 자동 집행 회귀 대상 — 유휴 서버(단말 아님 → 단말 가용 0 검증 미영향). 최근 도입·보증 유효·최근 실측이라 노후·재물조사·EOL 배치 스윕에 안 걸려 스위트 끝까지 유휴 유지. 대여 결재 승인 시 대여중으로 자동 집행.
     mk({ assetNo: 'AST-2025-000701', category: '서버', model: 'PowerEdge R660 (대여 회귀)', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'RHEL 9.3', cpu: 'Xeon Gold 6438', memory: '128GB', ip: '10.30.9.11', mac: '2C:EA:7F:11:90:44', purchaseDate: '2025-03-01', warrantyEnd: '2028-02-29', lastVerifiedAt: '2026-08-01' }),
     // 대여 반환 좌석 회수 회귀 — 대여중이면서 라이선스 좌석 보유. 반환 시 좌석이 회수돼야 한다(로56, 이탈 5번째 경로). 반환 기한은 먼 미래(연체·임박 큐 미영향).
-    mk({ assetNo: 'AST-2024-000995', category: '단말', model: 'Galaxy Book4 (대여용)', status: '대여중', owner: '조민재', dept: '마케팅팀', location: '본사 6F', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.60.31', mac: '3C:52:82:14:AA:19', purchaseDate: '2024-03-15', warrantyEnd: '2027-03-14', loanDueDate: '2026-12-01', lastVerifiedAt: '2026-07-25' }),
+    // 반환 기한은 오늘 기준 상대값 — 이 자산은 '기한 내 대여(연체 아님)' 대조군이라, 절대 날짜로 두면
+    //  그 날짜가 지나는 순간 스위트가 코드 변경 없이 붉어진다(2026-12-01 로 돌려 실제로 그렇게 됐다).
+    //  seed 는 이미 발송 이력 등에서 today() 상대값을 쓴다 — 같은 규약으로 관계(D-94)를 고정한다.
+    mk({ assetNo: 'AST-2024-000995', category: '단말', model: 'Galaxy Book4 (대여용)', status: '대여중', owner: '조민재', dept: '마케팅팀', location: '본사 6F', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.60.31', mac: '3C:52:82:14:AA:19', purchaseDate: '2024-03-15', warrantyEnd: '2027-03-14', loanDueDate: addDays(today(), 94), lastVerifiedAt: '2026-07-25' }),
     // 재물조사 미확인 유휴 편성 좌석 회수 회귀 — 사용중이면서 라이선스 좌석 보유. 미확인 조정 승인 시 유휴 편성되며 좌석 회수·소유자 정리가 따라야 한다.
     mk({ assetNo: 'AST-2024-000994', category: '단말', model: 'ThinkPad X1 Carbon', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', cpu: 'i7-1365U', memory: '16GB', ip: '10.20.70.22', mac: 'B4:2E:99:70:5C:8A', purchaseDate: '2024-02-01', warrantyEnd: '2027-01-31', lastVerifiedAt: '2026-07-25' }),
     // 재물조사 차이 조정 스테일 방어(재확인) 회귀용 — 미확인 조정(DIF-06)이 상신된 뒤 재배정되면 유휴 강제가 아니라 미적용되어야 한다.
@@ -169,7 +175,9 @@ function seedAssets(): Asset[] {
         { date: '2026-07-28', kind: '반납', detail: '반납 접수 · 상태 점검 수리 필요 — 디스플레이 힌지 파손·좌측 USB-C 불량 (반납자 오세훈)', actor: '박자산' },
       ] }),
     // 수리 의뢰 접수됐으나 예상 반환일 경과(업체 지연) — 수리 예상 반환 경과 신호 시연
-    mk({ assetNo: 'AST-2024-000512', category: '단말', model: 'Galaxy Book3 Ultra', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'i9-13900H', memory: '32GB', purchaseDate: '2024-05-10', warrantyEnd: '2027-05-09', contractId: 'CT-2025-014',
+    // 보증 만료는 오늘 기준 상대값 — 이 자산은 '보증 내 수리(무상)' 대조군이라, 절대 날짜로 두면 그 날이 지나는
+    //  순간 무상 보증 안내가 사라져 코드 변경 없이 스위트가 붉어진다(2027-06-15 로 돌려 확인했다).
+    mk({ assetNo: 'AST-2024-000512', category: '단말', model: 'Galaxy Book3 Ultra', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'i9-13900H', memory: '32GB', purchaseDate: '2024-05-10', warrantyEnd: addDays(today(), 253), contractId: 'CT-2025-014',
       repair: { vendor: '중부IT서비스', sentAt: '2026-07-18', eta: '2026-07-28', estCost: 420_000 },
       history: [
         { date: '2024-05-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
