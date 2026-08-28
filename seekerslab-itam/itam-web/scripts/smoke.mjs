@@ -2176,6 +2176,30 @@ try {
   check(`권한 스윕 대상: ROUTES 가 실제 화면 전부(화면 ${pageRoutes.length}개 · 등재 ${listed.length}개)`,
     missing.length === 0 && stale.length === 0, `누락=${missing.join(', ') || '없음'} 유령=${stale.join(', ') || '없음'}`)
 
+  // 재탐지 주기 ↔ 임계값 짝 — 정책 편집기가 고를 수 있는 주기(SCAN_INTERVALS)에 임계값(INTERVAL_MS)이 없으면
+  //  isScanOverdue 가 그냥 false 를 돌려준다. 그 주기를 고른 채널은 아무리 오래 멈춰 있어도 '재탐지 지연'으로
+  //  잡히지 않는다 — 관리자가 주기를 고르는 행위가 정체 경보를 조용히 끄는 셈이다(같은 모듈의 수집 시간대
+  //  파싱이 '§07 시간대 안전장치가 조용히 꺼진다'고 경고하는 것과 같은 계열). 두 목록이 정확히 같은지 본다.
+  const scanTypes = readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8')
+  const scanPol = readFileSync(path.join(ROOT, 'lib', 'scan-policy.ts'), 'utf8')
+  const intervals = [...(/SCAN_INTERVALS[^=]*=\s*\[([^\]]+)\]/.exec(scanTypes)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const thresholds = [...(/INTERVAL_MS[^=]*=\s*\{([^}]+)}/.exec(scanPol)?.[1] ?? '').matchAll(/'([^']+)':/g)].map((m) => m[1])
+  const noThreshold = intervals.filter((x) => !thresholds.includes(x))
+  const orphanThreshold = thresholds.filter((x) => !intervals.includes(x))
+  check(`재탐지 주기: 고를 수 있는 주기마다 지연 임계값이 있다(주기 ${intervals.length}종)`,
+    intervals.length >= 8 && noThreshold.length === 0 && orphanThreshold.length === 0,
+    `임계값 없음=${noThreshold.join(', ') || '없음'} 유령 임계값=${orphanThreshold.join(', ') || '없음'}`)
+
+  // 채널별 '마지막 수집' 산출의 단일 소스 — 스캔 화면은 같은 행에 마지막 수집 시각과 '재탐지 지연' 배지를 나란히 세운다.
+  //  배지는 lib/scan-policy 판정인데 시각을 화면이 따로 구하면, 한쪽만 바뀔 때 '방금 수집했는데 지연'이라고 말하게 된다.
+  const seenAtDupes = sourceFiles
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([rel]) => rel !== 'lib/scan-policy.ts')
+    .filter(([, src]) => src.split(/\r?\n/).some((ln) => !ln.trim().startsWith('//') && /o\.seenAt >/.test(ln)))
+    .map(([rel]) => rel)
+  check(`마지막 수집 산출: lib/scan-policy 밖에 사본 없음(소스 ${sourceFiles.length}개 검사)`,
+    seenAtDupes.length === 0, `사본=${seenAtDupes.join(', ') || '없음'}`)
+
   // 드릴다운 링크가 실제로 거르는가 — 큐·카드가 '/assets/register?maint=1' 처럼 파라미터를 붙여 목록으로 보내는데,
   //  대상 페이지가 그 파라미터를 읽지 않으면 필터 없는 전체 목록이 뜬다. 화면은 '이 큐의 N건'으로 보냈는데 사용자는
   //  전량을 받는 셈이라, 건수와 목록이 어긋나는 것을 넘어 어느 행이 그 큐인지 알 수 없다(조용히 넓어지는 드릴다운).
