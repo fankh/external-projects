@@ -1,4 +1,5 @@
 import { ratioPct } from './dates'
+import { DISPOSAL_STATUSES } from './types'
 import type { Asset, AssetCategory } from './types'
 
 /** 보유자 이름 → 부서 맵 — 사용자 대장(store.users)에서 만든다. 정합성 검사가 보유자와 자산 부서의 불일치를 보는 데 쓴다. */
@@ -60,7 +61,9 @@ export function assetDataIssues(a: Asset, deptOf?: DeptOfOwner): string[] {
 
 /** 정합성 미흡 여부 — 폐기 경로 자산은 대상에서 제외(정리 대상이라 필드 보정 실익이 없다). */
 export function hasDataIssue(a: Asset, deptOf?: DeptOfOwner): boolean {
-  if (a.status === '폐기완료' || a.status === '폐기예정') return false
+  // 폐기 경로 판정은 lib/types 한 곳에서 온다 — 여기에 상태를 다시 적으면 상태가 늘 때 이 판정과
+  //  아래 정확도 분모가 서로 다른 집합을 보게 된다(실제로 그렇게 갈려 있었다).
+  if (DISPOSAL_STATUSES.includes(a.status)) return false
   return assetDataIssues(a, deptOf).length > 0
 }
 
@@ -70,7 +73,11 @@ export function hasDataIssue(a: Asset, deptOf?: DeptOfOwner): boolean {
  *  백분율 반올림은 lib/dates 의 ratioPct 한 곳을 쓴다 — 여기서 따로 반올림하면 화면·리포트의 다른 비율과
  *  규약이 갈린다(lib/dates 는 아무것도 import 하지 않으므로 순환이 아니다). */
 export function cmdbAccuracyPct(assets: Asset[], deptOf?: DeptOfOwner): number {
-  const live = assets.filter((a) => a.status !== '폐기완료')
+  // 분모는 판정(hasDataIssue)과 같은 범위여야 한다 — 판정은 폐기 경로(폐기완료·폐기예정)를 대상에서 빼는데
+  //  분모만 폐기완료를 뺐다. 그러면 폐기예정 자산은 '무조건 정합'으로 분모·분자에 함께 들어가 정확도를
+  //  올린다(시드에서도 2대가 그렇게 무조건 통과였다). 감사 대응 자료·컴플라이언스 증적이 쓰는 수치라
+  //  실제보다 좋아 보이는 쪽으로 치우치면 안 된다.
+  const live = assets.filter((a) => !DISPOSAL_STATUSES.includes(a.status))
   if (live.length === 0) return 100
   const ok = live.length - live.filter((a) => hasDataIssue(a, deptOf)).length
   return ratioPct(ok, live.length)

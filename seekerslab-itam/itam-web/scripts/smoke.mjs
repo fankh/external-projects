@@ -2433,6 +2433,18 @@ try {
   check(`복합 위험 캐시: riskSignals 소비자는 compositeRiskAssetNos 로 캐시를 비운 뒤 쓴다(소비자 ${riskUsers.length}곳)`,
     riskUsers.length > 0 && riskUnbatched.length === 0, `배치 호출 없음=${riskUnbatched.join(', ')}`)
 
+  // CMDB 정확도의 분모와 판정 범위가 같은가 — 정확도는 '정합성 미흡이 아닌 비율'이므로 분모(모수)와
+  //  판정(hasDataIssue)이 같은 집합을 봐야 한다. 판정은 폐기 경로(폐기완료·폐기예정)를 빼는데 분모만
+  //  폐기완료를 뺐던 적이 있다 — 그러면 폐기예정 자산이 '무조건 정합'으로 분모·분자에 함께 들어가
+  //  정확도를 올린다(시드 2대가 그랬다). 감사 대응 자료·컴플라이언스 증적이 쓰는 수치라 부풀면 안 된다.
+  //  두 곳이 같은 상태 묶음(DISPOSAL_STATUSES)을 쓰는지 본다.
+  const qualSrc = readFileSync(path.join(ROOT, 'lib', 'quality.ts'), 'utf8')
+  const predScope = /hasDataIssue[\s\S]{0,300}?DISPOSAL_STATUSES/.test(qualSrc)
+  const denomScope = /cmdbAccuracyPct[\s\S]{0,600}?DISPOSAL_STATUSES/.test(qualSrc)
+  const literalScope = /status !== '폐기완료'|status === '폐기예정'/.test(qualSrc)
+  check('CMDB 정확도: 판정과 분모가 같은 폐기 경로 묶음을 쓴다(상태 리터럴 재기술 없음)',
+    predScope && denomScope && !literalScope, `판정=${predScope} 분모=${denomScope} 리터럴=${literalScope}`)
+
   // 종결된 건이 조작한 화면에 남는가 — 집행 불가로 닫은 이동 신청은 대기 큐에서 빼야 하지만(#709), 완료
   //  목록에도 없으면 담당자가 '이동 처리'를 눌러 종결한 그 건이 화면에서 통째로 사라진다. 결재함에는
   //  '집행 불가'로 남아도, 조작을 한 화면에 흔적이 없으면 처리했는지조차 확인할 수 없다(대기에서 뺀 것과
