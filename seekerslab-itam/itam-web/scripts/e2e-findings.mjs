@@ -2402,7 +2402,14 @@ try {
   await p3.locator('button', { hasText: /^추가$/ }).click()
   await p3.waitForTimeout(600)
   ok('공통코드: 중복 명칭 신규 추가 차단(label 유일성 가드)', ((await p3.textContent('body')) || '').includes('이미 같은 명칭의 코드가 있습니다'))
-  const locFreeRow = p3.locator('tr', { has: p3.locator('td', { hasText: '본사 9F' }) }).first()
+  // 참조 없는 코드의 미사용 전환 — 시드 위치는 모두 참조가 남아 있어 여기서 새 코드를 만들어 쓴다.
+  //  예전엔 '본사 9F' 를 썼다: 그 위치에 놓인 자산이 0대라 자유로워 보였지만, 집행 대기 이동 신청(APR-2607-101)의
+  //  목적지라 실제로는 참조가 살아 있다. 참조 집계가 대장만 세던 시절엔 그 사실이 보이지 않았을 뿐이다.
+  await p3.locator('input[placeholder="코드 (예: IDC-C-01)"]').fill('HQ_FREE_T')
+  await p3.locator('input[placeholder="명칭"]').fill('본사 20F 임시')
+  await p3.locator('button', { hasText: /^추가$/ }).click()
+  await p3.waitForTimeout(600)
+  const locFreeRow = p3.locator('tr', { has: p3.locator('td', { hasText: '본사 20F 임시' }) }).first()
   await locFreeRow.locator('button', { hasText: /^미사용$/ }).click()
   await p3.waitForTimeout(600)
   ok('공통코드: 참조 없는 코드는 미사용 전환 허용(사용 버튼으로 전환)', (await locFreeRow.locator('button', { hasText: /^사용$/ }).count()) > 0)
