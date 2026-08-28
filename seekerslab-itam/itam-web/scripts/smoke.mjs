@@ -1598,6 +1598,23 @@ try {
   check('사용자 · 결재선: STEP 4 권한그룹 배정 컨트롤 렌더', usrHtml.includes('사용자 · 권한그룹 배정') && usrHtml.includes('select'))
   // 대여 결재선(AL-09) — 유일하게 매트릭스에서 누락돼 레거시 폴백으로 우회하던 상신 종류(대여=자산 반출)를 거버넌스 매트릭스에 편입. 화면·리포트 노출.
   check('사용자 · 결재선: 대여 결재선이 거버넌스 매트릭스에 노출(레거시 폴백 제거)', usrHtml.includes('수명주기 · 대여'))
+
+  //  위 검사는 대여 한 종류만 본다 — 그 한 건이 실제로 빠져 있었기 때문에 생긴 검사다. 같은 누락이 다른 종류에서
+  //  또 나면 아무도 모른다: 결재선이 없는 종류는 매트릭스 화면에 행이 없어 관리자가 단계를 볼 수도 고칠 수도 없고,
+  //  상신은 레거시 폴백(역할 한 명의 단독 승인)으로 새어 나간다 — 결재선 변경이 통제가 아니라 구멍이 되는 자리다
+  //  (approvalStepIndex 주석이 경고하는 바로 그 증상). 상신 종류 전량이 결재선을 갖는지 본다.
+  const aprTypes = readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8')
+  const aprStore = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const aprKinds = [...(new RegExp('export type ApprovalKind =([^' + String.fromCharCode(92) + 'n]+)').exec(aprTypes)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const seedBlk = aprStore.slice(aprStore.indexOf('function seedApprovalLines'), aprStore.indexOf('function seed('))
+  const linedKinds = [...seedBlk.matchAll(/kind: '([^']+)'/g)].map((m) => m[1])
+  const kindNoLine = aprKinds.filter((k) => !linedKinds.includes(k))
+  const lineNoKind = linedKinds.filter((k) => !aprKinds.includes(k))
+  //  화면에도 그 종류가 실제로 렌더되는지 함께 본다(시드에만 있고 매트릭스에 안 뜨면 편집할 길이 없다)
+  const kindNotShown = aprKinds.filter((k) => !usrHtml.includes(k))
+  check(`결재선 완전성: 상신 종류 ${aprKinds.length}종이 모두 결재선을 갖고 매트릭스에 뜬다`,
+    aprKinds.length >= 9 && kindNoLine.length === 0 && lineNoKind.length === 0 && kindNotShown.length === 0,
+    `결재선 없음=${kindNoLine.join(', ') || '없음'} 유령 결재선=${lineNoKind.join(', ') || '없음'} 화면 미노출=${kindNotShown.join(', ') || '없음'}`)
   // 사용자별 보유 자산 수 — 계정 관리 시 자산 부담 가시성 + 해당 사용자 자산 대장 드릴다운
   check('사용자: 보유 자산 수 + 자산 대장 드릴 링크', usrHtml.includes('보유 자산') && usrHtml.includes('/assets/register?q='))
   // 오프보딩 요약 — 퇴직·부서이동 시 회수·재배정 대상(사용중 보유·대여·라이선스 좌석·상신 결재)을 한 사람 기준으로 모은다. 자산·좌석 있는 사용자에 요약 토글 노출.
