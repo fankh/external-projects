@@ -669,8 +669,17 @@ try {
     await page.waitForTimeout(600)
     await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
     ok('IOC 조치 취소(재개): 차단 요청 → 미조치(차단 버튼 복귀)', (await iocRow().locator('button', { hasText: /^차단$/ }).count()) > 0)
+    // 관측 유형별 표준 권고 조치가 대응자에게 보이는가 — 유출·크리덴셜 표는 조치 노트를 권고문으로 미리 채워 주는데
+    //  IOC 표만 권고문(lib/types IOC_RESPONSE)이 정의만 되고 어디에도 안 나와, 대응자는 무엇을 하라는 말인지 없이
+    //  차단·조사 버튼만 눌렀다. RedLine 은 '파일 해시 일치' 관측이라 그 유형의 권고문이 나와야 한다(미조치 상태에서만).
+    ok('IOC 권고 조치: 미조치 건에 관측 유형별 표준 조치 노출',
+      ((await iocRow().first().textContent()) || '').includes('악성 파일 검출'))
     await iocRow().locator('button', { hasText: /^차단$/ }).first().click()
     await page.waitForTimeout(700)
+    // 집행 요청 통지에도 담긴다 — 보안운영팀은 '무엇을 차단하라'는 대상만 받고 어떤 조치를 하라는지는 못 받았다.
+    await page.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+    ok('IOC 집행 요청 통지: 권고 조치가 발송 제목에 실린다',
+      ((await page.locator('body').textContent()) || '').includes('권고 조치: 악성 파일 검출'))
   }
   // IOC 일괄 대응 — 위협 인텔 피드 갱신으로 다수 IOC가 한꺼번에 상관될 때 체크박스로 선택해 한 번에 차단(단건 반복 방지). RedLine 은 위 단건·재개 테스트가 소비하므로 미조치분 Tor C2·LockBit 도메인 선택.
   {

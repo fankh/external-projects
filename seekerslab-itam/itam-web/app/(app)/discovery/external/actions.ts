@@ -7,6 +7,7 @@ import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
 import { getStore, nextId } from '@/lib/store'
 import type { EasmRun } from '@/lib/types'
+import { IOC_RESPONSE } from '@/lib/types'
 
 /** 이 화면의 조치는 역할 하한(보안담당·Admin)과 권한 매트릭스의 '격리요청'(조치 집행 요청) 칸을 함께 본다.
  *  그전엔 역할만 봐서, 권한 · 정책에서 이 칸을 꺼도 외부 위협 조치 버튼은 그대로 실행됐다 — 같은 메뉴
@@ -175,11 +176,11 @@ export async function respondToIoc(iocId: string, kind: '차단' | '조사') {
   if (kind === '차단') {
     ioc.action = '차단 요청'
     // 능동 위협(행위자 귀속) 차단은 시간 임계 — 이메일 상세 + 문자 즉시 알림으로 이중 발송
-    escalate({ to: '보안운영팀', subject: `IOC 차단 집행 요청 — ${ioc.iocType} ${ioc.iocValue} (${ioc.threatActor}) @ ${ioc.matchedAsset}`, kind: '위협 대응', ref: ioc.id, sms: `IOC 차단 요청 ${ioc.threatActor} @ ${ioc.matchedAsset} — 즉시 차단` })
+    escalate({ to: '보안운영팀', subject: `IOC 차단 집행 요청 — ${ioc.iocType} ${ioc.iocValue} (${ioc.threatActor}) @ ${ioc.matchedAsset} · 권고 조치: ${IOC_RESPONSE[ioc.matchType]}`, kind: '위협 대응', ref: ioc.id, sms: `IOC 차단 요청 ${ioc.threatActor} @ ${ioc.matchedAsset} — 즉시 차단` })
     appendAudit({ actor: session.name, action: `IOC 차단 요청 (${ioc.matchType}) — ${ioc.iocValue} @ ${ioc.matchedAsset}`, target: ioc.id })
   } else {
     ioc.action = '조사 착수'
-    escalate({ to: '보안운영팀', subject: `IOC 침해 조사 착수 — ${ioc.threatActor} @ ${ioc.matchedAsset} (${ioc.dept})`, kind: '위협 대응', ref: ioc.id, sms: `IOC 침해 조사 착수 ${ioc.threatActor} @ ${ioc.matchedAsset}` })
+    escalate({ to: '보안운영팀', subject: `IOC 침해 조사 착수 — ${ioc.threatActor} @ ${ioc.matchedAsset} (${ioc.dept}) · 권고 조치: ${IOC_RESPONSE[ioc.matchType]}`, kind: '위협 대응', ref: ioc.id, sms: `IOC 침해 조사 착수 ${ioc.threatActor} @ ${ioc.matchedAsset}` })
     appendAudit({ actor: session.name, action: `IOC 침해 조사 착수 (${ioc.matchType}) — ${ioc.iocValue} @ ${ioc.matchedAsset}`, target: ioc.id })
   }
   revalidatePath('/', 'layout')
@@ -201,10 +202,10 @@ export async function respondToIocMany(ids: string[], kind: '차단' | '조사')
     ioc.actedAt = today()
     if (kind === '차단') {
       ioc.action = '차단 요청'
-      escalate({ to: '보안운영팀', subject: `IOC 차단 집행 요청 — ${ioc.iocType} ${ioc.iocValue} (${ioc.threatActor}) @ ${ioc.matchedAsset}`, kind: '위협 대응', ref: ioc.id, sms: `IOC 차단 요청 ${ioc.threatActor} @ ${ioc.matchedAsset} — 즉시 차단` })
+      escalate({ to: '보안운영팀', subject: `IOC 차단 집행 요청 — ${ioc.iocType} ${ioc.iocValue} (${ioc.threatActor}) @ ${ioc.matchedAsset} · 권고 조치: ${IOC_RESPONSE[ioc.matchType]}`, kind: '위협 대응', ref: ioc.id, sms: `IOC 차단 요청 ${ioc.threatActor} @ ${ioc.matchedAsset} — 즉시 차단` })
     } else {
       ioc.action = '조사 착수'
-      escalate({ to: '보안운영팀', subject: `IOC 침해 조사 착수 — ${ioc.threatActor} @ ${ioc.matchedAsset} (${ioc.dept})`, kind: '위협 대응', ref: ioc.id, sms: `IOC 침해 조사 착수 ${ioc.threatActor} @ ${ioc.matchedAsset}` })
+      escalate({ to: '보안운영팀', subject: `IOC 침해 조사 착수 — ${ioc.threatActor} @ ${ioc.matchedAsset} (${ioc.dept}) · 권고 조치: ${IOC_RESPONSE[ioc.matchType]}`, kind: '위협 대응', ref: ioc.id, sms: `IOC 침해 조사 착수 ${ioc.threatActor} @ ${ioc.matchedAsset}` })
     }
   }
   const verb = kind === '차단' ? '차단 요청' : '조사 착수'
