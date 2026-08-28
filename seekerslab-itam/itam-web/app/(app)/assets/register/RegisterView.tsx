@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { ASSET_CATEGORIES, ASSET_STATUSES, CRITICALITY_LEVELS, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
+import { EVENT_EMPHASIS, ASSET_CATEGORIES, ASSET_STATUSES, CRITICALITY_LEVELS, DISPOSAL_STATUSES, GONE_STATUSES, NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus, BizCriticality } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
@@ -39,11 +39,10 @@ const STATUSES: (AssetStatus | '전체')[] = ['전체', ...ASSET_STATUSES]
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
-// 변경 이력 타임라인 이벤트 종류별 톤(제품안내서 §03 변경 이력) — 폐기·분실은 위험(적), 점검·수리는 정비(황),
-//  등록·편입은 진입(녹), 나머지 운영(불출·이동·반납·대여·구성변경·보증연장)은 기본. 수명주기 중대 이벤트가 타임라인에서 도드라지게 한다.
-const EVENT_TONE: Record<string, 'err' | 'warn' | 'ok'> = {
-  폐기: 'err', 분실: 'err', 점검: 'warn', 수리: 'warn', 등록: 'ok', 편입: 'ok',
-}
+// 변경 이력 타임라인 이벤트 종류별 톤 — 강조 분류는 lib/types 의 EVENT_EMPHASIS 하나만 쓰고(인쇄 카드와 같은 언어),
+//  여기서는 그 분류를 화면 톤으로만 옮긴다. 분류에 없는 종류는 기본 표기(undefined).
+const TONE_OF: Record<'위험' | '정비' | '진입', 'err' | 'warn' | 'ok'> = { 위험: 'err', 정비: 'warn', 진입: 'ok' }
+const eventTone = (kind: string) => { const c = EVENT_EMPHASIS[kind]; return c ? TONE_OF[c] : undefined }
 
 export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays: number; maintenanceWindowDays: number; initialWarranty?: boolean; dqNos?: string[]; dqIssues?: Record<string, string[]>; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; initialLive?: boolean; availNos?: string[]; initialAvail?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
@@ -998,7 +997,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             <div className="kicker mute" style={{ margin: '18px 0 10px' }}>변경 이력 타임라인</div>
             <div className="tl">
               {[...sel.history].reverse().map((h, i) => (
-                <div className="ev" data-tone={EVENT_TONE[h.kind]} key={i}>
+                <div className="ev" data-tone={eventTone(h.kind)} key={i}>
                   <div className="d">{h.date} · {h.actor}</div>
                   <div className="t">{h.kind}</div>
                   <div className="x">{h.detail}</div>

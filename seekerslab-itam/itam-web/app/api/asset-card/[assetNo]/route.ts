@@ -6,7 +6,7 @@ import { qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
 import { getStore } from '@/lib/store'
-import { NON_OPERATIONAL_STATUSES, isReceiptPending } from '@/lib/types'
+import { EVENT_EMPHASIS, NON_OPERATIONAL_STATUSES, isReceiptPending } from '@/lib/types'
 
 /** 자산 카드 — 선택 자산의 전체 프로필(사양·소유·보증·계약)과 변경 이력 타임라인을 한 장의 인쇄용 문서로.
  *  자산 인수인계·감사 대응 자료(자산 dossier)용. 라벨(작은 스티커)과 달리 전체 정보를 담는다.
@@ -106,10 +106,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
       + `<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8494ac"/></marker></defs>`
       + p.join('') + '</svg>'
   })()
-  // 이벤트 종류별 색(화면 변경 이력 타임라인과 동일 언어) — 폐기·분실=위험(적)·점검·수리=정비(황)·등록·편입=진입(녹). 인쇄 기록도 중대 이벤트가 도드라지게.
-  const evColor: Record<string, string> = { 폐기: '#c23934', 분실: '#c23934', 점검: '#b25e09', 수리: '#b25e09', 등록: '#12805c', 편입: '#12805c' }
+  // 이벤트 종류별 색 — 강조 분류는 화면 타임라인과 같은 lib/types 의 EVENT_EMPHASIS 를 쓰고(여기서 종류를 다시 적지 않는다),
+  //  인쇄용 hex 만 이 파일이 정한다. 분류에 없는 종류는 색 없이 평범하게 찍는다.
+  const EV_HEX: Record<'위험' | '정비' | '진입', string> = { 위험: '#c23934', 정비: '#b25e09', 진입: '#12805c' }
+  const evColorOf = (kind: string) => { const c = EVENT_EMPHASIS[kind]; return c ? EV_HEX[c] : undefined }
   const timeline = [...a.history].reverse().map((h) => {
-    const c = evColor[h.kind]
+    const c = evColorOf(h.kind)
     return `<tr><td class="d">${esc(h.date)}</td><td class="k"${c ? ` style="color:${c};font-weight:700"` : ''}>${esc(h.kind)}</td><td>${esc(h.detail)}</td><td class="ac">${esc(h.actor)}</td></tr>`
   }).join('')
   // 배정 라이선스 좌석 — 이 자산에 배정된 SW 라이선스(로56·57). 인수인계·감사 dossier 에 어떤 SW 를 물고 있는지 남긴다(회수·재배정 대상).
