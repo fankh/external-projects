@@ -2379,6 +2379,20 @@ try {
   check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
 
+  // 복합 위험 캐시의 사용 규약 — lib/risk 는 SPOF·교체 대상을 모듈 수준에 캐시하고, 그 캐시를 비우는 곳은
+  //  compositeRiskAssetNos 하나뿐이다. 스토어는 제자리 수정 싱글턴이라 객체 정체성으로 변경을 감지할 수 없고
+  //  모듈 상태는 요청 사이에 살아남으므로, riskSignals 만 따로 부르는 소비자가 생기면 지난 요청의 집합으로
+  //  '위험 신호'를 붙인다 — 대장 필터·대시보드 큐·리포트가 조용히 어긋난다(눈에 띄는 오류 없이 값만 틀린다).
+  //  살아 있는 결함은 없다(현 소비자 셋은 모두 먼저 부른다). 규약이 주석에만 있어 검사로 고정한다.
+  const riskUsers = sourceFiles.filter((f) => {
+    const rel = path.relative(ROOT, f).split(path.sep).join('/')
+    if (rel === 'lib/risk.ts') return false
+    return /\briskSignals\b|\briskSignalCount\b/.test(readFileSync(f, 'utf8'))
+  }).map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
+  const riskUnbatched = riskUsers.filter((rel) => !readFileSync(path.join(ROOT, ...rel.split('/')), 'utf8').includes('compositeRiskAssetNos'))
+  check(`복합 위험 캐시: riskSignals 소비자는 compositeRiskAssetNos 로 캐시를 비운 뒤 쓴다(소비자 ${riskUsers.length}곳)`,
+    riskUsers.length > 0 && riskUnbatched.length === 0, `배치 호출 없음=${riskUnbatched.join(', ')}`)
+
   // 집행 대기 큐에 빠져나갈 문이 있는가 — '승인 && !fulfilled' 로 세는 큐는 집행이 영원히 불가능한 건까지
   //  담는다. 이동 신청이 그랬다: 대상 자산이 결재에 고정돼 있어(refId) 그 자산이 분실·폐기로 떠나면 다른
   //  자산으로 바꿀 수 없는데, 서버는 '반려·취소로 정리하세요'라고 안내했다 — 반려도 상신 취소도 '대기' 건만

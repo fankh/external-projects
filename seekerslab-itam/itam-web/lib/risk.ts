@@ -30,6 +30,11 @@ export function riskSignalCount(a: Asset): number {
 }
 
 // SPOF·교체 대상은 그래프/리스트 기반 전역 산출이라 자산별 반복 호출 시 캐시(한 요청 내 동일 스토어 스냅샷).
+//  불변식: 이 캐시를 비우는 곳은 compositeRiskAssetNos 하나뿐이므로, riskSignals·riskSignalCount 는 반드시
+//  같은 산출 단위에서 compositeRiskAssetNos 를 먼저 부른 뒤에 써야 한다. 스토어는 g.__itamStore 를 제자리
+//  수정하는 싱글턴이라(getStore) 객체 정체성으로는 변경을 감지할 수 없고, 모듈 상태는 요청 사이에 살아남는다.
+//  이 순서를 어기면 지난 요청의 SPOF·교체 집합으로 '위험 신호'를 붙인다 — 화면·큐·리포트가 조용히 어긋난다.
+//  현재 세 소비자(어시스턴트·리포트 2곳)는 모두 지키고 있으며, 스모크가 새 소비자의 이탈을 잡는다.
 let _spof: Set<string> | null = null
 let _replace: Set<string> | null = null
 function SPOF_SET() { return (_spof ??= new Set(criticalDependencies().map((x) => x.asset.assetNo))) }
