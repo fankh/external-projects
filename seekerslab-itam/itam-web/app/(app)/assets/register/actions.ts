@@ -308,6 +308,11 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   const to = rawTo.trim()
   const dept = rawDept.trim()
   if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }
+  // 자리표시자('-'·'미지정')는 대여자가 아니다 — 통과시키면 대장에 '대여중인데 보유자 없음'이 남아,
+  //  정합성 큐가 방금 만든 기록을 곧바로 '소유자 미지정'으로 세고(lib/quality assetDataIssues), 대여 통보는
+  //  '미지정 (부서)' 앞으로 나가 아무도 읽지 않는다(lib/notify 가 recipientOf 로 막으려던 바로 그 발송).
+  //  판정은 통지 수신자·이력 표기와 같은 lib/quality 의 isPlaceholder 를 쓴다(여기서 값을 다시 적지 않는다).
+  if (isPlaceholder(to) || isPlaceholder(dept)) return { ok: false, message: '대여자·부서에 자리표시자(미지정 · -)는 쓸 수 없습니다 — 실제 대여자를 입력해 주세요.' }
   if (!isValidDate(dueDate)) return { ok: false, message: '반환 기한을 선택해 주세요.' }
   if (dueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
 
@@ -321,7 +326,7 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   asset.returnRequest = undefined
   asset.history.push({ date: today(), kind: '대여', detail: `${dept} ${to} 대여 — 반환 기한 ${dueDate}`, actor: session.name })
   // 대여자에게 대여 사실·반환 기한을 통보한다(불출 완료 통보의 대여판) — 반환 책임의 기준점이 된다.
-  dispatch({ channel: '이메일', to: `${to} (${dept})`, subject: `자산 대여 — ${asset.assetNo} ${asset.model} 대여, 반환 기한 ${dueDate}까지`, kind: '자산 대여', ref: asset.assetNo })
+  dispatch({ channel: '이메일', to: recipientOf(to, dept), subject: `자산 대여 — ${asset.assetNo} ${asset.model} 대여, 반환 기한 ${dueDate}까지`, kind: '자산 대여', ref: asset.assetNo })
   appendAudit({ actor: session.name, action: `자산 대여 — ${to}(${dept}) · 기한 ${dueDate} · 대여자 통보`, target: assetNo })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${assetNo} 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}` }
@@ -337,6 +342,11 @@ export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: 
   const to = rawTo.trim()
   const dept = rawDept.trim()
   if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }
+  // 자리표시자('-'·'미지정')는 대여자가 아니다 — 통과시키면 대장에 '대여중인데 보유자 없음'이 남아,
+  //  정합성 큐가 방금 만든 기록을 곧바로 '소유자 미지정'으로 세고(lib/quality assetDataIssues), 대여 통보는
+  //  '미지정 (부서)' 앞으로 나가 아무도 읽지 않는다(lib/notify 가 recipientOf 로 막으려던 바로 그 발송).
+  //  판정은 통지 수신자·이력 표기와 같은 lib/quality 의 isPlaceholder 를 쓴다(여기서 값을 다시 적지 않는다).
+  if (isPlaceholder(to) || isPlaceholder(dept)) return { ok: false, message: '대여자·부서에 자리표시자(미지정 · -)는 쓸 수 없습니다 — 실제 대여자를 입력해 주세요.' }
   if (!isValidDate(dueDate)) return { ok: false, message: '반환 기한을 선택해 주세요.' }
   if (dueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
   const s = getStore()
@@ -353,7 +363,7 @@ export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: 
     asset.loanExtendRequest = undefined
     asset.returnRequest = undefined
     asset.history.push({ date: today(), kind: '대여', detail: `${dept} ${to} 대여 — 반환 기한 ${dueDate} (일괄)`, actor: session.name })
-    dispatch({ channel: '이메일', to: `${to} (${dept})`, subject: `자산 대여 — ${asset.assetNo} ${asset.model} 대여, 반환 기한 ${dueDate}까지`, kind: '자산 대여', ref: asset.assetNo })
+    dispatch({ channel: '이메일', to: recipientOf(to, dept), subject: `자산 대여 — ${asset.assetNo} ${asset.model} 대여, 반환 기한 ${dueDate}까지`, kind: '자산 대여', ref: asset.assetNo })
   }
   appendAudit({ actor: session.name, action: `자산 일괄 대여 — ${to}(${dept}) · 기한 ${dueDate} (${targets.length}건) · 대여자 통보`, target: '대여' })
   revalidatePath('/', 'layout')

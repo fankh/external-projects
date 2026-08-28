@@ -1208,6 +1208,23 @@ try {
   await p2.goto(`${BASE}/assets/register?sel=AST-2024-000091`, { waitUntil: 'networkidle' })
   ok('반납 일괄 접수 → 유휴 풀 편성(091 유휴 복귀)', ((await p2.locator('tr', { has: p2.locator('td', { hasText: 'AST-2024-000091' }) }).first().textContent()) || '').includes('유휴'))
 
+  // 대여자 자리표시자 가드 — 대여자 칸은 자유 입력이라 '미지정'·'-' 가 그대로 대장에 실릴 수 있었다.
+  //  그러면 상태는 '대여중'인데 보유자가 없는 행이 남아, 정합성 큐가 방금 만든 그 행을 곧바로 '소유자 미지정'으로 세고
+  //  대여 통보는 '미지정 (부서)' 앞으로 나간다(lib/notify 가 recipientOf 로 막으려던 바로 그 발송).
+  //  거부되고 자산은 유휴로 남아야 한다 — 남아야 뒤의 일괄 대여 검사가 이 자산을 계속 쓸 수 있다.
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()
+  const loanPh = p2.locator('span').filter({ has: p2.locator('button', { hasText: /^대여$/ }) }).first()
+  await loanPh.locator('input[placeholder="대여자"]').fill('미지정')
+  await loanPh.locator('input[placeholder="부서"]').fill('인재개발팀')
+  await loanPh.locator('input[type="date"]').fill(dPlus(30))
+  await loanPh.locator('button', { hasText: /^대여$/ }).click()
+  await p2.waitForTimeout(700)
+  ok('대여자 자리표시자 가드: 미지정 대여자 거부', ((await p2.locator('body').textContent()) || '').includes('자리표시자'))
+  await p2.goto(`${BASE}/assets/register?sel=AST-2024-000091`, { waitUntil: 'networkidle' })
+  ok('대여자 자리표시자 가드: 거부 후 자산은 유휴 유지(대장에 보유자 없는 대여중 행이 생기지 않는다)',
+    ((await p2.locator('tr', { has: p2.locator('td', { hasText: 'AST-2024-000091' }) }).first().textContent()) || '').includes('유휴'))
+
   // 자산 일괄 대여 — 교육·행사용 로너 풀처럼 유휴 재고 다수를 한 대여자·부서·반환 기한으로 한 번에 대여(일괄 회수의 반대편). 위 반납 접수로 유휴 복귀한 091·562를 일괄 대여.
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()

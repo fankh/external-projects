@@ -2435,6 +2435,18 @@ try {
   check(`만료 임박 창: 잔여 기간 비교·D-day 라벨에 만료창 값(${expWin})을 박지 않음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     Number.isFinite(expWin) && ddayHardcoded.length === 0, `직접 비교·라벨=${ddayHardcoded.join(', ') || '없음'}`)
 
+  // 보유자를 자유 입력으로 받아 대장에 쓰는 액션은 자리표시자를 거른다 — 대여 두 경로(단건·일괄)가 그랬다.
+  //  '미지정'·'-' 를 그대로 통과시키면 상태는 '대여중'인데 보유자가 없는 행이 남아, 정합성 큐(assetDataIssues)가
+  //  방금 만든 그 행을 곧바로 '소유자 미지정'으로 세고 대여 통보는 '미지정 (부서)' 앞으로 나간다 —
+  //  lib/notify 가 recipientOf 로 막으려던 바로 그 '아무에게도 아닌 발송'이다. 두 경로 모두 막혀야 한다
+  //  (한쪽만 막으면 단건은 거부되는데 일괄로는 들어가는 비대칭이 남는다).
+  const lendSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'assets', 'register', 'actions.ts'), 'utf8').split(/\r?\n/)
+  const lendEmpty = lendSrc.map((ln, i) => (ln.includes('대여자와 부서를 입력해 주세요') ? i : -1)).filter((i) => i >= 0)
+  //  빈 값 검사 바로 다음 세 줄 안에 자리표시자 검사가 있는지 본다(주석은 건너뛴다)
+  const lendGuarded = lendEmpty.filter((i) => lendSrc.slice(i + 1, i + 8).some((ln) => /isPlaceholder\(/.test(ln) && !ln.trim().startsWith('//')))
+  check(`대여 보유자: 단건·일괄 두 경로 모두 자리표시자를 거부(입력 검사 ${lendEmpty.length}곳)`,
+    lendEmpty.length === 2 && lendGuarded.length === 2, `검사 있음=${lendGuarded.length}/${lendEmpty.length}`)
+
   // 발송 이력의 시간 순서 — 화면(NotificationLog)도 반출(dispatch-export)도 정렬하지 않고 배열 순서를 그대로
   //  쓴다. 그 순서는 dispatch() 의 unshift 로 유지되는 '최신 먼저'다. 그래서 기존 행의 at 을 고치는 코드는
   //  자리도 함께 옮겨야 한다 — 재발송이 at 만 오늘로 바꾸고 자리를 두면 오늘 나간 통지가 옛 행 사이에 묻힌다.
