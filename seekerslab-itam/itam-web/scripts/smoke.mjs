@@ -3847,6 +3847,17 @@ try {
   const loopClaims = [...claims(readme, /폐쇄 루프 (\d+)종/g), ...claims(summary, /폐쇄 루프 (\d+)종/g)]
   check(`문서: 폐쇄 루프 ${loops}종 일치`, allSame(loopClaims, loops), `주장=${loopClaims.join(',')} 실제=${loops}`)
 
+  // 구축 요약의 검증 표 — 같은 문서가 '아래 표는 그중 대표 N종이며 … Playwright 로 실제 UI 를 조작해 검증한 결과'라고
+  //  적는다. 이 문장은 몇 건을 실제로 조작해 봤는지에 대한 진술이라, 표에 행을 더하거나 빼면 그대로 거짓이 된다.
+  //  같은 문서의 다른 수(폐쇄 루프·화면·스모크·샘플)는 모두 고정돼 있는데 이 표만 빠져 있었다.
+  const repStart = summary.indexOf('## 2. 동작하는 폐쇄 루프')
+  const repEnd = summary.indexOf('\n## ', repStart + 1)
+  const repSection = summary.slice(repStart, repEnd === -1 ? undefined : repEnd)
+  const repRows = [...repSection.matchAll(/^\| \d+ \|/gm)].length
+  const repClaims = claims(summary, /대표 (\d+)종/g)
+  check(`문서: 검증 표 대표 ${repRows}종 일치`, repClaims.length > 0 && allSame(repClaims, repRows),
+    `주장=${repClaims.join(',')} 실제=${repRows}`)
+
   // 샘플 산출물 수 — 문서가 '샘플 N종'이라고 적는데 실제 파일 수와 갈리면(실제로 8종이라 적힌 채 10종이 있었다)
   //  받아 보는 쪽은 두 개가 빠진 줄 안다. 파일(샘플_*.csv — 설명 문서와 구분된다)과 주장을 맞춘다.
   const sampleFiles = readdirSync(path.join(ROOT, '..', 'docs')).filter((f) => f.startsWith('샘플_') && f.endsWith('.csv')).length
