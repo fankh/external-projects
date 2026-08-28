@@ -90,7 +90,7 @@ export function PlanView(props: {
             </div>
             <div className="hstack">
               <span className="dim" style={{ fontSize: 11.5 }}>
-                대상 모수는 선택한 범위의 대장 자산에서 자동 산출됩니다 (폐기 완료 제외).
+                대상 모수는 선택한 범위의 대장 자산에서 자동 산출됩니다 — 현장에서 스캔할 실물이 있는 유형(단말·서버·네트워크·주변기기)만, 폐기 완료 제외.
               </span>
               <span className="right" />
               <button className="btn pri" disabled={pending || !name.trim() || !dueDate} onClick={submit}>등록</button>
