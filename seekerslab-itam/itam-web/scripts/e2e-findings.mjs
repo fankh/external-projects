@@ -1533,6 +1533,13 @@ try {
   ok('연동: 재발송한 행에 재발송 표기가 남는다(처음부터 정상 발송처럼 읽히지 않게)',
     ((await failRow().textContent()) || '').includes('재발송'))
   const dispXls = Buffer.from(await (await p3.request.get(`${BASE}/api/dispatch-export`)).body()).toString('utf8')
+  // 재발송하면 그 행이 목록 맨 위로 온다 — 발송 이력은 정렬 없이 배열 순서(최신 먼저)를 그대로 보여 준다.
+  //  at 만 오늘로 고치고 자리를 두면 오늘 나간 통지가 옛 행들 사이에 묻혀, 위쪽만 훑는 사람이 못 본다.
+  // 카드를 kicker 로 특정한다 — 이 화면은 감사 로그 카드가 위에 있어 tbody tr 만 잡으면 그 표를 읽는다(#708 과 같은 함정).
+  const notifCard = p3.locator('.card', { has: p3.locator('.kicker', { hasText: 'Notifications' }) }).first()
+  const firstRowId = ((await notifCard.locator('tbody tr').first().textContent()) || '').match(/MSG-[0-9]+/)
+  ok('연동: 재발송한 통지가 발송 이력 맨 위에 온다(최신 먼저 순서 유지)',
+    !!firstRowId && firstRowId[0] === 'MSG-4004')
   ok('연동: 발송 이력 반출에 최초 실패 시각·재발송 처리자가 실린다',
     dispXls.includes('재발송 증적') && /재발송 \(최초 [0-9-]{10} [0-9:]{5} 실패/.test(dispXls))
   await aiPeriodQuery(p3)

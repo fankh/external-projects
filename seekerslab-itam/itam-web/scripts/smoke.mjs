@@ -2379,6 +2379,16 @@ try {
   check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
 
+  // 발송 이력의 시간 순서 — 화면(NotificationLog)도 반출(dispatch-export)도 정렬하지 않고 배열 순서를 그대로
+  //  쓴다. 그 순서는 dispatch() 의 unshift 로 유지되는 '최신 먼저'다. 그래서 기존 행의 at 을 고치는 코드는
+  //  자리도 함께 옮겨야 한다 — 재발송이 at 만 오늘로 바꾸고 자리를 두면 오늘 나간 통지가 옛 행 사이에 묻힌다.
+  //  at 을 대입하는 곳이 배열 재배치도 하는지 본다.
+  const dispActSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'platform', 'integrations', 'actions.ts'), 'utf8')
+  const touchesAt = /msg\.at = /.test(dispActSrc)
+  const reorders = /s\.dispatches = \[msg, /.test(dispActSrc)
+  check('발송 이력 순서: at 을 고치는 곳이 행 위치도 최신으로 옮긴다', !touchesAt || reorders,
+    `at 수정=${touchesAt} 재배치=${reorders}`)
+
   // 재물조사 마감의 커버리지 근거 — 완료 가드는 회차의 '대상 자산번호 목록'(targets)에 대해서만 미실사를 센다.
   //  앱이 만든 회차(planRound·자동 편성)는 목록을 저장하지만 손으로 쓴 시드 회차에는 없고, 그 범위 문자열은
   //  위치와 매칭되지 않는 서술형이라(예: '본사 전층 + IDC-A') 범위로 되짚을 수도 없다. 그런 회차에서는 가드가
