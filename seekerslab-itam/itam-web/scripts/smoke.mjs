@@ -2433,6 +2433,16 @@ try {
   check(`복합 위험 캐시: riskSignals 소비자는 compositeRiskAssetNos 로 캐시를 비운 뒤 쓴다(소비자 ${riskUsers.length}곳)`,
     riskUsers.length > 0 && riskUnbatched.length === 0, `배치 호출 없음=${riskUnbatched.join(', ')}`)
 
+  // 종결된 건이 조작한 화면에 남는가 — 집행 불가로 닫은 이동 신청은 대기 큐에서 빼야 하지만(#709), 완료
+  //  목록에도 없으면 담당자가 '이동 처리'를 눌러 종결한 그 건이 화면에서 통째로 사라진다. 결재함에는
+  //  '집행 불가'로 남아도, 조작을 한 화면에 흔적이 없으면 처리했는지조차 확인할 수 없다(대기에서 뺀 것과
+  //  완료에 넣는 것은 한 벌이다 — 한쪽만 하면 조용한 소멸이 된다).
+  const mvPageSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'assets', 'movement', 'page.tsx'), 'utf8')
+  const excludesFromQueue = /!a\.unfulfilledReason/.test(mvPageSrc)
+  const showsInDone = /a\.fulfilled \|\| a\.unfulfilledReason/.test(mvPageSrc)
+  check('이동 화면: 대기에서 뺀 집행 불가 종결분을 완료 목록에 남긴다(조용한 소멸 방지)',
+    !excludesFromQueue || showsInDone, `대기 제외=${excludesFromQueue} 완료 표시=${showsInDone}`)
+
   // 집행 대기 큐에 빠져나갈 문이 있는가 — '승인 && !fulfilled' 로 세는 큐는 집행이 영원히 불가능한 건까지
   //  담는다. 이동 신청이 그랬다: 대상 자산이 결재에 고정돼 있어(refId) 그 자산이 분실·폐기로 떠나면 다른
   //  자산으로 바꿀 수 없는데, 서버는 '반려·취소로 정리하세요'라고 안내했다 — 반려도 상신 취소도 '대기' 건만

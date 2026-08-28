@@ -15,7 +15,7 @@ export function MovementView(props: {
   moves: Move[]
   pool: Pool[]
   locations: string[]
-  done: { id: string; kind: string; title: string; requester: string }[]
+  done: { id: string; kind: string; title: string; requester: string; unfulfilled?: string }[]
 }) {
   const [sel, setSel] = useState<Record<string, string>>({})
   const [loc, setLoc] = useState<Record<string, string>>({})
@@ -175,8 +175,11 @@ export function MovementView(props: {
                 <tbody>
                   {props.done.map((d) => (
                     <tr key={d.id}>
-                      <td className="c"><Chip tone="ok">{d.kind}</Chip></td>
-                      <td>{d.title}<div className="dim" style={{ fontSize: 11 }}>{d.id}</div></td>
+                      {/* 집행 불가 종결은 '완료'와 다른 결말이다 — 같은 칩으로 두면 처리된 것으로 읽힌다 */}
+                      <td className="c"><Chip tone={d.unfulfilled ? 'warn' : 'ok'}>{d.unfulfilled ? '집행 불가' : d.kind}</Chip></td>
+                      <td>{d.title}<div className="dim" style={{ fontSize: 11 }}>{d.id}</div>
+                        {d.unfulfilled && <div style={{ fontSize: 11, color: 'var(--warn)' }}>{d.unfulfilled}</div>}
+                      </td>
                       <td>{d.requester}</td>
                     </tr>
                   ))}
