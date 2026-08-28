@@ -2161,6 +2161,54 @@ try {
     }
   }
   for (const d of ['app', 'lib', 'components']) walkSrc(path.join(ROOT, d))
+  // 권한 스윕 대상(ROUTES)이 실제 화면 전부인가 — ROUTES 는 '30 라우트 × 4 권한그룹'을 훑는 근거이자 문서가 세는 수다.
+  //  새 화면을 만들고 여기에 안 적으면 그 화면만 권한 검사를 한 번도 받지 않은 채 통과하고(무증상), 문서의 라우트 수도
+  //  조용히 실제보다 적게 말한다. 파일 시스템의 page.tsx 와 정확히 같은 집합인지 본다.
+  //  로그인·루트는 인증 진입점이라 권한 매트릭스 대상이 아니다(그 예외를 여기 명시해 둔다).
+  const AUTH_ENTRY = ['/login', '/']
+  const pageRoutes = sourceFiles
+    .filter((f) => path.basename(f) === 'page.tsx')
+    .map((f) => '/' + path.relative(path.join(ROOT, 'app'), path.dirname(f)).split(path.sep).filter((seg) => !seg.startsWith('(')).join('/'))
+    .filter((r) => !AUTH_ENTRY.includes(r))
+  const listed = Object.keys(ROUTES)
+  const missing = pageRoutes.filter((r) => !listed.includes(r))
+  const stale = listed.filter((r) => !pageRoutes.includes(r))
+  check(`권한 스윕 대상: ROUTES 가 실제 화면 전부(화면 ${pageRoutes.length}개 · 등재 ${listed.length}개)`,
+    missing.length === 0 && stale.length === 0, `누락=${missing.join(', ') || '없음'} 유령=${stale.join(', ') || '없음'}`)
+
+  // 드릴다운 링크가 실제로 거르는가 — 큐·카드가 '/assets/register?maint=1' 처럼 파라미터를 붙여 목록으로 보내는데,
+  //  대상 페이지가 그 파라미터를 읽지 않으면 필터 없는 전체 목록이 뜬다. 화면은 '이 큐의 N건'으로 보냈는데 사용자는
+  //  전량을 받는 셈이라, 건수와 목록이 어긋나는 것을 넘어 어느 행이 그 큐인지 알 수 없다(조용히 넓어지는 드릴다운).
+  //  링크에 쓰인 (경로, 파라미터) 조합마다 대상 페이지 소스가 그 이름을 실제로 다루는지 본다.
+  const linkParams = new Map()
+  for (const f of sourceFiles) {
+    const rel = path.relative(ROOT, f).split(path.sep).join('/')
+    for (const m of readFileSync(f, 'utf8').matchAll(/['`"](\/[a-z0-9\-\/]+)\?([a-zA-Z0-9=&${}._\-]+)['`"]/g)) {
+      for (const pair of m[2].split('&')) {
+        const key = pair.split('=')[0]
+        if (!key || key.includes('$')) continue // 변수 보간 파라미터는 이름을 알 수 없어 제외
+        const id = m[1] + '?' + key
+        if (!linkParams.has(id)) linkParams.set(id, new Set())
+        linkParams.get(id).add(rel)
+      }
+    }
+  }
+  const routeSrc = (route) => {
+    for (const cand of [path.join(ROOT, 'app', '(app)', ...route.slice(1).split('/')), path.join(ROOT, 'app', ...route.slice(1).split('/'))]) {
+      if (!existsSync(cand)) continue
+      return readdirSync(cand).filter((e) => /\.tsx?$/.test(e)).map((e) => readFileSync(path.join(cand, e), 'utf8')).join('\n')
+    }
+    return null
+  }
+  const deadLinks = [...linkParams].flatMap(([id, from]) => {
+    const [route, key] = id.split('?')
+    const src = routeSrc(route)
+    if (src === null) return [id + '(대상 화면 없음)']
+    return src.includes(key) ? [] : [id + '(' + [...from].join(',') + ')']
+  })
+  check(`드릴다운 링크: 대상 화면이 파라미터를 실제로 다룸(링크 ${linkParams.size}종 검사)`,
+    linkParams.size >= 30 && deadLinks.length === 0, `미처리=${deadLinks.join(', ') || '없음'}`)
+
   const statusDupes = sourceFiles
     .filter((f) => readFileSync(f, 'utf8').includes(STATUS_LITERAL))
     .map((f) => path.relative(ROOT, f).split(path.sep).join('/'))
