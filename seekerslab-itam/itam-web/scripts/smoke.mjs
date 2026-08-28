@@ -2715,7 +2715,7 @@ try {
     .flatMap(([rel, src]) => src.split(/\r?\n/)
       .map((ln, i) => [rel, i + 1, ln])
       .filter(([, , ln]) => !ln.trim().startsWith('//') && !ln.trim().startsWith('*')
-        && /used \/ [a-z.]*purchased/.test(ln))
+        && /used \/ [a-z.]*purchased \s*<\s*0\./.test(ln))  // 표시용 사용률 막대는 규칙이 아니라 제외
       .map(([rel2, i]) => rel2 + ':' + i))
   check(`라이선스 판정: 사용률 규칙이 lib/reports 밖에 없음(소스 ${sourceFiles.length}개 검사)`,
     licRuleCopies.length === 0, `사본=${licRuleCopies.join(', ') || '없음'}`)

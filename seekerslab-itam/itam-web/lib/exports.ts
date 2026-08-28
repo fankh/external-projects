@@ -8,6 +8,7 @@ import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { contractAssetCount, getStore } from './store'
 import { ASSET_CATEGORIES, CLOUD_POLICY, IDLE_POOL_STATUSES, LOCALVM_POLICY, UNAUTH_SW_POLICY, USB_POLICY, type PermMenu, type Role } from './types'
 import type { Sheet } from './xlsx'
+import { licenseVerdict } from './reports'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
  *  (제품안내서 §02: 권한은 메뉴(화면) × 기능(버튼) 단위로 부여) */
@@ -300,7 +301,10 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
           const gap = l.used - l.purchased
           return [
             l.id, l.name, l.vendor, l.contractId ?? '미연계', l.purchased, l.used, gap, l.unitCost, l.expiry,
-            l.status === '해지' ? '해지' : gap > 0 ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정',
+            // 판정은 화면·컴플라이언스 리포트·대시보드 큐와 같은 lib/reports licenseVerdict — 여기서 규칙을 다시 적으면서
+            //  만료를 빼 두어, 만료된 라이선스가 반출본에서는 '적정'으로 읽혔다(초과 건은 '초과 사용'으로만 나가 만료 사실이 사라졌다).
+            //  반출본은 SAM 감사에 그대로 나가는 문서라, 위반을 감추는 판정을 실을 수 없다.
+            l.status === '해지' ? '해지' : licenseVerdict(l).label,
             l.status === '해지' ? (l.terminateReason ?? '미기재') : '-',
             l.status === '해지' ? (l.terminatedBy ?? '미기재') : '-',
           ]
