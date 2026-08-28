@@ -226,7 +226,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         columns: ['구분', '대상', '상세', '위험도', '조치 상태'],
         rows: [
           ...credOpen.map((c) => ['크리덴셜 노출', `${c.service} ${c.host}`, c.issue, c.severity, '미조치']),
-          ...acctOpen.map((a) => { const dd = dormantDaysOf(a); return ['휴면 계정', a.account, `${a.kind} · ${dd === null ? '로그인 이력 없음' : `${dd}일`}`, a.risk, '미처리'] }),
+          ...acctOpen.map((a) => { const dd = dormantDaysOf(a, today()); return ['휴면 계정', a.account, `${a.kind} · ${dd === null ? '로그인 이력 없음' : `${dd}일`}`, a.risk, '미처리'] }),
           ...swOpen.map((w) => ['미인가 SW', `${w.name} @ ${w.assetNo}`, w.kind, w.risk, '미조치']),
           ...usbOpen.map((u) => ['USB 저장매체', `${u.device} @ ${u.assetNo}`, u.kind, u.risk, '미조치']),
           ...vmOpen.map((v) => ['로컬 VM', `${v.vm} @ ${v.assetNo}`, `${v.kind} · ${v.guestOs}`, v.risk, '미조치']),

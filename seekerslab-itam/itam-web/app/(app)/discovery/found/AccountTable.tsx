@@ -7,7 +7,9 @@ import { resolveAccountReview, respondToAccount, respondToAccountMany } from '..
 
 const KIND_TONE = { '휴면 관리자 계정': 'err', '미사용 서비스 계정': 'warn', '휴면 사용자 계정': 'neutral' } as const
 
-export function AccountTable({ accounts, canAct, openOnly: openOnlyParam }: { accounts: AccountFinding[]; canAct: boolean; openOnly?: boolean }) {
+// today 는 서버가 넘긴다 — 휴면 경과일을 브라우저 시계로 계산하면 서버 HTML 과 값이 갈려 하이드레이션이 깨진다
+//  (UTC 컨테이너 ↔ KST 브라우저의 자정~09시 구간). lib/dates 가 경고하는 서버 전용 규약을 인자로 지킨다.
+export function AccountTable({ accounts, canAct, openOnly: openOnlyParam, today }: { accounts: AccountFinding[]; canAct: boolean; openOnly?: boolean; today: string }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
@@ -84,7 +86,7 @@ export function AccountTable({ accounts, canAct, openOnly: openOnlyParam }: { ac
                 {/* 휴면 경과일은 마지막 로그인에서 파생한다(lib/dates dormantDaysOf) — 저장 카운터는 시간이 지나면 어긋난다.
                     로그인 이력이 없는 계정은 셀 수 없지만 휴면 위험이 가장 큰 쪽이라 함께 강조한다. */}
                 {(() => {
-                  const dd = dormantDaysOf(a)
+                  const dd = dormantDaysOf(a, today)
                   return (
                     <td className="num tnum" style={dd === null || dd >= 180 ? { color: 'var(--err)', fontWeight: 700 } : undefined}>
                       {dd === null ? '이력 없음' : dd}
