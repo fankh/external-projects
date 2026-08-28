@@ -60,6 +60,10 @@ export async function resendDispatch(id: string) {
   msg.resentBy = session.name
   msg.deliveryStatus = '발송'
   msg.at = nowMinute()
+  // 시각을 고쳤으면 자리도 옮긴다 — 발송 이력은 정렬 없이 배열 순서를 그대로 보여 주고(화면·반출 모두),
+  //  그 순서는 unshift 로 유지되는 '최신 먼저'다. at 만 오늘로 고치고 자리를 두면 오늘 나간 발송이 옛 행들
+  //  사이에 묻혀, 목록 위쪽만 훑는 사람은 재발송된 통지를 못 본다(날짜 필터에는 걸리는데 순서는 어긋난다).
+  s.dispatches = [msg, ...s.dispatches.filter((m) => m.id !== msg.id)]
   appendAudit({ actor: session.name, action: `알림 재발송 — ${msg.channel} ${msg.kind} (${msg.to})`, target: id, result: '성공' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${msg.channel} 알림 재발송 — ${id} 전달 완료` }
