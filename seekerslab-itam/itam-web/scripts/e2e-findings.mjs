@@ -1527,6 +1527,14 @@ try {
   await failRow().locator('button', { hasText: /^재발송$/ }).click()
   await p3.waitForTimeout(700)
   ok('연동: 재발송 → 전달 완료(발송) 전환', ((await p3.textContent('body')) || '').includes('전달 완료') && (await failRow().locator('button', { hasText: /^재발송$/ }).count()) === 0)
+  // 재발송했다는 사실이 행에 남는가 — 재발송은 at 을 최신 시도로 덮으므로(당일 중복 억제가 at 을 본다)
+  //  그냥 '발송'으로만 두면 이 행은 처음부터 정상 발송된 것처럼 읽힌다. 통지 증적은 '보냈다'가 아니라
+  //  '언제·몇 번 보냈다'까지가 사실이다 — 화면 표기와 발송 이력 반출 양쪽에서 확인한다.
+  ok('연동: 재발송한 행에 재발송 표기가 남는다(처음부터 정상 발송처럼 읽히지 않게)',
+    ((await failRow().textContent()) || '').includes('재발송'))
+  const dispXls = Buffer.from(await (await p3.request.get(`${BASE}/api/dispatch-export`)).body()).toString('utf8')
+  ok('연동: 발송 이력 반출에 최초 실패 시각·재발송 처리자가 실린다',
+    dispXls.includes('재발송 증적') && /재발송 \(최초 [0-9-]{10} [0-9:]{5} 실패/.test(dispXls))
   await aiPeriodQuery(p3)
 
   // ── 순수 로직 불변식(회귀 방지) — 상태를 바꾸지 않는 읽기 검증 ──
@@ -1920,7 +1928,10 @@ try {
   ok('SaaS 재판정: 차단 복구 · 집행 요청 재발송', ((await p3.textContent('body')) || '').includes('차단 집행 요청 발송'))
   // SaaS 판정 독촉 SMS 등급 게이트 — 기밀·민감 등급만 문자(SMS) 병행, 일반 등급은 이메일만(데이터 반출 위험 기준). escalate 가 sms 미지정에도 제목으로 문자를 보내 일반 등급(Miro)에도 SMS 가 새던 버그. 문자 subject '[긴급] …'로 식별: 민감(ChatGPT)엔 '[긴급] ChatGPT 미판정' 문자, 일반(Miro)엔 '[긴급] SaaS 판정 기한 경과 — Miro' 문자가 없어야 한다.
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
-  const saasSmsBody = (await p3.locator('.card', { has: p3.locator('text=알림 발송 이력') }).first().textContent()) || ''
+  // 카드는 제목 문구가 아니라 그 카드의 kicker 로 특정한다 — '알림 발송 이력'은 감사 로그의 동작 문구에도
+  //  등장한다(발송 이력 엑셀 반출이 그 문구로 감사를 남긴다). 제목 문구로 .first() 를 잡으면 누군가 그 반출을
+  //  한 번 호출하는 순간 감사 카드가 먼저 매칭돼, 이 검사는 엉뚱한 카드의 텍스트를 읽는다(실제로 그렇게 깨졌다).
+  const saasSmsBody = (await p3.locator('.card', { has: p3.locator('.kicker', { hasText: 'Notifications' }) }).first().textContent()) || ''
   ok('SaaS 판정 독촉 SMS 게이트: 민감(ChatGPT) 문자 발송 · 일반(Miro) 문자 미발송', saasSmsBody.includes('[긴급] ChatGPT 미판정') && !saasSmsBody.includes('[긴급] SaaS 판정 기한 경과 — Miro'))
   await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' }) // 후속 테스트 컨텍스트 복원(SaaS 카탈로그 화면)
   // SaaS 카탈로그 신규 등록(create 파리티) — 발견 이전이라도 담당자가 서비스를 검토중으로 직접 등재. 그동안 카탈로그는 발견 판정·인가 결재로만 늘어 create 진입점이 없었다(공통코드엔 있는 add).
