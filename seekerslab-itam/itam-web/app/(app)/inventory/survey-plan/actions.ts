@@ -8,6 +8,7 @@ import { getStore, nextId } from '@/lib/store'
 import { staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
 import { can } from '@/lib/perm'
 import type { Asset, RoundKind } from '@/lib/types'
+import { PHYSICAL_CATEGORIES } from '@/lib/quality'
 
 /** 조사 대상 모수 — 폐기 완료 자산은 실물이 없으므로 제외한다.
  *  범위가 '전사'면 전량, 아니면 위치 문자열이 범위로 시작하는 자산(랙 단위 위치 포함). */
@@ -43,7 +44,10 @@ export async function planRound(input: {
   // 대상 모수뿐 아니라 대상 자산번호 목록도 저장한다 — 이래야 실사 화면이 '무엇이 아직 미실사인지'를 알고,
   // 끝내 못 찾은 대장 자산을 분실 후보로 남긴다(자동 편성 회차와 동일 규약). 목록이 없으면 스캔한 것만 세고
   // 미스캔분은 조용히 사라져 재물조사의 본래 목적(누락·분실 탐지)이 닫히지 않는다.
-  const inScopeAssets = s.assets.filter((a) => inScope(a, input.scope))
+  // 현장에서 스캔할 실물이 있는 자산만 편성한다 — SW·가상자원은 실물이 없고, 폐기완료는 이미 파기됐다.
+  //  그들을 넣으면 회차가 100% 에 도달할 수 없고(진행률 분모만 커진다), 마감 시 미스캔분이 분실 후보로 올라와
+  //  클라우드 VM·이미 파기한 장비를 "분실"로 지목하게 된다 — 재물조사가 잡으려는 유령을 스스로 만드는 셈이다.
+  const inScopeAssets = s.assets.filter((a) => inScope(a, input.scope) && PHYSICAL_CATEGORIES.includes(a.category) && a.status !== '폐기완료')
   const planned = inScopeAssets.length
   if (planned === 0) return { ok: false, message: `대상 자산이 없는 범위입니다 — ${input.scope}` }
 

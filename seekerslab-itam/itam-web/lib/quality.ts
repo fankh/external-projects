@@ -30,7 +30,9 @@ export function hasHolder(owner?: string): boolean {
 }
 
 /** 물리 실물이 있는 유형 — 시리얼·위치는 이들에만 요구한다. SW·가상자원은 물리 시리얼·위치가 없다. */
-const PHYSICAL: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기']
+/** 재물조사 편성도 이 목록을 쓴다 — SW·가상자원은 현장에서 스캔할 실물이 없어, 회차에 넣으면 영원히 미스캔으로
+ *  남아 진행률 분모만 부풀리고 마감 시 분실 후보로 올라온다(있지도 않은 실물을 찾으라는 지시가 된다). */
+export const PHYSICAL_CATEGORIES: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기']
 
 /** 대장 정합성 점검 — 운영 중 자산의 핵심 필드 누락·불일치를 찾아낸다.
  *  CMDB 의 신뢰도는 대장과 실물의 일치에서 나온다(제품안내서 §03: 대장과 실물의 불일치를 줄인다).
@@ -45,7 +47,7 @@ export function assetDataIssues(a: Asset, deptOf?: DeptOfOwner): string[] {
   // 위치도 자리표시자('실사 확인 필요')를 값으로 치지 않는다 — 발견 편입이 위치 미상을 그 문구로 적어 두는데,
   //  문자열이 비어 있지 않다는 이유로 정합성 큐에서 빠지면 실사로 위치를 확정할 계기가 사라진다(보유자와 같은 규약).
   const noLocation = (v?: string) => blank(v) || v!.trim() === '실사 확인 필요'
-  const physical = PHYSICAL.includes(a.category)
+  const physical = PHYSICAL_CATEGORIES.includes(a.category)
   // 사용중·대여중인데 소유자가 없다 — 실물을 쥔 사람이 대장에 없다(회수·재배정 누락)
   if ((a.status === '사용중' || a.status === '대여중') && noOwner(a.owner)) issues.push('소유자 미지정')
   // 시리얼·위치는 실물 자산(H/W)만 — SW·가상자원은 물리 시리얼·위치가 없어 오탐이 된다
