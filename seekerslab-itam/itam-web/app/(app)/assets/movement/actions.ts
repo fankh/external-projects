@@ -7,6 +7,7 @@ import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { can } from '@/lib/perm'
 import { GONE_STATUSES } from '@/lib/types'
+import { isKnownLocation } from '@/lib/codes'
 
 async function guard() {
   const session = await getSession()
@@ -29,6 +30,9 @@ async function guard() {
 export async function issueAsset(approvalId: string, assetNo: string, location: string) {
   const session = await guard()
   if (!session) return { ok: false, message: '불출 처리 권한이 없습니다.' }
+  // 배치 위치는 레지스트리 값이어야 한다 — 불출은 대장 위치를 확정하는 자리이고, 레지스트리 밖 위치가 실리면
+  //  그 자산은 재물조사 편성·스캔에서 빠진다(이동 신청·실사 스캔과 같은 규약).
+  if (!isKnownLocation(location)) return { ok: false, message: `등록되지 않은 위치입니다 — ${location} (위치는 공통코드에서 관리합니다).` }
 
   const s = getStore()
   const ap = s.approvals.find((a) => a.id === approvalId)

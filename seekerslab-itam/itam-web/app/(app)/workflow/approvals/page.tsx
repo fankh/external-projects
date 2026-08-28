@@ -8,6 +8,7 @@ import { getStore } from '@/lib/store'
 import { availableAssets } from '@/lib/stock'
 import { ApprovalList } from './ApprovalList'
 import { RequestForm } from './RequestForm'
+import { activeLocations } from '@/lib/codes'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,10 +39,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const loanable = availableAssets(s.assets, s.disposals)
     .map((a) => ({ assetNo: a.assetNo, model: a.model, location: a.location }))
 
-  const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
-    .filter((v) => v.active)
-    .sort((a, b) => a.sort - b.sort)
-    .map((v) => v.label)
+  // 선택지와 서버 검사가 갈리지 않도록 목록·판정 모두 lib/codes 한 곳에서 온다(isKnownLocation 과 같은 원천).
+  const locations = activeLocations()
 
   // 결재 종류별 기본 결재선(단계 순서) — 결재함에서 각 건의 라우팅을 보여준다.
   // 설정: 환경설정 › 사용자·결재선. 폐기·격리·편입·차이 조정은 필수 결재.

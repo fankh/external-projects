@@ -6,6 +6,7 @@ import { getStore } from '@/lib/store'
 import { GONE_STATUSES } from '@/lib/types'
 import { SurveyConsole } from './SurveyConsole'
 import { UnscannedTargets } from './UnscannedTargets'
+import { activeLocations } from '@/lib/codes'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,10 +28,8 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
   }
 
   // 실사 위치 목록의 원천은 공통코드 LOCATION 그룹 — 미사용 처리된 코드는 제외된다
-  const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
-    .filter((v) => v.active)
-    .sort((a, b) => a.sort - b.sort)
-    .map((v) => v.label)
+  // 선택지와 서버 검사가 갈리지 않도록 목록·판정 모두 lib/codes 한 곳에서 온다(isKnownLocation 과 같은 원천).
+  const locations = activeLocations()
 
   const scans = s.surveyScans.filter((x) => x.roundId === round.id)
   const diffs = s.surveyDiffs.filter((d) => d.roundId === round.id)

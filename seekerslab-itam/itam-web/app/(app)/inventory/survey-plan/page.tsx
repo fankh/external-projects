@@ -4,6 +4,7 @@ import { today } from '@/lib/dates'
 import { staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
 import { getStore } from '@/lib/store'
 import { PlanView } from './PlanView'
+import { activeLocations } from '@/lib/codes'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,10 +14,7 @@ export default async function SurveyPlanPage() {
   const t = today()
 
   // 대상 범위 후보는 공통코드 LOCATION 그룹 — 미사용 처리된 코드는 신규 계획에서 제외된다
-  const scopes = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
-    .filter((v) => v.active)
-    .sort((a, b) => a.sort - b.sort)
-    .map((v) => v.label)
+  const scopes = activeLocations() // 선택지·서버 검사 모두 lib/codes 한 곳에서(isKnownLocation 과 같은 원천)
 
   const assignees = s.users.filter((u) => u.role === 'ASSET_MGR').map((u) => u.name)
 

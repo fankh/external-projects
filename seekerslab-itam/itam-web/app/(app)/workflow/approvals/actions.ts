@@ -11,6 +11,7 @@ import { getStore, nextApprovalId, nextAssetNo, nextId } from '@/lib/store'
 import { approvalRoute, approvalStepIndex , DISPOSAL_STATUSES, GONE_STATUSES, isUserRequestKind } from '@/lib/types'
 import type { UserRequestKind } from '@/lib/types'
 import type { ApprovalKind, AssetCategory } from '@/lib/types'
+import { isKnownLocation } from '@/lib/codes'
 
 /** 신청 상신 — 사용자가 직접 올리는 3종 (자산 신청 / 반납 / 이동).
  *  결재선은 환경설정의 화면별 기본 결재선을 따르며, 다음 단계는 상신자 다음 스텝이 된다.
@@ -77,6 +78,10 @@ export async function raiseRequest(input: {
 
     if (input.kind === '이동') {
       if (!input.targetLocation) return { ok: false, message: '이동할 위치를 선택해 주세요.' }
+      // 대상 위치는 공통코드 LOCATION 의 값이어야 대장에 그대로 반영할 수 있다 — 화면은 드롭다운으로만 내주지만
+      //  서버 액션은 화면을 거치지 않고도 호출된다. 레지스트리 밖 값이 승인·집행으로 대장에 실리면 그 자산은
+      //  재물조사 회차에 편성될 수도 그 위치로 스캔될 수도 없어, 실물이 있는데 실사에서 구조적으로 빠진다.
+      if (!isKnownLocation(input.targetLocation)) return { ok: false, message: `등록되지 않은 위치입니다 — ${input.targetLocation} (위치는 공통코드에서 관리합니다).` }
       if (input.targetLocation === asset.location) {
         return { ok: false, message: '현재 위치와 동일합니다.' }
       }

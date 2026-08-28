@@ -2323,6 +2323,31 @@ try {
   check(`실사 위치 레지스트리: 실물 자산의 위치가 모두 등록됨(위치 ${registered.length}종 · 자산 ${assetBlocks.length}건 검사)`,
     registered.length >= 10 && assetBlocks.length >= 20 && unregistered.length === 0, `미등록=${unregistered.join(', ')}`)
 
+  // 위 검사는 시드를 본다 — 운영 중 들어오는 위치는 막지 못한다. 화면은 공통코드 드롭다운으로만 위치를 내주지만
+  //  서버 액션은 화면을 거치지 않고도 호출된다(권한 가드가 '버튼을 숨겨도 액션 id 로 직접 호출할 수 있다'고
+  //  적어 둔 것과 같은 이유). 레지스트리 밖 위치가 대장에 실리면 그 자산은 재물조사 회차에 편성될 수도
+  //  그 위치로 스캔될 수도 없어, 실물이 있는데 실사에서 구조적으로 빠진다. asset.location 을 쓰는 액션 파일이
+  //  모두 레지스트리 판정(isKnownLocation)을 거치는지 본다.
+  //  '위치를 인자로 받아 대장에 쓰는' 액션만 본다 — 상수 위치('본사 3F 검수실')를 쓰는 자리까지 잡으면
+  //  외부 입력이 없는 코드에 검사를 요구하는 시끄러운 가드가 된다.
+  const locWriters = sourceFiles
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([rel]) => rel.endsWith('actions.ts'))
+    .filter(([, src]) => /(location|targetLocation)\??: string/.test(src)
+      && src.split(/\r?\n/).some((ln) => !ln.trim().startsWith('//') && /\.location\s*=|^\s*location:/.test(ln)))
+  const locUnchecked = locWriters.filter(([, src]) => !src.includes('isKnownLocation')).map(([rel]) => rel)
+  check(`대장 위치: 위치를 인자로 받아 대장에 쓰는 액션 ${locWriters.length}곳이 모두 공통코드 레지스트리로 검사`,
+    locWriters.length >= 4 && locUnchecked.length === 0, `미검사=${locUnchecked.join(', ') || '없음'}`)
+
+  //  선택지 목록도 같은 원천이어야 한다 — 화면이 목록을 따로 만들면 서버가 받는 값 집합과 갈릴 수 있다
+  //  (미사용 처리한 코드를 한쪽만 걸러 내는 식). 목록 생성은 lib/codes 의 activeLocations 하나로 모은다.
+  const locListCopies = sourceFiles
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([rel]) => rel !== 'lib/codes.ts')
+    .filter(([, src]) => src.includes("g.id === 'LOCATION'"))
+    .map(([rel]) => rel)
+  check(`위치 목록: lib/codes 밖에 사본 없음(소스 ${sourceFiles.length}개 검사)`, locListCopies.length === 0, `사본=${locListCopies.join(', ') || '없음'}`)
+
   //  그리고 공통코드 대장의 '자산 상태' 그룹이 실제 상태 전량과 같은지 본다 — 공통코드 화면은 코드값마다
   //  '사용 N건'을 세는데(lib/codes codeUsage: status === label), 값이 빠지면 그 상태의 자산이 어느 코드값에도
   //  잡히지 않아 사용 건수의 합이 보유 대수에 못 미친다. 빠진 값은 미사용화·명칭 변경 관리도 불가능하다.

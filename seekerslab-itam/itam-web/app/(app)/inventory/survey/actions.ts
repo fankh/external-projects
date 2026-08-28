@@ -9,6 +9,7 @@ import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import { can } from '@/lib/perm'
 import { GONE_STATUSES, IDLE_POOL_STATUSES } from '@/lib/types'
 import type { SurveyDiffKind } from '@/lib/types'
+import { isKnownLocation } from '@/lib/codes'
 
 /** 스캔 시각 — 표준시 처리는 lib/dates 에 위임한다 (프로세스 TZ 에 의존하지 않도록) */
 const stamp = nowMinute
@@ -22,6 +23,10 @@ export async function scanAsset(roundId: string, rawCode: string, location: stri
 
   const code = rawCode.trim().toUpperCase()
   if (!code) return { ok: false, message: '코드가 비어 있습니다.' }
+  // 스캔 위치도 레지스트리 값이어야 한다 — 위치 불일치 차이의 '현장 실측값'이 되고, 차이 조정이 승인되면
+  //  그대로 대장 위치로 확정된다(approvals 의 asset.location = d.actual). 여기서 안 막으면 레지스트리 밖 위치가
+  //  결재를 타고 대장에 들어와, 그 자산이 다음 회차 편성·스캔에서 빠진다.
+  if (!isKnownLocation(location)) return { ok: false, message: `등록되지 않은 실사 위치입니다 — ${location} (위치는 공통코드에서 관리합니다).` }
 
   const s = getStore()
   const round = s.inventoryRounds.find((r) => r.id === roundId)
