@@ -3551,6 +3551,18 @@ try {
   await pRQ.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
   const rqRow = pRQ.locator('tr', { has: pRQ.locator('td', { hasText: '수명주기 · 대여' }) }).first()
   const rqBtn = rqRow.locator('button', { hasText: /^(필수 결재|선택)$/ }).first()
+  // 토글은 서버 액션 → revalidate → 재렌더를 거치므로 고정 대기 뒤 innerText() 한 번 읽기는 경주가 된다.
+  //  innerText() 는 조건을 기다려 주지 않아, 재렌더가 늦으면 옛 문구를 읽고 검사만 실패한다(코드는 멀쩡한데
+  //  간헐적으로 붉게 뜬다 — 이 세션에서 세 번 관측했다). 기대 문구가 될 때까지 짧게 폴링한 뒤 판정한다.
+  //  끝내 안 바뀌면 마지막으로 읽은 값으로 실패하므로 검사의 뜻은 그대로다.
+  const rqTextAfter = async (want) => {
+    for (let k = 0; k < 10; k += 1) {
+      const t = (await rqBtn.innerText().catch(() => '')) || ''
+      if (t.includes(want)) return t
+      await pRQ.waitForTimeout(200)
+    }
+    return (await rqBtn.innerText().catch(() => '')) || ''
+  }
   ok('결재선: 대여는 선택(초기) — 직접 대여 허용 상태', ((await rqBtn.innerText()) || '').includes('선택'))
   // 아직 '선택'인 상태에서 대여 패널을 열어 둔다(이 화면이 곧 낡은 화면이 된다).
   const ctxRLN = await browser.newContext(); await ctxRLN.addCookies([cookie(ASSET)]); const pRLN = await ctxRLN.newPage()
@@ -3564,8 +3576,8 @@ try {
   const rlnDue = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 30 * 86400000))
   await pRLN.locator('input[type="date"]').first().fill(rlnDue)
   // 이 사이에 관리자가 대여를 필수 결재로 지정한다 — 열어 둔 화면은 그대로다.
-  await rqBtn.click(); await pRQ.waitForTimeout(800)
-  ok('결재선: 대여를 필수 결재로 지정', ((await rqBtn.innerText()) || '').includes('필수 결재'))
+  await rqBtn.click()
+  ok('결재선: 대여를 필수 결재로 지정', (await rqTextAfter('필수 결재')).includes('필수 결재'))
   await pRLN.locator('button', { hasText: /^대여 확정$/ }).click()
   await pRLN.waitForTimeout(900)
   ok('필수 결재 강제: 낡은 화면의 직접 대여를 서버가 사유와 함께 거부', ((await pRLN.textContent('body')) || '').includes('대여는 필수 결재로 지정돼 있습니다'))
@@ -3578,8 +3590,8 @@ try {
   await pRLN.waitForTimeout(300)
   ok('필수 결재 지정: 일괄 대여 컨트롤도 미노출', (await pRLN.locator('input[placeholder="대여자"]').count()) === 0)
   await ctxRLN.close()
-  await rqBtn.click(); await pRQ.waitForTimeout(800) // 선택으로 복원(뒤 검사들은 직접 대여를 쓴다)
-  ok('결재선: 대여 필수 지정 해제(복원)', ((await rqBtn.innerText()) || '').includes('선택'))
+  await rqBtn.click() // 선택으로 복원(뒤 검사들은 직접 대여를 쓴다)
+  ok('결재선: 대여 필수 지정 해제(복원)', (await rqTextAfter('선택')).includes('선택'))
   await ctxRQ.close()
   await ctxAE.close()
   await ctxDQ.close()
