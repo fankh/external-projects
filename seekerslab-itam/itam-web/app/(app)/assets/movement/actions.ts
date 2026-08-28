@@ -94,6 +94,20 @@ export async function moveAsset(approvalId: string) {
   const to = ap.targetLocation
   if (!to) return { ok: false, message: '이동 목적지가 지정되지 않은 신청입니다.' }
 
+  // 목적지가 아직 등록된 위치인가 — 상신 때는 공통코드에서 골랐어도, 승인과 집행 사이에 그 코드가 미사용 전환될 수 있다.
+  //  그대로 쓰면 레지스트리 밖 위치가 대장에 실려 그 자산이 재물조사 편성·스캔에서 빠지고, 매번 거절만 하면
+  //  이 신청은 집행 대기 큐에 영원히 남는다(반려·취소는 대기 건만 받는다 — 따를 수 없는 안내가 된다).
+  //  그래서 상태 이탈과 같은 규약으로 결재 건에 사유를 적고 큐에서 닫는다.
+  if (!isKnownLocation(to)) {
+    const whyLoc = `목적지 ${to} 미등록(공통코드 미사용)`
+    ap.unfulfilledReason = whyLoc
+    ap.unfulfilledAt = today()
+    appendAudit({ actor: session.name, action: `자산 이동 미적용 — ${ap.refId} · ${ap.id} 집행 불가 종결 (${whyLoc})`, target: String(ap.refId ?? ap.id) })
+    dispatch({ channel: '이메일', to: ap.requester, subject: `[결재 결과] 자산 이동 승인 — 다만 ${whyLoc} 로 집행되지 않았습니다 (${ap.id})`, kind: '에스컬레이션', ref: ap.id })
+    revalidatePath('/', 'layout')
+    return { ok: false, message: `등록되지 않은 위치입니다 — ${to} (신청 ${ap.id} 을 집행 불가로 종결했습니다 · 위치는 공통코드에서 관리합니다).` }
+  }
+
   // 스테일 이동 방어 — 상신·승인 뒤 자산이 분실·폐기 경로로 떠났으면 집행하지 않는다. 형제 집행 경로가 모두 같은
   //  방어를 둔다(불출은 유휴·검수중만·폐기 절차 제외, 반납은 재배정 자산 미적용, 라이선스는 좌석 전량 회수 시 미적용).
   //  없으면 폐기·분실 확정 자산의 위치만 바뀌고 신청자에게는 '이동 완료' 통보가 나간다 — 대장이 실물과 어긋나고
