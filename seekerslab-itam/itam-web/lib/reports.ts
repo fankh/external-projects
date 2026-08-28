@@ -4,7 +4,7 @@ const AUDIT_TOP = 10
 /** 리포트 본문 생성 — 스토어 데이터에서 결정적으로 산출한다.
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
 import { effectiveClassifyAccuracy } from './ai-accuracy'
-import { recordAiCall } from './ai-status'
+import { auditLogsWithinAiRetention, recordAiCall } from './ai-status'
 import { buildMaintenance } from './maintenance'
 import { buildProcurement } from './procurement'
 import { missingContractDocs } from './contract'
@@ -1091,6 +1091,11 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         columns: ['유형', '대상', '상세', '심각도', '판정 근거'],
         rows: anomalies.items.map((i) => [i.kind, i.target, i.detail, i.severity, i.basis]),
       }
+  // 보존 창을 지난 AI 로그는 감사 로그 표에서 뺀다 — 이 리포트가 'AI 제안·질의·응답은 N일 감사 보존'이라고
+  //  진술해 놓고 같은 문서에 그 창 밖의 AI 로그를 실으면, 통제 진술과 증거가 서로를 부정한다(AI 감사 화면은
+  //  이미 창을 적용해 그 항목을 뺀다 — 같은 물음에 두 문서가 다르게 답하던 자리다).
+  //  판정·창 적용은 화면과 같은 lib/ai-status 를 쓴다(여기서 조건을 다시 적지 않는다).
+  const retained = auditLogsWithinAiRetention(s.auditLogs, s.aiPolicy.auditRetentionDays, today())
   return [
     {
       title: '권한 통제 현황',
@@ -1159,9 +1164,9 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     {
       title: '감사 로그 (최근)',
       // 몇 건 중 몇 건을 실었는지 밝힌다 — '최근'만 적어 두면 이 표가 전체인 줄 읽힌다(감사 제출 문서).
-      note: `전체 ${s.auditLogs.length}건 중 최근 ${Math.min(AUDIT_TOP, s.auditLogs.length)}건 · AI 로그 보존 ${s.aiPolicy.auditRetentionDays}일 · 권한 범위 필터 ${s.aiPolicy.scopeFilter ? 'ON' : 'OFF'}${s.auditLogs.length > AUDIT_TOP ? ' — 전체 로그는 연동 · 인프라 화면에서 조회·반출' : ''}`,
+      note: `보존 대상 ${retained.length}건 중 최근 ${Math.min(AUDIT_TOP, retained.length)}건 · AI 로그 보존 ${s.aiPolicy.auditRetentionDays}일(창 밖 AI 로그 제외 · AI 감사 화면과 같은 판정) · 권한 범위 필터 ${s.aiPolicy.scopeFilter ? 'ON' : 'OFF'}`,
       columns: ['일시', '수행자', '동작', '대상', '결과'],
-      rows: s.auditLogs.slice(0, AUDIT_TOP).map((l) => [l.at, l.actor, l.action, l.target, l.result]),
+      rows: retained.slice(0, AUDIT_TOP).map((l) => [l.at, l.actor, l.action, l.target, l.result]),
     },
   ]
 }

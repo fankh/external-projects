@@ -2686,10 +2686,23 @@ try {
   //  구조 검사로 둔다.
   const aiPolicySrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'ai-policy', 'page.tsx'), 'utf8')
   const aiStatusSrc = readFileSync(path.join(ROOT, 'lib', 'ai-status.ts'), 'utf8')
-  check('AI 로그 보존: 조회가 보존 정책(auditRetentionDays)을 적용',
+  //  리포트도 같은 자리다 — 감사 대응 리포트가 'AI 제안·질의·응답은 N일 감사 보존'이라고 진술해 놓고
+  //  같은 문서의 감사 로그 표에는 창 밖 AI 로그를 그대로 실어, 통제 진술과 증거가 서로를 부정했다.
+  //  (AI 감사 화면은 이미 창을 적용해 그 항목을 뺀다 — 같은 물음에 두 문서가 다르게 답하던 자리다.)
+  const repAuditSrc = readFileSync(path.join(ROOT, 'lib', 'reports.ts'), 'utf8')
+  //  그리고 'AI 로그인가' 판정이 ai-status 밖에 사본으로 있으면 두 문서가 다시 갈린다.
+  const aiPredCopies = sourceFiles
+    .map((f) => [path.relative(ROOT, f).split(path.sep).join('/'), readFileSync(f, 'utf8')])
+    .filter(([rel]) => rel !== 'lib/ai-status.ts')
+    .filter(([, src]) => src.includes("actor === 'AI 서비스'") && src.includes("target === 'AI 정책'"))
+    .map(([rel]) => rel)
+  check('AI 로그 보존: 화면·리포트 조회가 모두 보존 정책(auditRetentionDays)을 적용',
     aiPolicySrc.includes('aiAuditLogs(s.auditLogs, s.aiPolicy.auditRetentionDays')
-    && aiStatusSrc.includes('const cutoff = addDays(today, -Math.max(0, retentionDays))'),
-    '화면이 보존 기간 없이 직접 필터하고 있음')
+    && aiStatusSrc.includes('const cutoff = addDays(today, -Math.max(0, retentionDays))')
+    && repAuditSrc.includes('auditLogsWithinAiRetention(s.auditLogs, s.aiPolicy.auditRetentionDays')
+    && !repAuditSrc.includes('rows: s.auditLogs.slice(0, AUDIT_TOP)')
+    && aiPredCopies.length === 0,
+    `화면·리포트가 보존 기간 없이 직접 필터하고 있음(판정 사본=${aiPredCopies.join(', ') || '없음'})`)
 
   // 정책 기준 증빙 완전성 — 감사 대응 자료의 「운영 · 거버넌스 정책 기준」 표는 "화면·리포트·스케줄러가 공유·강제하는
   //  임계값"을 증빙한다고 적어 두고도, 관리자가 설정 화면에서 바꾸는 운영 정책 항목 일부(정기 점검 창·안전재고)가

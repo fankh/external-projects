@@ -35,8 +35,24 @@ export function aiAuditLogs<T extends { at: string; actor: string; action: strin
   today: string,
 ): T[] {
   const cutoff = addDays(today, -Math.max(0, retentionDays))
-  return logs.filter((l) => {
-    const isAi = l.actor === 'AI 서비스' || l.target === 'AI 정책' || l.target === 'AI 어시스턴트' || l.action.startsWith('AI 제안')
-    return isAi && l.at.slice(0, 10) >= cutoff
-  })
+  return logs.filter((l) => isAiAuditLog(l) && l.at.slice(0, 10) >= cutoff)
+}
+
+/** 이 감사 항목이 AI 소관인가 — 보존 정책이 걸리는 대상 판정.
+ *  AI 감사 화면과 리포트의 감사 로그 표가 같은 판정을 써야, 두 화면이 서로 다른 보존 결과를 보이지 않는다. */
+export function isAiAuditLog(l: { actor: string; action: string; target: string }): boolean {
+  return l.actor === 'AI 서비스' || l.target === 'AI 정책' || l.target === 'AI 어시스턴트' || l.action.startsWith('AI 제안')
+}
+
+/** 보존 창을 지난 AI 로그를 뺀 감사 로그 — AI 소관이 아닌 항목은 그대로 둔다(보존 정책은 AI 로그에만 걸린다).
+ *  리포트의 '감사 로그 (최근)' 표가 쓴다. 그전에는 리포트가 'AI 제안·질의·응답은 N일 감사 보존된다'고 진술하면서
+ *  같은 문서의 표에 그 창 밖의 AI 로그를 그대로 실었다 — 통제를 진술하고 바로 옆에 반대 증거를 붙인 셈이라,
+ *  감사 대응에서 어느 쪽이 맞는지 사람이 가릴 수 없다(AI 감사 화면은 이미 창을 적용해 그 항목을 뺀다). */
+export function auditLogsWithinAiRetention<T extends { at: string; actor: string; action: string; target: string }>(
+  logs: T[],
+  retentionDays: number,
+  today: string,
+): T[] {
+  const cutoff = addDays(today, -Math.max(0, retentionDays))
+  return logs.filter((l) => !isAiAuditLog(l) || l.at.slice(0, 10) >= cutoff)
 }
