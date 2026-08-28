@@ -2379,6 +2379,24 @@ try {
   check(`만료 임박 창: 잔여 기간을 숫자 리터럴과 직접 비교하는 곳 없음 — 운영 정책 단일 출처(소스 ${sourceFiles.length}개 검사)`,
     ddayHardcoded.length === 0, `직접 비교=${ddayHardcoded.join(', ')}`)
 
+  // 안전재고 경보의 드릴다운 — 큐 스윕은 대시보드 큐만, KPI 스윕은 네 화면의 stat 타일만 훑는다. 재고 화면의
+  //  경보 링크는 둘 다에 안 잡히는데(대시보드가 아니고 stat 타일도 아니다), '가용 N' 이라는 수를 말하고 그 수의
+  //  목록을 연다는 점에서 같은 계약이다. 이 링크는 한 번 잘못 열린 적이 있다 — status=유휴 로 열어 폐기 절차·
+  //  NAC 격리된 유휴 자산까지 보여 주는 바람에 '가용 0' 경보를 눌렀는데 한 대가 보였다(화면 수 ≠ 목록 수).
+  //  지금은 ?avail=1 로 고쳐져 있고, 그 일치를 검사로 고정한다.
+  const stockHtml = text(await (await get('/inventory/stock', 'ASSET_MGR')).text())
+  const stockPairs = [...stockHtml.matchAll(/href="(\/assets\/register\?cat=[^"]*avail=1)"[\s\S]{0,400}?가용 ([0-9]+)/g)]
+    .map((m) => ({ href: m[1].replace(/&amp;/g, '&'), n: Number(m[2]) }))
+  const stockBad = []
+  for (const p of stockPairs) {
+    const page = text(await (await get(p.href, 'ASSET_MGR')).text())
+    const m = /([0-9]+)건 \/ 전체 [0-9]+건/.exec(page)
+    const shown = m ? Number(m[1]) : null
+    if (shown !== p.n) stockBad.push(`${decodeURIComponent(p.href)}: 화면 ${p.n} ≠ 목록 ${shown}`)
+  }
+  check(`안전재고 경보 드릴다운: 화면이 말한 가용 수 = 링크가 여는 목록 건수(${stockPairs.length}종)`,
+    stockPairs.length > 0 && stockBad.length === 0, `불일치=${stockBad.join(', ')}`)
+
   // 복합 위험 캐시의 사용 규약 — lib/risk 는 SPOF·교체 대상을 모듈 수준에 캐시하고, 그 캐시를 비우는 곳은
   //  compositeRiskAssetNos 하나뿐이다. 스토어는 제자리 수정 싱글턴이라 객체 정체성으로 변경을 감지할 수 없고
   //  모듈 상태는 요청 사이에 살아남으므로, riskSignals 만 따로 부르는 소비자가 생기면 지난 요청의 집합으로
