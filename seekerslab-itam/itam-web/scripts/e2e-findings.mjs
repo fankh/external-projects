@@ -2460,11 +2460,19 @@ try {
   await p3.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
   ok('데이터 일괄 소거 → 폐기완료·소거 확인서 발급', ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'DSP-03' }) }).first().textContent()) || '').includes('소거 확인서'))
 
-  // 폐기 대상 선정 보유-상태 가드 — 사용중·대여중 등 보유자가 쥔 자산은 회수·반환 전엔 폐기 선정 불가(실물 없이 폐기 방지 · 대여 가드(#149)의 반대편). 사용중 보증 만료 후보 AST-2022-000512 선정 시도 → 건너뜀·사용중 유지.
+  // 폐기 대상 선정 보유-상태 가드 — 사용중·대여중 등 보유자가 쥔 자산은 회수·반환 전엔 폐기 선정 불가
+  //  (실물 없이 폐기 방지 · 대여 가드(#149)의 반대편). 화면도 같은 판정을 지켜야 한다 — 그전에는 단건
+  //  버튼만 막고 체크박스·전체 선택은 열어 두어, 전체 선택 한 번이면 서버가 거절할 건까지 골라 일괄
+  //  선정이 조용히 건너뛰었다(단건은 '누를 수 없다', 일괄은 '눌러 봐야 안다'는 비대칭). 이제 선택이 막힌다.
   await p3.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
-  await p3.locator('input[aria-label="AST-2022-000512 선택"]').check()
-  await p3.locator('button', { hasText: /선택 일괄 대상 선정/ }).click()
-  await p3.waitForTimeout(700)
+  const heldBox = p3.locator('input[aria-label="AST-2022-000512 선택"]')
+  ok('폐기 후보 일괄 선택: 사용중 후보는 체크박스가 잠긴다(서버가 거절할 건을 고를 수 없음)', await heldBox.isDisabled())
+  await p3.locator('input[aria-label="선정 가능 전체 선택"]').check()
+  await p3.waitForTimeout(300)
+  const candCard = p3.locator('.card', { has: p3.locator('text=폐기 후보 — 보증 만료 경과') })
+  const candChecked = await candCard.locator('tbody input[type="checkbox"]:checked').count()
+  ok('폐기 후보 전체 선택: 선정 가능분만 고르고 보유 상태는 빠진다(양성 대조 포함)',
+    !(await heldBox.isChecked()) && candChecked > 0)
   await p3.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
   ok('폐기 대상 선정 보유-상태 가드: 사용중 자산 폐기 선정 제외(실물 회수 전 폐기 방지)', ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2022-000512' }) }).first().textContent()) || '').includes('사용중'))
   // 단건 선정 컨트롤도 서버와 같은 판정이어야 한다(신규) — 후보 표는 보증 만료만 보고 사용중 자산까지 싣는데,
