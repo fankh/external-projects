@@ -3258,6 +3258,31 @@ try {
   await pQB.waitForTimeout(900)
   await pQB.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
   ok('대장 자산 격리(로70): 2단계 승인 → NAC 격리 집행(대장 격리 표시)', ((await pQB.locator('tr', { has: pQB.locator('td', { hasText: 'AST-2024-000377' }) }).first().textContent()) || '').includes('격리'))
+  // AI 취약점 우선순위 승인 → 폐기(교체) 대상 선정의 보유-상태 게이트(신규) — 직접 선정(selectForDisposal)은
+  //  사용중·대여중·검수중 자산을 '먼저 회수·반환·검수를 마쳐야 한다'며 막는데, AI 제안 승인 경로는 그 판정을
+  //  지나쳐 남의 손에 있는 자산을 바로 폐기예정으로 만들었다(대여중이면 대여 추적이 끊긴다). 시드 INS-2607-19 는
+  //  사용중 서버 AST-2020-000883 을 가리키므로, 승인해도 대장 상태가 그대로여야 하고 사유가 남아야 한다.
+  const ctxVP = await browser.newContext(); await ctxVP.addCookies([cookie(SEC)]); const pVP = await ctxVP.newPage()
+  await pVP.goto(`${BASE}/assets/register?sel=AST-2020-000883`, { waitUntil: 'networkidle' })
+  const vpBefore = ((await pVP.locator('tr', { has: pVP.locator('td', { hasText: 'AST-2020-000883' }) }).first().textContent()) || '')
+  ok('AI 폐기 선정 게이트: 대상 자산이 사용중(전제 확인)', vpBefore.includes('사용중'))
+  await pVP.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  await pVP.locator('.seg button', { hasText: /^전체$/ }).click()
+  await pVP.waitForTimeout(200)
+  const vpRow = pVP.locator('tr', { has: pVP.locator('td', { hasText: 'INS-2607-19' }) }).first()
+  const vpBtn = vpRow.locator('button', { hasText: /^승인$/ })
+  if ((await vpBtn.count()) > 0) { await vpBtn.first().click(); await pVP.waitForTimeout(800) }
+  await pVP.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  await pVP.locator('.seg button', { hasText: /^전체$/ }).click()
+  await pVP.waitForTimeout(200)
+  const vpAfter = ((await pVP.locator('tr', { has: pVP.locator('td', { hasText: 'INS-2607-19' }) }).first().textContent()) || '').replace(/\s+/g, ' ')
+  ok('AI 폐기 선정 게이트: 보유 중 자산은 폐기 선정 대신 사유를 남긴다(직접 선정과 같은 판정)',
+    vpAfter.includes('회수·반환·검수 후 폐기 선정 대상'), `조치 문구=${vpAfter.slice(0, 120)}`)
+  await pVP.goto(`${BASE}/assets/register?sel=AST-2020-000883`, { waitUntil: 'networkidle' })
+  const vpNow = ((await pVP.locator('tr', { has: pVP.locator('td', { hasText: 'AST-2020-000883' }) }).first().textContent()) || '')
+  ok('AI 폐기 선정 게이트: 승인해도 보유 중 자산이 폐기예정으로 넘어가지 않는다',
+    vpNow.includes('사용중') && !vpNow.includes('폐기예정'), `대장 상태=${vpNow.replace(/\s+/g, ' ').slice(0, 80)}`)
+  await ctxVP.close()
   // 격리 자산 운영 게이트(신규) — NAC 로 망이 막힌 장비를 새 보유자에게 넘기면, 받은 사람은 쓸 수 없고 보안 조사는
   //  열린 채 보유자만 바뀐다. 화면은 재배정·대여 컨트롤 대신 사유를 보여 주고, 서버도 같은 이유로 거절해야 한다.
   const ctxQG = await browser.newContext(); await ctxQG.addCookies([cookie(ASSET)]); const pQG = await ctxQG.newPage()
