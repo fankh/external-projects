@@ -4380,6 +4380,19 @@ try {
   const futureCerts = [...certSeedSrc.matchAll(/certValidUntil: '(\d{4}-\d\d-\d\d)'/g)].map((m) => m[1]).filter((d) => d > certKstToday)
   check('시드: 인증서 유효기간에 미래 고정 날짜가 없다(유효 픽스처가 만료로 뒤집히지 않게)',
     futureCerts.length === 0, `미래 고정 유효기간=${futureCerts.join(', ') || '없음'}`)
+  // 이행 독촉은 '집행할 기간이 남아 있는' 계약에만 뜻이 있다 — 기간이 끝난 계약에 '집행하라'고 재촉하면
+  //  받는 쪽이 할 수 있는 일이 없다(정산·갱신이 맞는 조치다). 미집행 판정 자체는 남긴다 — 예산을 잡아 두고
+  //  한 푼도 쓰지 않은 사실은 감사 신호라 지우면 안 된다. 재촉 대상과 큐 집계에서만 뺀다.
+  //  실제로 시드의 유일한 미집행 계약이 만료된 뒤에도 독촉 버튼이 그 건을 대상으로 세고 있었다.
+  const maintLibSrc = readFileSync(path.join(ROOT, 'lib', 'maintenance.ts'), 'utf8')
+  const remindLibSrc = readFileSync(path.join(ROOT, 'lib', 'reminders.ts'), 'utf8')
+  const execTargetBlk = remindLibSrc.slice(remindLibSrc.indexOf('export function maintenanceExecTargets'), remindLibSrc.indexOf('export function maintenanceSlaTargets'))
+  //  타입 선언이 아니라 구현 줄을 본다(execAlert: number 는 인터페이스다 — 앵커가 거기 걸리면 무증상이 된다)
+  //  타입 선언이 아니라 구현 줄을 본다(execAlert: number 는 인터페이스다 — 앵커가 거기 걸리면 무증상이 된다)
+  const execAlertLine = (maintLibSrc.split(/\r?\n/).find((ln) => ln.includes('execAlert:') && ln.includes('rows.filter')) ?? '')
+  const gapsExec = [!execTargetBlk.includes('ended') && '독촉 대상(maintenanceExecTargets)', !execAlertLine.includes('ended') && '큐 집계(execAlert)'].filter(Boolean)
+  check('유지보수 이행 독촉: 기간이 끝난 계약은 재촉 대상이 아니다',
+    gapsExec.length === 0, `기간 종료를 안 보는 곳=${gapsExec.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {

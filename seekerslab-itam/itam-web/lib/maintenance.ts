@@ -1,7 +1,7 @@
 /** 유지보수 계약 관리 현황(§03 유지보수 계약: 대상 자산·SLA·비용 이력) — 계약별 예산 집행률과 SLA 요약을
  *  한 곳에 모은다. 그동안 비용 이력은 '누계'만 보였고 계약액 대비 집행률·잔여 예산·판정이 없었다.
  *  읽기 전용 합성 뷰 — 화면과 대장이 같은 산출을 쓴다(계약 amount·costs·연계 자산에서 결정적으로 파생). */
-import { ratioPct, daysUntil } from './dates'
+import { today, ratioPct, daysUntil } from './dates'
 import { contractAssetCount, getStore } from './store'
 
 export interface MaintenanceRow {
@@ -28,6 +28,8 @@ export interface MaintenanceRow {
   costCount: number
   /** 판정 — 예산 초과(>100%) · 소진 임박(≥90%) · 미집행(0%) · 정상 */
   status: '예산 초과' | '소진 임박' | '미집행' | '정상'
+  /** 계약 기간이 끝났는가 — 끝난 계약은 더 집행할 수 없어 이행 독촉 대상이 아니다(정산·갱신 소관). */
+  ended: boolean
 }
 
 export function buildMaintenance(): {
@@ -48,6 +50,11 @@ export function buildMaintenance(): {
     .filter((c) => c.kind === '유지보수' && c.status !== '해지')
     .map((c) => {
       const spent = (c.costs ?? []).reduce((n, x) => n + x.amount, 0)
+      //  기간 종료 판정 — 만료일이 지난 계약은 예산을 더 쓸 수 없다. 그런데 집행액이 0이면 판정은 계속
+      //   '미집행'이라, 끝난 계약에 '이행 독촉'을 보내게 된다(집행하라고 재촉하지만 집행할 기간이 없다).
+      //   판정 자체는 그대로 둔다 — 예산을 잡아 두고 한 푼도 쓰지 않은 사실은 감사 신호라 지워선 안 된다.
+      //   바뀌는 것은 재촉 대상에서 빠지고, 화면이 그 이유를 밝힌다는 점이다.
+      const ended = c.end !== '-' && c.end < today()
       const rate = ratioPct(spent, c.amount) // 표기용 — 판정은 아래 실집행액 비교가 한다(이정표 정직 규약)
       // SLA 위반 — 이 계약이 덮는 자산 중 열린 수리(수리중·repair)가 SLA 대응 목표 일수를 넘긴 건. slaResponseDays 미설정이면 판정 안 함.
       const breachAssetNos = c.slaResponseDays
@@ -76,6 +83,7 @@ export function buildMaintenance(): {
         breachAssetNos,
         costCount: c.costs?.length ?? 0,
         status,
+        ended,
       }
     })
     .sort((a, b) => b.rate - a.rate)
@@ -85,7 +93,7 @@ export function buildMaintenance(): {
     totalSpent: rows.reduce((n, r) => n + r.spent, 0),
     overBudget: rows.filter((r) => r.status === '예산 초과').length,
     budgetAlert: rows.filter((r) => r.status === '예산 초과' || r.status === '소진 임박').length,
-    execAlert: rows.filter((r) => r.status === '미집행').length,
+    execAlert: rows.filter((r) => r.status === '미집행' && !r.ended).length,  // 재촉할 수 있는 것만 — 기간이 끝난 계약은 정산·갱신 소관
     noSla: rows.filter((r) => !r.sla).length,
     slaBreachAlert: rows.filter((r) => r.slaBreach > 0).length,
   }
