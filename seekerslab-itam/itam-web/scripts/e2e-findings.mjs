@@ -3267,15 +3267,18 @@ try {
   const vpBefore = ((await pVP.locator('tr', { has: pVP.locator('td', { hasText: 'AST-2020-000883' }) }).first().textContent()) || '')
   ok('AI 폐기 선정 게이트: 대상 자산이 사용중(전제 확인)', vpBefore.includes('사용중'))
   await pVP.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
-  await pVP.locator('.seg button', { hasText: /^전체$/ }).click()
+  await pVP.locator('.card', { hasText: 'AI 제안 — 판정 대기' }).locator('.seg button', { hasText: /^전체$/ }).click()
   await pVP.waitForTimeout(200)
-  const vpRow = pVP.locator('tr', { has: pVP.locator('td', { hasText: 'INS-2607-19' }) }).first()
+  //  제안 카드 안으로 좁힌다 — 같은 제안 ID 가 취약점 우선순위 표에도 실려, 카드 밖 행을 짚으면 승인 버튼이 없어 조용히 건너뛴다
+  const vpCard = pVP.locator('.card', { hasText: 'AI 제안 — 판정 대기' })
+  const vpRow = vpCard.locator('tr', { has: pVP.locator('td', { hasText: 'INS-2607-19' }) }).first()
   const vpBtn = vpRow.locator('button', { hasText: /^승인$/ })
   if ((await vpBtn.count()) > 0) { await vpBtn.first().click(); await pVP.waitForTimeout(800) }
   await pVP.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
-  await pVP.locator('.seg button', { hasText: /^전체$/ }).click()
+  await pVP.locator('.card', { hasText: 'AI 제안 — 판정 대기' }).locator('.seg button', { hasText: /^전체$/ }).click()
   await pVP.waitForTimeout(200)
-  const vpAfter = ((await pVP.locator('tr', { has: pVP.locator('td', { hasText: 'INS-2607-19' }) }).first().textContent()) || '').replace(/\s+/g, ' ')
+  //  조치 문구는 이 화면 어디에도 다른 데 안 쓰이는 문장이라 화면 전체에서 찾는다(판정 후 행이 어느 카드에 남든 무관)
+  const vpAfter = ((await pVP.locator('body').textContent()) || '').replace(/s+/g, ' ')
   ok('AI 폐기 선정 게이트: 보유 중 자산은 폐기 선정 대신 사유를 남긴다(직접 선정과 같은 판정)',
     vpAfter.includes('회수·반환·검수 후 폐기 선정 대상'), `조치 문구=${vpAfter.slice(0, 120)}`)
   await pVP.goto(`${BASE}/assets/register?sel=AST-2020-000883`, { waitUntil: 'networkidle' })
