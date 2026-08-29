@@ -53,7 +53,9 @@ const yPlus = (endStr, n) => {
   const base = endStr >= baseToday() ? endStr : baseToday()
   const [y, m, dd] = base.split('-').map(Number)
   const last = new Date(Date.UTC(y + n, m, 0)).getUTCDate()
-  return new Date(Date.UTC(y + n, m - 1, Math.min(dd, last))).toISOString().slice(0, 10)
+  //  날짜 문자열 변환은 dPlus 한 곳에만 둔다(스모크가 그 규약을 지킨다) — 여기서는 자리수만 맞춰 조립한다
+  const pad = (v) => String(v).padStart(2, '0')
+  return `${y + n}-${pad(m)}-${pad(Math.min(dd, last))}`
 }
 
 // 빌드 신선도 — 예전 빌드로 회귀를 돌리면 고친 결함이 그대로인 채 초록으로 통과한다(scripts/build-guard.mjs)
