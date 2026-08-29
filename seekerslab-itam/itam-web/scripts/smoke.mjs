@@ -387,8 +387,14 @@ try {
   check('대시보드: 영향 집중 자산 큐가 단일 장애점 목록(?spof=1)으로 드릴다운', dashHtml.includes('/assets/register?spof=1'))
   // 복합 위험 자산 큐 — 정합성·EOL·보증·점검·SPOF·교체·미실측 중 2+ 겹치는 다중 이슈 자산을 사전에 드러내고 ?risk=1 로 드릴다운(개별 신호 큐가 놓치는 '한 자산에 문제 몰림'). 대장 필터·도시어 요약과 lib/risk 단일 소스.
   check('대시보드: 복합 위험 자산(≥2 신호) 큐 + ?risk=1 드릴다운 (자산담당)', dashHtml.includes('복합 위험 자산') && dashHtml.includes('/assets/register?risk=1'))
-  // 다가오는 일정 아젠다(사전 계획) — 반응형 큐(카운트)와 별개로, 향후 14일 예정 작업을 날짜순 아젠다로. 정례 리포트 배포는 주간 주기라 항상 창 이내(D-day 표기).
-  check('대시보드(자산담당): 다가오는 일정 아젠다 카드(정례 리포트 배포 예정 포함)', dashHtml.includes('다가오는 일정') && dashHtml.includes('리포트 배포') && dashHtml.includes('D-'))
+  // 다가오는 일정 아젠다(사전 계획) — 반응형 큐(카운트)와 별개로, 향후 14일 예정 작업을 날짜순 아젠다로.
+  //  '리포트 배포'를 대시보드 전체에서 찾으면 기한 경과 큐 라벨('정례 리포트 배포 기한 경과')이 문자열을
+  //  만족시켜, 아젠다가 비어 있어도 통과한다 — 실제로 정례 배포가 아젠다에서 통째로 빠진 채 초록이었다.
+  //  카드 블록 안만 본다.
+  const agendaBlk = dashHtml.slice(dashHtml.indexOf('다가오는 일정'), dashHtml.indexOf('Activity'))
+  check('대시보드(자산담당): 다가오는 일정 아젠다 카드(정례 리포트 배포 예정 포함)',
+    agendaBlk.includes('다가오는 일정') && agendaBlk.includes('리포트 배포') && agendaBlk.includes('D-'),
+    `아젠다에 리포트 배포=${agendaBlk.includes('리포트 배포')}`)
   // 수령 미확인 큐도 전체 대장으로 떨어지던 것을 ?receipt=1 로 드릴다운 — 큐 건수=목록(체인 오브 커스터디 추적).
   check('대시보드: 수령 미확인 큐가 인수 미확인 목록(?receipt=1)으로 드릴다운', dashHtml.includes('/assets/register?receipt=1'))
   // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다
@@ -1563,8 +1569,13 @@ try {
   check('리포트: 연간 교체 계획에 EOL OS 교체 드라이버 반영', repHtml.includes('OS 지원 종료(EOL)'))
   const repText = text(repHtml)
   check('리포트: 자동 생성 스케줄 렌더 (수정·예약 실행)', repText.includes('자동 생성 스케줄') && repText.includes('예약 실행') && repText.includes('매주 월요일') && repText.includes('수정'))
-  // 예약 실행 대상 = 기한 도래 가동 스케줄 — 버튼 수·대시보드 큐·runDueSchedules 실행 대상이 isScheduleOverdue 단일 소스로 일치. 시드상 가동 6개 모두 기한 도래.
-  check('리포트: 예약 실행 대상이 기한 도래 스케줄과 일치 (6건 단일 소스)', repText.includes('예약 실행 (6)'))
+  // 예약 실행 대상 = 기한 도래 가동 스케줄 — 버튼 수·대시보드 큐·runDueSchedules 실행 대상이 isScheduleOverdue
+  //  단일 소스로 일치해야 한다. 기대 수를 손으로 적어 두면 시드 픽스처가 시간에 밀릴 때 그 수가 조용히 따라가며
+  //  '전부 밀림'을 정상으로 굳힌다(실제로 6으로 적혀 있었다 — 설계상 밀린 것은 주간 둘뿐이다). 표에서 센다.
+  const dueChips = (repText.match(/기한 도래(?!만)/g) || []).length  // 행 배지만 — 목록 위 '기한 도래만 N' 토글 라벨은 제외
+  const dueBtn = Number((/예약 실행 \((\d+)\)/.exec(repText) || [])[1] ?? -1)
+  check(`리포트: 예약 실행 대상이 기한 도래 스케줄과 일치 (${dueBtn}건 단일 소스)`,
+    dueBtn > 0 && dueBtn === dueChips, `버튼 ${dueBtn} · 표의 행 배지 ${dueChips}`)
   check('리포트: 밀린 스케줄이 기한 도래로 표시', repText.includes('기한 도래'))
   check('리포트: 수시 유형은 스케줄 없음 표기', repText.includes('수시') && repText.includes('사유 발생 시 수동 생성'))
   check('리포트: 중지된 스케줄 표기', repText.includes('라이선스 컴플라이언스') && repText.includes('중지'))
