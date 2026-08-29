@@ -5,7 +5,7 @@ import { addDays, isValidDate, roundProgressPct, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
-import { staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
+import { staleComposeBlocked, staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
 import { can } from '@/lib/perm'
 import type { Asset, RoundKind } from '@/lib/types'
 import { PHYSICAL_CATEGORIES } from '@/lib/quality'
@@ -112,7 +112,14 @@ export async function composeStaleVerifyRound() {
 
   // 개시 전(계획)·진행 중 회차가 이미 대상으로 잡은 자산은 제외 — lib/survey 단일 소스(화면 건수와 같은 집합)
   const fresh = staleComposeTargets()
-  if (fresh.length === 0) return { ok: false, message: '장기 미실측 자산이 모두 진행 중 회차에 편성되어 있습니다.' }
+  if (fresh.length === 0) {
+    //  편성 대기가 0인 이유는 둘 — 이미 회차에 묶였거나, 실물이 없어 넣을 수 없거나. 뒤쪽을 앞쪽으로 말하면
+    //   담당자는 있지도 않은 회차를 찾으러 간다(lib/survey staleComposeBlocked 가 그 잔여를 센다).
+    const blocked = staleComposeBlocked()
+    return { ok: false, message: blocked.length
+      ? `편성할 수 있는 장기 미실측 자산이 없습니다 — ${blocked.length}건은 실물이 없는 유형(SW·가상자원)이라 회차에 넣을 수 없습니다.`
+      : '장기 미실측 자산이 모두 진행 중 회차에 편성되어 있습니다.' }
+  }
 
   const due = addDays(today(), 14) // 기한 계산은 lib/dates addDays 단일 소스(TZ 무관)
   const id = nextId(`INV-${today().slice(0, 4)}-STV`)

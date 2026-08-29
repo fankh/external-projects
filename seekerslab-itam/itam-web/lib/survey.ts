@@ -28,6 +28,19 @@ export function staleComposeTargets(): Asset[] {
   return staleVerifyAssets().filter((a) => !pending.has(a.assetNo) && PHYSICAL_CATEGORIES.includes(a.category))
 }
 
+/** 장기 미실측인데 어떤 회차에도 넣을 수 없는 자산 — 현장에서 스캔할 실물이 없는 유형(SW·가상자원).
+ *  '편성 대기 0' 이 되는 이유는 둘이다: 이미 회차에 묶였거나, 애초에 묶을 수 없거나. 이 둘을 한 상태로
+ *  접으면 화면은 '편성 완료'라 말하고 액션은 '모두 진행 중 회차에 편성되어 있습니다'라고 답하는데, 실제로는
+ *  아무 회차에도 없는 미실측 자산이 남아 있다 — 처리할 수 없는 잔여를 처리됐다고 진술하는 셈이다.
+ *  실물이 없어 못 넣는 것 자체는 옳다(회차에 넣으면 영원히 미스캔으로 남아 진행률만 부풀린다). 사유를 밝힐 뿐이다. */
+export function staleComposeBlocked(): Asset[] {
+  const s = getStore()
+  const pending = new Set(
+    s.inventoryRounds.filter((r) => r.status !== '완료').flatMap((r) => r.targets ?? []),
+  )
+  return staleVerifyAssets().filter((a) => !pending.has(a.assetNo) && !PHYSICAL_CATEGORIES.includes(a.category))
+}
+
 /** 대사 '미확인'(유령) 발견 자산 전량 */
 export function unconfirmedGhosts(): DiscoveredAsset[] {
   return getStore().discovered.filter((d) => d.state === '미확인')
