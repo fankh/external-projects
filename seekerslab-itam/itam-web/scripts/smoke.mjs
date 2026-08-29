@@ -1319,6 +1319,23 @@ try {
   await get(`/api/export/disposals?ids=DSP-01&scope=${encodeURIComponent('상태=결재 대기')}`, 'ASSET_MGR')
   const expAudit = await (await get('/platform/integrations', 'SEC_MGR')).text()
   check('반출 필터: 부분 반출이 감사 기록에 범위와 함께 남는다', expAudit.includes('상태=결재 대기'))
+  // 화면 필터를 쿼리로 받아 좁히는 종류(자산 대장·발견 자산·결재함)도 같은 약속을 지켜야 한다 — ids 로
+  //  좁힌 종류만 '반출 범위' 시트를 달고, 이쪽은 서버가 행을 좁혀 놓고도 파일에 아무 표시가 없었다.
+  //  결재함은 화면 기본값이 status=대기라 평소 받는 '결재이력.xlsx' 자체가 대기분만 담은 부분 반출이다.
+  //  full 은 필터 없는 같은 반출 — 전체 반출에는 그 시트가 붙지 않아야 표시가 의미를 갖는다.
+  const qsFilteredKinds = [
+    { kind: 'assets', role: 'ASSET_MGR', qs: 'nos=' + encodeURIComponent('AST-2023-000112,AST-2023-000113'), mark: '선택 2건' },
+    { kind: 'assets', role: 'ASSET_MGR', qs: 'status=' + encodeURIComponent('대여중'), mark: '상태=대여중' },
+    { kind: 'discovered', role: 'SEC_MGR', qs: 'state=' + encodeURIComponent('미등록') + '&risk=' + encodeURIComponent('높음'), mark: '대사=미등록, 위험도=높음' },
+    { kind: 'approvals', role: 'ADMIN', qs: 'status=' + encodeURIComponent('대기'), mark: '상태=대기' },
+  ]
+  for (const t of qsFilteredKinds) {
+    const full = await xlsxText(`/api/export/${t.kind}`, t.role)
+    const part = await xlsxText(`/api/export/${t.kind}?${t.qs}`, t.role)
+    check(`반출 필터(${t.kind} ${t.mark}): 부분 반출임을 파일이 밝힌다(반출 범위 시트)`,
+      part.includes('반출 범위') && part.includes(t.mark) && part.includes('전체 대장이 아닙니다') && !full.includes('반출 범위'),
+      `부분에 시트=${part.includes('반출 범위')} 범위문구=${part.includes(t.mark)} / 전체에 시트=${full.includes('반출 범위')}`)
+  }
   // 감사 로그 엑셀 내보내기 — 보안담당·Admin 만 (컴플라이언스 반출)
   check('감사 로그 엑셀: 미로그인 차단 (401)', (await get('/api/audit-export')).status === 401)
   check('감사 로그 엑셀: 사용자 차단 (403)', (await get('/api/audit-export', 'USER')).status === 403)
