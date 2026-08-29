@@ -1,7 +1,7 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
+import { staleComposeBlocked, staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
 import { getStore } from '@/lib/store'
 import { PlanView } from './PlanView'
 import { activeLocations } from '@/lib/codes'
@@ -24,6 +24,8 @@ export default async function SurveyPlanPage() {
   const pendingCompose = unconfirmedComposeTargets().length
   const staleVerify = staleVerifyAssets().length
   const pendingStaleCompose = staleComposeTargets().length
+  //  편성 대기가 0이어도 실물이 없어 못 넣는 잔여는 남는다 — 이걸 세지 않으면 화면이 편성 완료라 말한다
+  const staleBlocked = staleComposeBlocked().length
 
   const rounds = s.inventoryRounds
   const active = rounds.filter((r) => r.status === '진행중')
@@ -68,6 +70,7 @@ export default async function SurveyPlanPage() {
         pendingCompose={pendingCompose}
         staleVerify={staleVerify}
         pendingStaleCompose={pendingStaleCompose}
+        staleBlocked={staleBlocked}
         today={t}
         staleVerifyDays={s.opsPolicy.staleVerifyDays}
       />

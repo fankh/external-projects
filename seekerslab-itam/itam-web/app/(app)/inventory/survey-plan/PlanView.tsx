@@ -26,6 +26,8 @@ export function PlanView(props: {
   staleVerify: number
   /** 그중 개시 전·진행 중 회차에 편성되지 않은 건수 — 자동 편성의 실제 대상 */
   pendingStaleCompose: number
+  /** 장기 미실측인데 실물이 없어 회차에 넣을 수 없는 잔여 — 이게 0이어야 비로소 편성 완료다 */
+  staleBlocked: number
   today: string
   /** 장기 미실측 판정 기준(일) — 운영 정책 staleVerifyDays */
   staleVerifyDays: number
@@ -205,8 +207,9 @@ export function PlanView(props: {
             </p>
             <div className="hstack" style={{ gap: 6, marginTop: 8 }}>
               <Chip tone={props.staleVerify ? 'warn' : 'ok'}>장기 미실측 {props.staleVerify}건</Chip>
-              <Chip tone={props.pendingStaleCompose ? 'warn' : 'ok'}>
-                {props.pendingStaleCompose ? <>편성 대기 <span data-queue="#stale">{props.pendingStaleCompose}</span>건</> : '편성 완료'}
+              <Chip tone={props.pendingStaleCompose || props.staleBlocked ? 'warn' : 'ok'}>
+                {props.pendingStaleCompose ? <>편성 대기 <span data-queue="#stale">{props.pendingStaleCompose}</span>건</>
+                  : props.staleBlocked ? `편성 불가 ${props.staleBlocked}건 — 실물 없는 유형` : '편성 완료'}
               </Chip>
               <Link className="btn sm ghost" href="/assets/register?stale=1">대장에서 보기</Link>
             </div>

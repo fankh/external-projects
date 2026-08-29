@@ -1470,6 +1470,19 @@ try {
   //  그래서 편성 대기 건수가 장기 미실측 전체보다 적을 수 있고, 그 이유를 화면이 밝혀야 한다(수를 설명 없이 줄이지 않는다).
   check('재물조사 계획: 편성 대상이 물리 실물 유형임을 화면이 밝힌다',
     planHtml.includes('현장에서 스캔할 실물이 있는 유형'), '편성 범위 안내 없음')
+  //  안내 문구만으로는 부족하다 — '편성 대기 0' 이 되는 이유가 둘이기 때문이다: 이미 회차에 묶였거나,
+  //   실물이 없어 애초에 못 넣거나. 둘을 한 상태로 접으면 화면은 편성 완료라 말하고 액션은 모두 진행 중
+  //   회차에 편성돼 있다고 답하는데, 실제로는 아무 회차에도 없는 미실측 자산이 남는다(있지도 않은 회차를
+  //   찾으러 가게 만드는 사유다). 편성 대상을 유형으로 좁힌다면 그 잔여를 세는 곳을 화면·액션이 모두 봐야 한다.
+  const surveySrc = readFileSync(path.join(ROOT, 'lib', 'survey.ts'), 'utf8')
+  const composeBlk = surveySrc.slice(surveySrc.indexOf('export function staleComposeTargets'), surveySrc.indexOf('export function unconfirmedGhosts'))
+  const narrowsByCategory = composeBlk.includes('PHYSICAL_CATEGORIES')
+  const planActSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'inventory', 'survey-plan', 'actions.ts'), 'utf8')
+  const emptyBranch = planActSrc.slice(planActSrc.indexOf('const fresh = staleComposeTargets()'), planActSrc.indexOf('const fresh = staleComposeTargets()') + 700)
+  const planViewSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'inventory', 'survey-plan', 'PlanView.tsx'), 'utf8')
+  const blockedLackers = [!emptyBranch.includes('staleComposeBlocked') && '자동 편성 액션', !planViewSrc.includes('staleBlocked') && '계획 화면'].filter(Boolean)
+  check('재물조사 계획: 편성 대기 0 의 사유를 사실대로 말한다(편성 불가 잔여를 센다)',
+    !narrowsByCategory || blockedLackers.length === 0, `잔여를 안 보는 곳=${blockedLackers.join(', ') || '없음'}`)
   // 완료 회차 이력 — 지난 재물조사 실적(대상·실사·차이)이 감사 추적용으로 보존된다. 그동안 완료 회차는 어디에도 안 보였다.
   check('재물조사 계획: 완료 회차 이력 렌더 (감사 추적)', planHtml.includes('완료 회차 이력') && planHtml.includes('INV-2026-H1') && planHtml.includes('2026 상반기 정기 재물조사'))
   const recHtml2 = await (await get('/discovery/reconcile', 'ASSET_MGR')).text()
