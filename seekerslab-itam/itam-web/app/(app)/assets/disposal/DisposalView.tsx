@@ -58,14 +58,18 @@ export function DisposalView({ candidates, records, initialStatus, canExport }: 
     n.has(no) ? n.delete(no) : n.add(no)
     return n
   })
-  const allChecked = candidates.length > 0 && sel.size === candidates.length
-  const toggleAll = () => setSel(allChecked ? new Set() : new Set(candidates.map((c) => c.assetNo)))
+  const held = (status: string) => (HELD_STATUSES as readonly string[]).includes(status)
+  //  선택은 서버가 받아 주는 것만 — 단건 버튼은 보유 상태를 이미 막아 두었는데(아래 회수 후 선정) 체크박스와
+  //   전체 선택은 그대로 남아, 전체 선택이 서버가 거절할 건까지 고르고 일괄 선정이 그만큼을 건너뛴다.
+  //   같은 화면에서 단건은 '누를 수 없다'고 말하고 일괄은 '눌러 봐야 안다'고 말하는 셈이다(단건↔일괄 비대칭).
+  const selectable = candidates.filter((c) => !held(c.status))
+  const allChecked = selectable.length > 0 && sel.size === selectable.length
+  const toggleAll = () => setSel(allChecked ? new Set() : new Set(selectable.map((c) => c.assetNo)))
   // 단건 대상 선정 — 서버 응답을 그대로 보여 준다(권한·이미 폐기 절차·보유 상태 거절이 조용히 사라지지 않게).
   const selectOne = (assetNo: string, reason: string) => startTransition(async () => {
     const r = await selectForDisposal(assetNo, reason)
     setMsg({ ok: r.ok, text: r.message })
   })
-  const held = (status: string) => (HELD_STATUSES as readonly string[]).includes(status)
   const bulkSelect = () => startTransition(async () => {
     const items = candidates.filter((c) => sel.has(c.assetNo)).map((c) => ({ assetNo: c.assetNo, reason: c.reason }))
     const r = await selectForDisposalMany(items)
@@ -83,22 +87,25 @@ export function DisposalView({ candidates, records, initialStatus, canExport }: 
   return (
     <>
       <Card kicker="Candidates" title="폐기 후보 — 보증 만료 경과" pad={false}
-        actions={<button className="btn sm pri" disabled={pending || sel.size === 0} onClick={bulkSelect}>
-          선택 일괄 대상 선정 ({sel.size})
-        </button>}>
+        actions={<span className="hstack" style={{ gap: 8 }}>
+          <span className="mut" style={{ fontSize: 12 }}>선정 가능 {selectable.length} / 후보 {candidates.length}</span>
+          <button className="btn sm pri" disabled={pending || sel.size === 0} onClick={bulkSelect}>
+            선택 일괄 대상 선정 ({sel.size})
+          </button>
+        </span>}>
         {msg && <div className={`callout${msg.ok ? '' : ' warn'}`} style={{ margin: 14 }}>{msg.text}</div>}
         <div className="tbl-wrap" style={{ maxHeight: 260 }}>
           <table className="tbl">
             <thead><tr>
               <th className="c" style={{ width: 34 }}>
-                <input type="checkbox" checked={allChecked} onChange={toggleAll} aria-label="전체 선택" disabled={candidates.length === 0} />
+                <input type="checkbox" checked={allChecked} onChange={toggleAll} aria-label="선정 가능 전체 선택" title="서버가 받아 주는 선정 가능분만 고릅니다 (보유 상태는 회수 후)" disabled={selectable.length === 0} />
               </th>
               <th>자산번호</th><th>모델</th><th className="c">현재 상태</th><th>보증 만료</th><th className="num">경과</th><th className="c">선정</th>
             </tr></thead>
             <tbody>
               {candidates.map((c) => (
                 <tr key={c.assetNo} className={sel.has(c.assetNo) ? 'sel' : undefined}>
-                  <td className="c"><input type="checkbox" checked={sel.has(c.assetNo)} onChange={() => toggle(c.assetNo)} aria-label={`${c.assetNo} 선택`} /></td>
+                  <td className="c"><input type="checkbox" checked={sel.has(c.assetNo)} onChange={() => toggle(c.assetNo)} aria-label={`${c.assetNo} 선택`} disabled={held(c.status)} title={held(c.status) ? `${c.status} 자산은 회수·반환·검수 완료 후 유휴 상태에서 선정합니다` : undefined} /></td>
                   <td className="code">{c.assetNo}</td>
                   <td className="strong">{c.model}</td>
                   <td className="c"><Chip tone="neutral" bare>{c.status}</Chip></td>
