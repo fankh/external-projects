@@ -49,10 +49,10 @@ export interface ExportFilter {
 /** 반출 시트 — 필터가 걸렸으면 '반출 범위' 시트를 앞에 붙인다.
  *  부분 반출을 전체 대장으로 착각하면 감사에서 '누락'으로 읽힌다(감사 로그 반출이 이미 감사 기록에 범위를 적는 규약).
  *  화면과 같은 집합을 반출한다는 약속은 자산 대장·발견 자산·결재함만 지키고 있었다 — 계약·폐기·SaaS 는
- *  필터를 무시하고 전체를 내보내면서 그 사실을 어디에도 적지 않았다. */
+ *  필터를 무시하고 전체를 내보내면서 그 사실을 어디에도 적지 않았다.
  *  뒤집힌 짝도 있었다 — 화면 필터를 쿼리로 받아 제대로 좁히던 자산 대장·발견 자산·결재함은 좁힌 사실을
  *  감사 기록에만 남기고 파일에는 적지 않았다. 결재함은 기본값이 '대기'라, 평소 내려받는 결재이력 엑셀이
- *  이미 부분 반출이다. 범위 문구는 이제 반출 경로 한 곳에서 만들어 파일과 감사가 같은 말을 쓴다.
+ *  이미 부분 반출이다. 범위 문구는 이제 반출 경로 한 곳에서 만들어 파일과 감사가 같은 말을 쓴다. */
 export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: ExportFilter): Sheet[] {
   const sheets = buildKindSheets(kind, role, userName, filter)
   if (!filter?.scope) return sheets
