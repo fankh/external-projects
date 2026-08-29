@@ -31,7 +31,13 @@ export function codeUsage(groupId: string, label: string): number {
         + s.insights.filter((i) => i.proposedCategory === label).length
         + s.approvals.filter((a) => a.desiredCategory === label).length
     case 'ASSET_STATUS':
+      // 상태도 대장 밖에서 살아 있다 — 진행 중인 폐기 절차가 '되돌릴 상태'(prevStatus)를 붙들고 있고,
+      //  반려·취소 시 그 값을 대장에 그대로 다시 쓴다(결재 반려 복원 · 폐기 대상 선정 취소).
+      //  대장에 지금 그 상태인 자산이 없다는 이유로 미사용 전환·개명을 허용하면, 복원이 레지스트리에
+      //  없는 상태를 대장에 만든다 — 이 함수의 규약('해당 코드 체계를 저장하는 모든 컬렉션을 센다')이
+      //  상태에서만 한 곳이었다. 완료된 폐기는 되돌리지 않으므로 세지 않는다(LOCATION 과 같은 살아있는 참조 규약).
       return s.assets.filter((a) => a.status === label).length
+        + s.disposals.filter((d) => d.status !== '완료' && d.prevStatus === label).length
     case 'DATA_GRADE':
       return s.saasCatalog.filter((c) => c.dataGrade === label).length
     case 'RECONCILE':
