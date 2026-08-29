@@ -370,9 +370,7 @@ function seedDiscovered(): DiscoveredAsset[] {
 /** 외부 공격표면 — 수동(무접촉) 수집으로 후보 확보 → 능동 탐지로 생존·서비스·취약점 확인 */
 function seedExternal(): ExternalAsset[] {
   return [
-    //  인증서 유효기간 픽스처 — 고정 날짜는 그 날이 지나면 만료로 뒤집혀 EASM 인증서 판정이 달라진다.
-    //   시드 기준일 오프셋을 유지한 상대값으로 둔다(회차 기한·계약 만료와 같은 규약).
-    { id: 'EXT-2607-01', host: 'legacy-vpn.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', alive: true, services: 'HTTPS 443 (Fortinet SSL-VPN 6.0.4)', cve: 'CVE-2018-13379', cvss: 9.8, risk: '높음', firstSeen: '2026-07-22', state: '미등록', certIssuer: 'DigiCert TLS RSA SHA256 2020 CA1', certValidUntil: addDays(today(), 34), note: '만료 임박 인증서 · 대장에 없는 잊힌 VPN 게이트웨이' },
+    { id: 'EXT-2607-01', host: 'legacy-vpn.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', alive: true, services: 'HTTPS 443 (Fortinet SSL-VPN 6.0.4)', cve: 'CVE-2018-13379', cvss: 9.8, risk: '높음', firstSeen: '2026-07-22', state: '미등록', certIssuer: 'DigiCert TLS RSA SHA256 2020 CA1', certValidUntil: '2026-09-01', note: '만료 임박 인증서 · 대장에 없는 잊힌 VPN 게이트웨이' },
     { id: 'EXT-2607-02', host: 'dev-api.seekerslab.co.kr', ip: '203.0.113.51', method: '서브도메인 브루트포스', mode: 'Active', alive: true, services: 'HTTP 8080 (Swagger UI 노출)', risk: '높음', firstSeen: '2026-07-24', state: '미등록', note: '개발 API 문서가 인증 없이 외부 공개' },
     { id: 'EXT-2607-03', host: 'old-portal.seekerslab.co.kr', ip: '203.0.113.12', method: '웹 아카이브', mode: 'Passive', alive: false, risk: '낮음', firstSeen: '2026-07-19', state: '미확인', note: '과거 관측 호스트 — 생존 확인 전까지 비활성 표기' },
     { id: 'EXT-2607-04', host: 'mail.seekerslab.co.kr', ip: '203.0.113.25', method: '역DNS · CIDR 스캔', mode: 'Active', alive: true, services: 'SMTP 25 · IMAPS 993', risk: '낮음', firstSeen: '2026-07-15', state: '등록·일치', note: '대장 등록 자산 — 정상 노출' },
@@ -697,10 +695,8 @@ function seed(): Store {
           { id: 'DOC-0002', name: '한빛INT 견적서_60대.pdf', docType: '견적서', addedAt: '2023-02-20', addedBy: '박자산' },
           { id: 'DOC-0003', name: '세금계산서_2023-03.pdf', docType: '세금계산서', addedAt: '2023-03-31', addedBy: '이경리' },
         ] },
-      //  만료 임박 픽스처 둘 — 고정 만료일은 그 날이 지나면 임박이 아니라 경과가 된다(발주 미이행 위험·
-      //   유지보수 판정이 임박을 근거로 삼는다). 시드 기준일 오프셋을 유지한 상대값으로 둔다.
-      { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: addDays(today(), 33), amount: 384_000_000, ownerDept: '인프라운영팀' },
-      { id: 'CT-2022-007', kind: '유지보수', name: '네트워크 장비 통합 유지보수', vendor: '세종네트웍스', start: '2026-01-01', end: addDays(today(), 33), amount: 48_000_000, ownerDept: '네트워크팀',
+      { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: '2026-08-31', amount: 384_000_000, ownerDept: '인프라운영팀' },
+      { id: 'CT-2022-007', kind: '유지보수', name: '네트워크 장비 통합 유지보수', vendor: '세종네트웍스', start: '2026-01-01', end: '2026-08-31', amount: 48_000_000, ownerDept: '네트워크팀',
         sla: '장애 접수 후 4시간 내 온사이트 대응, 월 가동률 99.9% 보장, 24×7 헬프데스크',
         costs: [
           { id: 'CST-0001', date: '2026-01-15', item: '정기 유지보수료 1Q', amount: 12_000_000, addedBy: '박자산' },
