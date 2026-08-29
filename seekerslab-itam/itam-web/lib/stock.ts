@@ -1,7 +1,7 @@
 import type { Asset, DisposalRecord } from './types'
 import { STOCKED_CATEGORIES } from './types'
 
-export type LowStock = { category: string; available: number; safetyStock: number; short: number }
+export type LowStock = { category: string; available: number; safetyStock: number; short: number; intake: number }
 
 /** 폐기 절차 진행 중(완료 제외) 자산번호 — 대상 선정·결재 대기·소거 대기 자산은 다시 순환시키지 않는다.
  *  불출·대여·재배치 가드(dispatchAsset·loanAsset…)와 화면의 가용/배정 가능 재고가 이 한 기준을 공유해야
@@ -29,10 +29,22 @@ export function assignableAssets(assets: Asset[], disposals: DisposalRecord[]): 
 /** 안전재고 경보 — 불출 가능한 유형(단말·주변기기)별 가용 재고가 안전재고 미만인 유형을 집계한다.
  *  가용 = availableAssets(유휴·폐기 미진입) 중 해당 유형. 재고 화면 경보와 대시보드 운영 큐가
  *  이 한 함수를 공유한다(임계값·판정 단일 출처). 서버 전용. */
+/** 불출 가드는 받아 주는데 '가용(유휴)'에는 안 잡히는 재고 — 도입 직후 검수중 미배정분.
+ *  안전재고 경보는 즉시 재배치 가능한 유휴만 센다(availableAssets). 그런데 불출 가드(dispatchAsset)는
+ *  검수중도 받는다(assignableAssets) — 그래서 경보가 '재고 소진'이라 말하는 바로 그 유형을 같은 앱의
+ *  불출 화면이 배정 가능으로 내준다. 두 판정은 각자 옳다(하나는 즉시 재배치, 하나는 신규 배정 가능).
+ *  어긋난 것은 그 차이를 아무 데도 적지 않은 점이다 — 발주 요청 메일이 구매팀에 실제보다 큰 부족을
+ *  통보하고, 담당자는 갓 들어온 단말을 두고 새로 산다. 이 함수가 그 차이를 센다. 서버 전용. */
+export function pendingIntakeStock(assets: Asset[], disposals: DisposalRecord[]): Asset[] {
+  const pendingDisposal = pendingDisposalNos(disposals)
+  return assets.filter((a) => a.status === '검수중' && !pendingDisposal.has(a.assetNo) && !a.quarantinedAt)
+}
+
 export function lowStockCategories(assets: Asset[], disposals: DisposalRecord[], safetyStock: number): LowStock[] {
   const avail = availableAssets(assets, disposals)
+  const intakeReady = pendingIntakeStock(assets, disposals)
   return STOCKED_CATEGORIES.map((cat) => {
     const available = avail.filter((a) => a.category === cat).length
-    return { category: cat, available, safetyStock, short: Math.max(0, safetyStock - available) }
+    return { category: cat, available, safetyStock, short: Math.max(0, safetyStock - available), intake: intakeReady.filter((a) => a.category === cat).length }
   }).filter((r) => r.available < r.safetyStock)
 }

@@ -347,6 +347,18 @@ try {
   check('대시보드: EOL OS 자산 큐 + 드릴 링크 (자산담당)', dashHtml.includes('EOL OS 자산') && dashHtml.includes('os=eol'))
   // 안전재고 미달 큐 — 불출형 유형 가용 재고가 안전재고 미만이면 자산담당 운영 큐에 노출(발주 검토), 재고 화면 드릴
   check('대시보드: 안전재고 미달 발주 검토 큐 (자산담당)', dashHtml.includes('안전재고 미달') && dashHtml.includes('발주 검토') && dashHtml.includes('/inventory/stock'))
+  // 안전재고 경보는 즉시 재배치 가능한 유휴만 센다. 그런데 불출 가드(dispatchAsset)는 검수중도 받는다 —
+  //  그래서 경보가 '재고 소진'이라 말하는 바로 그 유형을 같은 앱의 불출 화면이 배정 가능으로 내준다.
+  //  판정을 통일하는 문제가 아니다(하나는 즉시 재배치, 하나는 신규 배정으로 각자 옳다). 그 차이를 어디에도
+  //  적지 않아 발주 요청 메일이 구매팀에 실제보다 큰 부족을 통보하는 것이 문제다 — 갓 들어온 단말을 두고 산다.
+  //  시드에는 검수중 단말(AST-2025-000033)이 있고 단말 가용은 0이라, 경보가 '재고 소진'이라 말하는 유형이다.
+  const stkAlertHtml = await (await get('/inventory/stock', 'ASSET_MGR')).text()
+  const stkAlertBlk = stkAlertHtml.slice(stkAlertHtml.indexOf('안전재고 경보'), stkAlertHtml.indexOf('Asset Value'))
+  const stkMvHtml = await (await get('/assets/movement', 'ASSET_MGR')).text()
+  const stkIntakeIssuable = stkMvHtml.includes('AST-2025-000033')
+  check('안전재고 경보: 불출 가드가 받는 검수중 미배정분을 함께 밝힌다',
+    !stkIntakeIssuable || stkAlertBlk.includes('검수중'),
+    `불출 화면이 검수중 단말을 배정 가능으로 내줌=${stkIntakeIssuable} / 경보가 검수중을 밝힘=${stkAlertBlk.includes('검수중')}`)
   // 라이선스 초과 사용(SAM 감사 최우선 노출) — 시드 LIC-002(JetBrains 120보유/131사용, 11석 초과)로 자산담당 운영 큐에 노출·계약 화면 드릴
   check('대시보드: 라이선스 초과 사용 감사 노출 큐 (자산담당)', dashHtml.includes('라이선스 초과 사용') && dashHtml.includes('감사 노출') && dashHtml.includes('/inventory/contracts'))
   // 라이선스 배정 밖 설치 — STEP2 대사(#47)의 무단 사용(좌석 없는 설치)을 SAM 리스크로 담당자 대시보드에 노출. 시드 2건(LIC-004·LIC-001).

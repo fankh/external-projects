@@ -24,7 +24,8 @@ export async function requestReorder() {
   if (s.dispatches.some((m) => m.kind === '발주 요청' && m.at.startsWith(t))) {
     return { ok: false, message: '오늘 이미 발주 요청을 발송했습니다 (당일 중복 발송 차단).' }
   }
-  const summary = low.map((r) => `${r.category} ${r.short}대(가용 ${r.available}/안전재고 ${r.safetyStock})`).join(', ')
+  //  검수중 미배정분은 불출 가드가 받아 주는 재고다 — 빼고 통보하면 구매팀이 실제보다 큰 부족으로 발주한다
+  const summary = low.map((r) => `${r.category} ${r.short}대(가용 ${r.available}/안전재고 ${r.safetyStock}${r.intake ? ` · 검수중 ${r.intake}대` : ``})`).join(', ')
   dispatch({ channel: '이메일', to: '구매팀 · IT기획팀', subject: `IT 자산 발주 요청 — 안전재고 미달 ${low.length}종: ${summary}`, kind: '발주 요청', ref: 'STOCK' })
   appendAudit({ actor: session.name, action: `안전재고 발주 요청 발송 (${low.length}종 — ${summary})`, target: '재고 보충' })
   revalidatePath('/', 'layout')

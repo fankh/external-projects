@@ -192,7 +192,7 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
     ])
     // 안전재고 판정은 화면 경보·대시보드 큐와 같은 lib/stock 단일 소스 — 반출본만 따로 세면 세 수가 갈린다.
     const low = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
-    const lowRows: (string | number)[][] = low.map((r) => [r.category, r.available, r.safetyStock, r.short, '미달'])
+    const lowRows: (string | number)[][] = low.map((r) => [r.category, r.available, r.intake, r.safetyStock, r.short, '미달'])
     return [
       { name: '유형별', header, rows: agg((a) => a.category) },
       { name: '부서별', header, rows: agg((a) => a.dept) },
@@ -210,7 +210,7 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
       },
       {
         name: '안전재고 미달',
-        header: ['유형', '가용', '안전재고', '부족', '판정'],
+        header: ['유형', '가용(유휴)', '검수중(불출 가능)', '안전재고', '부족', '판정'],
         rows: lowRows,
       },
     ]
