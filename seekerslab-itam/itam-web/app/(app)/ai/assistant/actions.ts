@@ -665,8 +665,8 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       role: 'assistant',
       text: low.length === 0
         ? `불출형 재고(단말·주변기기)가 모두 안전재고(${s.opsPolicy.safetyStock}대) 이상입니다 — 발주 검토 대상이 없습니다.`
-        : `안전재고 미달(발주 검토) 유형입니다 (안전재고 ${s.opsPolicy.safetyStock}대 기준 · 가용 = 유휴이며 폐기 절차·NAC 격리 미해당).\n\n${low
-            .map((r) => `· ${r.category}: 가용 ${r.available}대 / 안전재고 ${r.safetyStock}대 — ${r.available === 0 ? '재고 소진' : `${r.short}대 부족`}`)
+        : `안전재고 미달(발주 검토) 유형입니다 (안전재고 ${s.opsPolicy.safetyStock}대 기준 · 가용 = 유휴이며 폐기 절차·NAC 격리 미해당 · 불출 가드가 받는 검수중 미배정분은 따로 표기).\n\n${low
+            .map((r) => `· ${r.category}: 가용 ${r.available}대 / 안전재고 ${r.safetyStock}대${r.intake ? ` · 검수중 ${r.intake}대(불출 가능)` : ``} — ${r.available === 0 ? '재고 소진' : `${r.short}대 부족`}`)
             .join('\n')}\n\n재고 화면의 발주 요청 발송으로 구매·IT기획팀에 보충을 요청할 수 있습니다.`,
       evidence: [
         { label: '재고 현황 (안전재고 경보)', href: '/inventory/stock' },
