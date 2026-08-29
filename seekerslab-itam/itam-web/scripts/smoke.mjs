@@ -1319,6 +1319,23 @@ try {
   await get(`/api/export/disposals?ids=DSP-01&scope=${encodeURIComponent('상태=결재 대기')}`, 'ASSET_MGR')
   const expAudit = await (await get('/platform/integrations', 'SEC_MGR')).text()
   check('반출 필터: 부분 반출이 감사 기록에 범위와 함께 남는다', expAudit.includes('상태=결재 대기'))
+  // 화면이 0건으로 좁혀진 채 반출하면 빈 목록(nos= · ids=)이 실려 온다 — 이걸 파라미터 없음과 같게 읽으면
+  //  아무것도 좁히지 않은 것이 되어 대장 전량이 나간다. 버튼에는 (0)이라 적혀 있는데 파일에는 전 건이
+  //  담기는, 화면과 가장 크게 어긋나는 반출이다. 자산 대장의 nos 와 계약·폐기·SaaS 의 ids 가 같은 규약이다.
+  const zeroRowKinds = [
+    { kind: 'assets', role: 'ASSET_MGR', qs: 'nos=', out: 'AST-2023-000112' },
+    { kind: 'contracts', role: 'ASSET_MGR', qs: 'ids=&scope=' + encodeURIComponent('결과 없음'), out: 'CT-2023-002' },
+    { kind: 'disposals', role: 'ASSET_MGR', qs: 'ids=&scope=' + encodeURIComponent('결과 없음'), out: 'DSP-01' },
+    { kind: 'saasCatalog', role: 'SEC_MGR', qs: 'ids=&scope=' + encodeURIComponent('결과 없음'), out: 'Notion' },
+    { kind: 'discovered', role: 'SEC_MGR', qs: 'ids=&scope=' + encodeURIComponent('결과 없음'), out: 'DSC-2607-0035' },
+  ]
+  for (const t of zeroRowKinds) {
+    const empty = await xlsxText(`/api/export/${t.kind}?${t.qs}`, t.role)
+    const full = await xlsxText(`/api/export/${t.kind}`, t.role)
+    check(`0건 반출(${t.kind}): 좁힌 결과가 없으면 전량이 아니라 0건을 내보낸다`,
+      full.includes(t.out) && !empty.includes(t.out),
+      `전체에 ${t.out}=${full.includes(t.out)} / 0건 반출에 ${t.out}=${empty.includes(t.out)}`)
+  }
   // 발견 자산 반출은 화면이 넘긴 행 ID 도 따라야 한다 — 이 종류만 keep 이 빠져 ids 를 보내도 전량이 나갔다.
   //  화면의 '미조치만'·'확인 미응답' 은 서버가 쿼리로 다시 계산할 수 없어 ids 로 넘기는 축이라, 이게 없으면
   //  좁혀 놓은 화면과 반출본이 갈린다(반출은 화면에 보이는 그 집합이라는 약속).

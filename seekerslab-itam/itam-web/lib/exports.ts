@@ -40,7 +40,9 @@ export interface ExportFilter {
   q?: string; cat?: string; nos?: string[]; status?: string; stale?: boolean; warranty?: boolean
   channel?: string; state?: string; risk?: string; akind?: string; mine?: boolean
   /** 화면이 실제로 보여 준 행의 ID — 서버가 같은 조건을 다시 계산할 수 없는 화면(계약·폐기·SaaS)에서 쓴다.
-   *  자산 대장이 이미 쓰던 nos 와 같은 수법을 종류 전체로 넓힌 것이다. */
+   *  자산 대장이 이미 쓰던 nos 와 같은 수법을 종류 전체로 넓힌 것이다.
+   *  없으면(undefined) 좁히지 않고, 빈 배열이면 0건으로 좁힌 것이다 — 화면이 0건을 반출할 때 이 둘을
+   *  같게 읽으면 전량이 나간다(nos 도 같은 규약). */
   ids?: string[]
   /** 사람이 읽는 필터 설명 — 반출본 첫 시트에 적어, 받는 사람이 부분 반출임을 알 수 있게 한다 */
   scope?: string
@@ -76,7 +78,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
 function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?: ExportFilter): Sheet[] {
   const s = getStore()
   // 화면이 보여 준 행만 — 서버가 같은 필터를 다시 계산할 수 없는 종류에 쓴다(자산 대장의 nos 와 같은 수법)
-  const idSet = filter?.ids?.length ? new Set(filter.ids) : null
+  const idSet = filter?.ids ? new Set(filter.ids) : null
   const keep = (id: string) => !idSet || idSet.has(id)
 
   if (kind === 'assets') {
@@ -88,7 +90,7 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
     const q = (filter?.q ?? '').trim().toLowerCase()
     const cat = filter?.cat ?? '전체'
     const status = filter?.status ?? '전체'
-    const nos = filter?.nos && filter.nos.length ? new Set(filter.nos) : null
+    const nos = filter?.nos ? new Set(filter.nos) : null
     // 보증 임박 — 운영 중 자산 중 보증 만료가 운영 정책 만료창 안(경과 포함). 대장 화면의 warrantySet 과 같은 lib/dates 판정.
     const warrantySoon = (a: (typeof s.assets)[number]) => isWarrantyExpiring(a, s.opsPolicy.expiryWindowDays)
     const rows = (role === 'USER' ? s.assets.filter((a) => a.owner === userName) : s.assets)

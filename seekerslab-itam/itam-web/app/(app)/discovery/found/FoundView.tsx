@@ -174,9 +174,8 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
           //   계약·폐기·SaaS 가 쓰는 ids + scope 수법으로 화면이 보여 준 그 행을 그대로 넘긴다.
           const parts = [channel !== '전체' && `채널=${channel}`, fstate !== '전체' && `대사=${fstate}`, frisk !== '전체' && `위험도=${frisk}`, fOpen && '미조치만', fAwait && '확인 미응답', fq.trim() && `검색='${fq.trim()}'`].filter(Boolean)
           const byIds = fAwait || fOpen
-          //  좁힌 결과가 0건이면 빈 ids 는 필터 없음으로 읽혀 전량이 나간다 — 아무 행에도 맞지 않는 표식을 보낸다
           const href = byIds
-            ? `/api/export/discovered?${new URLSearchParams({ ids: rows.map((d) => d.id).join(',') || '-', scope: parts.join(', ') }).toString()}`
+            ? `/api/export/discovered?${new URLSearchParams({ ids: rows.map((d) => d.id).join(','), scope: parts.join(', ') }).toString()}`
             : `/api/export/discovered?${new URLSearchParams({ q: fq.trim(), channel, state: fstate, risk: frisk }).toString()}`
           return (
             <a className="btn sm" style={{ marginLeft: 'auto' }} download href={href}>
