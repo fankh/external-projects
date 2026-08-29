@@ -27,7 +27,7 @@ export function can(menu: PermMenu, action: PermAction, role: Role): boolean {
   return true
 }
 
-export { PARTIAL_SCOPES, PERM_ACTIONS, hasPartialScope, isLocked } from './types'
+export { PARTIAL_SCOPES, PERM_ACTIONS, hasPartialScope, isLocked, lockReason } from './types'
 
 /** 기능(Action) 사전 — STEP 1 메뉴기능관리. 화면이 제공하는 버튼의 의미와 강제 지점을 정의한다.
  *  메뉴·기능 관리 화면 표시와 엑셀 반출이 같은 정의를 쓰도록 한 곳에 둔다. (제품안내서 §02) */

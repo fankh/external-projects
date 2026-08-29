@@ -1369,8 +1369,25 @@ export const PARTIAL_SCOPES: Record<string, string> = {
 
 /** 절대 회수할 수 없는 칸 — Admin 이 권한 화면 자체를 잠가 스스로를 가두는 것을 막는다.
  *  되돌릴 화면이 바로 그 화면이라 앱 안에 복구 경로가 없다 — can() 도 loadStore 도 이 불변식을 본다. */
+/** 잠긴 칸의 사유 — 없으면 잠기지 않은 칸이다. 화면·서버 액션이 같은 문구를 쓰도록 사유를 여기 한 곳에 둔다
+ *  (그전에는 두 곳이 'Admin 자기 잠금' 문구를 각자 박아 두어, 잠금 사유가 늘면 엉뚱한 이유를 보여 준다). */
+export function lockReason(menu: PermMenu, action: PermAction, role: Role): string | null {
+  if (role === 'ADMIN' && menu === '권한 · 정책' && (action === '조회' || action === '저장')) {
+    return 'Admin 의 권한·정책 조회/저장 권한은 회수할 수 없습니다 (잠금 방지).'
+  }
+  //  대시보드는 접근이 거부된 사용자가 돌아오는 화면이라 매트릭스로 막을 수 없다(ROUTE_MENU 가 이 화면만
+  //   매핑에서 뺀 이유 — 여기까지 막으면 자기 자신으로 돌려보내는 고리가 된다). 그런데 매트릭스는 이 행의
+  //   칸을 그대로 편집하게 두어, 관리자가 조회를 빼도 화면은 열리고 어디에도 강제되지 않았다 —
+  //   ROUTE_MENU 주석이 '표시만 되고 강제되지 않는 정책'이라 부르며 닫은 바로 그 상태다.
+  //   AI 거버넌스의 LOCKED_AI_POLICY_TOGGLES 와 같은 규약으로, 편집을 막고 사유를 밝힌다.
+  if (menu === '대시보드') {
+    return '대시보드는 접근 거부 시 돌아오는 화면이라 매트릭스로 통제하지 않습니다 (회수해도 강제되지 않음).'
+  }
+  return null
+}
+
 export function isLocked(menu: PermMenu, action: PermAction, role: Role): boolean {
-  return role === 'ADMIN' && menu === '권한 · 정책' && (action === '조회' || action === '저장')
+  return lockReason(menu, action, role) !== null
 }
 
 /** 이 칸에 '본인(부분)'을 줄 수 있는가 — 범위를 좁히는 구현이 있는 칸만 참 */
