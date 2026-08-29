@@ -166,12 +166,24 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
           <button className="btn sm ghost" onClick={() => { setFstate('전체'); setFrisk('전체'); setFq(''); setFAwait(false); setFOpen(false) }}>필터 해제</button>
         )}
         <span className="cnt" data-queue="await=overdue state=미등록&act=open /discovery/found">{rows.length}건 / 전체 {items.length}건</span>
-        {canExport && (
-          <a className="btn sm" style={{ marginLeft: 'auto' }} download
-            href={`/api/export/discovered?${new URLSearchParams({ q: fq.trim(), channel, state: fstate, risk: frisk }).toString()}`}>
-            ⤓ 발견 자산 엑셀{(fstate !== '전체' || frisk !== '전체' || fq.trim() !== '' || channel !== '전체') ? ` (${rows.length})` : ''}
-          </a>
-        )}
+        {canExport && (() => {
+          //  '미조치만'·'확인 미응답' 은 서버가 쿼리로 다시 계산할 수 없는 화면 전용 축이다(조치 유무와,
+          //   서버가 계산해 내려준 응답 지연 집합). 반출 링크가 이 둘을 빼고 나머지 필터만 보내는 바람에
+          //   화면은 미조치 3건인데 파일에는 발견 자산 전량이 담겨 나갔다 — 버튼의 (N) 표시조차 이 둘을
+          //   활성 판정에서 빼 두어, 토글만 켠 채 누르면 건수 없이 전체 대장이 내려간다.
+          //   계약·폐기·SaaS 가 쓰는 ids + scope 수법으로 화면이 보여 준 그 행을 그대로 넘긴다.
+          const parts = [channel !== '전체' && `채널=${channel}`, fstate !== '전체' && `대사=${fstate}`, frisk !== '전체' && `위험도=${frisk}`, fOpen && '미조치만', fAwait && '확인 미응답', fq.trim() && `검색='${fq.trim()}'`].filter(Boolean)
+          const byIds = fAwait || fOpen
+          //  좁힌 결과가 0건이면 빈 ids 는 필터 없음으로 읽혀 전량이 나간다 — 아무 행에도 맞지 않는 표식을 보낸다
+          const href = byIds
+            ? `/api/export/discovered?${new URLSearchParams({ ids: rows.map((d) => d.id).join(',') || '-', scope: parts.join(', ') }).toString()}`
+            : `/api/export/discovered?${new URLSearchParams({ q: fq.trim(), channel, state: fstate, risk: frisk }).toString()}`
+          return (
+            <a className="btn sm" style={{ marginLeft: 'auto' }} download href={href}>
+              ⤓ 발견 자산 엑셀{parts.length > 0 ? ` (${rows.length})` : ''}
+            </a>
+          )
+        })()}
       </div>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
 
