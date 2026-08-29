@@ -1,7 +1,7 @@
 /** 유지보수 계약 관리 현황(§03 유지보수 계약: 대상 자산·SLA·비용 이력) — 계약별 예산 집행률과 SLA 요약을
  *  한 곳에 모은다. 그동안 비용 이력은 '누계'만 보였고 계약액 대비 집행률·잔여 예산·판정이 없었다.
  *  읽기 전용 합성 뷰 — 화면과 대장이 같은 산출을 쓴다(계약 amount·costs·연계 자산에서 결정적으로 파생). */
-import { ratioPct, daysUntil } from './dates'
+import { today, ratioPct, daysUntil } from './dates'
 import { contractAssetCount, getStore } from './store'
 
 export interface MaintenanceRow {
