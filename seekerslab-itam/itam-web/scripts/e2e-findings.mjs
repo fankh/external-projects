@@ -2952,8 +2952,8 @@ try {
   //   페이지 전체에서 .first() 로 잡으면 판정 칸이 아예 없는 행을 읽는다. 그때 '정상'은 만료 임박 칩이라,
   //   이 검사는 '집행률 0%가 미집행이 아니다'가 아니라 '만료일이 임박 창 밖이다'를 확인하고 있었다
   //   (앞선 운영 정책 변경이 창을 60일로 좁혀 D-62 가 창 밖이 된 덕에 통과했다 — 판정 회귀는 무증상이었다).
-  const maintCard = p4.locator('.card', { hasText: '유지보수 계약 관리' })
-  const mssRow = (await maintCard.locator('tr', { has: p4.locator('td', { hasText: '보안관제(MSS) 유지보수' }) }).first().textContent()) || ''
+  const mssMaintCard = p4.locator('.card', { hasText: '유지보수 계약 관리 — 예산 집행 · SLA' })
+  const mssRow = (await mssMaintCard.first().locator('tr', { has: p4.locator('td', { hasText: '보안관제(MSS) 유지보수' }) }).first().textContent()) || ''
   //  양성 대조 — 이 행이 정말 '반올림하면 0%'인 그 건인지 먼저 확인한다. 집행률이 0% 가 아니면 회귀의 대상이 아니라
   //   판정이 맞아도 이 검사가 증명하는 것이 없다(시드가 바뀌면 조용히 무증상이 된다).
   ok('유지보수 판정(양성 대조): 소액 집행 계약의 표기 집행률은 반올림 0%', /(^|[^\d])0%/.test(mssRow))
