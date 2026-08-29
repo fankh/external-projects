@@ -228,6 +228,9 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
     const dstate = filter?.state ?? '전체'
     const drisk = filter?.risk ?? '전체'
     const disc = s.discovered.filter((d) => {
+      //  화면 전용 축(미조치만·확인 미응답)은 서버가 쿼리로 다시 계산할 수 없어 화면이 행 ID 를 넘긴다 —
+      //   계약·폐기·SaaS 가 쓰던 keep 수법이 이 분기만 빠져 있어, ids 를 보내도 전량이 나갔다.
+      if (!keep(d.id)) return false
       if (dchan !== '전체') {
         const obs = obsByAsset.get(d.id) ?? []
         if (!(d.channel === dchan || obs.some((o) => o.channel === dchan))) return false

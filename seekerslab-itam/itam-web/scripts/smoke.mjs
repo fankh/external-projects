@@ -1319,6 +1319,24 @@ try {
   await get(`/api/export/disposals?ids=DSP-01&scope=${encodeURIComponent('상태=결재 대기')}`, 'ASSET_MGR')
   const expAudit = await (await get('/platform/integrations', 'SEC_MGR')).text()
   check('반출 필터: 부분 반출이 감사 기록에 범위와 함께 남는다', expAudit.includes('상태=결재 대기'))
+  // 발견 자산 반출은 화면이 넘긴 행 ID 도 따라야 한다 — 이 종류만 keep 이 빠져 ids 를 보내도 전량이 나갔다.
+  //  화면의 '미조치만'·'확인 미응답' 은 서버가 쿼리로 다시 계산할 수 없어 ids 로 넘기는 축이라, 이게 없으면
+  //  좁혀 놓은 화면과 반출본이 갈린다(반출은 화면에 보이는 그 집합이라는 약속).
+  const discIdPart = await xlsxText(`/api/export/discovered?ids=DSC-2607-0035&scope=${encodeURIComponent('미조치만')}`, 'SEC_MGR')
+  const discIdFull = await xlsxText('/api/export/discovered', 'SEC_MGR')
+  check('반출 필터(discovered): 화면이 보여 준 행 ID 만 담긴다',
+    discIdFull.includes('DSC-2607-0035') && discIdFull.includes('DSC-2607-0044') && discIdPart.includes('DSC-2607-0035') && !discIdPart.includes('DSC-2607-0044'),
+    `전체에 0044=${discIdFull.includes('DSC-2607-0044')} / 부분에 0044=${discIdPart.includes('DSC-2607-0044')} 0035=${discIdPart.includes('DSC-2607-0035')}`)
+  // 화면 쪽 절반 — rows 를 좁히는 축은 모두 반출 링크에도 실려야 한다. 축을 하나 더 달면서 링크만 두고 가면
+  //  화면은 3건인데 파일은 전량이 되는 조용한 어긋남이 다시 생긴다(rows useMemo 의 의존 목록이 축 목록이다).
+  const foundSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'found', 'FoundView.tsx'), 'utf8')
+  const rowsDeps = /\[items, ([^\]]*)\],\r?\n\s*\)/.exec(foundSrc)?.[1] ?? ''
+  const dataDeps = new Set(['awaitOverdueSet', 'obsBy'])
+  const axes = rowsDeps.split(',').map((v) => v.trim()).filter((v) => v && !dataDeps.has(v))
+  const expBlk = foundSrc.slice(foundSrc.indexOf('{canExport &&'), foundSrc.indexOf('</a>', foundSrc.indexOf('{canExport &&')))
+  const missingAxes = axes.filter((v) => !expBlk.includes(v))
+  check(`발견 자산: 화면을 좁히는 축이 모두 반출 링크에 실린다(축 ${axes.length}종)`,
+    axes.length >= 5 && missingAxes.length === 0, `반출에 빠진 축=${missingAxes.join(', ') || '없음'}`)
   // 화면 필터를 쿼리로 받아 좁히는 종류(자산 대장·발견 자산·결재함)도 같은 약속을 지켜야 한다 — ids 로
   //  좁힌 종류만 '반출 범위' 시트를 달고, 이쪽은 서버가 행을 좁혀 놓고도 파일에 아무 표시가 없었다.
   //  결재함은 화면 기본값이 status=대기라 평소 받는 '결재이력.xlsx' 자체가 대기분만 담은 부분 반출이다.
