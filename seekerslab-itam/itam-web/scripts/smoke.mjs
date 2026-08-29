@@ -4347,6 +4347,22 @@ try {
     .map((row) => (/id: '([^']+)'/.exec(row) ?? [])[1])
   check(`시드: 대기 결재의 상신일이 고정 날짜가 아니다(전량이 SLA 초과가 되지 않게)`,
     fixedPending.length === 0, `고정 상신일=${fixedPending.slice(0, 5).join(', ')}${fixedPending.length > 5 ? ` 외 ${fixedPending.length - 5}건` : ''}`)
+  // 외부 LLM 반출 비식별 — 정책은 개인 식별자를 마스킹한 뒤 반출한다고 밝힌다. 마스킹은 이름 목록을 받아
+  //  치환하는 방식이라, 목록에 없는 이름은 그대로 나간다. 그러므로 목록은 문맥이 실제로 찍는 사람 필드를
+  //  모두 덮어야 한다 — 사용자 계정 표만 넘기면 계정 없는 대장 보유자 이름이 그대로 반출된다
+  //  (시드 기준 계정은 6명인데 대장·이력에 등장하는 사람 이름은 그보다 훨씬 많다).
+  //  문맥이 목록이다 — buildContext 가 찍는 사람 필드를 뽑아, 마스킹 목록을 만드는 쪽이 그 필드를 보는지 본다.
+  const egrAsstSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'ai', 'assistant', 'actions.ts'), 'utf8')
+  const egrCtxAt = egrAsstSrc.indexOf('function buildContext')
+  const egrCtxBody = egrAsstSrc.slice(egrCtxAt, egrAsstSrc.indexOf('\nfunction ', egrCtxAt + 10))
+  const EGR_PERSON_FIELDS = ['owner', 'requester', 'author', 'actor', 'assignee', 'decidedBy', 'addedBy']
+  const egrRendered = EGR_PERSON_FIELDS.filter((f) => new RegExp('\\$\\{[a-z]\\.' + f + '\\b').test(egrCtxBody))
+  const egrLibSrc = readFileSync(path.join(ROOT, 'lib', 'ai-egress.ts'), 'utf8')
+  const egrCallLine = (egrAsstSrc.split(/\r?\n/).find((ln) => ln.includes('deidentify(buildContext(')) ?? '')
+  const egrCovered = egrCallLine + egrLibSrc
+  const egrLeaking = egrRendered.filter((f) => !egrCovered.includes(f))
+  check(`AI 반출 비식별: 문맥이 찍는 사람 필드가 모두 마스킹 목록에 들어간다(${egrRendered.length}종)`,
+    egrRendered.length > 0 && egrLeaking.length === 0, `목록에 없는 필드=${egrLeaking.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
