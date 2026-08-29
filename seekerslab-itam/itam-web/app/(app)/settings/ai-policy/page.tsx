@@ -2,7 +2,7 @@ import { LOCKED_AI_POLICY_TOGGLES, effectiveAiToggle } from '@/lib/types'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { effectiveClassifyAccuracy, feedbackJudged } from '@/lib/ai-accuracy'
-import { deidentify, egressPolicy } from '@/lib/ai-egress'
+import { deidentify, egressPersonNames, egressPolicy, isPersonName } from '@/lib/ai-egress'
 import { aiAuditLogs } from '@/lib/ai-status'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
@@ -74,14 +74,16 @@ export default async function AiPolicyPage() {
               눈으로 확인·감사할 수 있게). 어시스턴트가 실제로 쓰는 lib/ai-egress 의 deidentify 를 그대로 호출하므로
               표시와 강제가 갈릴 수 없다. 온프레미스·하이브리드에서는 반출 자체가 없으므로 참고용임을 명시한다. */}
           {(() => {
-            const sample = s.assets[0]
+            //  보유자가 사람인 자산을 고른다 — 첫 자산은 보유자가 자리표시자(-)라 이름 마스킹이 무엇을
+            //   하는지 보여 주지 못했다('실제 적용 결과'라 적어 둔 미리보기가 정작 이름은 실증하지 않았다).
+            const sample = s.assets.find((a) => isPersonName(a.owner)) ?? s.assets[0]
             const cred = s.credentials[0]
             const raw = [
               sample && `- ${sample.assetNo} | ${sample.model} | ${sample.status} | ${sample.owner}/${sample.dept} | IP:${sample.ip ?? '-'}`,
               cred && `- ${cred.id} | 크리덴셜 노출 | ${cred.service} ${cred.host}:${cred.port} | ${cred.issue}`,
               `- 문의: ${s.users[0]?.name ?? ''} (${s.users[0]?.login ?? ''}@corp.example.com) · MAC 00:1A:2B:3C:4D:5E`,
             ].filter(Boolean).join('\n')
-            const masked = deidentify(raw, s.users.map((u) => u.name))
+            const masked = deidentify(raw, egressPersonNames(s.users, s.assets))  // 어시스턴트와 같은 목록 — 미리보기가 실제 반출과 어긋나지 않게
             return (
               <div style={{ marginTop: 14 }}>
                 <div className="kicker mute">비식별 미리보기 — 외부 반출 시 실제 적용 결과</div>
