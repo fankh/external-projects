@@ -1,5 +1,5 @@
 'use server'
-import { DISPOSAL_STATUSES } from '@/lib/types'
+import { DISPOSAL_STATUSES, HELD_STATUSES } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
 import { classifyDiscoveredType } from '@/lib/classify'
@@ -103,7 +103,13 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
   } else if (ins.kind === '취약점 우선순위' && ins.refId) {
     // EOL·고위험 취약점 자산 → 교체 위해 폐기 대상으로 선정(폐기 결재 게이트를 거친다)
     const asset = s.assets.find((a) => a.assetNo === ins.refId)
-    if (asset && !DISPOSAL_STATUSES.includes(asset.status) && !s.disposals.some((d) => d.assetNo === asset.assetNo)) {
+    //  보유자가 쥔·파이프라인 중 자산(사용중·대여중·검수중)은 실물을 폐기할 수 없다 — 직접 선정
+    //   (selectForDisposal)이 '먼저 회수·반환·검수를 마쳐야 한다'며 막는 바로 그 판정이다. 이 경로만
+    //   그 게이트를 지나쳐, AI 제안 승인 한 번으로 남의 손에 있는 자산이 폐기예정이 되고(대여중이면 대여
+    //   추적이 끊긴다) 회수 단계가 통째로 생략됐다. 같은 판정을 두 경로가 다르게 하지 않는다.
+    if (asset && (HELD_STATUSES as readonly string[]).includes(asset.status)) {
+      action = `보유 중(${asset.status}) — 회수·반환·검수 후 폐기 선정 대상 (${asset.assetNo})`
+    } else if (asset && !DISPOSAL_STATUSES.includes(asset.status) && !s.disposals.some((d) => d.assetNo === asset.assetNo)) {
       s.disposals.push({ id: nextId('DSP'), assetNo: asset.assetNo, model: asset.model, reason: `EOL·취약점 조치 1순위 — ${ins.title}`, status: '대상 선정', prevStatus: asset.status })
       // 직접 선정(selectForDisposal)과 같은 이력을 남긴다 — AI 제안으로 편입된 자산만 타임라인이 비면 안 된다.
       asset.history.push({ date: today(), kind: '폐기', detail: `폐기(교체) 대상 선정 — AI 제안 승인 ${ins.title} (${asset.status} → 폐기예정)`, actor: session.name })
