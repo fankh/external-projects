@@ -4277,6 +4277,19 @@ try {
     .map((row) => (/id: '([^']+)'/.exec(row) ?? [])[1] + '=' + (/dueDate: '(\d{4}-\d\d-\d\d)'/.exec(row) ?? [])[1])
   check('시드: 끝나지 않은 재물조사 회차의 기한이 고정 날짜가 아니다(픽스처가 뒤집히지 않게)',
     invFixedDue.length === 0, `고정 기한=${invFixedDue.join(', ') || '없음'}`)
+  // 주기형 스케줄(정례 리포트 배포·EASM 재탐지)의 '마지막 실행'은 달력 사실이 아니라 주기 안에서의 위치다.
+  //  고정 날짜로 적으면 실제 시간이 흐르는 만큼 통째로 밀려, 설계상 예정이던 항목이 전부 기한 경과가 되고
+  //  '다가오는 일정' 아젠다에서는 통째로 빠진다 — 화면이 뜻하던 대비(예정 몇 · 밀림 몇)가 사라진다.
+  //  실제로 리포트 스케줄 여섯이 전부 밀렸고, EASM 세 도메인이 전부 재탐지 경과였다.
+  const cycleSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const cycleBlocks = ['seedReportSchedules', 'seedEasmTargets']
+  const fixedLastRun = cycleBlocks.flatMap((fn) => {
+    const at = cycleSrc.indexOf(fn)
+    const blk = at < 0 ? '' : cycleSrc.slice(at, cycleSrc.indexOf('\n}', at))
+    return [...blk.matchAll(/lastRunAt: '(\d{4}-\d\d-\d\d)'/g)].map((m) => fn + '=' + m[1])
+  })
+  check('시드: 주기형 스케줄의 마지막 실행이 고정 날짜가 아니다(시간이 흐르면 전부 밀림)',
+    fixedLastRun.length === 0, `고정 lastRunAt=${fixedLastRun.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
