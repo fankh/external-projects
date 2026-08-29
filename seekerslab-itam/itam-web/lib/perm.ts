@@ -100,7 +100,11 @@ export const MATRIX_EXEMPT_ROUTES: Record<string, string> = {
  *  화면 가드(lib/authz requireView)와 사이드바 표시가 이 한 판정을 공유한다 — 둘이 갈리면
  *  메뉴에는 보이는데 눌러 들어가면 튕기는 링크가 된다. 서버 전용(스토어 참조). */
 export function canViewMenu(href: string, role: Role): boolean {
-  const menu = ROUTE_MENU[href.split('?')[0]]
+  //  쿼리와 앵커를 모두 벗긴다 — 큐 링크는 드릴다운을 위해 #alert · #rounds 같은 앵커를 달고 오는데,
+  //   앵커를 남기면 ROUTE_MENU 에서 못 찾아 미매핑 경로로 읽히고, 미매핑은 허용이라 권한 필터를 통째로
+  //   지나친다(대시보드가 큐를 이 판정으로 거른다). 그러면 조회를 회수한 화면의 큐가 대시보드에 남아,
+  //   눌러도 되돌아오는 막다른 행이 된다 — 큐 필터가 막으려던 바로 그 상태다.
+  const menu = ROUTE_MENU[href.split(/[?#]/)[0]]
   return !menu || can(menu, '조회', role)
 }
 
