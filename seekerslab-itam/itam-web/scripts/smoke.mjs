@@ -2472,6 +2472,23 @@ try {
   check(`하이드레이션 안전: 클라이언트가 서버 시계를 읽는 함수를 쓰지 않음(시계 의존 함수 ${clockFns.size}종)`,
     clockFns.size >= 5 && clientClock.length === 0, `시계 의존=${clientClock.join(', ') || '없음'}`)
 
+  // 권한 매트릭스의 축이 실제로 무언가를 통제하는가 — 관리자는 메뉴 × 동작 칸을 눌러 권한을 회수한다.
+  //  그 축이 화면 매핑(ROUTE_MENU)에도 액션 가드(can)에도 없으면, 눌러도 아무 동작이 바뀌지 않는다.
+  //  ROUTE_MENU 주석이 '표시만 되고 강제되지 않는 정책'이라 부르며 닫은 것과 같은 상태다 — 관리자는 통제를
+  //  걸었다고 믿고 감사에도 그렇게 보이지만 실제로는 아무 일도 없다. 통제할 수 없는 축(대시보드처럼 접근
+  //  거부의 회귀 지점)은 잠그고 사유를 밝혀야 한다(lockReason). 즉 모든 축은 강제되거나 잠겨 있어야 한다.
+  const axisPermSrc = readFileSync(path.join(ROOT, 'lib', 'perm.ts'), 'utf8')
+  const permMenus = [...(/export const PERM_MENUS[^=]*=\s*\[([\s\S]*?)\]/.exec(axisPermSrc)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const rmBlk = axisPermSrc.slice(axisPermSrc.indexOf('export const ROUTE_MENU'), axisPermSrc.indexOf('\n}', axisPermSrc.indexOf('export const ROUTE_MENU')))
+  const rmMenus = new Set([...rmBlk.matchAll(/:\s*'([^']+)'/g)].map((m) => m[1]))
+  const axisAllSrc = sourceFiles.map((f) => readFileSync(f, 'utf8')).join('\n')
+  const axisCanMenus = new Set([...axisAllSrc.matchAll(/can\(\s*'([^']+)'/g)].map((m) => m[1]))
+  const typesForLock = readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8')
+  const lockBlk = typesForLock.slice(typesForLock.indexOf('export function lockReason'), typesForLock.indexOf('\nexport function isLocked'))
+  const unenforced = permMenus.filter((m) => !rmMenus.has(m) && !axisCanMenus.has(m) && !lockBlk.includes(m))
+  check(`권한 매트릭스: 모든 축이 강제되거나 잠겨 있음(메뉴 ${permMenus.length}종)`,
+    permMenus.length >= 8 && unenforced.length === 0, `통제 없음=${unenforced.join(', ') || '없음'}`)
+
   // 운영 정책 기본값이 화면 문구에 리터럴로 박혀 있는가 — 운영자가 '정기 점검 창'·'만료 알림 창' 같은 값을
   //  바꾸면 판정은 따라가지만 안내 문구가 옛 숫자로 남아, 날짜를 고르는 바로 그 자리에서 틀린 규칙을 알려 준다.
   //  실제로 대장 상세의 점검 예약 안내가 '30일 내·경과'로 고정돼 있었다(판정은 opsPolicy.maintenanceWindowDays).

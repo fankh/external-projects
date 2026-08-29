@@ -1,6 +1,6 @@
 import { Card, ScreenHeader } from '@/components/ui'
 import { requireView } from '@/lib/authz'
-import { hasPartialScope, isLocked, PARTIAL_SCOPES, PERM_ACTIONS } from '@/lib/perm'
+import { hasPartialScope, lockReason, PARTIAL_SCOPES, PERM_ACTIONS } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 import type { Role } from '@/lib/types'
 import { MatrixEditor } from './MatrixEditor'
@@ -31,9 +31,16 @@ export default async function PermissionsPage() {
     roles.flatMap((role) => PERM_ACTIONS.filter((act) => hasPartialScope(r.menu, act, role)).map((act) => `${r.menu}|${act}|${role}`)),
   )
   const partialScope = Object.fromEntries(partial.map((k) => [k, PARTIAL_SCOPES[k]]))
-  const locked = rows.flatMap((r) =>
-    roles.flatMap((role) => PERM_ACTIONS.filter((a) => isLocked(r.menu, a, role)).map((a) => `${r.menu}|${a}|${role}`)),
-  )
+  //  잠금 사유를 함께 넘긴다 — 화면이 문구를 따로 들고 있으면 사유가 늘 때 엉뚱한 이유를 보여 준다(lib/types lockReason 단일 출처)
+  const locked: Record<string, string> = {}
+  for (const r of rows) {
+    for (const role of roles) {
+      for (const a of PERM_ACTIONS) {
+        const why = lockReason(r.menu, a, role)
+        if (why) locked[`${r.menu}|${a}|${role}`] = why
+      }
+    }
+  }
   return (
     <>
       <ScreenHeader

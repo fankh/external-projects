@@ -17,7 +17,7 @@ export function MatrixEditor(props: {
   actions: readonly PermAction[]
   /** 실제로 서버가 강제하는 (메뉴 × 기능) 조합 — 나머지는 화면 가드가 담당한다 */
   enforced: string[]
-  locked: string[]
+  locked: Record<string, string>
   /** 해당 화면이 제공하지 않는 기능 — 권한 부여가 무의미하므로 흐리게 표시 */
   na: string[]
   /** '본인 범위'를 실제로 좁히는 구현이 있는 칸(`메뉴|기능|권한그룹`) — 여기서만 순환이 '본인'을 거친다 */
@@ -30,8 +30,8 @@ export function MatrixEditor(props: {
 
   const click = (menu: PermMenu, action: PermAction, role: Role, cur: PermCell) => {
     const key = `${menu}|${action}|${role}`
-    if (props.locked.includes(key)) {
-      setMsg('Admin 의 권한·정책 조회/저장 권한은 회수할 수 없습니다 (잠금 방지).')
+    if (props.locked[key]) {
+      setMsg(props.locked[key])
       return
     }
     startTransition(async () => {
@@ -65,7 +65,8 @@ export function MatrixEditor(props: {
                 {ROLES.flatMap((r) => row.cells[r].map((c, i) => {
                   const action = props.actions[i]
                   const key = `${row.menu}|${action}|${r}`
-                  const locked = props.locked.includes(key)
+                  const lockWhy = props.locked[key]
+                  const locked = Boolean(lockWhy)
                   const enforced = props.enforced.includes(`${row.menu}|${action}`)
                   const na = props.na.includes(`${row.menu}|${action}`)
                   const canPartial = props.partial.includes(key)
@@ -75,7 +76,7 @@ export function MatrixEditor(props: {
                       className={c}
                       // 순환 힌트는 어느 칸에나 붙는다 — '본인'을 거치는지는 그 칸에 범위를 좁히는 구현이
                       //  있는지로만 갈린다(lib/types.ts PARTIAL_SCOPES). 강제 안내와 겹쳐도 힌트를 지우지 않는다.
-                      title={locked ? '잠금 — 회수 불가'
+                      title={locked ? lockWhy
                         : na ? `${row.menu} 화면에 '${action}' 기능이 없다 (메뉴 관리에서 부여 필요)`
                         : [
                             canPartial ? `본인 범위 지정 가능 — ${props.partialScope[key]}` : '',
