@@ -3270,9 +3270,10 @@ try {
   await pVP.locator('.card', { hasText: 'AI 제안 — 판정 대기' }).locator('.seg button', { hasText: /^전체$/ }).click()
   await pVP.waitForTimeout(200)
   //  제안 카드 안으로 좁힌다 — 같은 제안 ID 가 취약점 우선순위 표에도 실려, 카드 밖 행을 짚으면 승인 버튼이 없어 조용히 건너뛴다
+  //  이 제안은 앞의 aiInsightDecide 가 판정 대기 첫 행으로 이미 승인한다 — 그 승인이 바로 문제의 경로였다.
+  //   여기서는 다시 누르지 않고 그 결과만 본다(대기 중이면 눌러 같은 상태로 만든다).
   const vpCard = pVP.locator('.card', { hasText: 'AI 제안 — 판정 대기' })
-  const vpRow = vpCard.locator('tr', { has: pVP.locator('td', { hasText: 'INS-2607-19' }) }).first()
-  const vpBtn = vpRow.locator('button', { hasText: /^승인$/ })
+  const vpBtn = vpCard.locator('tr', { has: pVP.locator('td', { hasText: 'INS-2607-19' }) }).first().locator('tbody button', { hasText: /^승인$/ })
   if ((await vpBtn.count()) > 0) { await vpBtn.first().click(); await pVP.waitForTimeout(800) }
   await pVP.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
   await pVP.locator('.card', { hasText: 'AI 제안 — 판정 대기' }).locator('.seg button', { hasText: /^전체$/ }).click()
