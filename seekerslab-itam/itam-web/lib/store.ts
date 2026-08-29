@@ -220,16 +220,21 @@ function seedAssets(): Asset[] {
 /** 리포트 스케줄 — 주간은 월요일 08:00, 월간은 1일 08:00 기준 */
 function seedReportSchedules(): ReportSchedule[] {
   return [
+    //  '마지막 실행'은 달력 사실이 아니라 주기 안에서의 위치를 뜻한다 — 고정 날짜로 두면 실제 시간이
+    //   흐르는 만큼 통째로 밀려, 주간 하나만 밀려 있던 픽스처가 어느새 전부 한 달 밀린 상태가 된다.
+    //   그러면 '다가오는 일정' 아젠다에서 정례 배포가 통째로 빠지고(다음 실행일이 전부 과거),
+    //   기한 경과 큐만 부풀어 화면이 뜻하던 대비(예정 4 · 밀림 2)가 사라진다.
+    //   시드 기준일(gen-samples 의 2026-07-29) 오프셋을 유지해 샘플 값은 그대로 둔다.
     // 스케줄러가 한 주 밀린 상태 — '기한 도래'가 화면에서 드러나야 밀린 사실을 알 수 있다
-    { kind: '주간 Shadow IT 브리핑', period: '주간', enabled: true, dayOfWeek: 1, hour: 8, recipients: ['보안운영팀', 'IT기획팀'], lastRunAt: '2026-07-20' },
-    { kind: '월간 자산 현황', period: '월간', enabled: true, dayOfMonth: 1, hour: 8, recipients: ['IT기획팀', '자산관리팀'], lastRunAt: '2026-07-01' },
-    { kind: '라이선스 컴플라이언스', period: '월간', enabled: false, dayOfMonth: 1, hour: 8, recipients: ['IT기획팀'], lastRunAt: '2026-06-01' },
+    { kind: '주간 Shadow IT 브리핑', period: '주간', enabled: true, dayOfWeek: 1, hour: 8, recipients: ['보안운영팀', 'IT기획팀'], lastRunAt: addDays(today(), -9) },
+    { kind: '월간 자산 현황', period: '월간', enabled: true, dayOfMonth: 1, hour: 8, recipients: ['IT기획팀', '자산관리팀'], lastRunAt: addDays(today(), -28) },
+    { kind: '라이선스 컴플라이언스', period: '월간', enabled: false, dayOfMonth: 1, hour: 8, recipients: ['IT기획팀'], lastRunAt: addDays(today(), -58) },
     // 보안 정례 리포트 — 주간 취약점 조치 우선순위(보안운영팀), 월간 AI 거버넌스·성능(IT기획팀). 자동 생성·배포(로17)로 정례 증적을 남긴다.
-    { kind: '취약점 조치 우선순위', period: '주간', enabled: true, dayOfWeek: 1, hour: 8, recipients: ['보안운영팀', 'IT기획팀'], lastRunAt: '2026-07-20' },
-    { kind: 'AI 거버넌스·성능', period: '월간', enabled: true, dayOfMonth: 1, hour: 9, recipients: ['IT기획팀'], lastRunAt: '2026-07-01' },
+    { kind: '취약점 조치 우선순위', period: '주간', enabled: true, dayOfWeek: 1, hour: 8, recipients: ['보안운영팀', 'IT기획팀'], lastRunAt: addDays(today(), -9) },
+    { kind: 'AI 거버넌스·성능', period: '월간', enabled: true, dayOfMonth: 1, hour: 9, recipients: ['IT기획팀'], lastRunAt: addDays(today(), -28) },
     // 월간 FinOps·계약 정례 리포트 — 부서 IT 비용 배분(차지백)·계약 관리 현황을 자동 생성·배포(로17 정례 증적)
-    { kind: '부서별 IT 비용 배분', period: '월간', enabled: true, dayOfMonth: 1, hour: 9, recipients: ['IT기획팀', '자산관리팀'], lastRunAt: '2026-07-01' },
-    { kind: '계약 관리 현황', period: '월간', enabled: true, dayOfMonth: 1, hour: 9, recipients: ['IT기획팀', '자산관리팀'], lastRunAt: '2026-07-01' },
+    { kind: '부서별 IT 비용 배분', period: '월간', enabled: true, dayOfMonth: 1, hour: 9, recipients: ['IT기획팀', '자산관리팀'], lastRunAt: addDays(today(), -28) },
+    { kind: '계약 관리 현황', period: '월간', enabled: true, dayOfMonth: 1, hour: 9, recipients: ['IT기획팀', '자산관리팀'], lastRunAt: addDays(today(), -28) },
   ]
 }
 
