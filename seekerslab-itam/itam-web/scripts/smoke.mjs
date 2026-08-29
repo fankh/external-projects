@@ -4247,24 +4247,25 @@ try {
     kindNames.length >= 15 && unsampled.length === 0,
     `샘플 없는 종류: ${unsampled.join(', ')}`)
 
-  // 시드의 판정 날짜는 시계와 비교돼 상태가 갈린다(기한 경과 · 만료 임박 · 인증서 유효 …). 그중
-  //  '아직 오지 않은 날'을 고정 문자열로 적으면 그 날이 지나는 순간 픽스처가 정반대 상태로 뒤집힌다 —
-  //  진행 중이던 회차가 기한 경과가 되고, 만료 임박 계약이 만료 경과가 되며, 유효하던 인증서가 만료된다.
-  //  실제로 시드 기준일(2026-07-29)에서 한 달이 지나며 회차 기한이 오늘까지 밀려와 있었다.
-  //  지난 날짜는 더 뒤집히지 않으므로(계속 경과·만료) 그대로 둔다 — 막아야 하는 것은 미래 고정 날짜뿐이다.
-  const storeSrcDates = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
-  const JUDGE_FIELDS = ['end', 'expiry', 'dueDate', 'warrantyEnd', 'certValidUntil', 'expectedDate', 'loanDueDate', 'eta', 'publishAt', 'maintenanceDue']
-  //  기준은 앱과 같은 KST 오늘(lib/dates today 와 같은 표기)
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-  const futureFixed = []
-  for (const f of JUDGE_FIELDS) {
-    const re = new RegExp('\\b' + f + ": '(20\\d\\d-\\d\\d-\\d\\d)'", 'g')
-    for (const m of storeSrcDates.matchAll(re)) {
-      if (m[1] > todayStr) futureFixed.push(`${f}=${m[1]}`)
-    }
-  }
-  check('시드: 판정 날짜에 미래 고정 날짜가 없다(시간이 지나면 뒤집히는 픽스처 방지)',
-    futureFixed.length === 0, `미래 고정 날짜=${futureFixed.slice(0, 6).join(', ')}${futureFixed.length > 6 ? ` 외 ${futureFixed.length - 6}건` : ''}`)
+  // 재물조사 회차의 기한은 시계와 비교돼 상태가 갈린다(dueDate < 오늘 → 기한 경과 · 독촉 대상).
+  //  아직 끝나지 않은 회차의 기한을 고정 날짜로 적으면 그 날이 지나는 순간 '진행 중·기한 미도래' 픽스처가
+  //  정반대인 기한 경과로 뒤집힌다 — 실제로 시드 기준일(2026-07-29)에서 한 달이 흐르는 동안 하반기 정기
+  //  회차의 기한이 오늘까지 밀려와, 하루만 더 지나면 e2e 의 기한 미도래 검사가 깨지는 상태였다.
+  //  회차 기한은 달력 사실이 아니라 오늘로부터의 거리를 뜻하므로 상대값이어야 한다(보증 만료일처럼
+  //  달력 자체를 뜻하는 날짜는 이 규칙의 대상이 아니다 — 윤년 픽스처가 그래서 고정이다).
+  const invRoundSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const invRoundAt = invRoundSrc.indexOf('inventoryRounds: [')  // 타입 선언이 아니라 데이터 리터럴에 건다
+  const invRoundBlk = invRoundSrc.slice(invRoundAt, invRoundSrc.indexOf('],', invRoundAt))
+  const invFixedDue = [...invRoundBlk.matchAll(/\{[^{}]*status: '(계획|진행중)'[^{}]*\}/g)]
+    .map((m) => m[0]).filter((row) => {
+      //  지난 기한(의도적으로 경과시켜 둔 독촉 픽스처)은 더 뒤집히지 않는다 — 막을 것은 아직 오지 않은 고정 기한뿐이다
+      const m = /dueDate: '(\d{4}-\d\d-\d\d)'/.exec(row)
+      const kst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+      return Boolean(m) && m[1] >= kst
+    })
+    .map((row) => (/id: '([^']+)'/.exec(row) ?? [])[1] + '=' + (/dueDate: '(\d{4}-\d\d-\d\d)'/.exec(row) ?? [])[1])
+  check('시드: 끝나지 않은 재물조사 회차의 기한이 고정 날짜가 아니다(픽스처가 뒤집히지 않게)',
+    invFixedDue.length === 0, `고정 기한=${invFixedDue.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {

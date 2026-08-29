@@ -111,16 +111,16 @@ function seedAssets(): Asset[] {
     // 감가상각 반올림 회귀 — 도입 4.99년 경과(≈99.8%). 반올림이면 100%(상각 완료)로 잔존가치(≈3,600원)와 모순, 내림이면 99%. 상대일자로 계산해 실행일과 무관하게 창 안에 머문다. 사용중(가용 재고 집계 미영향).
     mk({ assetNo: 'AST-2021-000997', category: '단말', model: 'ThinkPad T14 (감가 회귀)', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', purchaseDate: addDays(today(), -Math.round(4.99 * 365.25)), warrantyEnd: '2024-09-01', acquisitionCost: 1_800_000, lastVerifiedAt: '2026-07-20' }),
     // 대여 자동 집행 회귀 대상 — 유휴 서버(단말 아님 → 단말 가용 0 검증 미영향). 최근 도입·보증 유효·최근 실측이라 노후·재물조사·EOL 배치 스윕에 안 걸려 스위트 끝까지 유휴 유지. 대여 결재 승인 시 대여중으로 자동 집행.
-    mk({ assetNo: 'AST-2025-000701', category: '서버', model: 'PowerEdge R660 (대여 회귀)', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'RHEL 9.3', cpu: 'Xeon Gold 6438', memory: '128GB', ip: '10.30.9.11', mac: '2C:EA:7F:11:90:44', purchaseDate: '2025-03-01', warrantyEnd: addDays(today(), 580), lastVerifiedAt: '2026-08-01' }),
+    mk({ assetNo: 'AST-2025-000701', category: '서버', model: 'PowerEdge R660 (대여 회귀)', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'RHEL 9.3', cpu: 'Xeon Gold 6438', memory: '128GB', ip: '10.30.9.11', mac: '2C:EA:7F:11:90:44', purchaseDate: '2025-03-01', warrantyEnd: '2028-02-29', lastVerifiedAt: '2026-08-01' }),
     // 대여 반환 좌석 회수 회귀 — 대여중이면서 라이선스 좌석 보유. 반환 시 좌석이 회수돼야 한다(로56, 이탈 5번째 경로). 반환 기한은 먼 미래(연체·임박 큐 미영향).
     // 반환 기한은 오늘 기준 상대값 — 이 자산은 '기한 내 대여(연체 아님)' 대조군이라, 절대 날짜로 두면
     //  그 날짜가 지나는 순간 스위트가 코드 변경 없이 붉어진다(2026-12-01 로 돌려 실제로 그렇게 됐다).
     //  seed 는 이미 발송 이력 등에서 today() 상대값을 쓴다 — 같은 규약으로 관계(D-94)를 고정한다.
-    mk({ assetNo: 'AST-2024-000995', category: '단말', model: 'Galaxy Book4 (대여용)', status: '대여중', owner: '조민재', dept: '마케팅팀', location: '본사 6F', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.60.31', mac: '3C:52:82:14:AA:19', purchaseDate: '2024-03-15', warrantyEnd: addDays(today(), 228), loanDueDate: addDays(today(), 94), lastVerifiedAt: '2026-07-25' }),
+    mk({ assetNo: 'AST-2024-000995', category: '단말', model: 'Galaxy Book4 (대여용)', status: '대여중', owner: '조민재', dept: '마케팅팀', location: '본사 6F', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.60.31', mac: '3C:52:82:14:AA:19', purchaseDate: '2024-03-15', warrantyEnd: '2027-03-14', loanDueDate: addDays(today(), 94), lastVerifiedAt: '2026-07-25' }),
     // 재물조사 미확인 유휴 편성 좌석 회수 회귀 — 사용중이면서 라이선스 좌석 보유. 미확인 조정 승인 시 유휴 편성되며 좌석 회수·소유자 정리가 따라야 한다.
-    mk({ assetNo: 'AST-2024-000994', category: '단말', model: 'ThinkPad X1 Carbon', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', cpu: 'i7-1365U', memory: '16GB', ip: '10.20.70.22', mac: 'B4:2E:99:70:5C:8A', purchaseDate: '2024-02-01', warrantyEnd: addDays(today(), 186), lastVerifiedAt: '2026-07-25' }),
+    mk({ assetNo: 'AST-2024-000994', category: '단말', model: 'ThinkPad X1 Carbon', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', cpu: 'i7-1365U', memory: '16GB', ip: '10.20.70.22', mac: 'B4:2E:99:70:5C:8A', purchaseDate: '2024-02-01', warrantyEnd: '2027-01-31', lastVerifiedAt: '2026-07-25' }),
     // 재물조사 차이 조정 스테일 방어(재확인) 회귀용 — 미확인 조정(DIF-06)이 상신된 뒤 재배정되면 유휴 강제가 아니라 미적용되어야 한다.
-    mk({ assetNo: 'AST-2024-000706', category: '단말', model: 'ThinkPad E14 Gen5', status: '사용중', owner: '한도윤', dept: '영업1팀', location: '본사 7F', os: 'Windows 11 Pro', cpu: 'i5-1335U', memory: '16GB', ip: '10.20.70.28', mac: 'B4:2E:99:70:5C:9C', purchaseDate: '2024-04-01', warrantyEnd: addDays(today(), 245), lastVerifiedAt: '2026-07-25' }),
+    mk({ assetNo: 'AST-2024-000706', category: '단말', model: 'ThinkPad E14 Gen5', status: '사용중', owner: '한도윤', dept: '영업1팀', location: '본사 7F', os: 'Windows 11 Pro', cpu: 'i5-1335U', memory: '16GB', ip: '10.20.70.28', mac: 'B4:2E:99:70:5C:9C', purchaseDate: '2024-04-01', warrantyEnd: '2027-03-31', lastVerifiedAt: '2026-07-25' }),
     mk({ assetNo: 'AST-2021-000432', category: '단말', model: 'LG gram 17', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 10 Pro', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09',
       history: [
         { date: '2021-05-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
@@ -139,18 +139,18 @@ function seedAssets(): Asset[] {
     mk({ assetNo: 'AST-2023-000562', category: '서버', model: 'PowerEdge R760', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 12', os: 'RHEL 9.3', cpu: 'Xeon Gold 6430 ×2', memory: '512GB', ip: '10.10.8.22', mac: 'B8:CA:3A:55:01:12', contractId: 'CT-2023-021' }),
     // 장기 미실측 후보 ② — 보조 IDC(IDC-B) 노후 서버, 최근 실측 9개월 경과
     mk({ assetNo: 'AST-2020-000883', category: '서버', model: 'HPE DL380 Gen10', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-B Rack 3', criticality: '핵심', os: 'CentOS 7.9', cpu: 'Xeon Silver 4210', memory: '128GB', ip: '10.10.9.14', mac: 'D0:67:E5:21:44:90', purchaseDate: '2020-02-14', warrantyEnd: '2025-02-13', lastVerifiedAt: '2025-10-15' }),
-    mk({ assetNo: 'AST-2022-000640', category: '네트워크', model: 'Catalyst 9300-48P', status: '사용중', owner: '네트워크팀', dept: '네트워크팀', location: '본사 8F 통신실', criticality: '핵심', ip: '10.20.0.2', mac: '4C:71:0D:88:12:01', purchaseDate: '2022-01-20', warrantyEnd: addDays(today(), 174), contractId: 'CT-2022-007', maintenanceDue: '2026-06-15', dependsOn: ['AST-2022-000641'] }),
-    mk({ assetNo: 'AST-2022-000641', category: '네트워크', model: 'FortiGate 200F', status: '사용중', owner: '네트워크팀', dept: '보안운영팀', location: '본사 8F 통신실', ip: '10.20.0.1', mac: '4C:71:0D:88:12:02', purchaseDate: '2022-01-20', warrantyEnd: addDays(today(), 63), contractId: 'CT-2022-007', maintenanceDue: '2026-07-10' }),
+    mk({ assetNo: 'AST-2022-000640', category: '네트워크', model: 'Catalyst 9300-48P', status: '사용중', owner: '네트워크팀', dept: '네트워크팀', location: '본사 8F 통신실', criticality: '핵심', ip: '10.20.0.2', mac: '4C:71:0D:88:12:01', purchaseDate: '2022-01-20', warrantyEnd: '2027-01-19', contractId: 'CT-2022-007', maintenanceDue: '2026-06-15', dependsOn: ['AST-2022-000641'] }),
+    mk({ assetNo: 'AST-2022-000641', category: '네트워크', model: 'FortiGate 200F', status: '사용중', owner: '네트워크팀', dept: '보안운영팀', location: '본사 8F 통신실', ip: '10.20.0.1', mac: '4C:71:0D:88:12:02', purchaseDate: '2022-01-20', warrantyEnd: '2026-09-30', contractId: 'CT-2022-007', maintenanceDue: '2026-07-10' }),
     mk({ assetNo: 'AST-2024-000091', category: '가상자원', model: 'AWS EC2 m6i.2xlarge', status: '사용중', owner: '데이터플랫폼팀', dept: '데이터플랫폼팀', location: 'ap-northeast-2', os: 'Amazon Linux 2023', ip: '10.30.2.55', purchaseDate: '2024-02-01', warrantyEnd: '-' }),
     mk({ assetNo: 'AST-2024-000092', category: '가상자원', model: 'Azure D8s v5', status: '사용중', owner: '데이터플랫폼팀', dept: '데이터플랫폼팀', location: 'koreacentral', os: 'Ubuntu 22.04', ip: '10.31.4.12', purchaseDate: '2024-02-01', warrantyEnd: '-' }),
-    mk({ assetNo: 'AST-2023-000720', category: 'SW', model: 'Microsoft 365 E3', status: '사용중', owner: '전사', dept: 'IT기획팀', location: '-', purchaseDate: '2023-01-01', warrantyEnd: addDays(today(), 155), contractId: 'CT-2023-002' }),
+    mk({ assetNo: 'AST-2023-000720', category: 'SW', model: 'Microsoft 365 E3', status: '사용중', owner: '전사', dept: 'IT기획팀', location: '-', purchaseDate: '2023-01-01', warrantyEnd: '2026-12-31', contractId: 'CT-2023-002' }),
     mk({ assetNo: 'AST-2023-000721', category: 'SW', model: 'JetBrains All Products', status: '사용중', owner: '개발본부', dept: 'IT기획팀', location: '-', purchaseDate: '2023-06-01', warrantyEnd: '2026-05-31' }),
-    mk({ assetNo: 'AST-2024-000015', category: '주변기기', model: 'Dell U2723QE 모니터', status: '사용중', owner: '김민준', dept: '플랫폼개발팀', purchaseDate: '2024-01-08', warrantyEnd: addDays(today(), 162), receiptPending: true }),
-    mk({ assetNo: 'AST-2025-000033', category: '단말', model: 'ThinkPad X1 Carbon G12', status: '검수중', owner: '-', dept: '자산관리팀', location: '본사 3F 검수실', os: 'Windows 11 Pro', purchaseDate: '2026-07-21', warrantyEnd: addDays(today(), 1087), contractId: 'CT-2026-009',
+    mk({ assetNo: 'AST-2024-000015', category: '주변기기', model: 'Dell U2723QE 모니터', status: '사용중', owner: '김민준', dept: '플랫폼개발팀', purchaseDate: '2024-01-08', warrantyEnd: '2027-01-07', receiptPending: true }),
+    mk({ assetNo: 'AST-2025-000033', category: '단말', model: 'ThinkPad X1 Carbon G12', status: '검수중', owner: '-', dept: '자산관리팀', location: '본사 3F 검수실', os: 'Windows 11 Pro', purchaseDate: '2026-07-21', warrantyEnd: '2029-07-20', contractId: 'CT-2026-009',
       history: [{ date: '2026-07-21', kind: '등록', detail: '발주 연계 입고 · 검수 체크리스트 진행 중', actor: '박자산' }] }),
-    mk({ assetNo: 'AST-2024-000377', category: '서버', model: 'Supermicro GPU A100 ×4', status: '사용중', owner: 'AI플랫폼팀', dept: 'AI플랫폼팀', location: 'IDC-A Rack 20', criticality: '핵심', os: 'Ubuntu 22.04', cpu: 'EPYC 7543 ×2', memory: '1TB', ip: '10.10.12.5', mac: '7C:8A:E1:40:77:21', purchaseDate: '2024-05-13', warrantyEnd: addDays(today(), 287) }),
-    mk({ assetNo: 'AST-2025-000512', category: '단말', model: 'Galaxy Book4 Pro', status: '사용중', owner: '최지우', dept: '영업1팀', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.52.31', mac: '9C:2D:CD:73:08:44', purchaseDate: '2025-03-02', warrantyEnd: addDays(today(), 581) }),
-    mk({ assetNo: 'AST-2025-000513', category: '단말', model: 'Galaxy Book4 Pro', status: '반납대기', owner: '한도윤', dept: '영업1팀', os: 'Windows 11 Pro', purchaseDate: '2025-03-02', warrantyEnd: addDays(today(), 581),
+    mk({ assetNo: 'AST-2024-000377', category: '서버', model: 'Supermicro GPU A100 ×4', status: '사용중', owner: 'AI플랫폼팀', dept: 'AI플랫폼팀', location: 'IDC-A Rack 20', criticality: '핵심', os: 'Ubuntu 22.04', cpu: 'EPYC 7543 ×2', memory: '1TB', ip: '10.10.12.5', mac: '7C:8A:E1:40:77:21', purchaseDate: '2024-05-13', warrantyEnd: '2027-05-12' }),
+    mk({ assetNo: 'AST-2025-000512', category: '단말', model: 'Galaxy Book4 Pro', status: '사용중', owner: '최지우', dept: '영업1팀', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.52.31', mac: '9C:2D:CD:73:08:44', purchaseDate: '2025-03-02', warrantyEnd: '2028-03-01' }),
+    mk({ assetNo: 'AST-2025-000513', category: '단말', model: 'Galaxy Book4 Pro', status: '반납대기', owner: '한도윤', dept: '영업1팀', os: 'Windows 11 Pro', purchaseDate: '2025-03-02', warrantyEnd: '2028-03-01',
       history: [
         { date: '2025-03-02', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
         { date: '2026-07-18', kind: '반납', detail: '부서 이동에 따른 반납 신청 (결재 진행 중)', actor: '한도윤' },
@@ -163,12 +163,12 @@ function seedAssets(): Asset[] {
         { date: '2026-07-20', kind: '반납', detail: '부서 이동 반납 신청 (결재 진행 중 · 신청자 이서연)', actor: '이서연' },
         { date: '2026-08-05', kind: '불출', detail: '반납 결재 대기 중 회수·재배정 — 오세훈(인사팀) 직접 인계', actor: '박자산' },
       ] }),
-    mk({ assetNo: 'AST-2026-000108', category: '단말', model: 'Raspberry Pi 5 (키오스크)', status: '사용중', owner: '총무팀', dept: '총무팀', location: '본사 1F 로비', os: 'Raspberry Pi OS', ip: '10.20.60.9', mac: 'E4:5F:01:99:AB:10', purchaseDate: '2026-04-15', warrantyEnd: addDays(today(), 259), discoveredVia: '네트워크 능동 스캔',
+    mk({ assetNo: 'AST-2026-000108', category: '단말', model: 'Raspberry Pi 5 (키오스크)', status: '사용중', owner: '총무팀', dept: '총무팀', location: '본사 1F 로비', os: 'Raspberry Pi OS', ip: '10.20.60.9', mac: 'E4:5F:01:99:AB:10', purchaseDate: '2026-04-15', warrantyEnd: '2027-04-14', discoveredVia: '네트워크 능동 스캔',
       history: [
         { date: '2026-04-02', kind: '편입', detail: '네트워크 능동 스캔 발견(2026-03-28) → 소유자 확인 → 결재 편입', actor: '박자산' },
       ] }),
     // 반납 점검에서 '수리 필요' 판정 → 수리중 (반납·유휴 화면의 수리 대기 카드에 표시)
-    mk({ assetNo: 'AST-2025-000377', category: '단말', model: 'ThinkPad X1 Carbon G12', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', purchaseDate: '2025-01-20', warrantyEnd: addDays(today(), 539),
+    mk({ assetNo: 'AST-2025-000377', category: '단말', model: 'ThinkPad X1 Carbon G12', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', purchaseDate: '2025-01-20', warrantyEnd: '2028-01-19',
       history: [
         { date: '2025-01-20', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
         { date: '2025-01-24', kind: '불출', detail: '영업1팀 불출', actor: '박자산' },
@@ -192,7 +192,7 @@ function seedAssets(): Asset[] {
         { date: '2026-07-22', kind: '폐기', detail: '데이터 소거 완료 (디가우징) · 증적 WIPE-20260722-050 보존', actor: '박자산' },
       ] }),
     // 대여(반출) 자산 ① — 기한 내 대여 중 (출장용 대여 노트북) · 대여자=목업 사용자(김민준) → 대시보드 My Work 에 반환 기한 노출
-    mk({ assetNo: 'AST-2024-000230', category: '단말', model: 'ThinkPad L14 (대여용)', status: '대여중', owner: '김민준', dept: '플랫폼개발팀', location: '판교 사무소', os: 'Windows 11 Pro', purchaseDate: '2024-06-10', warrantyEnd: addDays(today(), 315), loanDueDate: '2026-08-20',
+    mk({ assetNo: 'AST-2024-000230', category: '단말', model: 'ThinkPad L14 (대여용)', status: '대여중', owner: '김민준', dept: '플랫폼개발팀', location: '판교 사무소', os: 'Windows 11 Pro', purchaseDate: '2024-06-10', warrantyEnd: '2027-06-09', loanDueDate: '2026-08-20',
       history: [
         { date: '2024-06-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
         { date: '2026-07-28', kind: '대여', detail: '플랫폼개발팀 김민준 출장 대여 — 반환 기한 2026-08-20', actor: '박자산' },
@@ -283,7 +283,7 @@ function seedEasmRuns(): EasmRun[] {
 /** 재탐지가 돌면 드러날 외부 노출 자산 — 수동 수집으로 후보가 잡히고 능동으로 생존이 확인된다 */
 function seedUnseenExternal(): UnseenExternal[] {
   return [
-    { host: 'staging-api.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', domain: 'seekerslab.co.kr', risk: '중간', certIssuer: "Let's Encrypt R3", certValidUntil: addDays(today(), 91), note: 'CT 로그 신규 발급 인증서 — 스테이징 API 외부 노출 후보' },
+    { host: 'staging-api.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', domain: 'seekerslab.co.kr', risk: '중간', certIssuer: "Let's Encrypt R3", certValidUntil: '2026-10-28', note: 'CT 로그 신규 발급 인증서 — 스테이징 API 외부 노출 후보' },
     { host: 'grafana.seekerslab.co.kr', ip: '203.0.113.51', method: '서브도메인 브루트포스', mode: 'Active', domain: 'seekerslab.co.kr', services: '3000/http (Grafana 9.3)', cve: 'CVE-2022-39307', cvss: 5.3, risk: '높음', note: '인증 없이 노출된 대시보드 — 기본 크리덴셜 점검 필요' },
     { host: 'old-jenkins.skl-dev.io', ip: '198.51.100.7', method: '웹 아카이브', mode: 'Passive', domain: 'skl-dev.io', risk: '중간', note: '과거 관측 호스트 — 생존 확인 전까지 비활성 표기' },
   ]
@@ -381,7 +381,7 @@ function seedExternal(): ExternalAsset[] {
     { id: 'EXT-2607-07', host: 'kiosk-cam.seekerslab.co.kr', ip: '203.0.113.101', method: '검색엔진 도킹', mode: 'Passive', alive: true, services: 'HTTP 80 (관리 콘솔)', risk: '중간', firstSeen: '2026-07-20', state: '미등록', note: '공개 색인된 관리 콘솔 — site: 도크로 발견' },
     { id: 'EXT-2607-08', host: 'cdn-assets.seekerslab.co.kr', ip: '203.0.113.66', method: 'DNS 인텔리전스', mode: 'Passive', alive: true, services: 'HTTPS 443', risk: '낮음', firstSeen: '2026-07-11', state: '등록·일치' },
     // CT 채널 — 인증서 유효기간으로 생존 추정. ct-active 는 유효(생존 유력·능동 확인 대기), ct-legacy 는 만료(생존 불명·방치 후보)
-    { id: 'EXT-2607-09', host: 'ct-active.seekerslab.co.kr', ip: '203.0.113.141', method: '인증서 투명성 (CT)', mode: 'Passive', alive: false, risk: '중간', firstSeen: '2026-08-10', state: '미확인', certIssuer: "Let's Encrypt R3", certValidUntil: addDays(today(), 106), note: 'CT 로그 신규 발급 인증서 — 유효기간 내, 생존 유력(능동 확인 대기)' },
+    { id: 'EXT-2607-09', host: 'ct-active.seekerslab.co.kr', ip: '203.0.113.141', method: '인증서 투명성 (CT)', mode: 'Passive', alive: false, risk: '중간', firstSeen: '2026-08-10', state: '미확인', certIssuer: "Let's Encrypt R3", certValidUntil: '2026-11-12', note: 'CT 로그 신규 발급 인증서 — 유효기간 내, 생존 유력(능동 확인 대기)' },
     { id: 'EXT-2607-10', host: 'ct-legacy.seekerslab.co.kr', ip: '203.0.113.142', method: '인증서 투명성 (CT)', mode: 'Passive', alive: false, risk: '낮음', firstSeen: '2026-08-05', state: '미확인', certIssuer: 'Sectigo RSA DV', certValidUntil: '2026-05-30', note: 'CT 로그 과거 발급 인증서 — 유효기간 만료, 방치 호스트 추정' },
   ]
 }
@@ -709,38 +709,38 @@ function seed(): Store {
           // 3Q 지출로 누계가 계약액(4,800만)을 초과 — 예산 초과 판정·대시보드 재협상 큐 노출(집행률 관리)
           { id: 'CST-0004', date: '2026-07-18', item: '정기 유지보수료 3Q + 코어 라우터 라인카드 교체', amount: 24_000_000, addedBy: '박자산' },
         ] },
-      { id: 'CT-2023-002', kind: '구매', name: 'Microsoft 365 E3 800석', vendor: '한국MS 파트너', start: '2026-01-01', end: addDays(today(), 155), amount: 268_000_000, ownerDept: 'IT기획팀' },
-      { id: 'CT-2026-009', kind: '구매', name: '2026 상반기 노트북 교체분', vendor: '(주)한빛INT', start: '2026-07-01', end: addDays(today(), 1087), amount: 96_000_000, ownerDept: '자산관리팀' },
+      { id: 'CT-2023-002', kind: '구매', name: 'Microsoft 365 E3 800석', vendor: '한국MS 파트너', start: '2026-01-01', end: '2026-12-31', amount: 268_000_000, ownerDept: 'IT기획팀' },
+      { id: 'CT-2026-009', kind: '구매', name: '2026 상반기 노트북 교체분', vendor: '(주)한빛INT', start: '2026-07-01', end: '2029-07-20', amount: 96_000_000, ownerDept: '자산관리팀' },
       { id: 'CT-2024-011', kind: '유지보수', name: '스토리지·백업 유지보수', vendor: '효성인포', start: '2025-09-01', end: '2026-08-20', amount: 36_000_000, ownerDept: '인프라운영팀' },
       // 발주 미이행 임계 회귀 — 발주율 79.6%(반올림 80%) · 만료 임박(dday<90). 반올림 기준이면 위험 큐에서 빠지지만 실집행 기준이면 미이행 위험이어야 한다(IN-2608-55 로트가 79.6M 발주).
-      { id: 'CT-2026-055', kind: '구매', name: '보안장비 도입(회귀)', vendor: '(주)넷시큐어', start: '2026-06-01', end: addDays(today(), 78), amount: 100_000_000, ownerDept: '보안운영팀' },
+      { id: 'CT-2026-055', kind: '구매', name: '보안장비 도입(회귀)', vendor: '(주)넷시큐어', start: '2026-06-01', end: '2026-10-15', amount: 100_000_000, ownerDept: '보안운영팀' },
       // 소액 착수비만 집행(0.05% · 반올림 0%) — 미집행(집행 전무)이 아니라 정상. 반올림 오분류 회귀 가드.
-      { id: 'CT-2025-013', kind: '유지보수', name: '보안관제(MSS) 유지보수', vendor: '이글루시큐리티', start: '2025-11-01', end: addDays(today(), 94), amount: 60_000_000, ownerDept: '보안운영팀',
+      { id: 'CT-2025-013', kind: '유지보수', name: '보안관제(MSS) 유지보수', vendor: '이글루시큐리티', start: '2025-11-01', end: '2026-10-31', amount: 60_000_000, ownerDept: '보안운영팀',
         costs: [{ id: 'CST-0101', date: '2026-02-03', item: '착수 협의·환경 구성비', amount: 30_000, addedBy: '박자산' }] },
       // 발주 전량 입고·검수 완료 구매 계약 — IN-2606-42(8×3M=24M) 전량 검수 완료 → 정산 종결 가능(로72). 대금 정산 근거(검수 완료액) 확정 대상.
-      { id: 'CT-2026-018', kind: '구매', name: '2026 개발팀 워크스테이션 도입', vendor: '(주)한빛INT', start: '2026-06-01', end: addDays(today(), 155), amount: 24_000_000, ownerDept: 'IT기획팀' },
+      { id: 'CT-2026-018', kind: '구매', name: '2026 개발팀 워크스테이션 도입', vendor: '(주)한빛INT', start: '2026-06-01', end: '2026-12-31', amount: 24_000_000, ownerDept: 'IT기획팀' },
       // 소진 임박 경계 회귀 — 집행률 89.6%(반올림 90%). 반올림 rate 로 판정하면 '소진 임박'으로 오분류되지만 실집행 기준(89.6%<90%)이면 '정상'이라 예산 통보 큐에서 빠져야 한다(미집행·발주 미이행과 동일 반올림 오분류 계열).
-      { id: 'CT-2025-015', kind: '유지보수', name: '가상화 플랫폼 유지보수', vendor: '클라우드메이트', start: '2025-10-01', end: addDays(today(), 428), amount: 10_000_000, ownerDept: '인프라운영팀',
+      { id: 'CT-2025-015', kind: '유지보수', name: '가상화 플랫폼 유지보수', vendor: '클라우드메이트', start: '2025-10-01', end: '2027-09-30', amount: 10_000_000, ownerDept: '인프라운영팀',
         sla: '장애 접수 후 익영업일 대응', costs: [{ id: 'CST-0401', date: '2026-03-10', item: '연간 유지보수료(부분 집행)', amount: 8_960_000, addedBy: '박자산' }] },
       // 단말 유지보수 — SLA 대응 5영업일(slaResponseDays). 덮는 자산 AST-2024-000512 의 열린 수리가 SLA 시한을 넘겨 SLA 위반(로71). 집행 이력이 있어 미집행/예산초과 큐엔 안 걸린다(SLA 위반만 별도 판정).
-      { id: 'CT-2025-014', kind: '유지보수', name: '임직원 단말 하드웨어 유지보수', vendor: '중부IT서비스', start: '2025-06-01', end: addDays(today(), 306), amount: 12_000_000, ownerDept: '자산관리팀',
+      { id: 'CT-2025-014', kind: '유지보수', name: '임직원 단말 하드웨어 유지보수', vendor: '중부IT서비스', start: '2025-06-01', end: '2027-05-31', amount: 12_000_000, ownerDept: '자산관리팀',
         sla: '장애 접수 후 5영업일 내 온사이트 대응·수리 완료, 월 가동률 99% 보장', slaResponseDays: 5,
         costs: [{ id: 'CST-0201', date: '2026-06-15', item: '상반기 정기 점검·소모품', amount: 3_000_000, addedBy: '박자산' }] },
     ],
     licenses: [
-      { id: 'LIC-001', name: 'Microsoft 365 E3', vendor: 'Microsoft', purchased: 800, used: 743, expiry: addDays(today(), 155), unitCost: 335_000, contractId: 'CT-2023-002', usageCollectedAt: '2026-07-10', seats: [
+      { id: 'LIC-001', name: 'Microsoft 365 E3', vendor: 'Microsoft', purchased: 800, used: 743, expiry: '2026-12-31', unitCost: 335_000, contractId: 'CT-2023-002', usageCollectedAt: '2026-07-10', seats: [
         { assetNo: 'AST-2023-000221', user: '인프라운영팀', dept: '인프라운영팀', at: '2026-07-18' },
         { assetNo: 'AST-2025-000513', user: '한도윤', dept: '영업1팀', at: '2026-07-16' },
         { assetNo: 'AST-2024-000995', user: '조민재', dept: '마케팅팀', at: '2026-07-20' },
         { assetNo: 'AST-2024-000994', user: '박선우', dept: '영업2팀', at: '2026-07-20' },
       ] },
       { id: 'LIC-002', name: 'JetBrains All Products', vendor: 'JetBrains', purchased: 120, used: 131, expiry: '2026-05-31', unitCost: 289_000 },
-      { id: 'LIC-003', name: 'Adobe Creative Cloud', vendor: 'Adobe', purchased: 40, used: 22, expiry: addDays(today(), 78), unitCost: 792_000 },
-      { id: 'LIC-004', name: 'AutoCAD LT', vendor: 'Autodesk', purchased: 15, used: 6, expiry: addDays(today(), 214), unitCost: 610_000, usageCollectedAt: '2026-07-10', seats: [
+      { id: 'LIC-003', name: 'Adobe Creative Cloud', vendor: 'Adobe', purchased: 40, used: 22, expiry: '2026-10-15', unitCost: 792_000 },
+      { id: 'LIC-004', name: 'AutoCAD LT', vendor: 'Autodesk', purchased: 15, used: 6, expiry: '2027-02-28', unitCost: 610_000, usageCollectedAt: '2026-07-10', seats: [
         { assetNo: 'AST-2022-000871', user: '정하윤', dept: '디자인팀', at: '2026-07-20' },
         { assetNo: 'AST-2023-000112', user: '김민준', dept: '플랫폼개발팀', at: '2026-07-22' },
       ] },
-      { id: 'LIC-005', name: 'Slack Business+', vendor: 'Salesforce', purchased: 500, used: 488, expiry: addDays(today(), 63), unitCost: 162_000 },
+      { id: 'LIC-005', name: 'Slack Business+', vendor: 'Salesforce', purchased: 500, used: 488, expiry: '2026-09-30', unitCost: 162_000 },
     ],
     // EDR 설치 SW 인벤토리(라이선스 STEP2 사용 수집) — 배정 좌석과 대사해 배정 밖 설치·미설치 좌석을 드러낸다.
     //  LIC-004: 좌석 2(871·112) 대비 설치 2(871·432) → 871 일치, 432 배정 밖 설치, 112 미설치 좌석.
@@ -781,7 +781,7 @@ function seed(): Store {
       { id: 'APR-2608-141', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — FlowTrackr', requester: '오세훈', dept: '인사팀', requestedAt: '2026-08-18', status: '대기', currentStep: '보안담당 결재', saasService: 'FlowTrackr', note: '인가 확정 시 검토 접수일 해제 확인' },
       // 대여 자동 집행 회귀 — 승인 즉시 지정 유휴 자산이 신청자에게 반환 기한과 함께 대여 처리돼야 한다. 자산담당 단계(대여 결재선 ['신청자','자산담당']의 최종·approvalRoute 가 '신청자' 제거)라 ASSET 1회 승인으로 집행.
       // refId=AST-2024-000995 — 좌석 회수 회귀 테스트가 스위트 앞부분에서 정상 반환(→유휴)하고 이후 미변경이라, 승인 시점(스위트 끝)에 결정적으로 유휴다(시드 상태는 대여중이라 smoke 단말 가용 집계엔 영향 없음).
-      { id: 'APR-2608-161', kind: '대여', title: '노트북 단기 대여 신청(회귀)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-08-18', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000701', loanDueDate: addDays(today(), 78) },
+      { id: 'APR-2608-161', kind: '대여', title: '노트북 단기 대여 신청(회귀)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-08-18', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000701', loanDueDate: '2026-10-15' },
       // 스테일 반납 회귀 — 상신(이서연) 후 자산(AST-2023-000707)이 회수·재배정되어 보유자가 오세훈으로 바뀜. 승인해도 반납대기로 되돌리면 안 된다(대여 승인·차이 조정 스테일 방어와 동형).
       { id: 'APR-2607-118', kind: '반납', title: 'AST-2023-000707 Galaxy Book4 Pro 반납', requester: '이서연', dept: '개발2팀', requestedAt: '2026-07-20', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2023-000707' },
     ],
