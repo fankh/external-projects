@@ -32,7 +32,10 @@ const ok = (name, cond) => { if (cond) { pass++; console.log('  ✓ ' + name) } 
 const TZ = process.env.ITAM_TZ || 'Asia/Seoul'
 const dateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
 const dPlus = (n) => {
-  const [y, m, d] = dateFmt.format(new Date()).split('-').map(Number)
+  //  기준일은 앱과 같아야 한다 — 러너의 시계로 날짜를 만들면 ITAM_TODAY 로 시각을 고정해 돌릴 때
+  //  서버가 보기엔 과거 날짜라 '오늘 이후로 지정해 주세요' 로 거절당한다(시간 폭탄을 재려고 고정하면 검사가 깨진다).
+  const base = process.env.ITAM_TODAY || dateFmt.format(new Date())
+  const [y, m, d] = base.split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
