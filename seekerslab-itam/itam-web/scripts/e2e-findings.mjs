@@ -31,8 +31,18 @@ const ok = (name, cond) => { if (cond) { pass++; console.log('  ✓ ' + name) } 
  *  KST 자정~09시에 하루 뒤처져, 서버가 오늘로 찍은 값(격리일 등)을 테스트가 어제로 기대하며 실패했다. */
 const TZ = process.env.ITAM_TZ || 'Asia/Seoul'
 const dateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
+/** 기준일 — 서버와 같은 날을 본다. ITAM_TODAY 로 서버 시계를 고정해 돌릴 때(시간이 지나면 뒤집히는
+ *  픽스처를 미리 찾는 회귀) 테스트만 실제 시계를 쓰면, 폼이 요구하는 미래 날짜가 서버에는 과거로
+ *  보여 '오늘 이후로 지정하세요'에서 막힌다 — 제품 결함이 아닌데 실패해 실험 결과를 읽을 수 없다.
+ *  미설정이면 지금 시각 그대로다(평소 실행은 달라지지 않는다). */
+const baseNow = () => {
+  const pinned = process.env.ITAM_TODAY
+  return pinned && /^\d{4}-\d\d-\d\d$/.test(pinned) ? new Date(pinned + 'T00:00:00Z') : new Date()
+}
+/** 기준일(YYYY-MM-DD) — 서버 lib/dates today() 와 같은 표준시로 만든다. */
+const baseToday = () => dateFmt.format(baseNow())
 const dPlus = (n) => {
-  const [y, m, d] = dateFmt.format(new Date()).split('-').map(Number)
+  const [y, m, d] = baseToday().split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
 
@@ -2789,8 +2799,8 @@ try {
   // 새 회차의 기한은 기준일 +14일이어야 한다 — lib/dates 의 addDays 가 날짜를 파싱하지 못하면(정규식의 역슬래시가
   //  떨어지면 문법 오류 없이 아무것도 매칭하지 않는다) 입력 날짜를 그대로 돌려줘 기한이 '오늘'로 잡히고,
   //  만들자마자 기한 경과로 독촉 대상이 된다. 실제로 그렇게 깨져 있었다(리포트 다음 실행일·EASM 재스캔 주기도 같은 함수).
-  const kstToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-  const kstDue = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 14 * 86400000))
+  const kstToday = baseToday()
+  const kstDue = dPlus(14)
   const stvRowText = (await p4.locator('tr', { has: p4.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().textContent()) || ''
   ok(`재물조사 자동 편성: 회차 기한이 기준일 +14일(${kstDue} · 오늘 ${kstToday} 아님)`, stvRowText.includes(kstDue) && !stvRowText.includes('기한 경과'))
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
@@ -3583,7 +3593,7 @@ try {
   await pLI.locator('form', { has: pLI.locator('input[value="ba.yoon"]') }).locator('button[type="submit"]').click()
   await pLI.waitForURL(/\/dashboard/, { timeout: 10000 })
   ok('로그인: 폼 로그인 성공(대시보드 진입)', pLI.url().endsWith('/dashboard'))
-  const liDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const liDay = baseToday()
   const ctxLI2 = await browser.newContext(); await ctxLI2.addCookies([cookie(ADMIN)]); const pLI2 = await ctxLI2.newPage()
   await pLI2.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
   const liRow = (await pLI2.locator('tr', { has: pLI2.locator('td', { hasText: 'ba.yoon' }) }).first().textContent()) || ''
