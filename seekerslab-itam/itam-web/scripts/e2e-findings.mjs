@@ -2768,7 +2768,7 @@ try {
   // 조사 편성 링크는 자산담당 화면(재물조사 계획)으로 간다 — 보안담당에게는 내주지 않는다(권한 밖 이동 방지).
   const ctxRC = await browser.newContext(); await ctxRC.addCookies([cookie(SEC)]); const pRC = await ctxRC.newPage()
   await pRC.goto(`${BASE}/discovery/reconcile`, { waitUntil: 'networkidle' })
-  ok('CMDB 대사(보안담당): 조사 편성 링크 미노출 · 발견 처리 링크는 노출', (await pRC.locator('a[href="/inventory/survey-plan"]').count()) === 0 && (await pRC.locator('a[href^="/discovery/found"]').count()) > 0)
+  ok('CMDB 대사(보안담당): 조사 편성 링크 미노출 · 발견 처리 링크는 노출', (await pRC.locator('a[href^="/inventory/survey-plan"]').count()) === 0 && (await pRC.locator('a[href^="/discovery/found"]').count()) > 0)
   await ctxRC.close()
 
   // 재물조사 기한 경과 독촉(로59) — 기한 지난 미완료 회차를 '기한 경과' 표시만 하던 것을 담당자 앞 독촉으로 닫는다. 시드 INV-2026-SP1(판교 수시·기한 08-08 경과·계획)이 대상.
@@ -3636,21 +3636,25 @@ try {
   ok('전역 검색: 조회 회수 시 계약 결과가 검색에서도 사라진다(막다른 링크 방지)', !(await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
   await cycleCellTo(pSQP, sqCell, '✓') // 복원
   ok('전역 검색: 조회 복원 시 계약 결과 재노출(양성 대조)', (await searchAs(pSRCH, 'CT-2023')).includes('CT-2023'))
+  //  선택자는 경로 접두로 본다 — 실제 큐 링크는 앵커(#rounds · #stale)를 달고 있고, 앵커 없는 링크는
+  //   다가오는 일정 아젠다가 회차 기한이 창 안에 들 때만 만든다. 정확히 일치로 보면 양성 대조가 그
+  //   우연한 항목에 기대게 되고(기한이 창 밖으로 나가면 근거가 사라진다), 회수 검사도 앵커 달린 큐가
+  //   남아 있는지는 보지 못한다.
   // 대시보드 운영 대기 큐도 같은 규약 — 큐는 '가서 처리하라'는 링크라, 조회를 회수한 화면의 큐가 남으면
   //  눌러도 대시보드로 되돌아오는 막다른 행이 된다(사이드바·검색은 이미 매트릭스를 따른다).
   const ctxDQ = await browser.newContext(); await ctxDQ.addCookies([cookie(ASSET)]); const pDQ = await ctxDQ.newPage()
   await pDQ.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
-  ok('대시보드 큐(양성 대조): 재물조사 관련 큐 링크 노출', (await pDQ.locator('a[href="/inventory/survey-plan"]').count()) > 0)
+  ok('대시보드 큐(양성 대조): 재물조사 관련 큐 링크 노출', (await pDQ.locator('a[href^="/inventory/survey-plan"]').count()) > 0)
   await pSQP.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
   const invRow = pSQP.locator('tr', { has: pSQP.locator('td.strong', { hasText: '재고 · 재물조사' }) }).first()
   const invCell = invRow.locator('td').nth(8) // 자산담당 × 조회
   for (let k = 0; k < 4 && !((await invCell.textContent()) || '').includes('·'); k++) { await invCell.click(); await pSQP.waitForTimeout(700) }
   ok('권한 매트릭스: 자산담당 × 재고 · 재물조사 조회 회수(불가) 반영', ((await invCell.textContent()) || '').includes('·'))
   await pDQ.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
-  ok('대시보드 큐: 조회 회수 시 그 화면 큐가 사라진다(막다른 행 방지)', (await pDQ.locator('a[href="/inventory/survey-plan"]').count()) === 0)
+  ok('대시보드 큐: 조회 회수 시 그 화면 큐가 사라진다(막다른 행 방지)', (await pDQ.locator('a[href^="/inventory/survey-plan"]').count()) === 0)
   await cycleCellTo(pSQP, invCell, '✓') // 복원
   await pDQ.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
-  ok('대시보드 큐: 조회 복원 시 큐 재노출(양성 대조)', (await pDQ.locator('a[href="/inventory/survey-plan"]').count()) > 0)
+  ok('대시보드 큐: 조회 복원 시 큐 재노출(양성 대조)', (await pDQ.locator('a[href^="/inventory/survey-plan"]').count()) > 0)
   // 어시스턴트 근거 링크도 같은 규약 — 열 수 없는 화면으로 보내는 '자산 대장' 링크가 남으면 눌러도 튕긴다.
   const ctxAE = await browser.newContext(); await ctxAE.addCookies([cookie(ASSET)]); const pAE = await ctxAE.newPage()
   const askAE = async (q) => {
