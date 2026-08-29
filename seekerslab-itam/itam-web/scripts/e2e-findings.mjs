@@ -172,7 +172,7 @@ async function aiFeedbackAccuracy(page) {
   const r0 = await read()
   ok('AI 정확도 환류: 정적값 아님 — 기준값·환류 판정 건수 표기', r0.body.includes('환류') && r0.body.includes('기준 92.4%') && r0.n >= 1)
   // 제안 1건 반려(부작용 없음) → 환류 판정 건수 증가로 정확도 재산출 확인.
-  //  다른 테스트가 승인하는 INS-2607-15는 건드리지 않도록, 반려 버튼이 있는 제안 행 중 그 외 첫 행을 고른다.
+  //  다른 테스트가 승인하는 INS-2607-15·INS-2607-19 는 건드리지 않도록, 반려 버튼이 있는 제안 행 중 그 외 첫 행을 고른다.
   await page.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
   const card = page.locator('.card', { hasText: 'AI 제안 — 판정 대기' })
   await card.locator('.seg button', { hasText: /^전체$/ }).click()
@@ -183,10 +183,10 @@ async function aiFeedbackAccuracy(page) {
   for (let i = 0; i < rowN; i++) {
     const r = allRows.nth(i)
     const t = (await r.textContent()) || ''
-    if (t.includes('INS-2607-15')) continue
+    if (t.includes('INS-2607-15') || t.includes('INS-2607-19')) continue  // 뒤에서 승인 경로를 검사하는 제안은 건드리지 않는다
     if ((await r.locator('button', { hasText: /^반려$/ }).count()) > 0) { target = r; break }
   }
-  ok('AI 정확도 환류: 반려 가능 미판정 제안 존재(INS-2607-15 제외)', target !== null)
+  ok('AI 정확도 환류: 반려 가능 미판정 제안 존재(승인 경로 검사분 제외)', target !== null)
   await target.locator('button', { hasText: /^반려$/ }).first().click()
   await page.waitForTimeout(300)
   await card.locator('input[placeholder*="반려 사유"]').first().fill('오탐 — 정확도 환류 검증')
