@@ -45,6 +45,16 @@ const dPlus = (n) => {
   const [y, m, d] = baseToday().split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
+/** 보증 연장 기대값 — 서버 extendWarranty 와 같은 규칙으로 만든다: 기준은 만료일과 오늘 중 뒤쪽(이미 만료된
+ *  보증은 오늘부터 센다), 더한 뒤 달에 없는 날은 말일로 맞춘다(2/29 + 1년 → 2/28).
+ *  기대값을 고정 날짜로 적으면 그 날이 지나는 순간 테스트가 깨진다 — 실제로 '2027-09-30' 이 그랬다.
+ *  시드가 아니라 화면이 보여 준 현재 만료일에서 파생하므로, 시드가 바뀌어도 따라간다. */
+const yPlus = (endStr, n) => {
+  const base = endStr >= baseToday() ? endStr : baseToday()
+  const [y, m, dd] = base.split('-').map(Number)
+  const last = new Date(Date.UTC(y + n, m, 0)).getUTCDate()
+  return new Date(Date.UTC(y + n, m - 1, Math.min(dd, last))).toISOString().slice(0, 10)
+}
 
 // 빌드 신선도 — 예전 빌드로 회귀를 돌리면 고친 결함이 그대로인 채 초록으로 통과한다(scripts/build-guard.mjs)
 assertFreshBuild(ROOT, { remote: REMOTE })
@@ -3153,10 +3163,14 @@ try {
   await pWY.goto(`${BASE}/assets/register?sel=AST-2022-000641`, { waitUntil: 'networkidle' })
   await pWY.locator('button', { hasText: /^보증 연장$/ }).first().click()
   await pWY.waitForTimeout(200)
+  //  패널이 '보증 연장 · 현재 만료 YYYY-MM-DD' 를 적는다 — 기대값은 거기서 파생한다(고정 날짜 금지)
+  const wyNow = (/현재 만료\s*(\d{4}-\d\d-\d\d)/.exec((await pWY.textContent('body')) || '') ?? [])[1] ?? ''
+  const wyExpect = wyNow ? yPlus(wyNow, 1) : ''
+  await pWY.waitForTimeout(200)
   await pWY.locator('button', { hasText: /^1년$/ }).first().click()
   await pWY.waitForTimeout(700)
   await pWY.goto(`${BASE}/assets/register?sel=AST-2022-000641`, { waitUntil: 'networkidle' })
-  ok('보증 연장(로24): 연장 → 보증 만료일 +1년(2027-09-30)', ((await pWY.textContent('body')) || '').includes('2027-09-30'))
+  ok(`보증 연장(로24): 연장 → 보증 만료일 +1년(${wyNow} → ${wyExpect})`, wyExpect !== '' && ((await pWY.textContent('body')) || '').includes(wyExpect))
   await ctxWY.close()
   // 윤년 보증 연장 회귀 — 2/29 만료 자산(AST-2025-000701 · 보증 2028-02-29)을 1년 연장하면 실재하지 않는 2029-02-29 가 아니라 말일 2029-02-28 이어야 한다(lib/dates addYears 클램프).
   //  그전엔 호출부가 연도만 +1 해 달력에 없는 날짜가 대장·보증연장 이력·엑셀 반출·갱신 원장에 남고, Date 파싱이 3/1 로 굴러 표시일과 잔여일이 하루 어긋났다(재연장마다 승계).
