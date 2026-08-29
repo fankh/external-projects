@@ -804,7 +804,10 @@ function seed(): Store {
       { id: 'INS-2608-08', kind: '이상탐지', severity: '높음', title: '서버의 비정상 외부 통신 — AST-2024-000377 (GPU A100)', detail: '평시 내부 학습 트래픽만 있던 핵심 GPU 서버(AST-2024-000377)가 08-17 03:12 외부 IP(러시아)로 대용량 아웃바운드. 자산 평시 프로파일 이탈 — 발견 저장소엔 없는 대장 관리 자산이라 격리 대상 매칭이 필요.', evidence: '넷플로우 08-17 03:12~03:40 · 2.3GB 유출 의심', createdAt: '2026-08-18', status: '제안', refId: 'AST-2024-000377' },
     ],
     inventoryRounds: [
-      { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', kind: '연간', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 6, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
+      //  진행 중·기한 미도래 회차 — 기한을 고정 날짜로 두면 그 날이 지나는 순간 '기한 경과'로 뒤집혀
+      //   독촉 대상이 된다(픽스처가 뜻하던 상태의 정반대). 시드 기준일(gen-samples 의 2026-07-29) 기준
+      //   오프셋을 그대로 상대값으로 옮긴다 — 샘플은 그 날짜로 고정 생성되므로 반출본 값은 바뀌지 않는다.
+      { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', kind: '연간', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 6, dueDate: addDays(today(), 31), assignee: '박자산', status: '진행중' },
       { id: 'INV-2026-H1', name: '2026 상반기 정기 재물조사', kind: '연간', scope: '전사', planned: 1_198, scanned: 1_198, mismatched: 14, dueDate: '2026-02-27', assignee: '박자산', status: '완료' },
       { id: 'INV-2026-SP1', name: '판교 사무소 수시 조사', kind: '수시', scope: '판교 사무소', planned: 86, scanned: 0, mismatched: 0, dueDate: '2026-08-08', assignee: '최지원', status: '계획' },
     ],
