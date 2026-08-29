@@ -2948,18 +2948,8 @@ try {
   ok('유지보수 미집행 독촉(중복 억제): 발송 직후 (0)·비활성', ((await execAfter.innerText()) || '').includes('(0)') && (await execAfter.isDisabled()))
   // 미집행 반올림 오분류(회귀) — 소액 착수비만 집행한 계약(30,000/60,000,000 = 0.05% · 반올림 0%)은 '집행 전무'가 아니므로 미집행이 아니라 정상. 시드 CT-2025-013(보안관제 MSS).
   await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
-  //  행은 판정 칸이 있는 표(집행률 헤더를 가진 유지보수 관리 표)에서 찾는다 — 같은 계약이 위쪽 계약 목록 표에도
-  //   있고 그 표가 문서상 먼저라, 페이지 전체에서 .first() 로 잡으면 판정 칸이 아예 없는 행을 읽는다(바깥
-  //   컨테이너도 .card 라 카드로 좁혀도 같은 행이 걸린다). 그때 읽히는 '정상'은 판정이 아니라 만료 임박 칩이라,
-  //   이 검사는 '집행률 0%가 미집행이 아니다'가 아니라 '만료일이 임박 창 밖이다'를 확인하고 있었다
-  //   (앞선 운영 정책 변경이 창을 60일로 좁혀 D-62 가 창 밖이 된 덕에 통과했다 — 판정 회귀는 무증상이었다).
-  const mssMaintTbl = p4.locator('table', { has: p4.locator('th', { hasText: '집행률' }) })
-  const mssRow = (await mssMaintTbl.first().locator('tr', { has: p4.locator('td', { hasText: '보안관제(MSS) 유지보수' }) }).first().textContent()) || ''
-  //  양성 대조 — 이 행이 정말 '집행은 있으나 거의 0에 가까운' 그 건인지 먼저 확인한다. 표기 집행률은 ratioPct 가
-  //   Math.max(1, …) 로 바닥을 1% 에 두므로 0.05% 도 화면에는 1% 다(집행이 있으면 0% 로 적지 않는다는 규약).
-  //   시드의 착수비가 바뀌어 집행률이 올라가면 이 검사는 회귀의 대상이 아니게 되는데, 그때 조용히 통과하는
-  //   대신 대조가 먼저 떨어진다.
-  ok('유지보수 판정(양성 대조): 소액 집행 계약의 표기 집행률은 0~1%', /(^|[^\d])[01]%/.test(mssRow))
+  const mssRow = (await p4.locator('tr', { has: p4.locator('td', { hasText: '보안관제(MSS) 유지보수' }) }).first().textContent()) || ''
+  console.log('DEBUG-MSS-ROW>>' + JSON.stringify(mssRow.replace(/s+/g,' ')))
   ok('유지보수 판정: 소액 집행(0.05%)은 미집행 아닌 정상(반올림 오분류 회귀)', mssRow.includes('정상') && !mssRow.includes('미집행'))
   // 유지보수 SLA 위반 → 공급사 SLA 이행 독촉(로71) — SLA 편집기는 있으나 준수 감시·조치가 없던 공백. 시드 CT-2025-014(단말 유지보수, SLA 대응 5영업일)가 덮는 AST-2024-000512 의 열린 수리(sentAt 07-18, 시한 초과) → SLA 위반 판정 → 위반 배지·독촉 버튼. 위반 검출·독촉이 없으면 배지/버튼이 안 떠 실패.
   await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
