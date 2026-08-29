@@ -22,6 +22,22 @@ export function egressPolicy(deployment: AiPolicy['deployment']): { egress: '차
   return { egress: '차단', deidentify: false, note: '온프레미스 처리만 — 자산 데이터 외부 반출 없음(망분리 기본안)' }
 }
 
+/** 사람 이름인가 — 조직 단위(팀·본부·전사)와 자리표시자는 개인 식별자가 아니고, 분류·집계 품질을 위해
+ *  그대로 둔다(정책이 '자산 분류·상태·부서·모델·수치는 보존'이라 밝힌 그대로). */
+export function isPersonName(v?: string): boolean {
+  const t = (v ?? '').trim()
+  if (t.length < 2) return false
+  return !/(팀|본부)$/.test(t) && !['전사', '미지정', '-'].includes(t) && !/시스템|엔진|서비스|스케줄러/.test(t)
+}
+
+/** 반출 문맥에 실릴 수 있는 사람 이름 — 로그인 계정이 있는 사용자뿐 아니라 대장의 보유자도 개인이다.
+ *  보유자 대부분은 계정이 없다(현장에서는 장비를 쓰는 사람과 시스템 계정을 가진 사람이 다르다).
+ *  계정 표만 넘기면 그 이름들이 마스킹되지 않은 채 외부 LLM 으로 나간다 — 문맥은 자산 한 줄마다
+ *  보유자를 찍는데(buildContext 의 '${a.owner}/${a.dept}'), 마스킹 목록은 그 이름을 모르는 상태였다. */
+export function egressPersonNames(users: { name: string }[], assets: { owner: string }[]): string[] {
+  return [...new Set([...users.map((u) => u.name), ...assets.map((a) => a.owner)])].filter(isPersonName)
+}
+
 /** 비식별 처리 — 외부 LLM 반출 전 개인·네트워크 식별자를 마스킹한다(제품안내서 §05 "비식별 처리 후 상용 LLM API").
  *  이름은 결정적 토큰([사용자N])으로 치환(같은 이름=같은 토큰), IP 는 상위 2옥텟만 남기고, MAC·이메일은 마스킹한다.
  *  분류·집계에 필요한 자산 분류·상태·부서·모델·수치는 보존해 답변 품질을 유지한다. */

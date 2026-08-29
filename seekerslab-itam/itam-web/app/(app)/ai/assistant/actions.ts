@@ -3,7 +3,7 @@ import { blockedSaasServices, shadowSaasPending } from '@/lib/saas'
 import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
 import { isPlaceholder } from '@/lib/quality'
-import { externalQueryAllowed, deidentify } from '@/lib/ai-egress'
+import { externalQueryAllowed, deidentify, egressPersonNames } from '@/lib/ai-egress'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
 import { ratioPct, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today, isWarrantyExpiring } from '@/lib/dates'
@@ -1004,7 +1004,7 @@ async function answerAssistant(question: string): Promise<ChatMessage> {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     const client = new Anthropic({ apiKey })
     // 외부 API 연계 — 반출 전 비식별 처리(개인 식별자·IP·MAC·이메일 마스킹)
-    const safeContext = deidentify(buildContext(session.name, isUser, session.role === 'ASSET_MGR' || session.role === 'ADMIN'), getStore().users.map((u) => u.name))
+    const safeContext = deidentify(buildContext(session.name, isUser, session.role === 'ASSET_MGR' || session.role === 'ADMIN'), egressPersonNames(getStore().users, getStore().assets))
     const response = await client.messages.create({
       // claude-opus-5는 thinking 기본 on — max_tokens가 thinking+응답 합산 상한이라 여유를 둔다
       model: process.env.ANTHROPIC_MODEL_ID || 'claude-opus-5',
