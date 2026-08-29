@@ -141,7 +141,12 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                     {r.slaBreach > 0 && <><br /><Chip tone="err">SLA 위반 — 대응 {r.slaResponseDays}일 초과 {r.slaBreach}건 ({r.breachAssetNos.join(', ')})</Chip></>}
                   </td>
                   <td className="tnum">{r.end}</td>
-                  <td className="c"><Chip tone={r.status === '예산 초과' ? 'err' : r.status === '소진 임박' || r.status === '미집행' ? 'warn' : 'ok'}>{r.status}</Chip></td>
+                  <td className="c">
+                    <Chip tone={r.status === '예산 초과' ? 'err' : (r.status === '소진 임박' || r.status === '미집행') && !r.ended ? 'warn' : 'ok'}>{r.status}</Chip>
+                    {/* 기간이 끝난 계약은 더 집행할 수 없다 — 미집행 신호는 남기되(예산을 잡고 안 쓴 사실은 감사 신호),
+                        '이행 독촉'이 아니라 정산·갱신 대상임을 밝힌다(독촉 대상 집계에서도 빠진다). */}
+                    {r.ended && <div><Chip tone="neutral" bare>기간 종료 — 정산·갱신 대상</Chip></div>}
+                  </td>
                 </tr>
               ))}
               {maintRows.length === 0 && <tr><td colSpan={10}><div className="empty">{maintPick ? `${maintPick.label} 대상 계약이 없습니다` : '유지보수 계약이 없습니다'}</div></td></tr>}

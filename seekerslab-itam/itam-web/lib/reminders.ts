@@ -114,10 +114,12 @@ export function maintenanceBudgetTargets() {
   return buildMaintenance().rows.filter((r) => (r.status === '예산 초과' || r.status === '소진 임박') && !sent.has(r.id))
 }
 
-/** 유지보수 이행 독촉 대상 — 계약액이 있는데 집행이 없는(미집행) 계약(오늘 발송분 제외). */
+/** 유지보수 이행 독촉 대상 — 계약액이 있는데 집행이 없는(미집행) 계약(오늘 발송분 제외).
+ *  기간이 끝난 계약은 뺀다 — 집행할 기간이 없는데 '집행하라'고 재촉하면 받는 쪽이 할 수 있는 일이 없다
+ *  (정산·갱신이 맞는 조치다). 화면은 그 계약을 계속 보여 주고 사유를 밝힌다. */
 export function maintenanceExecTargets() {
   const sent = sentTodayRefs('유지보수 이행 독촉')
-  return buildMaintenance().rows.filter((r) => r.status === '미집행' && !sent.has(r.id))
+  return buildMaintenance().rows.filter((r) => r.status === '미집행' && !r.ended && !sent.has(r.id))
 }
 
 /** 유지보수 SLA 위반 독촉 대상 — 대응 시한을 넘긴 열린 수리를 가진 계약(오늘 발송분 제외). */
