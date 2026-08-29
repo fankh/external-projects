@@ -4323,6 +4323,20 @@ try {
   const uncounted = statusFields.filter((f) => !statusBranch.includes(f))
   check(`공통코드 참조 집계: 상태를 담는 필드를 모두 센다(${statusFields.length}종)`,
     statusFields.length >= 2 && uncounted.length === 0, `안 세는 필드=${uncounted.join(', ') || '없음'}`)
+  // 필수 결재 전환이 실제로 무언가를 막는가 — 결재선 화면은 '신청·반납·이동·대여는 필수 ↔ 선택을 전환할 수
+  //  있다'고 적고, 필수의 뜻을 '결재 없이 대장에 반영하는 우회를 원천 차단'이라 밝힌다. 그렇다면 전환 가능한
+  //  종류는 모두 직접 실행 경로에서 requiresApproval 로 막혀야 한다. 이동·대여만 막고 반납은 열려 있었다 —
+  //  관리자가 필수로 바꿔도 회수(반납 처리)는 그대로 통과하는, 표시만 되고 강제되지 않는 정책이었다.
+  //  '자산 신청'은 예외다 — 직접 불출 경로가 아예 없고 issueAsset 이 승인된 자산 신청을 요구하므로
+  //   토글과 무관하게 결재를 거친다(그 사실을 여기 적어 두어야 다음 사람이 같은 판단을 반복하지 않는다).
+  const lineSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const lineBlk = lineSrc.slice(lineSrc.indexOf('function seedApprovalLines'), lineSrc.indexOf('function seed(', lineSrc.indexOf('function seedApprovalLines')))
+  const toggleKinds = [...lineBlk.matchAll(/kind: '([^']+)'[^}]*required: false/g)].map((m) => m[1])
+  const actionSrcAll = sourceFiles.filter((f) => f.endsWith('actions.ts')).map((f) => readFileSync(f, 'utf8')).join('\n')
+  const GATE_EXEMPT = ['자산 신청']  // 직접 불출 경로 없음 — issueAsset 이 승인된 신청을 요구한다
+  const ungated = toggleKinds.filter((k) => !GATE_EXEMPT.includes(k) && !actionSrcAll.includes(`requiresApproval('${k}')`))
+  check(`필수 결재: 전환 가능한 종류가 모두 직접 실행 경로에서 강제된다(${toggleKinds.length}종)`,
+    toggleKinds.length >= 3 && ungated.length === 0, `강제 없는 종류=${ungated.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {

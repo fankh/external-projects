@@ -662,6 +662,11 @@ export async function cancelFault(assetNo: string) {
 export async function recoverFromUser(assetNo: string, rawReason: string) {
   const session = await guard()
   if (!session) return { ok: false, message: '자산 회수 권한이 없습니다 (자산담당·Admin).' }
+  //  회수는 사용 중 자산을 반납대기로 보내는 '반납 처리'다 — 결재선 화면이 신청·반납·이동·대여를 필수로
+  //   전환할 수 있다고 적고 그 필수의 뜻을 '결재 없이 대장에 반영하는 우회를 원천 차단'이라 밝히는데,
+  //   이동·대여만 직접 실행을 막고 반납은 막지 않아 같은 전환이 결재 없이 통과했다(표시만 되고 강제되지
+  //   않는 정책). 사용자가 직접 반납할 수 없는 오프보딩도 결재를 거쳐 상신한다.
+  if (requiresApproval('반납')) return { ok: false, message: '반납은 필수 결재로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.' }
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
@@ -725,6 +730,11 @@ export async function reassignAsset(assetNo: string, rawNewOwner: string, rawNot
 export async function recoverManyFromUser(assetNos: string[], rawReason: string) {
   const session = await guard()
   if (!session) return { ok: false, message: '자산 회수 권한이 없습니다 (자산담당·Admin).' }
+  //  회수는 사용 중 자산을 반납대기로 보내는 '반납 처리'다 — 결재선 화면이 신청·반납·이동·대여를 필수로
+  //   전환할 수 있다고 적고 그 필수의 뜻을 '결재 없이 대장에 반영하는 우회를 원천 차단'이라 밝히는데,
+  //   이동·대여만 직접 실행을 막고 반납은 막지 않아 같은 전환이 결재 없이 통과했다(표시만 되고 강제되지
+  //   않는 정책). 사용자가 직접 반납할 수 없는 오프보딩도 결재를 거쳐 상신한다.
+  if (requiresApproval('반납')) return { ok: false, message: '반납은 필수 결재로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.' }
   const s = getStore()
   const reason = rawReason.trim()
   let n = 0

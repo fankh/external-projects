@@ -44,7 +44,7 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
 const TONE_OF: Record<'위험' | '정비' | '진입', 'err' | 'warn' | 'ok'> = { 위험: 'err', 정비: 'warn', 진입: 'ok' }
 const eventTone = (kind: string) => { const c = EVENT_EMPHASIS[kind]; return c ? TONE_OF[c] : undefined }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays: number; maintenanceWindowDays: number; initialWarranty?: boolean; dqNos?: string[]; dqIssues?: Record<string, string[]>; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; initialLive?: boolean; availNos?: string[]; initialAvail?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canDoc: boolean; canQuarantine: boolean; canManage: boolean; loanNeedsApproval?: boolean; moveNeedsApproval?: boolean; returnNeedsApproval?: boolean; terminatedContracts?: string[]; canExport?: boolean; initialSel?: string; staleNos?: string[]; initialStale?: boolean; warrantyNos?: string[]; expiryWindowDays: number; maintenanceWindowDays: number; initialWarranty?: boolean; dqNos?: string[]; dqIssues?: Record<string, string[]>; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; receiptNos?: string[]; initialReceipt?: boolean; loanExtNos?: string[]; initialLoanExt?: boolean; loanRetNos?: string[]; initialLoanRet?: boolean; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; eolNoticeCount?: number; impactNoticeCount?: number; impactNos?: string[]; initialImpact?: boolean; spofNos?: string[]; initialSpof?: boolean; replaceNos?: string[]; initialReplace?: boolean; riskNos?: string[]; initialRisk?: boolean; initialLive?: boolean; availNos?: string[]; initialAvail?: boolean; disposalNos?: string[]; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -485,12 +485,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {/* 자산 운영 일괄 조치(회수·재배정·대여·점검·계약·중요도) — 서버 액션이 자산담당·Admin 전용이라 보안담당에게는 내주지 않는다(누르면 거부되는 막다른 길 방지) */}
               {props.canManage && (<>
               {/* 필수 결재로 지정된 종류는 일괄 조치에서도 뺀다 — 상세 컨트롤만 내리고 일괄 바에 남겨 두면 같은 규칙이 반쪽이 된다. */}
-              {(props.loanNeedsApproval || props.moveNeedsApproval) && (
+              {(props.loanNeedsApproval || props.moveNeedsApproval || props.returnNeedsApproval) && (
                 <span className="mut" style={{ fontSize: 11.5 }}>
-                  {[props.loanNeedsApproval ? '대여' : '', props.moveNeedsApproval ? '재배정(이동)' : ''].filter(Boolean).join('·')}은 필수 결재 — 신청 · 결재로 상신
+                  {[props.loanNeedsApproval ? '대여' : '', props.moveNeedsApproval ? '재배정(이동)' : '', props.returnNeedsApproval ? '반납(회수)' : ''].filter(Boolean).join('·')}은 필수 결재 — 신청 · 결재로 상신
                 </span>
               )}
-              {checkedUsable.length > 0 && (
+              {checkedUsable.length > 0 && !props.returnNeedsApproval && (
                 <button className="btn sm warn" disabled={pending} onClick={bulkRecover}
                   title="선택한 사용 중 자산을 일괄 회수 — 오프보딩·재배정(반납 접수 대기열로)">일괄 회수 (사용중 {checkedUsable.length})</button>
               )}
@@ -1186,7 +1186,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             )}
 
             {/* 자산 회수(반납 처리) — 사용 중 자산을 자산담당이 직접 회수(오프보딩·재배정). 반납대기로 보내 반납 점검 흐름을 탄다. 자산담당만(canEdit). */}
-            {props.canManage && sel.status === '사용중' && (
+            {props.canManage && props.returnNeedsApproval && sel.status === '사용중' && (
+              <div className="callout" style={{ marginTop: 12 }}>반납(회수)은 <b>필수 결재</b>로 지정돼 있습니다 — 신청 · 결재로 상신해 승인 후 처리하세요.</div>
+            )}
+            {props.canManage && !props.returnNeedsApproval && sel.status === '사용중' && (
               <div style={{ marginTop: 12 }}>
                 {recoverMsg && <div className="callout" style={{ marginBottom: 10 }}>{recoverMsg}</div>}
                 {!recoverOpen ? (
