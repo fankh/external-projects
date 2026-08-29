@@ -1461,6 +1461,21 @@ try {
   check('운영 정책: 안전재고 기준 편집 필드 렌더(대수 단위)', aiPol.includes('안전재고 기준') && aiPol.includes('재고 부족(발주 검토)'))
   const dspHtml = await (await get('/assets/disposal', 'ASSET_MGR')).text()
   check('폐기: 후보·소거 방식·증적·일괄 선정 렌더', dspHtml.includes('데이터 소거') && dspHtml.includes('증적') && dspHtml.includes('AST-2019-000218') && dspHtml.includes('선택 일괄 대상 선정'))
+  // 단건 선정은 보유 상태(사용중·대여중·검수중)를 이미 막아 두었다(위 회수 후 선정). 그런데 같은 표의
+  //  체크박스와 전체 선택은 그대로 남아, 전체 선택이 서버가 거절할 건까지 고르고 일괄 선정이 그만큼을
+  //  건너뛴다 — 같은 화면에서 단건은 '누를 수 없다'고 말하고 일괄은 '눌러 봐야 안다'고 말한다.
+  //  시드 기준 폐기 후보 14건 중 12건이 보유 상태라, 전체 선택 한 번이면 거의 전부가 헛선택이 된다.
+  const dspCard = dspHtml.slice(dspHtml.indexOf('폐기 후보'), dspHtml.indexOf('폐기 처리 현황'))
+  const dspRowOf = (no) => {
+    const i = dspCard.indexOf(no)
+    if (i < 0) return ''
+    return dspCard.slice(dspCard.lastIndexOf('<tr', i), dspCard.indexOf('</tr>', i))
+  }
+  const heldRow = dspRowOf('AST-2023-000112')  // 사용중 — 서버가 거절한다
+  const freeRow = dspRowOf('AST-2023-000704')  // 유휴 — 선정 가능
+  check('폐기 후보: 서버가 거절할 건은 일괄 선택에서도 고를 수 없다',
+    heldRow.includes('disabled') && freeRow !== '' && !freeRow.includes('disabled'),
+    `보유 상태 행 잠김=${heldRow.includes('disabled')} / 선정 가능 행 잠김=${freeRow.includes('disabled')} (행 찾음=${heldRow !== '' && freeRow !== ''})`)
   const svyHtml = await (await get('/inventory/survey', 'ASSET_MGR')).text()
   check('재물조사 수행: 스캔 실사·차이 항목 렌더', svyHtml.includes('스캔하거나 자산번호 입력') && svyHtml.includes('위치 불일치') && svyHtml.includes('조정 결재 상신'))
   check('재물조사 수행: 진행중 회차에 조사 완료(마감) 컨트롤 노출', svyHtml.includes('조사 완료'))
