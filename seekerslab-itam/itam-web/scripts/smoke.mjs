@@ -1244,6 +1244,15 @@ try {
   const tmpl = await get('/api/asset-template.csv', 'ASSET_MGR')
   const tmplBody = await tmpl.text()
   check('CSV 템플릿: 자산담당 발급 (200·CSV·헤더·예시)', tmpl.status === 200 && (tmpl.headers.get('content-type') ?? '').includes('text/csv') && tmplBody.includes('유형,모델,시리얼') && tmplBody.includes('ThinkPad'))
+  // 앱이 내준 양식이 앱의 검사를 통과하는가 — 템플릿의 예시 행은 정적 문자열인데, 위치는 공통코드라 운영자가
+  //  이름을 바꾸거나 미사용 처리할 수 있다. 그러면 앱이 "이렇게 채우세요"라며 내려준 파일이 그대로 올렸을 때
+  //  위치 오류로 건너뛰어진다 — 화면이 내준 것을 서버가 거절하는 자리다(일괄 등록 미리보기에서 닫은 계열).
+  //  템플릿 예시 행의 위치가 모두 활성 공통코드 값인지 본다(빈 값은 서버가 기본 위치를 넣으므로 대상 아님).
+  const tmplLocs = tmplBody.split(/\r?\n/).slice(1).map((ln) => ln.split(',')[5]).map((v) => (v ?? '').trim()).filter(Boolean)
+  const codesHtml = await (await get('/settings/codes', 'ADMIN')).text()
+  const tmplBadLoc = tmplLocs.filter((loc) => !codesHtml.includes(loc))
+  check(`CSV 템플릿: 예시 행의 위치가 모두 등록된 공통코드(위치 ${tmplLocs.length}종)`,
+    tmplLocs.length >= 2 && tmplBadLoc.length === 0, `미등록=${tmplBadLoc.join(', ') || '없음'}`)
   // 전역 통합 검색 — 자산·계약·발견·사용자·결재 교차 검색, 화면 권한대로 스코핑
   check('통합 검색: 미로그인 차단 (401)', (await get('/api/search?q=CT-2023')).status === 401)
   check('통합 검색: 2자 미만은 빈 결과', (await (await get('/api/search?q=C', 'ADMIN')).json()).groups.length === 0)
