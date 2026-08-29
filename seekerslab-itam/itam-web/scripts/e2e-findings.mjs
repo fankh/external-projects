@@ -172,7 +172,7 @@ async function aiFeedbackAccuracy(page) {
   const r0 = await read()
   ok('AI 정확도 환류: 정적값 아님 — 기준값·환류 판정 건수 표기', r0.body.includes('환류') && r0.body.includes('기준 92.4%') && r0.n >= 1)
   // 제안 1건 반려(부작용 없음) → 환류 판정 건수 증가로 정확도 재산출 확인.
-  //  다른 테스트가 승인하는 INS-2607-15·INS-2607-19 는 건드리지 않도록, 반려 버튼이 있는 제안 행 중 그 외 첫 행을 고른다.
+  //  다른 테스트가 승인하는 INS-2607-15는 건드리지 않도록, 반려 버튼이 있는 제안 행 중 그 외 첫 행을 고른다.
   await page.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
   const card = page.locator('.card', { hasText: 'AI 제안 — 판정 대기' })
   await card.locator('.seg button', { hasText: /^전체$/ }).click()
@@ -183,10 +183,10 @@ async function aiFeedbackAccuracy(page) {
   for (let i = 0; i < rowN; i++) {
     const r = allRows.nth(i)
     const t = (await r.textContent()) || ''
-    if (t.includes('INS-2607-15') || t.includes('INS-2607-19')) continue  // 뒤에서 승인 경로를 검사하는 제안은 건드리지 않는다
+    if (t.includes('INS-2607-15')) continue
     if ((await r.locator('button', { hasText: /^반려$/ }).count()) > 0) { target = r; break }
   }
-  ok('AI 정확도 환류: 반려 가능 미판정 제안 존재(승인 경로 검사분 제외)', target !== null)
+  ok('AI 정확도 환류: 반려 가능 미판정 제안 존재(INS-2607-15 제외)', target !== null)
   await target.locator('button', { hasText: /^반려$/ }).first().click()
   await page.waitForTimeout(300)
   await card.locator('input[placeholder*="반려 사유"]').first().fill('오탐 — 정확도 환류 검증')
@@ -3258,35 +3258,6 @@ try {
   await pQB.waitForTimeout(900)
   await pQB.goto(`${BASE}/assets/register?sel=AST-2024-000377`, { waitUntil: 'networkidle' })
   ok('대장 자산 격리(로70): 2단계 승인 → NAC 격리 집행(대장 격리 표시)', ((await pQB.locator('tr', { has: pQB.locator('td', { hasText: 'AST-2024-000377' }) }).first().textContent()) || '').includes('격리'))
-  // AI 취약점 우선순위 승인 → 폐기(교체) 대상 선정의 보유-상태 게이트(신규) — 직접 선정(selectForDisposal)은
-  //  사용중·대여중·검수중 자산을 '먼저 회수·반환·검수를 마쳐야 한다'며 막는데, AI 제안 승인 경로는 그 판정을
-  //  지나쳐 남의 손에 있는 자산을 바로 폐기예정으로 만들었다(대여중이면 대여 추적이 끊긴다). 시드 INS-2607-19 는
-  //  사용중 서버 AST-2020-000883 을 가리키므로, 승인해도 대장 상태가 그대로여야 하고 사유가 남아야 한다.
-  const ctxVP = await browser.newContext(); await ctxVP.addCookies([cookie(SEC)]); const pVP = await ctxVP.newPage()
-  await pVP.goto(`${BASE}/assets/register?sel=AST-2020-000883`, { waitUntil: 'networkidle' })
-  const vpBefore = ((await pVP.locator('tr', { has: pVP.locator('td', { hasText: 'AST-2020-000883' }) }).first().textContent()) || '')
-  ok('AI 폐기 선정 게이트: 대상 자산이 사용중(전제 확인)', vpBefore.includes('사용중'))
-  await pVP.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
-  await pVP.locator('.card', { hasText: 'AI 제안 — 판정 대기' }).locator('.seg button', { hasText: /^전체$/ }).click()
-  await pVP.waitForTimeout(200)
-  //  제안 카드 안으로 좁힌다 — 같은 제안 ID 가 취약점 우선순위 표에도 실려, 카드 밖 행을 짚으면 승인 버튼이 없어 조용히 건너뛴다
-  //  이 제안은 앞의 aiInsightDecide 가 판정 대기 첫 행으로 이미 승인한다 — 그 승인이 바로 문제의 경로였다.
-  //   여기서는 다시 누르지 않고 그 결과만 본다(대기 중이면 눌러 같은 상태로 만든다).
-  const vpCard = pVP.locator('.card', { hasText: 'AI 제안 — 판정 대기' })
-  const vpBtn = vpCard.locator('tr', { has: pVP.locator('td', { hasText: 'INS-2607-19' }) }).first().locator('tbody button', { hasText: /^승인$/ })
-  if ((await vpBtn.count()) > 0) { await vpBtn.first().click(); await pVP.waitForTimeout(800) }
-  await pVP.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
-  await pVP.locator('.card', { hasText: 'AI 제안 — 판정 대기' }).locator('.seg button', { hasText: /^전체$/ }).click()
-  await pVP.waitForTimeout(200)
-  //  조치 문구는 이 화면 어디에도 다른 데 안 쓰이는 문장이라 화면 전체에서 찾는다(판정 후 행이 어느 카드에 남든 무관)
-  const vpAfter = ((await pVP.locator('body').textContent()) || '').replace(/s+/g, ' ')
-  ok('AI 폐기 선정 게이트: 보유 중 자산은 폐기 선정 대신 사유를 남긴다(직접 선정과 같은 판정)',
-    vpAfter.includes('회수·반환·검수 후 폐기 선정 대상'), `조치 문구=${vpAfter.slice(0, 120)}`)
-  await pVP.goto(`${BASE}/assets/register?sel=AST-2020-000883`, { waitUntil: 'networkidle' })
-  const vpNow = ((await pVP.locator('tr', { has: pVP.locator('td', { hasText: 'AST-2020-000883' }) }).first().textContent()) || '')
-  ok('AI 폐기 선정 게이트: 승인해도 보유 중 자산이 폐기예정으로 넘어가지 않는다',
-    vpNow.includes('사용중') && !vpNow.includes('폐기예정'), `대장 상태=${vpNow.replace(/\s+/g, ' ').slice(0, 80)}`)
-  await ctxVP.close()
   // 격리 자산 운영 게이트(신규) — NAC 로 망이 막힌 장비를 새 보유자에게 넘기면, 받은 사람은 쓸 수 없고 보안 조사는
   //  열린 채 보유자만 바뀐다. 화면은 재배정·대여 컨트롤 대신 사유를 보여 주고, 서버도 같은 이유로 거절해야 한다.
   const ctxQG = await browser.newContext(); await ctxQG.addCookies([cookie(ASSET)]); const pQG = await ctxQG.newPage()

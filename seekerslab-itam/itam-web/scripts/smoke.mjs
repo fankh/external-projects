@@ -4290,6 +4290,28 @@ try {
   })
   check('시드: 주기형 스케줄의 마지막 실행이 고정 날짜가 아니다(시간이 흐르면 전부 밀림)',
     fixedLastRun.length === 0, `고정 lastRunAt=${fixedLastRun.join(', ') || '없음'}`)
+  // 폐기 절차 편입의 보유-상태 게이트 — 직접 선정(selectForDisposal)은 사용중·대여중·검수중 자산을
+  //  '먼저 회수·반환·검수를 마쳐야 한다'며 막는다(실물 없이 폐기 방지 · 대여중이면 대여 추적 유실).
+  //  그런데 폐기 레코드를 만드는 경로는 여럿이고, 그중 하나라도 그 판정을 지나치면 같은 자산이 다른 문으로
+  //  들어온다 — AI 취약점 제안 승인 경로가 실제로 그랬다(승인 한 번에 남의 손에 있는 서버가 폐기예정).
+  //  반납·수리 경로는 이미 유휴가 된 자산을 넣으므로 prevStatus 를 '유휴'로 못박는다 — 그건 게이트가 필요 없다.
+  //  규칙: 자산의 현재 상태를 그대로 prevStatus 로 싣는 경로는 같은 함수 안에서 HELD_STATUSES 를 봐야 한다.
+  const dispFiles = sourceFiles.filter((f) => f.endsWith('actions.ts'))
+  const heldMissing = []
+  for (const f of dispFiles) {
+    const src = readFileSync(f, 'utf8')
+    if (!src.includes('s.disposals.push(')) continue
+    // 함수 단위로 자른다 — 파일 어딘가에 HELD_STATUSES 가 있다고 그 경로가 본 것은 아니다
+    const fns = src.split(/\nexport async function /).slice(1)
+    for (const fn of fns) {
+      if (!fn.includes('s.disposals.push(')) continue
+      if (!/prevStatus: asset\.status/.test(fn)) continue  // 유휴로 못박는 경로는 대상 아님
+      if (fn.includes('HELD_STATUSES')) continue
+      heldMissing.push(path.relative(ROOT, f) + ' :: ' + (/^(\w+)/.exec(fn) ?? [])[1])
+    }
+  }
+  check('폐기 편입: 보유 중 자산을 넣는 경로가 모두 회수 게이트를 지난다',
+    heldMissing.length === 0, `게이트 없는 경로=${heldMissing.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
