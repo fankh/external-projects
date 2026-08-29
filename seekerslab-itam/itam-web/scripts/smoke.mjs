@@ -4337,6 +4337,16 @@ try {
   const ungated = toggleKinds.filter((k) => !GATE_EXEMPT.includes(k) && !actionSrcAll.includes(`requiresApproval('${k}')`))
   check(`필수 결재: 전환 가능한 종류가 모두 직접 실행 경로에서 강제된다(${toggleKinds.length}종)`,
     toggleKinds.length >= 3 && ungated.length === 0, `강제 없는 종류=${ungated.join(', ') || '없음'}`)
+  // 대기 결재의 상신일은 달력 사실이 아니라 '얼마나 묵었는가'다 — 고정 날짜로 적으면 실제 시간이 흐르는
+  //  만큼 전부 함께 묵어, 시드가 뜻하던 대비(SLA 넘긴 몇 건 · 아직 여유 있는 몇 건)가 사라진다.
+  //  실제로 대기 13건이 전부 SLA 초과가 되어 '결재 지연' 큐가 결재함 전량을 가리켰다 — 무엇이 밀렸는지
+  //  구분하지 못하는 경보다. 판정이 끝난 승인·반려는 시계와 비교되지 않으므로 대상이 아니다.
+  const aprSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const fixedPending = [...aprSrc.matchAll(/\{[^{}]*status: '대기'[^{}]*\}/g)]
+    .map((m) => m[0]).filter((row) => /requestedAt: '\d{4}-\d\d-\d\d'/.test(row))
+    .map((row) => (/id: '([^']+)'/.exec(row) ?? [])[1])
+  check(`시드: 대기 결재의 상신일이 고정 날짜가 아니다(전량이 SLA 초과가 되지 않게)`,
+    fixedPending.length === 0, `고정 상신일=${fixedPending.slice(0, 5).join(', ')}${fixedPending.length > 5 ? ` 외 ${fixedPending.length - 5}건` : ''}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
