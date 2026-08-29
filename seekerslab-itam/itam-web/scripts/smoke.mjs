@@ -4363,6 +4363,15 @@ try {
   const egrLeaking = egrRendered.filter((f) => !egrCovered.includes(f))
   check(`AI 반출 비식별: 문맥이 찍는 사람 필드가 모두 마스킹 목록에 들어간다(${egrRendered.length}종)`,
     egrRendered.length > 0 && egrLeaking.length === 0, `목록에 없는 필드=${egrLeaking.join(', ') || '없음'}`)
+  // 장기 유휴 기준 — 판정(KPI 건수)·라벨 문구·행 배지가 같은 수를 써야 한다. 각자 적어 두면 기준을 바꿀 때
+  //  문구만 옛 수로 남아 화면이 거짓을 말한다(정기 점검 창이 실제로 그렇게 굳어 있었다 · 아젠다 창이 같은
+  //  이유로 상수 한 곳에서 읽도록 정리됐다). 상수를 읽어 화면 문구와 맞대어 본다 — 문구만 고치면 여기서 걸린다.
+  const idleTypesSrc = readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8')
+  const longIdleDays = Number((/export const LONG_IDLE_DAYS = (\d+)/.exec(idleTypesSrc) ?? [])[1] ?? -1)
+  const retHtmlIdle = (await (await get('/assets/returns', 'ASSET_MGR')).text()).replace(/<!-- -->/g, '').replace(/<[^>]*>/g, ' ')
+  check(`장기 유휴: 라벨이 판정 상수와 같은 수를 말한다(${longIdleDays}일)`,
+    longIdleDays > 0 && retHtmlIdle.includes(`${longIdleDays}일 이상 장기 유휴`),
+    `상수=${longIdleDays} / 화면 문구 일치=${retHtmlIdle.includes(`${longIdleDays}일 이상 장기 유휴`)}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {

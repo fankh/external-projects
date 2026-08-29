@@ -4,12 +4,12 @@ import { useState, useTransition } from 'react'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { extendLoan, returnLoan } from '@/app/(app)/assets/register/actions'
 import { Card, Chip } from '@/components/ui'
+import { LONG_IDLE_DAYS } from '@/lib/types'
 import type { ReturnCondition } from '@/lib/types'
 import { completeRepair, receiveReturn, receiveReturnMany, remindLoans, remindRepairs, sendToRepair } from './actions'
 
-/** 장기 유휴 판정선(일) — 이 이상 유휴면 '재배치 대신 폐기 검토' 대상으로 조치 버튼을 노출한다.
- *  유휴일 칩 경고선(90)과 같은 표시 기준. 에스컬레이션·SLA 같은 운영 정책값과 달리 화면 표시 임계다. */
-const LONG_IDLE_DAYS = 90
+/** 장기 유휴 판정선은 lib/types 의 LONG_IDLE_DAYS 한 곳에서 읽는다 — 반납 화면의 KPI 건수·라벨과 같은 수여야 한다.
+ *  (이 파일이 90 을 따로 들고 있으면 기준을 바꿀 때 행 배지만 옛 선으로 남는다.) */
 
 const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고']
 

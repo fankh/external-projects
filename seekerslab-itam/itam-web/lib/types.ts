@@ -140,6 +140,12 @@ export interface AssetRepairCost {
  *  재물조사 주기(반기)를 고려한 값 — 반기 조사를 한 번 거르면 드러난다. */
 export const STALE_VERIFY_DAYS = 180
 
+/** 장기 유휴 기준(일) — 유휴 풀에서 이만큼 묵으면 재배치·폐기 검토 대상으로 드러낸다.
+ *  판정(KPI 건수)·라벨 문구·행 배지 세 곳이 이 한 수를 읽는다. 각자 적어 두면 기준을 바꿀 때 문구만
+ *  옛 수로 남아 화면이 거짓을 말한다 — 정기 점검 창이 실제로 그렇게 굳어 있었고(#695),
+ *  아젠다 창(UPCOMING_WINDOW_DAYS)이 같은 이유로 한 곳에서 읽도록 정리된 그 규약이다. */
+export const LONG_IDLE_DAYS = 90
+
 /** Discovery 6종 탐지 채널 */
 export type Channel =
   | '네트워크 능동 스캔'
