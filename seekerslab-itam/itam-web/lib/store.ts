@@ -272,9 +272,15 @@ function seedMenuPermissions(): MenuPermission[] {
 
 function seedEasmTargets(): EasmTarget[] {
   return [
-    { domain: 'seekerslab.co.kr', intervalDays: 7, lastRunAt: '2026-07-26', activeApproved: true, note: '주력 도메인 — 능동 탐지 협의 완료' },
-    { domain: 'seekerslab.com', intervalDays: 14, lastRunAt: '2026-07-19', activeApproved: true },
-    { domain: 'skl-dev.io', intervalDays: 30, lastRunAt: '2026-07-02', activeApproved: false, note: '개발용 도메인 — 능동 탐지 미협의 (수동 수집만)' },
+    //  '마지막 재탐지'는 달력 사실이 아니라 주기 안에서의 위치다 — 고정 날짜로 두면 실제 시간이 흐르는 만큼
+    //   통째로 밀려, 설계일에는 세 도메인 모두 다음 재탐지가 예정이던 것이 어느새 전부 기한 경과가 된다
+    //   (정례 리포트 lastRunAt 과 같은 계열). 그러면 화면의 다음 예정일이 전부 과거를 가리키고,
+    //   '재탐지 기한 경과' 큐는 늘 전량이라 어느 도메인이 실제로 밀렸는지 구분되지 않는다.
+    //   두 도메인은 예정으로 두고, 능동 탐지 미협의라 손이 덜 가는 개발 도메인 하나만 의도적으로 밀려 둔다
+    //   — 큐·지연 칩이 계속 무엇인가를 가리키되, 전량 경보가 되지는 않게.
+    { domain: 'seekerslab.co.kr', intervalDays: 7, lastRunAt: addDays(today(), -3), activeApproved: true, note: '주력 도메인 — 능동 탐지 협의 완료' },
+    { domain: 'seekerslab.com', intervalDays: 14, lastRunAt: addDays(today(), -10), activeApproved: true },
+    { domain: 'skl-dev.io', intervalDays: 30, lastRunAt: addDays(today(), -37), activeApproved: false, note: '개발용 도메인 — 능동 탐지 미협의 (수동 수집만)' },
   ]
 }
 
