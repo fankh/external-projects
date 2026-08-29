@@ -2949,6 +2949,7 @@ try {
   // 미집행 반올림 오분류(회귀) — 소액 착수비만 집행한 계약(30,000/60,000,000 = 0.05% · 반올림 0%)은 '집행 전무'가 아니므로 미집행이 아니라 정상. 시드 CT-2025-013(보안관제 MSS).
   await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const mssRow = (await p4.locator('tr', { has: p4.locator('td', { hasText: '보안관제(MSS) 유지보수' }) }).first().textContent()) || ''
+  console.log('DEBUG-MSS-ROW>>' + JSON.stringify(mssRow.replace(/s+/g,' ')))
   ok('유지보수 판정: 소액 집행(0.05%)은 미집행 아닌 정상(반올림 오분류 회귀)', mssRow.includes('정상') && !mssRow.includes('미집행'))
   // 유지보수 SLA 위반 → 공급사 SLA 이행 독촉(로71) — SLA 편집기는 있으나 준수 감시·조치가 없던 공백. 시드 CT-2025-014(단말 유지보수, SLA 대응 5영업일)가 덮는 AST-2024-000512 의 열린 수리(sentAt 07-18, 시한 초과) → SLA 위반 판정 → 위반 배지·독촉 버튼. 위반 검출·독촉이 없으면 배지/버튼이 안 떠 실패.
   await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
