@@ -39,18 +39,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
   const aprFiltered = k === 'approvals' && (q !== '' || status !== '전체' || akind !== '전체' || mine)
   const filtered = (k === 'assets' && !selExport && (q !== '' || cat !== '전체' || status !== '전체' || stale || warranty)) || discFiltered || aprFiltered
   const idFiltered = ids.length > 0
-  // '반출 범위' 시트는 scope 가 있을 때만 붙는다 — 필터가 걸린 반출만 부분임을 밝히면 된다
-  const sheetScope = idFiltered ? (idScope || `화면 필터 — ${ids.length}행`) : ''
-  const sheets = buildSheets(k, session.role, session.name, { q, cat, nos, status, stale, warranty, channel, state, risk, akind, mine, ids, scope: sheetScope })
+  // 부분 반출의 범위 문구는 한 곳에서 만든다 — 파일 첫 시트('반출 범위')와 감사 기록이 같은 말을 써야 한다.
+  //  그전에는 ids 로 좁힌 종류(계약·폐기·SaaS)만 시트를 받고, 자산 대장·발견 자산·결재함의 화면 필터 반출은
+  //  서버가 행을 좁혀 놓고도 파일에 아무 표시를 남기지 않았다 — 받는 사람은 좁혀진 대장을 전체로 읽는다.
+  //  결재함이 특히 그렇다: 기본값이 status=대기라 평소 내려받는 '결재이력.xlsx' 가 이미 대기분만 담은 부분 반출이다.
+  const scopeText = selExport ? `선택 ${nos.length}건`
+    : discFiltered ? `필터: ${[channel !== '전체' && `채널=${channel}`, state !== '전체' && `대사=${state}`, risk !== '전체' && `위험도=${risk}`, q && `검색='${q}'`].filter(Boolean).join(', ')}`
+    : aprFiltered ? `필터: ${[status !== '전체' && `상태=${status}`, akind !== '전체' && `구분=${akind}`, mine && '내상신만', q && `검색='${q}'`].filter(Boolean).join(', ')}`
+    : filtered ? `필터: ${[cat !== '전체' && `유형=${cat}`, status !== '전체' && `상태=${status}`, stale && '장기미실측', warranty && '보증임박', q && `검색='${q}'`].filter(Boolean).join(', ')}`
+    : idFiltered ? `필터: ${idScope || `화면 필터 — ${ids.length}행`} (${ids.length}행)`
+    : ''
+  const sheets = buildSheets(k, session.role, session.name, { q, cat, nos, status, stale, warranty, channel, state, risk, akind, mine, ids, scope: scopeText })
   const buf = buildXlsx(sheets)
   const rows = sheets.reduce((n, s) => n + s.rows.length, 0)
 
   // 내보내기는 데이터 반출이므로 감사 대상이다 — 누가 무엇을 몇 건 받았는지 남긴다
-  const scope = selExport ? ` · 선택 ${nos.length}건`
-    : discFiltered ? ` · 필터: ${[channel !== '전체' && `채널=${channel}`, state !== '전체' && `대사=${state}`, risk !== '전체' && `위험도=${risk}`, q && `검색='${q}'`].filter(Boolean).join(', ')}`
-    : aprFiltered ? ` · 필터: ${[status !== '전체' && `상태=${status}`, akind !== '전체' && `구분=${akind}`, mine && '내상신만', q && `검색='${q}'`].filter(Boolean).join(', ')}`
-    : filtered ? ` · 필터: ${[cat !== '전체' && `유형=${cat}`, status !== '전체' && `상태=${status}`, stale && '장기미실측', warranty && '보증임박', q && `검색='${q}'`].filter(Boolean).join(', ')}`
-    : idFiltered ? ` · 필터: ${sheetScope} (${ids.length}행)` : ''
+  const scope = scopeText ? ` · ${scopeText}` : ''
   appendAudit({
     actor: session.name,
     action: `엑셀 내보내기 — ${EXPORT_META[k].label} (${rows}건)${scope}`,
