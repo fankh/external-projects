@@ -1,3 +1,4 @@
+import { LONG_IDLE_DAYS } from '@/lib/types'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, isRepairUnrecorded, today } from '@/lib/dates'
@@ -82,7 +83,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
     (a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.unfulfilledReason && !a.refId?.startsWith('DSC-'),
   ).length
 
-  const longIdle = idle.filter((a) => (a.idleDays ?? 0) >= 90).length
+  const longIdle = idle.filter((a) => (a.idleDays ?? 0) >= LONG_IDLE_DAYS).length
   // 보증 절감 — 무상 보증 청구로 자사가 부담하지 않은 수리비 누계(보증 활용·비용 회피 가시화)
   const warrantySaved = s.assets.reduce((n, a) => n + warrantySavingsOf(a), 0)
   // 수리 업체 성과 — 자산 단위 수리 이력·진행 중 수리를 업체별로 집계(업체 책임성·재계약 근거)
@@ -101,7 +102,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
         <Stat value={repairing.length} label="수리중" tone={repairing.length ? 'warn' : 'ok'} />
         <Stat value={loans.length} label="대여중" tone={loans.length ? 'accent' : 'ok'} delta={overdueLoans ? { text: `연체 ${overdueLoans}건`, dir: 'up' } : undefined} />
         <Stat value={idle.length} label="유휴 자산 풀" />
-        <Stat value={longIdle} label="90일 이상 장기 유휴" tone={longIdle ? 'warn' : 'ok'} delta={{ text: '재배치·폐기 검토', dir: 'flat' }} />
+        <Stat value={longIdle} label={`${LONG_IDLE_DAYS}일 이상 장기 유휴`} tone={longIdle ? 'warn' : 'ok'} delta={{ text: '재배치·폐기 검토', dir: 'flat' }} />
         <Stat value={openRequests} label="배정 대기 자산 신청" tone={openRequests ? 'accent' : 'ok'} />
         <Stat value={warrantySaved > 0 ? `${warrantySaved.toLocaleString()}원` : '0'} label="보증 절감 (무상 청구)" tone={warrantySaved > 0 ? 'ok' : undefined} delta={{ text: '제조사 보증 수리 비용 회피', dir: 'flat' }} />
       </div>
