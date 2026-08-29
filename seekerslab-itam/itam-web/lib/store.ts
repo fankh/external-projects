@@ -761,21 +761,21 @@ function seed(): Store {
     ],
     approvals: [
       // 다단계 결재선 진행 중 — 부서장(ADMIN) 결재 대기. 승인하면 자산담당 단계로 넘어간다.
-      { id: 'APR-2607-120', kind: '자산 신청', title: '개발 워크스테이션 신규 신청 (AI팀 증원 2명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-28', status: '대기', currentStep: '부서장 결재', note: 'AI팀 증원 2명 — GPU 워크스테이션 지급 요청', desiredCategory: '단말' },
-      { id: 'APR-2607-121', kind: '자산 신청', title: '개발용 모니터 추가 신청 (듀얼 구성)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-28', status: '대기', currentStep: '부서장 결재', note: '재택·사무 듀얼 모니터 구성 요청', desiredCategory: '주변기기' },
+      { id: 'APR-2607-120', kind: '자산 신청', title: '개발 워크스테이션 신규 신청 (AI팀 증원 2명)', requester: '오세훈', dept: '인사팀', requestedAt: addDays(today(), -1), status: '대기', currentStep: '부서장 결재', note: 'AI팀 증원 2명 — GPU 워크스테이션 지급 요청', desiredCategory: '단말' },
+      { id: 'APR-2607-121', kind: '자산 신청', title: '개발용 모니터 추가 신청 (듀얼 구성)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: addDays(today(), -1), status: '대기', currentStep: '부서장 결재', note: '재택·사무 듀얼 모니터 구성 요청', desiredCategory: '주변기기' },
       // 불출 대기 시연 — 승인됐으나 미집행(재배치 우선 원칙: 희망 유형 단말에 맞는 유휴 재고 우선 추천)
       { id: 'APR-2607-116', kind: '자산 신청', title: '노트북 지급 신청 (경력 입사자)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-22', status: '승인', currentStep: '완료', decidedAt: '2026-07-24', decidedBy: '박자산', note: '9월 경력 입사자 온보딩 단말', desiredCategory: '단말' },
       { id: 'APR-2607-096', kind: '자산 신청', title: '휴대용 모니터 신청 (재택 근무)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-26', status: '반려', currentStep: '완료', decidedAt: '2026-07-27', decidedBy: '박자산', rejectReason: '재택 지원 품목은 부서 예산 승인 후 재신청 바랍니다.', note: '재택 근무용 휴대 모니터' },
       // 반려 사유가 남은 건 — 신청자 재상신 근거이자 감사 기록
       { id: 'APR-2607-095', kind: '자산 신청', title: '개인용 태블릿 신규 신청', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-19', status: '반려', currentStep: '완료', decidedAt: '2026-07-21', decidedBy: '박자산', note: '외근 시 개인 용도', rejectReason: '개인 용도로 판단 — 업무 필요성 소명 후 재상신 요망' },
-      { id: 'APR-2607-122', kind: '자산 신청', title: '노트북 신규 신청 (신입 온보딩 3명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-27', status: '대기', currentStep: '자산담당 검토', desiredCategory: '단말' },
-      { id: 'APR-2607-117', kind: '반납', title: 'AST-2025-000513 Galaxy Book4 Pro 반납', requester: '한도윤', dept: '영업1팀', requestedAt: '2026-07-18', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000513' },
-      { id: 'APR-2607-114', kind: '소유자 확인', title: 'DSC-2607-0041 (ip-10-20-31-88) 소유자 확인', requester: 'Discovery 엔진', dept: '플랫폼개발팀', requestedAt: '2026-07-25', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0041' },
-      { id: 'APR-2607-109', kind: '소유자 확인', title: 'DSC-2607-0038 (ESP-9F31A2) 소유자 확인 — 전사 공지', requester: 'Discovery 엔진', dept: '미지정', requestedAt: '2026-07-20', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0038', note: '소유자 미상 IoT — 기한 내 무응답 시 격리 검토' },
-      { id: 'APR-2607-112', kind: '격리 요청', title: 'DSC-2607-0031 (개인 구독 Azure VM) NAC 격리', requester: '윤보안', dept: '보안운영팀', requestedAt: '2026-07-24', status: '대기', currentStep: '보안담당 승인', refId: 'DSC-2607-0031' },
-      { id: 'APR-2607-119', kind: '폐기', title: 'AST-2019-000218 외 11대 노후 단말 일괄 폐기', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-07-21', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'AST-2019-000218' },
+      { id: 'APR-2607-122', kind: '자산 신청', title: '노트북 신규 신청 (신입 온보딩 3명)', requester: '오세훈', dept: '인사팀', requestedAt: addDays(today(), -2), status: '대기', currentStep: '자산담당 검토', desiredCategory: '단말' },
+      { id: 'APR-2607-117', kind: '반납', title: 'AST-2025-000513 Galaxy Book4 Pro 반납', requester: '한도윤', dept: '영업1팀', requestedAt: addDays(today(), -11), status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000513' },
+      { id: 'APR-2607-114', kind: '소유자 확인', title: 'DSC-2607-0041 (ip-10-20-31-88) 소유자 확인', requester: 'Discovery 엔진', dept: '플랫폼개발팀', requestedAt: addDays(today(), -4), status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0041' },
+      { id: 'APR-2607-109', kind: '소유자 확인', title: 'DSC-2607-0038 (ESP-9F31A2) 소유자 확인 — 전사 공지', requester: 'Discovery 엔진', dept: '미지정', requestedAt: addDays(today(), -9), status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0038', note: '소유자 미상 IoT — 기한 내 무응답 시 격리 검토' },
+      { id: 'APR-2607-112', kind: '격리 요청', title: 'DSC-2607-0031 (개인 구독 Azure VM) NAC 격리', requester: '윤보안', dept: '보안운영팀', requestedAt: addDays(today(), -5), status: '대기', currentStep: '보안담당 승인', refId: 'DSC-2607-0031' },
+      { id: 'APR-2607-119', kind: '폐기', title: 'AST-2019-000218 외 11대 노후 단말 일괄 폐기', requester: '박자산', dept: '자산관리팀', requestedAt: addDays(today(), -8), status: '대기', currentStep: 'IT기획팀장 결재', refId: 'AST-2019-000218' },
       // 미확인 유휴 편성 좌석 회수 회귀용 — 최종 단계(IT기획팀장=ADMIN)에 두어 ADMIN 승인 1회로 효과 적용. refId=회차, DIF-05(조정 상신)만 처리된다.
-      { id: 'APR-2608-131', kind: '차이 조정', title: '2026 하반기 재물조사 미확인 2건 조정 (AST-2024-000994 외)', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-08-18', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'INV-2026-H2' },
+      { id: 'APR-2608-131', kind: '차이 조정', title: '2026 하반기 재물조사 미확인 2건 조정 (AST-2024-000994 외)', requester: '박자산', dept: '자산관리팀', requestedAt: addDays(today(), -1), status: '대기', currentStep: 'IT기획팀장 결재', refId: 'INV-2026-H2' },
       // 승인은 났으나 아직 집행되지 않은 이동 — 불출·이동 처리 화면의 대기열에 잡힌다.
       // targetLocation 은 공통코드 LOCATION 의 값이어야 대장에 그대로 반영할 수 있다.
       { id: 'APR-2607-101', kind: '이동', title: 'AST-2023-000112 좌석 이동 (본사 8F → 본사 9F)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-15', status: '승인', currentStep: '완료', refId: 'AST-2023-000112', decidedAt: '2026-07-16', decidedBy: '박자산', targetLocation: '본사 9F', note: '팀 좌석 재배치' },
@@ -783,14 +783,14 @@ function seed(): Store {
       { id: 'APR-2606-088', kind: '폐기', title: 'AST-2018-000090 노후 단말 폐기 (사용 연한 8년)', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-06-24', status: '승인', currentStep: '완료', decidedAt: '2026-06-26', decidedBy: '이기획', refId: 'AST-2018-000090' },
       { id: 'APR-2606-090', kind: '폐기', title: 'AST-2020-000771 노후 단말 폐기 (배터리 팽창)', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-06-27', status: '승인', currentStep: '완료', decidedAt: '2026-06-29', decidedBy: '이기획', refId: 'AST-2020-000771' },
       { id: 'APR-2606-092', kind: '차이 조정', title: '2026 상반기 재물조사 차이 4건 조정', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-06-30', status: '승인', currentStep: '완료', decidedAt: '2026-07-02', decidedBy: '이기획' },
-      { id: 'APR-2607-125', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — Linear', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-28', status: '대기', currentStep: '보안담당 결재', saasService: 'Linear', note: '이슈 트래킹 협업 — 인가 카탈로그 사전 등재 요청' },
+      { id: 'APR-2607-125', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — Linear', requester: '오세훈', dept: '인사팀', requestedAt: addDays(today(), -1), status: '대기', currentStep: '보안담당 결재', saasService: 'Linear', note: '이슈 트래킹 협업 — 인가 카탈로그 사전 등재 요청' },
       // 기존 검토중 카탈로그(CAT-07 FlowTrackr) 인가 요청 — 승인 시 reviewSince 해제 회귀 가드(신규 등재인 Linear 와 달리 기존 항목 갱신 경로).
-      { id: 'APR-2608-141', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — FlowTrackr', requester: '오세훈', dept: '인사팀', requestedAt: '2026-08-18', status: '대기', currentStep: '보안담당 결재', saasService: 'FlowTrackr', note: '인가 확정 시 검토 접수일 해제 확인' },
+      { id: 'APR-2608-141', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — FlowTrackr', requester: '오세훈', dept: '인사팀', requestedAt: addDays(today(), -1), status: '대기', currentStep: '보안담당 결재', saasService: 'FlowTrackr', note: '인가 확정 시 검토 접수일 해제 확인' },
       // 대여 자동 집행 회귀 — 승인 즉시 지정 유휴 자산이 신청자에게 반환 기한과 함께 대여 처리돼야 한다. 자산담당 단계(대여 결재선 ['신청자','자산담당']의 최종·approvalRoute 가 '신청자' 제거)라 ASSET 1회 승인으로 집행.
       // refId=AST-2024-000995 — 좌석 회수 회귀 테스트가 스위트 앞부분에서 정상 반환(→유휴)하고 이후 미변경이라, 승인 시점(스위트 끝)에 결정적으로 유휴다(시드 상태는 대여중이라 smoke 단말 가용 집계엔 영향 없음).
-      { id: 'APR-2608-161', kind: '대여', title: '노트북 단기 대여 신청(회귀)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-08-18', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000701', loanDueDate: '2026-10-15' },
+      { id: 'APR-2608-161', kind: '대여', title: '노트북 단기 대여 신청(회귀)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: addDays(today(), -1), status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000701', loanDueDate: '2026-10-15' },
       // 스테일 반납 회귀 — 상신(이서연) 후 자산(AST-2023-000707)이 회수·재배정되어 보유자가 오세훈으로 바뀜. 승인해도 반납대기로 되돌리면 안 된다(대여 승인·차이 조정 스테일 방어와 동형).
-      { id: 'APR-2607-118', kind: '반납', title: 'AST-2023-000707 Galaxy Book4 Pro 반납', requester: '이서연', dept: '개발2팀', requestedAt: '2026-07-20', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2023-000707' },
+      { id: 'APR-2607-118', kind: '반납', title: 'AST-2023-000707 Galaxy Book4 Pro 반납', requester: '이서연', dept: '개발2팀', requestedAt: addDays(today(), -9), status: '대기', currentStep: '자산담당 검토', refId: 'AST-2023-000707' },
     ],
     saas: [
       { id: 'SAS-01', service: 'Notion', category: '협업', dept: '마케팅팀', users: 28, sanctioned: false, monthlyVisits: 8_412, risk: '중간' },
