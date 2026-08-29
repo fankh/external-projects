@@ -4372,6 +4372,14 @@ try {
   check(`장기 유휴: 라벨이 판정 상수와 같은 수를 말한다(${longIdleDays}일)`,
     longIdleDays > 0 && retHtmlIdle.includes(`${longIdleDays}일 이상 장기 유휴`),
     `상수=${longIdleDays} / 화면 문구 일치=${retHtmlIdle.includes(`${longIdleDays}일 이상 장기 유휴`)}`)
+  // 인증서 유효기간은 '아직 유효한가'를 시계와 견주는 값이다 — 아직 오지 않은 날을 고정으로 적으면 그 날이
+  //  지나는 순간 유효 픽스처가 만료로 뒤집힌다. CT 채널은 유효 인증서로 생존을 추정하므로, 유효·만료 짝이
+  //  무너지면 '생존 유력 추정'을 확인하는 검사가 근거를 잃는다. 지난 유효기간은 계속 만료라 대상이 아니다.
+  const certSeedSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const certKstToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const futureCerts = [...certSeedSrc.matchAll(/certValidUntil: '(\d{4}-\d\d-\d\d)'/g)].map((m) => m[1]).filter((d) => d > certKstToday)
+  check('시드: 인증서 유효기간에 미래 고정 날짜가 없다(유효 픽스처가 만료로 뒤집히지 않게)',
+    futureCerts.length === 0, `미래 고정 유효기간=${futureCerts.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
