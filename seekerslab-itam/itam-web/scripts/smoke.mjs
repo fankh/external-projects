@@ -4312,6 +4312,17 @@ try {
   }
   check('폐기 편입: 보유 중 자산을 넣는 경로가 모두 회수 게이트를 지난다',
     heldMissing.length === 0, `게이트 없는 경로=${heldMissing.join(', ') || '없음'}`)
+  // 공통코드 참조 집계는 "해당 코드 체계를 저장하는 모든 컬렉션을 센다"가 규약이다(lib/codes 주석).
+  //  하나라도 빠뜨리면 가드가 조용히 열린다 — 화면은 사용 중 0건이라 말하고, 미사용 전환·개명이 통과한 뒤
+  //  세지 않은 컬렉션이 그 코드를 대장에 되돌려 쓴다(폐기 반려 복원이 실제로 그 경로였다).
+  //  타입이 곧 목록이다 — lib/types 에서 AssetStatus 로 선언된 필드를 뽑아, 상태 분기가 그 필드를 모두 보는지 본다.
+  const typesForCode = readFileSync(path.join(ROOT, 'lib', 'types.ts'), 'utf8')
+  const statusFields = [...new Set([...typesForCode.matchAll(/(\w+)\??: AssetStatus(?![\w[])/g)].map((m) => m[1]))]
+  const codesSrc = readFileSync(path.join(ROOT, 'lib', 'codes.ts'), 'utf8')
+  const statusBranch = codesSrc.slice(codesSrc.indexOf("case 'ASSET_STATUS':"), codesSrc.indexOf("case 'DATA_GRADE':"))
+  const uncounted = statusFields.filter((f) => !statusBranch.includes(f))
+  check(`공통코드 참조 집계: 상태를 담는 필드를 모두 센다(${statusFields.length}종)`,
+    statusFields.length >= 2 && uncounted.length === 0, `안 세는 필드=${uncounted.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
