@@ -1,7 +1,7 @@
 /** 구매 계약 발주·검수 이행 현황(§03 구매 계약: 검수 연계) — 구매 계약을 그 입고 로트(intakeLots)와 대사해
  *  발주 소진률(발주 입고액 ÷ 계약액)·검수 진행·잔여 발주 여력을 산출한다. 그동안 계약↔입고 연계가 화면에 없어,
  *  만료가 임박한데 발주가 소화되지 않은 미이행 계약(집행 리스크)을 감지할 수 없었다. 읽기 전용 합성 뷰. */
-import { ratioPct, daysUntil } from './dates'
+import { ratioPct, daysUntil, today } from './dates'
 import { getStore } from './store'
 
 /** 발주율이 이 비율 미만이면서 만료가 임박하면 발주 미이행 위험(만료 창은 운영 정책 expiryWindowDays).
@@ -35,6 +35,8 @@ export interface ProcurementRow {
   /** 정산 완료 — settledAt 이 찍힌 종결 계약(발주 이행·미이행 집계에서 제외) */
   settled: boolean
   settledAt?: string
+  /** 계약 기간이 끝났는가 — 끝난 계약은 더 발주할 수 없어 이행 독촉 대상이 아니다(정산·해지·갱신 소관). */
+  ended: boolean
 }
 
 export function buildProcurement(): {
@@ -60,6 +62,12 @@ export function buildProcurement(): {
       const inspectedValue = lots.filter((l) => l.status === '검수 완료').reduce((n, l) => n + l.qty * (l.unitCost ?? 0), 0)
       const rate = ratioPct(orderedValue, c.amount) // 표기용 — 판정은 실발주액 비교(이정표 정직 규약)
       const dday = daysUntil(c.end)
+      //  기간 종료 판정 — 만료일이 지난 계약은 더 발주할 수 없다. 그런데 미이행 조건이 'dday ≤ 만료창'이라
+      //   음수 dday(만료 경과)도 그대로 참이라, 끝난 계약이 계속 미이행 위험으로 잡히고 이행 독촉이 나간다
+      //   (버튼 설명은 '만료 전 발주·검수 이행을 요청합니다'인데 만료는 이미 지났다 — 받는 쪽이 할 수 있는
+      //   일이 없다). 판정 자체는 그대로 둔다 — 계약액을 잡아 두고 발주하지 않은 사실은 감사 신호다.
+      //   바뀌는 것은 독촉·위험 집계에서 빠지고, 화면이 그 이유를 밝힌다는 점이다(유지보수 미집행과 같은 규약).
+      const ended = c.end !== '-' && c.end < today()
       return {
         id: c.id,
         name: c.name,
@@ -87,12 +95,15 @@ export function buildProcurement(): {
         settleable: !c.settledAt && active.length > 0 && active.every((l) => l.status === '검수 완료') && orderedValue >= c.amount,
         settled: !!c.settledAt,
         settledAt: c.settledAt,
+        ended,
       }
     })
     .sort((a, b) => (a.dday ?? 99_999) - (b.dday ?? 99_999))
   return {
     rows,
-    atRisk: rows.filter((r) => r.atRisk),
+    //  위험 집계·독촉 대상은 기간이 남은 계약만 — 표의 판정 칩은 rows 의 atRisk 를 그대로 쓰므로
+    //   끝난 계약도 화면에는 계속 보이고, 그 옆에 사유가 붙는다.
+    atRisk: rows.filter((r) => r.atRisk && !r.ended),
     settleable: rows.filter((r) => r.settleable),
     totalAmount: rows.reduce((n, r) => n + r.amount, 0),
     totalOrdered: rows.reduce((n, r) => n + r.orderedValue, 0),
