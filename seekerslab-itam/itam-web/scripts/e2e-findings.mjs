@@ -2857,20 +2857,27 @@ try {
   const lostBody = (await p4.textContent('body')) || ''
   ok('미실사 분실 신고 → 대장 분실 상태 반영', lostBody.includes('분실'))
   //  분실 신고의 목적은 위 브리지 주석이 말하듯 '재편성만 되는 공백'을 닫는 것이다. 그런데 장기 미실측
-  //   판정이 분실을 빼지 않으면 신고한 그 자산이 곧바로 다음 회차의 편성 대기로 돌아온다 — 편성해도
-  //   스캔할 실물이 없어 미실사로 남고, 회차를 닫으려면 다시 분실 처리다. 판정 자체를 자산 카드에서
-  //   확인한다(대장 필터·재물조사 편성·큐·리포트가 이 한 판정을 공유한다). 페이지를 옮기지 않는
-  //   request.get 으로 읽어, 뒤따르는 상세 화면 검사의 로케이터를 건드리지 않는다.
-  //  판정이 만드는 정확한 형태만 본다 — 회차 이름(장기 미실측 자산 확인 조사)이나 정황 문구가 카드에
-  //   섞여 들어오므로 '장기 미실측' 문자열만 보면 오탐이 난다.
+  //   판정이 분실을 빼지 않으면, 신고한 자산이 곧바로 다음 회차의 편성 대기로 돌아온다 — 편성해도 스캔할
+  //   실물이 없어 미실사로 남고, 회차를 닫으려면 다시 분실 처리다. 닫으려던 그 고리다.
+  //   위의 871 은 재물조사 브리지로 신고돼 실사 처리와 함께 최근 실측일이 갱신되므로 이 판정을 드러내지
+  //   못한다 — 실사와 무관하게 대장에서 분실 신고한 자산으로 본다(AST-2026-000108 · 로비 키오스크).
+  //   판정은 자산 카드에서 읽는다(대장 필터·재물조사 편성·큐·리포트가 이 한 판정을 공유한다).
   const STALE_MARK = /장기 미실측\(\d+일 초과\)/
-  const cardLost = await (await p4.request.get(`${BASE}/api/asset-card/AST-2022-000871`)).text()
+  const cardBefore = await (await p4.request.get(`${BASE}/api/asset-card/AST-2026-000108`)).text()
+  //  양성 대조 — 신고 전에는 그 자산이 실제로 장기 미실측이어야 이 검사가 무언가를 증명한다.
+  ok('장기 미실측(양성 대조): 신고 전 그 자산은 장기 미실측으로 판정된다', STALE_MARK.test(cardBefore))
+  const ctxGone = await browser.newContext(); await ctxGone.addCookies([cookie(ASSET)]); const pGone = await ctxGone.newPage()
+  await pGone.goto(`${BASE}/assets/register?sel=AST-2026-000108`, { waitUntil: 'networkidle' })
+  await pGone.locator('button', { hasText: /^분실 · 도난 신고$/ }).first().click()
+  await pGone.waitForTimeout(300)
+  await pGone.locator('input[placeholder*="정황"]').first().fill('로비 실물 확인 불가 — 소재 불명')
+  await pGone.locator('button', { hasText: /^신고 확정$/ }).first().click()
+  await pGone.waitForTimeout(900)
+  ok('분실 신고(대장): 상태 반영', ((await pGone.textContent('body')) || '').includes('분실'))
+  const cardAfter = await (await p4.request.get(`${BASE}/api/asset-card/AST-2026-000108`)).text()
   ok('분실 신고 → 장기 미실측 판정에서 빠진다(재편성 고리 차단 · 다시 실측할 실물이 없다)',
-    !STALE_MARK.test(cardLost))
-  //  양성 대조 — 손을 떠나지 않은 미실측 자산은 그대로 판정돼야 한다(판정을 통째로 꺼서 통과하는 것 방지).
-  const cardStill = await (await p4.request.get(`${BASE}/api/asset-card/AST-2020-000883`)).text()
-  ok('장기 미실측(양성 대조): 운영 중 미실측 자산은 그대로 판정된다',
-    STALE_MARK.test(cardStill))
+    !STALE_MARK.test(cardAfter))
+  await ctxGone.close()
   // 분실 신고 → 라이선스 좌석 자동 회수(로56 좌석 생애주기) — 실물이 사라진 자산의 좌석을 폐기·반납과 같이 회수한다. AST-2022-000871 은 LIC-004 AutoCAD 좌석이었다.
   ok('분실 신고 → 라이선스 좌석 자동 회수(이력 적재·역조회 소멸)', lostBody.includes('라이선스 좌석 회수') && !lostBody.includes('배정 라이선스'))
   // 분실·도난 신고서(로30 문서 산출물) — 분실 상태 자산 상세에 신고서 인쇄 링크 + 사건 개요·정황(재물조사 미실사)·자산 가액 렌더. 보험·감사 증적용.
