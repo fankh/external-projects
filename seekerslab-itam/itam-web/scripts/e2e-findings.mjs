@@ -2994,13 +2994,18 @@ try {
 
   // 발주 이행 독촉(§03 구매 계약 · 신호→조치 채널) — 발주 미이행 위험 판정(발주율 저조·만료 임박)에 조치 채널이 없던 공백을 닫는다. 시드 CT-2023-021 미이행 → 버튼 활성.
   const procBtn = p4.locator('button', { hasText: /^발주 이행 독촉 \(\d+\)$/ })
-  ok('구매 계약: 발주 이행 독촉 버튼 노출(미이행 위험 배지 ≥1)', (await procBtn.count()) > 0 && !/\(0\)/.test(await procBtn.first().innerText()))
-  await procBtn.first().click()
-  await p4.waitForTimeout(800)
-  ok('발주 이행 독촉: 발송 성공(주관부서·공급사·구매팀 · 발송 이력)', ((await p4.textContent('body')) || '').includes('발주 이행 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
-  await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
-  const procAfter = p4.locator('button', { hasText: /^발주 이행 독촉 \(\d+\)$/ }).first()
-  ok('발주 이행 독촉(중복 억제): 발송 직후 (0)·비활성', ((await procAfter.innerText()) || '').includes('(0)') && (await procAfter.isDisabled()))
+  const procReady = (await procBtn.count()) > 0 && !/\(0\)/.test(await procBtn.first().innerText())
+  ok('구매 계약: 발주 이행 독촉 버튼 노출(미이행 위험 배지 ≥1)', procReady)
+  //  전제가 무너지면 그 뒤 단계만 건너뛴다 — 비활성 버튼을 그대로 클릭하면 30초 타임아웃 뒤 예외가
+  //   스위트 전체를 멈춘다(고정 시계 회귀에서 실제로 그랬다). 실패는 위 한 건으로 이미 보고됐다.
+  if (procReady) {
+    await procBtn.first().click()
+    await p4.waitForTimeout(800)
+    ok('발주 이행 독촉: 발송 성공(주관부서·공급사·구매팀 · 발송 이력)', ((await p4.textContent('body')) || '').includes('발주 이행 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
+    await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+    const procAfter = p4.locator('button', { hasText: /^발주 이행 독촉 \(\d+\)$/ }).first()
+    ok('발주 이행 독촉(중복 억제): 발송 직후 (0)·비활성', ((await procAfter.innerText()) || '').includes('(0)') && (await procAfter.isDisabled()))
+  }
 
   // 발주 정산 종결(로72) — 검수 완료액을 '대금 정산 근거'로 약속하나 종결 조치가 없어 전량 이행된 계약도 이행 현황에 열린 채 남던 공백. 시드 CT-2026-018(8×3M=24M 전량 발주·검수 완료) → 정산 종결 가능 → 종결 시 정산 완료로 닫히고 이행/미이행 집계에서 빠진다. 검출·종결이 없으면 배지/버튼이 안 떠 실패.
   const settleCardPre = p4.locator('.card', { has: p4.locator('text=발주·검수 이행 현황') })
