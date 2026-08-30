@@ -3579,6 +3579,25 @@ try {
     !exBody.includes('AST-2020-000883'))
   await ctxEX.close()
   await cycleCellTo(pPM, exCell, '·', 5) // 시드 기본값(불가)으로 원복 — 뒤 검사의 전제를 바꾸지 않는다
+
+  // 같은 규약의 나머지 한 칸 — '신청 · 결재|엑셀|USER' 도 선언만 되고 시드 매트릭스가 '불가'라 실행된 적이 없다.
+  //  결재함 반출은 자산 대장과 다른 스코프(상신자 기준)를 쓰므로 따로 밟는다. 결재 이력에는 사유·반려 사유가
+  //  담기는데, 남의 상신분이 섞이면 사용자가 다른 사람의 신청 사유까지 파일로 받는다.
+  const apRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '신청 · 결재' }) }).first()
+  const apCell = apRow.locator('td').nth(4) // 라벨(0) + 사용자(역할 1번째) × 엑셀(기능 4번째)
+  await cycleCellTo(pPM, apCell, '본인', 5)
+  ok('권한 매트릭스: 사용자 × 신청 · 결재 엑셀을 본인 범위(부분)로 설정',
+    ((await apCell.textContent()) || '').includes('본인'))
+  const ctxAP = await browser.newContext(); await ctxAP.addCookies([cookie(USER)]); const pAP = await ctxAP.newPage()
+  const apRes = await pAP.request.get(`${BASE}/api/export/approvals`)
+  const apBody = Buffer.from(await apRes.body()).toString('utf8')
+  ok('부분 스코프(결재): 본인 범위를 켜면 사용자도 결재 이력을 반출할 수 있다', apRes.status() === 200)
+  //  양성 대조 — 본인 상신분이 실제로 담겨야 아래 누출 검사가 의미를 가진다.
+  ok('부분 스코프(결재·양성 대조): 반출본에 본인 상신분이 담긴다', /APR-\d{4}-\d{3}/.test(apBody))
+  ok('부분 스코프(결재): 남의 상신분이 새지 않는다(APR-2607-095 오세훈 상신)',
+    !apBody.includes('APR-2607-095'))
+  await ctxAP.close()
+  await cycleCellTo(pPM, apCell, '·', 5) // 시드 기본값(불가)으로 원복
   ok('권한 매트릭스: 수명주기 조회 권한 복원(허용)', ((await lcCell.textContent()) || '').includes('✓'))
   const ctxLC2 = await browser.newContext(); await ctxLC2.addCookies([cookie(ASSET)]); const pLC2 = await ctxLC2.newPage()
   await pLC2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
