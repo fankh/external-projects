@@ -128,7 +128,9 @@ export function maintenanceSlaTargets() {
   return buildMaintenance().rows.filter((r) => r.slaBreach > 0 && !sent.has(r.id))
 }
 
-/** 발주 이행 독촉 대상 — 발주 미이행(발주율 저조·만료 임박) 구매 계약(오늘 발송분 제외). */
+/** 발주 이행 독촉 대상 — 발주 미이행(발주율 저조·만료 임박) 구매 계약(오늘 발송분 제외).
+ *  기간이 끝난 계약은 buildProcurement 의 atRisk 가 이미 뺀다 — 발주할 기간이 없는데 발주하라고 재촉하면
+ *  받는 쪽이 할 수 있는 일이 없다(정산·해지·갱신이 맞는 조치다). 화면은 그 계약을 계속 보여 주고 사유를 밝힌다. */
 export function procurementRemindTargets() {
   const sent = sentTodayRefs('발주 이행 독촉')
   return buildProcurement().atRisk.filter((r) => !sent.has(r.id))

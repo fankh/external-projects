@@ -561,6 +561,25 @@ try {
   //  CT-2023-021(IDC 서버 384만): 발주 25.6M(7%)·만료 임박 → 발주 미이행 위험. CT-2026-009: 발주 95% → 정상.
   check('구매 계약: 발주·검수 이행 현황 패널 렌더', contractsHtml.includes('구매 계약 발주·검수 이행 현황') && contractsHtml.includes('전체 발주 소진률') && contractsHtml.includes('검수 완료액 (정산 근거)'))
   check('구매 계약: 발주 미이행 위험 판정(만료 임박·발주 저조)', contractsHtml.includes('IDC-A 서버 증설') && contractsHtml.includes('미이행 위험'))
+  //  구매 발주 독촉도 같은 규약이다 — 기간이 끝난 계약은 더 발주할 수 없으니 재촉 대상이 아니다
+  //   (버튼 설명부터가 '만료 전 발주·검수 이행을 요청합니다'다). 미이행 조건이 'dday ≤ 만료창'이라 음수 dday
+  //   (만료 경과)도 참이 되어, 만료가 반년 지난 계약이 계속 위험 큐·독촉 대상으로 잡히고 있었다.
+  //   판정 칩은 남기고 사유를 밝힌 뒤, 배지·큐·드릴다운에서만 뺀다(유지보수 미집행과 같은 규약).
+  //  표 밖 설명문이 마지막 행 조각에 섞이지 않게 </table> 에서 자른다 — 설명문에도 '발주 미이행'이 적혀 있어
+  //   그대로 세면 실제 판정 칩보다 한 건 많아진다.
+  const procTblHtml = (contractsHtml.split('<table').find((t) => t.includes('발주 입고액')) ?? '').split('</table>')[0]
+  const procRowsHtml = procTblHtml.split('<tr').slice(1)
+  const procRiskRows = procRowsHtml.filter((r) => r.includes('발주 미이행'))
+  const procEndedRisk = procRiskRows.filter((r) => /D\+\d/.test(r.replace(/<[^>]*>/g, '')))
+  //  양성 대조를 겸한다 — 시드에 기간이 끝난 미이행 계약이 하나도 없으면 이 검사는 증명하는 것이 없으므로
+  //   조용히 통과하는 대신 건수 0 에서 떨어진다.
+  check('구매 발주 독촉: 기간이 끝난 미이행 계약은 판정 옆에 사유를 밝힌다(정산·해지 대상)',
+    procEndedRisk.length > 0 && procEndedRisk.every((r) => r.includes('기간 종료')),
+    `기간 종료 미이행 행=${procEndedRisk.length} · 사유 표기=${procEndedRisk.filter((r) => r.includes('기간 종료')).length}`)
+  const procBadge = Number((/발주 이행 독촉\s*\(\s*(\d+)\s*\)/.exec(contractsHtml.replace(/<[^>]*>/g, ' ')) ?? [])[1] ?? -1)
+  check('구매 발주 독촉: 배지 건수가 기간 종료 건을 빼고 센다',
+    procBadge >= 0 && procBadge === procRiskRows.length - procEndedRisk.length,
+    `배지=${procBadge} · 미이행 칩=${procRiskRows.length} · 그중 기간 종료=${procEndedRisk.length}`)
   // 발주 이행 독촉 버튼 — 발주 미이행 위험 판정에 조치 채널을 붙인다(주관부서·공급사·구매팀에 만료 전 이행 요청). 시드 CT-2023-021 미이행 → 배지 ≥1.
   check('구매 계약: 발주 이행 독촉 버튼(신호→조치 채널)', contractsHtml.includes('발주 이행 독촉'))
   // 만료 경과 라이선스 판정 — LIC-002(JetBrains, 만료일 지남)는 초과 사용과 별개로 '만료' 칩으로 갱신 필요를 명시
@@ -4387,7 +4406,6 @@ try {
   const maintLibSrc = readFileSync(path.join(ROOT, 'lib', 'maintenance.ts'), 'utf8')
   const remindLibSrc = readFileSync(path.join(ROOT, 'lib', 'reminders.ts'), 'utf8')
   const execTargetBlk = remindLibSrc.slice(remindLibSrc.indexOf('export function maintenanceExecTargets'), remindLibSrc.indexOf('export function maintenanceSlaTargets'))
-  //  타입 선언이 아니라 구현 줄을 본다(execAlert: number 는 인터페이스다 — 앵커가 거기 걸리면 무증상이 된다)
   //  타입 선언이 아니라 구현 줄을 본다(execAlert: number 는 인터페이스다 — 앵커가 거기 걸리면 무증상이 된다)
   const execAlertLine = (maintLibSrc.split(/\r?\n/).find((ln) => ln.includes('execAlert:') && ln.includes('rows.filter')) ?? '')
   const gapsExec = [!execTargetBlk.includes('ended') && '독촉 대상(maintenanceExecTargets)', !execAlertLine.includes('ended') && '큐 집계(execAlert)'].filter(Boolean)

@@ -61,7 +61,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   const shownLicenses = expiryPick ? expiringLicenses : s.licenses
   const proc = buildProcurement()
   const procPick = procFilter === 'risk'
-  const procRows = procPick ? proc.rows.filter((r) => r.atRisk) : proc.rows
+  const procRows = procPick ? proc.rows.filter((r) => r.atRisk && !r.ended) : proc.rows
   const canEditLicense = ['ASSET_MGR', 'ADMIN'].includes(session.role)
 
   // 만료 임박 신규 통지 대상 — 발송 액션과 같은 lib/expiry 단일 소스(오늘 이미 보낸 대상 제외).
@@ -202,7 +202,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="c tnum">{r.lots}{r.rejected > 0 && <span className="dim" style={{ fontSize: 11 }}> (반려 {r.rejected})</span>}</td>
                   <td className="c tnum">{r.pendingInspection || <span className="dim">-</span>}</td>
                   <td className="tnum">{r.end}{r.dday !== null && r.dday <= s.opsPolicy.expiryWindowDays && <span className="dim" style={{ fontSize: 11 }}> (D{r.dday >= 0 ? `-${r.dday}` : `+${-r.dday}`})</span>}</td>
-                  <td className="c">{r.settled ? <Chip tone="neutral">정산 완료 {r.settledAt}</Chip> : r.atRisk ? <Chip tone="err">발주 미이행</Chip> : r.settleable ? <Chip tone="warn">정산 종결 가능</Chip> : r.pendingInspection > 0 ? <Chip tone="warn">검수 진행</Chip> : <Chip tone="ok">정상</Chip>}</td>
+                  <td className="c">{r.settled ? <Chip tone="neutral">정산 완료 {r.settledAt}</Chip> : r.atRisk ? <><Chip tone={r.ended ? 'warn' : 'err'}>발주 미이행</Chip>{r.ended && <div><Chip tone="neutral" bare>기간 종료 — 정산·해지 대상</Chip></div>}</> : r.settleable ? <Chip tone="warn">정산 종결 가능</Chip> : r.pendingInspection > 0 ? <Chip tone="warn">검수 진행</Chip> : <Chip tone="ok">정상</Chip>}</td>
                 </tr>
               ))}
               {procRows.length === 0 && <tr><td colSpan={10}><div className="empty">{procPick ? '발주 미이행 · 만료 임박 계약이 없습니다 — 필터를 해제하면 전체가 보입니다' : '등록된 구매 계약이 없습니다'}</div></td></tr>}
