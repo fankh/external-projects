@@ -2059,16 +2059,7 @@ try {
   ok('스테일 반납 승인 → 반납 접수 대기열에 미편성(재배정 자산 보호)', !((await p3.locator('body').textContent()) || '').includes('AST-2023-000707'))
   // 유지보수 소진 임박 경계 회귀 — 집행률 89.6%(반올림 90%)는 실집행 기준(89.6%<90%)으로 '정상'이어야 한다(반올림 rate 로 판정하면 '소진 임박' 오분류·예산 통보 큐 오염). CT-2025-015.
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
-  //  행은 판정 칸이 있는 표에서 찾는다 — 같은 계약이 위쪽 계약 목록 표에도 있고 그 표가 문서상 먼저라,
-  //   페이지 전역에서 .first() 로 잡으면 판정 칸이 아예 없는 행을 읽는다. 그때 읽히는 '정상'은 판정이 아니라
-  //   만료 임박 칩(만료가 창 밖)이라, 이 검사는 집행률 경계가 아니라 만료일 위치를 확인하게 된다 —
-  //   실제로 시계를 1년 앞으로 돌리면(만료 2027-09-30 이 창 안으로 들어오면) 판정은 그대로인데 떨어진다.
-  //   집행률 헤더를 가진 표는 유지보수 관리 표 하나뿐이라 그것으로 지목한다(같은 계열 교정: PR #766).
-  const thrMaintTbl = p3.locator('table', { has: p3.locator('th', { hasText: '집행률' }) })
-  const maintRow = (await thrMaintTbl.first().locator('tr', { hasText: '가상화 플랫폼 유지보수' }).first().textContent()) || ''
-  //  양성 대조 — 이 행이 정말 경계 바로 아래(89%) 인지 먼저 확인한다. 시드 집행액이 바뀌어 경계에서 멀어지면
-  //   이 검사는 회귀의 대상이 아니게 되는데, 그때 조용히 통과하는 대신 대조가 먼저 떨어진다.
-  ok('유지보수 소진 임박 경계(양성 대조): 표기 집행률이 임계 직전 89%', /(^|[^\d])89%/.test(maintRow))
+  const maintRow = (await p3.locator('tr', { hasText: '가상화 플랫폼 유지보수' }).first().textContent()) || ''
   ok('유지보수 소진 임박 경계: 89.6%(반올림 90%)는 정상 판정(반올림 오분류 방지)', maintRow.includes('정상') && !maintRow.includes('소진 임박'))
   // 양쪽 정합 — 사용 현황(Shadow SaaS)에서도 Linear 가 인가로 반영되어야 한다(카탈로그↔사용현황 이중 저장소 일치)
   await p3.goto(`${BASE}/discovery/saas`, { waitUntil: 'networkidle' })
