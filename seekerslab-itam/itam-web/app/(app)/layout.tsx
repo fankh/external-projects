@@ -25,7 +25,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session) redirect('/login')
 
   const s = getStore()
-  // 신청·결재 뱃지는 '내 결재 차례'(지금 이 사람이 결재할 수 있는 대기 건, 본인 상신분 제외) — 대시보드 myQueue 와 동일 판정.
+  // 신청·결재 뱃지는 '내 결재 차례'(지금 이 사람이 결재할 수 있는 대기 건) — 대시보드 myQueue 와 같은 한 판정을 쓴다.
+  // 직무 분리(본인 폼 상신 제외)는 판정 안에 있다 — 보는 사람 이름을 넘기는 것으로 충분하다.
   // 그동안 전사 대기 결재 총계를 전 역할에 노출해, 결재 권한이 없는 사용자에게도 큰 숫자가 떠 실제 내 조치량과 어긋났다.
   const badges = {
     approvals: s.approvals.filter((a) => canDecideApproval(session.role, a, session.name)).length,
