@@ -4471,6 +4471,20 @@ try {
   check('기능 사전: 코드가 강제하는 기능은 강제 지점을 이름으로 밝힌다(두 표가 다른 말 하지 않게)',
     enforcedActions.size > 0 && vagueActs.length === 0,
     `강제 기능 ${enforcedActions.size}종 · 위치 불명=${vagueActs.map((x) => x + '(' + (enforcedByOf.get(x) ?? '-') + ')').join(', ') || '없음'}`)
+  //  '손을 떠난 자산'은 GONE_STATUSES(분실·폐기예정·폐기완료) 한 곳에서 온다 — 열두 곳이 각자 배열을
+  //   적던 것을 모아 둔 상수다. 그런데 장기 미실측 판정만 폐기 두 상태를 손으로 나열해, 분실 자산이
+  //   영원히 장기 미실측으로 남았다. 실물이 사라졌다고 신고한 자산이 곧바로 다음 재물조사 회차의 편성
+  //   대기로 돌아오고(편성해도 스캔할 실물이 없다), 회차를 닫으려면 다시 '분실 처리'다 — 재물조사의
+  //   '미실사 → 분실 신고' 브리지가 닫으려던 바로 그 고리다. 판정이 상수를 쓰는지 소스에서 고정한다.
+  const stDatesSrc = readFileSync(path.join(ROOT, 'lib', 'dates.ts'), 'utf8')
+  const stVerifyBlk = stDatesSrc.slice(stDatesSrc.indexOf('export function isStaleVerify'), stDatesSrc.indexOf('export function isLoanOverdue'))
+  const stGaps = [
+    !stVerifyBlk.includes('GONE_STATUSES') && 'GONE_STATUSES 미참조',
+    /'폐기(완료|예정)'/.test(stVerifyBlk) && '상태를 손으로 나열',
+  ].filter(Boolean)
+  check('장기 미실측 판정: 손을 떠난 자산을 GONE_STATUSES 한 기준으로 뺀다(분실 포함)',
+    stVerifyBlk.length > 0 && stGaps.length === 0,
+    `어긋난 곳=${stGaps.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
