@@ -4453,6 +4453,24 @@ try {
   check('메뉴 정의: enforced 로 선언한 조합은 모두 코드가 실제로 검사한다(거짓 회수 불가 방지)',
     enfOver.length === 0,
     `코드에 근거 없는 선언=${enfOver.join(', ') || '없음'}`)
+  //  기능 사전(ACTION_DEF)의 '강제 지점'은 같은 화면의 기능 표에 그대로 찍힌다 — 서버로 시작하면 초록 칩,
+  //   아니면 흐린 글씨다. 그런데 그 위쪽 화면별 표는 같은 기능을 enforced 잠금으로 그린다. 두 표가 같은
+  //   기능을 두고 다른 말을 하면 안 된다 — 실제로 '삭제'는 강제 지점이 '화면 가드'라고만 적혀 있었지만,
+  //   삭제를 막는 곳은 리포트 삭제와 코드 미사용 전환의 서버 액션 둘이고 화면 가드는 없었다.
+  //   규약: 코드가 강제하는 기능은 '서버 —' 로 시작하거나, 강제하는 소스 위치(lib/…)를 이름으로 밝힌다
+  //   (조회는 'lib/authz requireView' 를 밝히므로 화면 가드 표기가 맞다).
+  const actionDefBlk = enfPermSrc.slice(enfPermSrc.indexOf('ACTION_DEF'), enfPermSrc.indexOf('export const PERM_MENUS'))
+  const enforcedByOf = new Map()
+  for (const m of [...actionDefBlk.matchAll(/(\S+): \{ desc: '[^']*', enforcedBy: '([^']*)' \}/g)]) enforcedByOf.set(m[1], m[2])
+  const enforcedActions = new Set()
+  for (const acts of enfCodePairs.values()) for (const act of acts) enforcedActions.add(act)
+  const vagueActs = [...enforcedActions].filter((act) => {
+    const where = enforcedByOf.get(act) ?? ''
+    return !(where.startsWith('서버') || /lib\/[a-z]+/.test(where))
+  })
+  check('기능 사전: 코드가 강제하는 기능은 강제 지점을 이름으로 밝힌다(두 표가 다른 말 하지 않게)',
+    enforcedActions.size > 0 && vagueActs.length === 0,
+    `강제 기능 ${enforcedActions.size}종 · 위치 불명=${vagueActs.map((x) => x + '(' + (enforcedByOf.get(x) ?? '-') + ')').join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
