@@ -10,7 +10,7 @@
  *  시연에서 특정 날짜를 재현하려면 `ITAM_TODAY=YYYY-MM-DD`, 표준시를 바꾸려면 `ITAM_TZ`.
  *  서버 전용 모듈 — 클라이언트에서 쓰면 하이드레이션 불일치가 생긴다.
  */
-import { DISPOSAL_STATUSES, EXPIRY_WINDOW_DAYS } from './types'
+import { DISPOSAL_STATUSES, EXPIRY_WINDOW_DAYS, GONE_STATUSES } from './types'
 import { NON_OPERATIONAL_STATUSES } from '@/lib/types'
 import type { Asset, IntakeLot } from '@/lib/types'
 
@@ -215,7 +215,12 @@ export function fmtAmount(n: number): string {
  *  staleDays(운영 정책 staleVerifyDays)를 넘은 자산이면 참. 대장 필터·재물조사 편성이 같은 기준을 쓰도록 한 곳에 둔다.
  *  임계값은 스토어 opsPolicy 를 단일 출처로 받는다(호출부가 s.opsPolicy.staleVerifyDays 전달). 서버 전용. */
 export function isStaleVerify(a: Asset, staleDays: number): boolean {
-  if (a.status === '폐기완료' || a.status === '폐기예정') return false
+  //  손을 떠난 자산(분실·폐기예정·폐기완료)은 대상이 아니다 — 다시 실측할 실물이 없다. 그전에는 폐기 두
+  //   상태만 빼서 분실 자산이 영원히 장기 미실측으로 남았다(같은 개념 두 정의 — 예정 일정·계약 커버리지는
+  //   이미 GONE_STATUSES 한 기준을 쓴다). 그 결과 실물이 사라졌다고 신고한 자산이 곧바로 다음 회차의
+  //   편성 대기로 돌아왔다 — 편성해도 스캔할 실물이 없어 미실사로 남고, 회차를 닫으려면 다시 '분실 처리'다.
+  //   재물조사의 '미실사 → 분실 신고' 브리지가 닫으려던 바로 그 고리다.
+  if (GONE_STATUSES.includes(a.status)) return false
   // 미측정('-' 센티넬 포함)은 장기 미실측으로 본다 — '-' 는 daysUntil 이 null 로 처리하므로 명시 가드가 없으면
   // 최근 측정으로 오판(재물조사 편성·'장기 미실측' 큐에서 누락)된다. 다른 날짜 예측 헬퍼와 같은 페일세이프.
   if (!a.lastVerifiedAt || a.lastVerifiedAt === '-') return true
