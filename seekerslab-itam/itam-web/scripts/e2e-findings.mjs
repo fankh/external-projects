@@ -2856,6 +2856,16 @@ try {
   await p4.goto(`${BASE}/assets/register?sel=AST-2022-000871`, { waitUntil: 'networkidle' })
   const lostBody = (await p4.textContent('body')) || ''
   ok('미실사 분실 신고 → 대장 분실 상태 반영', lostBody.includes('분실'))
+  //  분실 신고의 목적은 위 브리지 주석이 말하듯 '재편성만 되는 공백'을 닫는 것이다. 그런데 장기 미실측
+  //   판정이 분실을 빼지 않으면 신고한 그 자산이 곧바로 다음 회차의 편성 대기로 돌아온다 — 편성해도
+  //   스캔할 실물이 없어 미실사로 남고, 회차를 닫으려면 다시 분실 처리다. 판정의 뿌리(대장 장기 미실측
+  //   필터)에서 확인한다 — 재물조사 편성·큐·리포트가 모두 이 한 판정을 공유한다.
+  await p4.goto(`${BASE}/assets/register?stale=1`, { waitUntil: 'networkidle' })
+  const staleAfterLost = ((await p4.textContent('body')) || '').replace(/\s+/g, ' ')
+  //  양성 대조 — 필터 자체가 비어 있으면 아래 검사가 증명하는 것이 없다(다른 미실측 자산이 남아 있어야 한다).
+  ok('장기 미실측 필터(양성 대조): 분실 외에 남은 미실측 자산이 있다', /AST-\d{4}-\d{6}/.test(staleAfterLost))
+  ok('분실 신고 → 장기 미실측에서 빠진다(재편성 고리 차단 · 다시 실측할 실물이 없다)',
+    !staleAfterLost.includes('AST-2022-000871'))
   // 분실 신고 → 라이선스 좌석 자동 회수(로56 좌석 생애주기) — 실물이 사라진 자산의 좌석을 폐기·반납과 같이 회수한다. AST-2022-000871 은 LIC-004 AutoCAD 좌석이었다.
   ok('분실 신고 → 라이선스 좌석 자동 회수(이력 적재·역조회 소멸)', lostBody.includes('라이선스 좌석 회수') && !lostBody.includes('배정 라이선스'))
   // 분실·도난 신고서(로30 문서 산출물) — 분실 상태 자산 상세에 신고서 인쇄 링크 + 사건 개요·정황(재물조사 미실사)·자산 가액 렌더. 보험·감사 증적용.
