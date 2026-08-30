@@ -93,7 +93,7 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
     const nos = filter?.nos ? new Set(filter.nos) : null
     // 보증 임박 — 운영 중 자산 중 보증 만료가 운영 정책 만료창 안(경과 포함). 대장 화면의 warrantySet 과 같은 lib/dates 판정.
     const warrantySoon = (a: (typeof s.assets)[number]) => isWarrantyExpiring(a, s.opsPolicy.expiryWindowDays)
-    const rows = (role === 'USER' ? s.assets.filter((a) => a.owner === userName || a.owner !== userName) : s.assets)
+    const rows = (role === 'USER' ? s.assets.filter((a) => a.owner === userName) : s.assets)
       .filter((a) => {
         if (nos) return nos.has(a.assetNo)
         if (cat !== '전체' && a.category !== cat) return false
