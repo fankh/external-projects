@@ -3558,6 +3558,27 @@ try {
     !(await tabText()).includes('수명주기'))
   await ctxLC.close()
   await cycleCellTo(pPM, lcCell, '✓') // 불가 → 허용 복원
+
+  // 부분 스코프(본인 범위) 실검증 — lib/types 의 PARTIAL_SCOPES 는 '자산 대장|엑셀|USER' 를 선언하지만 시드
+  //  매트릭스의 그 칸은 '불가'라, 본인 범위로 좁히는 구현(lib/exports buildSheets)이 한 번도 실행되지 않는다.
+  //  관리자가 '본인'으로 켜는 것은 제품이 제공하는 경로다(setPermission 이 구현 있는 칸에만 부분을 허용한다).
+  //  켜 두고 실제 반출을 받아, 남의 자산이 파일로 새지 않는지 본다 — 화면에서 못 보는 자산이 엑셀로 새어
+  //  나가면 권한 모델이 무의미해진다(lib/exports 주석). 스코프 조건을 무력화하면 이 검사만 떨어진다.
+  const exRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '자산 대장' }) }).first()
+  const exCell = exRow.locator('td').nth(4) // 라벨(0) + 사용자(역할 1번째) × 엑셀(기능 4번째)
+  await cycleCellTo(pPM, exCell, '본인', 5)
+  ok('권한 매트릭스: 사용자 × 자산 대장 엑셀을 본인 범위(부분)로 설정',
+    ((await exCell.textContent()) || '').includes('본인'))
+  const ctxEX = await browser.newContext(); await ctxEX.addCookies([cookie(USER)]); const pEX = await ctxEX.newPage()
+  const exRes = await pEX.request.get(`${BASE}/api/export/assets`)
+  const exBody = Buffer.from(await exRes.body()).toString('utf8')
+  ok('부분 스코프: 본인 범위를 켜면 사용자도 대장을 반출할 수 있다(불가는 403)', exRes.status() === 200)
+  //  양성 대조 — 파일이 비어 있으면 아래 누출 검사가 증명하는 것이 없다.
+  ok('부분 스코프(양성 대조): 반출본에 본인 보유 자산 행이 담긴다', /AST-\d{4}-\d{6}/.test(exBody))
+  ok('부분 스코프: 반출본에 남의 자산이 새지 않는다(AST-2020-000883 인프라운영팀)',
+    !exBody.includes('AST-2020-000883'))
+  await ctxEX.close()
+  await cycleCellTo(pPM, exCell, '·', 5) // 시드 기본값(불가)으로 원복 — 뒤 검사의 전제를 바꾸지 않는다
   ok('권한 매트릭스: 수명주기 조회 권한 복원(허용)', ((await lcCell.textContent()) || '').includes('✓'))
   const ctxLC2 = await browser.newContext(); await ctxLC2.addCookies([cookie(ASSET)]); const pLC2 = await ctxLC2.newPage()
   await pLC2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
