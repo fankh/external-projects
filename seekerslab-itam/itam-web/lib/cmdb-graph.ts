@@ -10,7 +10,7 @@ export function isDegraded(a: Asset): boolean {
   //  물린 하위가 '저하된 상위' 경고·영향 소스 큐·SPOF 정렬 어디에도 안 잡혔다(상위 이탈을 하위가 모르는 사각).
   // NAC 격리(quarantinedAt)도 같은 사각이었다 — 상태는 '사용중' 그대로인데 망이 끊겨 하위는 서비스를 못 받는다.
   //  격리 집행은 보안 조치라 상태를 바꾸지 않으므로, 상태만 보면 하위 담당 부서는 상위가 끊긴 줄 모른다.
-  return NON_OPERATIONAL_STATUSES.includes(a.status) || !!a.quarantinedAt
+  return NON_OPERATIONAL_STATUSES.includes(a.status)
 }
 
 export interface AssetDeps {
