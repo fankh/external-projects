@@ -3168,19 +3168,25 @@ try {
   const cnText = (await pCN.locator('tr', { has: pCN.locator('td', { hasText: '프록시 · 방화벽 · DNS' }) }).first().textContent()) || ''
   ok('커넥터 재연동(로22): 재연동 → 상태 정상(지연 해소·감사 적재)', cnText.includes('정상') && !cnText.includes('지연'))
   await ctxCN.close()
-  // 계약 갱신(로23) — 만료 임박·경과 계약을 연장하고 상태 정상 전환(만료 임박 집계에서 제외). 그동안 smoke 렌더만. CT-2023-014(만료 2026-03-14 경과) 1년 갱신 → 2027.
+  // 계약 갱신(로23) — 만료 임박·경과 계약을 연장하고 상태 정상 전환(만료 임박 집계에서 제외). 그동안 smoke 렌더만. CT-2023-014(만료 경과).
+  //  기대값은 갱신 전 화면이 보여 준 만료일에서 파생한다 — 서버 renewContract 와 같은 규칙(기준은 만료일과
+  //   오늘 중 뒤쪽, 이미 지난 계약은 오늘부터 센다)을 yPlus 가 그대로 구현한다. '2027' 같은 고정 연도를 박으면
+  //   그 해가 지나는 순간 제품이 멀쩡한데 검사가 깨진다 — 실제로 시계를 1년 앞으로 돌리면 그렇게 됐다
+  //   (보증 연장에서 같은 이유로 이미 한 번 고쳤다).
   const ctxRN = await browser.newContext(); await ctxRN.addCookies([cookie(ASSET)]); const pRN = await ctxRN.newPage()
   await pRN.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const rnRow = pRN.locator('tr', { has: pRN.locator('td', { hasText: 'CT-2023-014' }) }).first()
+  const rnBefore = (/(\d{4}-\d\d-\d\d)/.exec((await rnRow.textContent()) || '') ?? [])[1] ?? ''
+  const rnExpect = rnBefore ? yPlus(rnBefore, 1) : ''
   await rnRow.locator('button', { hasText: /^갱신$/ }).click()
   await pRN.waitForTimeout(200)
   await rnRow.locator('button', { hasText: /^1년$/ }).click()
   await pRN.waitForTimeout(700)
   await pRN.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const rnText = (await pRN.locator('tr', { has: pRN.locator('td', { hasText: 'CT-2023-014' }) }).first().textContent()) || ''
-  ok('계약 갱신(로23): 갱신 → 만료일 연장(2027·만료 임박 해소)', rnText.includes('2027'))
+  ok(`계약 갱신(로23): 갱신 → 만료일 +1년(${rnBefore} → ${rnExpect} · 만료 임박 해소)`, rnExpect !== '' && rnText.includes(rnExpect))
   await ctxRN.close()
-  // 보증 연장(로24) — 자산 보증 만료일 연장 + 보증연장 이력. 그동안 smoke 렌더만. AST-2022-000641(보증 2026-09-30) 1년 연장 → 2027-09-30.
+  // 보증 연장(로24) — 자산 보증 만료일 연장 + 보증연장 이력. 그동안 smoke 렌더만. AST-2022-000641 을 1년 연장한다(기대값은 화면이 보여 준 현재 만료일에서 파생 — 고정 날짜 금지).
   const ctxWY = await browser.newContext(); await ctxWY.addCookies([cookie(ASSET)]); const pWY = await ctxWY.newPage()
   await pWY.goto(`${BASE}/assets/register?sel=AST-2022-000641`, { waitUntil: 'networkidle' })
   await pWY.locator('button', { hasText: /^보증 연장$/ }).first().click()
