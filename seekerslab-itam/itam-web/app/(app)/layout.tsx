@@ -28,7 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // 신청·결재 뱃지는 '내 결재 차례'(지금 이 사람이 결재할 수 있는 대기 건, 본인 상신분 제외) — 대시보드 myQueue 와 동일 판정.
   // 그동안 전사 대기 결재 총계를 전 역할에 노출해, 결재 권한이 없는 사용자에게도 큰 숫자가 떠 실제 내 조치량과 어긋났다.
   const badges = {
-    approvals: s.approvals.filter((a) => a.requester !== session.name && canDecideApproval(session.role, a)).length,
+    approvals: s.approvals.filter((a) => canDecideApproval(session.role, a, session.name)).length,
     unregistered: s.discovered.filter(isUntriagedDiscovery).length,
   }
 
