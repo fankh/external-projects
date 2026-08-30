@@ -2857,6 +2857,17 @@ try {
   await p4.goto(`${BASE}/assets/register?sel=AST-2022-000871`, { waitUntil: 'networkidle' })
   const lostBody = (await p4.textContent('body')) || ''
   ok('미실사 분실 신고 → 대장 분실 상태 반영', lostBody.includes('분실'))
+  //  취약점 우선순위는 자산 축 둘(EOL OS · 미인가 SW)을 같은 기준으로 걸러야 한다 — 실물이 없거나 업체에
+  //   가 있는 장비에는 패치·교체도, SW 제거도 요청할 대상이 없다. 그런데 미인가 SW 축만 폐기 두 상태로
+  //   좁게 걸러, 분실 신고한 자산이 P 목록에 남아 실재 조치 대상을 밀어냈다(같은 함수의 주석은 두 축이
+  //   같은 기준이라 적고 있었다). 페이지를 옮기지 않는 request.get 으로 읽어 뒤 검사를 건드리지 않는다.
+  const vpHtml = await (await p4.request.get(`${BASE}/ai/insights`)).text()
+  const vpRows = vpHtml.split(/<tr[^>]*>/).slice(1).map((r) => r.split('</tr>')[0].replace(/<[^>]*>/g, '|').replace(/\s+/g, ' '))
+  const vpTier = (r) => /\|\s*P[123]\s*\|/.test(r)
+  //  양성 대조 — 우선순위 표 자체가 비면 아래 검사가 증명하는 것이 없다.
+  ok('취약점 우선순위(양성 대조): 등급이 매겨진 조치 대상이 남아 있다', vpRows.some(vpTier))
+  ok('취약점 우선순위: 분실 자산의 미인가 SW 는 조치 대상에서 빠진다(EOL 축과 같은 기준)',
+    !vpRows.some((r) => r.includes('AST-2022-000871') && vpTier(r)))
   // 분실 신고 → 라이선스 좌석 자동 회수(로56 좌석 생애주기) — 실물이 사라진 자산의 좌석을 폐기·반납과 같이 회수한다. AST-2022-000871 은 LIC-004 AutoCAD 좌석이었다.
   ok('분실 신고 → 라이선스 좌석 자동 회수(이력 적재·역조회 소멸)', lostBody.includes('라이선스 좌석 회수') && !lostBody.includes('배정 라이선스'))
   // 분실·도난 신고서(로30 문서 산출물) — 분실 상태 자산 상세에 신고서 인쇄 링크 + 사건 개요·정황(재물조사 미실사)·자산 가액 렌더. 보험·감사 증적용.
