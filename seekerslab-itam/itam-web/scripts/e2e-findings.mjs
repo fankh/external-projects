@@ -2857,6 +2857,17 @@ try {
   await p4.goto(`${BASE}/assets/register?sel=AST-2022-000871`, { waitUntil: 'networkidle' })
   const lostBody = (await p4.textContent('body')) || ''
   ok('미실사 분실 신고 → 대장 분실 상태 반영', lostBody.includes('분실'))
+  //  취약점 우선순위는 자산 축 둘(EOL OS · 미인가 SW)을 같은 기준으로 걸러야 한다 — 실물이 없거나 업체에
+  //   가 있는 장비에는 패치·교체도, SW 제거도 요청할 대상이 없다. 그런데 미인가 SW 축만 폐기 두 상태로
+  //   좁게 걸러, 분실 신고한 자산이 P 목록에 남아 실재 조치 대상을 밀어냈다(같은 함수의 주석은 두 축이
+  //   같은 기준이라 적고 있었다). 페이지를 옮기지 않는 request.get 으로 읽어 뒤 검사를 건드리지 않는다.
+  const vpHtml = await (await p4.request.get(`${BASE}/ai/insights`)).text()
+  const vpRows = vpHtml.split(/<tr[^>]*>/).slice(1).map((r) => r.split('</tr>')[0].replace(/<[^>]*>/g, '|').replace(/\s+/g, ' '))
+  const vpTier = (r) => /\|\s*P[123]\s*\|/.test(r)
+  //  양성 대조 — 우선순위 표 자체가 비면 아래 검사가 증명하는 것이 없다.
+  ok('취약점 우선순위(양성 대조): 등급이 매겨진 조치 대상이 남아 있다', vpRows.some(vpTier))
+  ok('취약점 우선순위: 분실 자산의 미인가 SW 는 조치 대상에서 빠진다(EOL 축과 같은 기준)',
+    !vpRows.some((r) => r.includes('AST-2022-000871') && vpTier(r)))
   // 분실 신고 → 라이선스 좌석 자동 회수(로56 좌석 생애주기) — 실물이 사라진 자산의 좌석을 폐기·반납과 같이 회수한다. AST-2022-000871 은 LIC-004 AutoCAD 좌석이었다.
   ok('분실 신고 → 라이선스 좌석 자동 회수(이력 적재·역조회 소멸)', lostBody.includes('라이선스 좌석 회수') && !lostBody.includes('배정 라이선스'))
   // 분실·도난 신고서(로30 문서 산출물) — 분실 상태 자산 상세에 신고서 인쇄 링크 + 사건 개요·정황(재물조사 미실사)·자산 가액 렌더. 보험·감사 증적용.
@@ -3566,7 +3577,8 @@ try {
   //  나가면 권한 모델이 무의미해진다(lib/exports 주석). 스코프 조건을 무력화하면 이 검사만 떨어진다.
   const exRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '자산 대장' }) }).first()
   const exCell = exRow.locator('td').nth(4) // 라벨(0) + 사용자(역할 1번째) × 엑셀(기능 4번째)
-  await cycleCellTo(pPM, exCell, '본인', 5)
+  //  순환 대기는 700ms — 서버 액션 반영 전에 다시 누르면 '본인'을 지나쳐 '허용'까지 간다(반출이 전량이 된다).
+  for (let k = 0; k < 5 && !((await exCell.textContent()) || '').includes('본인'); k++) { await exCell.click(); await pPM.waitForTimeout(700) }
   ok('권한 매트릭스: 사용자 × 자산 대장 엑셀을 본인 범위(부분)로 설정',
     ((await exCell.textContent()) || '').includes('본인'))
   const ctxEX = await browser.newContext(); await ctxEX.addCookies([cookie(USER)]); const pEX = await ctxEX.newPage()
@@ -3585,7 +3597,8 @@ try {
   //  담기는데, 남의 상신분이 섞이면 사용자가 다른 사람의 신청 사유까지 파일로 받는다.
   const apRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '신청 · 결재' }) }).first()
   const apCell = apRow.locator('td').nth(4) // 라벨(0) + 사용자(역할 1번째) × 엑셀(기능 4번째)
-  await cycleCellTo(pPM, apCell, '본인', 5)
+  //  순환 대기는 700ms — 서버 액션 반영 전에 다시 누르면 '본인'을 지나쳐 '허용'까지 간다(반출이 전량이 된다).
+  for (let k = 0; k < 5 && !((await apCell.textContent()) || '').includes('본인'); k++) { await apCell.click(); await pPM.waitForTimeout(700) }
   ok('권한 매트릭스: 사용자 × 신청 · 결재 엑셀을 본인 범위(부분)로 설정',
     ((await apCell.textContent()) || '').includes('본인'))
   const ctxAP = await browser.newContext(); await ctxAP.addCookies([cookie(USER)]); const pAP = await ctxAP.newPage()
