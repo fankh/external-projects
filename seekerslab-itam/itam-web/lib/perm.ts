@@ -34,7 +34,7 @@ export { PARTIAL_SCOPES, PERM_ACTIONS, hasPartialScope, isLocked, lockReason } f
 export const ACTION_DEF: Record<PermAction, { desc: string; enforcedBy: string }> = {
   조회: { desc: '화면 진입과 목록·상세 조회', enforcedBy: '화면 가드 (lib/authz requireView — 매트릭스 조회 칸 + 라우트 역할)' },
   저장: { desc: '신규 등록·수정 저장', enforcedBy: '서버 — 화면별 액션 가드(자산 대장·수명주기·재고 · 재물조사·계약·Shadow SaaS)' },
-  삭제: { desc: '레코드 삭제·비활성화', enforcedBy: '화면 가드' },
+  삭제: { desc: '레코드 삭제·비활성화', enforcedBy: '서버 — 화면별 액션 가드(AI 어시스턴트 리포트 삭제 · 권한 · 정책 코드 미사용 전환)' },
   엑셀: { desc: '그리드 데이터 .xlsx 내보내기', enforcedBy: '서버 — /api/export/[kind]' },
   편입: { desc: '발견 자산을 대장으로 편입 요청', enforcedBy: '서버 — requestOnboard' },
   격리요청: { desc: 'NAC 격리 요청 상신', enforcedBy: '서버 — requestQuarantine' },
