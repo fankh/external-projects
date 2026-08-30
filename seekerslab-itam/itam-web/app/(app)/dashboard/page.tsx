@@ -62,7 +62,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // 결재 지연 — SLA(3일) 초과한 대기 결재(정체). 상신 후 오래 방치된 결재를 드러낸다.
   const overdueApr = pendingApr.filter((a) => isApprovalOverdue(a, today(), s.opsPolicy.approvalSlaDays)).length
   const myApr = s.approvals.filter((a) => a.requester === session.name && a.status === '대기')
-  // 내 결재 차례 — 지금 이 사람이 결재할 수 있는 대기 건 (본인 상신분 제외). decide()와 동일 게이트를 쓴다.
+  // 내 결재 차례 — 지금 이 사람이 결재할 수 있는 대기 건. 직무 분리(본인 폼 상신 제외)까지 판정 안에서
+  //  처리한다(canDecideApproval 에 보는 사람 이름을 넘긴다) — 서버 decide·결재함 버튼과 같은 규칙이다.
+  //  여기서 'requester !== 나' 를 덧붙이면 안 된다: 그 규칙은 더 넓어 시스템·운영자 상신까지 빼므로,
+  //  결재함은 버튼을 내주는데 배지에서만 사라지는 건이 생긴다.
   const myQueue = s.approvals.filter((a) => canDecideApproval(session.role, a, session.name))
   const myAssets = s.assets.filter((a) => a.owner === session.name)
   // 내 미확인 필독 공지 — 상단 고정(필독) 공지 중 내가 아직 읽음 확인하지 않은 것. 사용자가 로그인 시 스스로 챙기게 하는 컴플라이언스 넛지

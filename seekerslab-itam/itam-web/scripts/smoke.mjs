@@ -4501,6 +4501,24 @@ try {
   check('결재 배지: 내 결재 차례 수 = 결재함에서 실제로 결재 가능한 건 수(권한그룹 4종)',
     aprGaps.length === 0,
     `어긋난 권한그룹=${aprGaps.join(', ') || '없음'}`)
+  //  직무 분리(본인 폼 상신은 본인이 결재 못 한다)는 canDecideApproval 안에 있고, 보는 사람 이름을 세 번째
+  //   인자로 받아야 발동한다. 인자를 빠뜨린 호출은 타입 오류도 아니고(선택 인자) 화면도 멀쩡해 보이지만,
+  //   그 자리에서만 규칙이 조용히 꺼져 본인 상신을 스스로 결재할 수 있는 큐가 된다 — 위 배지 검사가
+  //   잡지 못하는 자리(예: 새 화면)도 있으므로 호출 형태 자체를 고정한다.
+  const aprSrcFiles = []
+  const walkApr = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const fp = path.join(dir, e.name); if (e.isDirectory()) walkApr(fp); else if (/\.tsx?$/.test(e.name)) aprSrcFiles.push(fp) } }
+  walkApr(path.join(ROOT, 'app')); walkApr(path.join(ROOT, 'lib'))
+  const aprBadCalls = []
+  for (const fp of aprSrcFiles) {
+    const src = readFileSync(fp, 'utf8')
+    if (fp.endsWith(path.join('lib', 'approval.ts'))) continue //  정의부
+    for (const m of [...src.matchAll(/canDecideApproval\(([^)]*)\)/g)]) {
+      if (m[1].split(',').length < 3) aprBadCalls.push(path.relative(ROOT, fp) + ': ' + m[0])
+    }
+  }
+  check('결재 판정: 호출부가 보는 사람을 넘긴다(직무 분리 규칙이 꺼지지 않게)',
+    aprSrcFiles.length > 0 && aprBadCalls.length === 0,
+    `인자 누락 호출=${aprBadCalls.join(' · ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
