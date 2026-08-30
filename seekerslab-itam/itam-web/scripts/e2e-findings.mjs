@@ -996,16 +996,24 @@ try {
   await p2.goto(`${BASE}/assets/register?q=AST-2021-000556`, { waitUntil: 'networkidle' })
   const repaired556 = (await p2.locator('tr', { hasText: 'AST-2021-000556' }).first().textContent()) || ''
   ok('수리 불가 → 보유자 정리(미지정·폐기예정 · 원 소유자 오귀속 방지)', repaired556.includes('미지정') && repaired556.includes('폐기예정') && !repaired556.includes('한지원'))
-  // 무상 보증 청구(신규) — 보증 기간 내 자산 수리는 제조사 보증으로 무상 청구(자사 부담 0). 실 수리비는 제조사 부담(절감)액으로 기록돼 자사 TCO 에서 제외되고 '보증 절감'으로 집계(비용 회피 가시화). AST-2025-000377(보증 2028·수리중).
+  // 무상 보증 청구(신규) — 보증 기간 내 자산 수리는 제조사 보증으로 무상 청구(자사 부담 0). 실 수리비는 제조사 부담(절감)액으로 기록돼 자사 TCO 에서 제외되고 '보증 절감'으로 집계(비용 회피 가시화). AST-2025-000377(보증 기간 내 · 수리중 — 시드가 기준일 파생으로 그 상태를 유지한다).
   await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const wRow = p2.locator('tr', { hasText: 'AST-2025-000377' }).first()
-  await wRow.locator('input[placeholder="실 수리비"]').fill('350000')
-  await wRow.locator('button', { hasText: /^무상 보증 청구$/ }).click()
-  await p2.waitForTimeout(700)
-  ok('무상 보증 청구: 보증 내 자산 무상 청구 성공(자사 부담 0 · 절감 표기)', ((await p2.locator('body').textContent()) || '').includes('절감 350,000원'))
-  await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
-  const returnsBodyW = (await p2.locator('body').textContent()) || ''
-  ok('무상 보증 청구: 보증 절감 누계 반영(시드 200,000 + 377 350,000 = 550,000원 · 자사 TCO 제외분)', returnsBodyW.includes('보증 절감') && returnsBodyW.includes('550,000원'))
+  //  버튼 존재를 먼저 검사로 남긴다 — 없으면 fill·click 이 그대로 던지고, 이 스위트는 전체가 하나의
+  //   try 로 감싸여 있어 남은 검사 수백 건이 통째로 날아간다(시계를 앞으로 돌린 회귀에서 실제로 그랬다).
+  //   전제가 무너졌다는 사실 자체를 한 건의 실패로 보고하고, 그 뒤 단계만 건너뛴다.
+  const wClaimBtn = wRow.locator('button', { hasText: /^무상 보증 청구$/ })
+  const wClaimReady = (await wClaimBtn.count()) > 0 && (await wRow.locator('input[placeholder="실 수리비"]').count()) > 0
+  ok('무상 보증 청구(전제): 보증 기간이 남은 수리 자산에 청구 컨트롤 노출', wClaimReady)
+  if (wClaimReady) {
+    await wRow.locator('input[placeholder="실 수리비"]').fill('350000')
+    await wRow.locator('button', { hasText: /^무상 보증 청구$/ }).click()
+    await p2.waitForTimeout(700)
+    ok('무상 보증 청구: 보증 내 자산 무상 청구 성공(자사 부담 0 · 절감 표기)', ((await p2.locator('body').textContent()) || '').includes('절감 350,000원'))
+    await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+    const returnsBodyW = (await p2.locator('body').textContent()) || ''
+    ok('무상 보증 청구: 보증 절감 누계 반영(시드 200,000 + 377 350,000 = 550,000원 · 자사 TCO 제외분)', returnsBodyW.includes('보증 절감') && returnsBodyW.includes('550,000원'))
+  }
   // 대여 반환 독촉도 같은 판정 — 연체·반환 임박 자산에 보내고 나면 버튼이 사라져야 한다.
   const loanRemind = p2.locator('button', { hasText: /^반환 독촉 발송 \d+건$/ })
   ok('대여 반환 독촉: 연체·임박 있으면 버튼 노출', (await loanRemind.count()) > 0)

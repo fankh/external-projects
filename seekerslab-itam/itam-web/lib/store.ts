@@ -168,7 +168,10 @@ function seedAssets(): Asset[] {
         { date: '2026-04-02', kind: '편입', detail: '네트워크 능동 스캔 발견(2026-03-28) → 소유자 확인 → 결재 편입', actor: '박자산' },
       ] }),
     // 반납 점검에서 '수리 필요' 판정 → 수리중 (반납·유휴 화면의 수리 대기 카드에 표시)
-    mk({ assetNo: 'AST-2025-000377', category: '단말', model: 'ThinkPad X1 Carbon G12', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', purchaseDate: '2025-01-20', warrantyEnd: '2028-01-19',
+    //  이 자산의 보증 만료일은 달력 사실이 아니라 '아직 보증 기간 안에 있다'는 상태다 — 무상 보증 청구의
+    //   유일한 픽스처이고, 고정 날짜로 두면 그 날이 지나는 순간 버튼이 사라져 그 흐름을 검증할 수 없게 된다
+    //   (기준일 2026-07-29 기준 D+539 를 그대로 유지한다. 만료 임박 창 밖이라 임박 집계는 그대로다).
+    mk({ assetNo: 'AST-2025-000377', category: '단말', model: 'ThinkPad X1 Carbon G12', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', purchaseDate: '2025-01-20', warrantyEnd: addDays(today(), 539),
       history: [
         { date: '2025-01-20', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
         { date: '2025-01-24', kind: '불출', detail: '영업1팀 불출', actor: '박자산' },
