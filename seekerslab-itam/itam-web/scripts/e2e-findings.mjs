@@ -3577,7 +3577,8 @@ try {
   //  나가면 권한 모델이 무의미해진다(lib/exports 주석). 스코프 조건을 무력화하면 이 검사만 떨어진다.
   const exRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '자산 대장' }) }).first()
   const exCell = exRow.locator('td').nth(4) // 라벨(0) + 사용자(역할 1번째) × 엑셀(기능 4번째)
-  await cycleCellTo(pPM, exCell, '본인', 5)
+  //  순환 대기는 700ms — 서버 액션 반영 전에 다시 누르면 '본인'을 지나쳐 '허용'까지 간다(반출이 전량이 된다).
+  for (let k = 0; k < 5 && !((await exCell.textContent()) || '').includes('본인'); k++) { await exCell.click(); await pPM.waitForTimeout(700) }
   ok('권한 매트릭스: 사용자 × 자산 대장 엑셀을 본인 범위(부분)로 설정',
     ((await exCell.textContent()) || '').includes('본인'))
   const ctxEX = await browser.newContext(); await ctxEX.addCookies([cookie(USER)]); const pEX = await ctxEX.newPage()
@@ -3596,7 +3597,8 @@ try {
   //  담기는데, 남의 상신분이 섞이면 사용자가 다른 사람의 신청 사유까지 파일로 받는다.
   const apRow = pPM.locator('tr', { has: pPM.locator('td.strong', { hasText: '신청 · 결재' }) }).first()
   const apCell = apRow.locator('td').nth(4) // 라벨(0) + 사용자(역할 1번째) × 엑셀(기능 4번째)
-  await cycleCellTo(pPM, apCell, '본인', 5)
+  //  순환 대기는 700ms — 서버 액션 반영 전에 다시 누르면 '본인'을 지나쳐 '허용'까지 간다(반출이 전량이 된다).
+  for (let k = 0; k < 5 && !((await apCell.textContent()) || '').includes('본인'); k++) { await apCell.click(); await pPM.waitForTimeout(700) }
   ok('권한 매트릭스: 사용자 × 신청 · 결재 엑셀을 본인 범위(부분)로 설정',
     ((await apCell.textContent()) || '').includes('본인'))
   const ctxAP = await browser.newContext(); await ctxAP.addCookies([cookie(USER)]); const pAP = await ctxAP.newPage()
