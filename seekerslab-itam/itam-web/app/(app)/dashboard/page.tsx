@@ -63,7 +63,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const overdueApr = pendingApr.filter((a) => isApprovalOverdue(a, today(), s.opsPolicy.approvalSlaDays)).length
   const myApr = s.approvals.filter((a) => a.requester === session.name && a.status === '대기')
   // 내 결재 차례 — 지금 이 사람이 결재할 수 있는 대기 건 (본인 상신분 제외). decide()와 동일 게이트를 쓴다.
-  const myQueue = s.approvals.filter((a) => a.requester !== session.name && canDecideApproval(session.role, a))
+  const myQueue = s.approvals.filter((a) => canDecideApproval(session.role, a, session.name))
   const myAssets = s.assets.filter((a) => a.owner === session.name)
   // 내 미확인 필독 공지 — 상단 고정(필독) 공지 중 내가 아직 읽음 확인하지 않은 것. 사용자가 로그인 시 스스로 챙기게 하는 컴플라이언스 넛지
   // (관리자 측 독촉(로39)·미확인자 명단(v1.150)의 사용자 측 짝). 발행 예정(publishAt 미래) 공지는 아직 안 보이므로 제외.

@@ -212,7 +212,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const byKind = [...new Set(pend.map((a) => a.kind))].map((k) => `${k} ${pend.filter((a) => a.kind === k).length}건`)
     // 내가 지금 결재할 수 있는 건 — 대시보드 '내 결재 차례'와 동일 게이트(canDecideApproval + 본인 상신분 제외)를
     //  재사용해, 전체 대기 중 이 권한그룹이 현재 단계에서 처리 가능한 실행 대상을 함께 제시한다(AI 질의도 동일 권한 모델).
-    const canDo = (a: (typeof pend)[number]) => a.requester !== userName && canDecideApproval(role, a)
+    const canDo = (a: (typeof pend)[number]) => canDecideApproval(role, a, userName)
     const mineNow = pend.filter(canDo)
     return {
       role: 'assistant',
