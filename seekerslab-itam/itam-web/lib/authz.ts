@@ -23,7 +23,7 @@ export async function requireView(href: string, ...roles: Role[]): Promise<Sessi
   // 거부는 감사에 남긴다 — 감사 로그 화면·반출 엑셀에는 '결과=실패' 필터와 시드 「권한 밖 화면 접근 시도」가
   //  있는데, 정작 그 행을 만드는 코드가 없어 운영 중에는 실패 건이 늘지 않았다(lib/audit appendDenial).
   //  requireRole 을 거치지 않고 여기서 판정하는 이유는, 그래야 어느 화면을 두드렸는지(href)를 남길 수 있어서다.
-  if (!roles.includes(session.role)) {
+  if (!roles.includes(session.role) || !canViewMenu(href, session.role)) {
     appendDenial({ actor: session.name, action: '권한 밖 화면 접근 시도', target: href })
     redirect('/dashboard')
   }
