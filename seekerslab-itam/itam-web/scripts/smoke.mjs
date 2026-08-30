@@ -4411,6 +4411,48 @@ try {
   const gapsExec = [!execTargetBlk.includes('ended') && '독촉 대상(maintenanceExecTargets)', !execAlertLine.includes('ended') && '큐 집계(execAlert)'].filter(Boolean)
   check('유지보수 이행 독촉: 기간이 끝난 계약은 재촉 대상이 아니다',
     gapsExec.length === 0, `기간 종료를 안 보는 곳=${gapsExec.join(', ') || '없음'}`)
+  //  메뉴 정의의 'enforced' 는 '서버가 직접 강제 — 회수 불가(코드 바인딩·API 403)' 라고 화면이 안내하는
+  //   근거이자 '서버가 강제하는 조합' 지표를 세는 값이다. 코드가 실제로 검사하는 조합과 갈리면 그 안내가
+  //   거짓이 된다 — 실제로 수명주기의 엑셀은 /api/export/disposals·loans 가 403 으로 막는데 선언에서
+  //   빠져 있어, 화면이 그 칸을 회수 가능한 선언 정책으로 안내했다. 세 경로를 소스에서 되읽어 대조한다.
+  //   (1) 조회 — lib/perm ROUTE_MENU 에 매핑된 화면은 canViewMenu 가 can(menu,'조회') 로 막는다
+  //   (2) 엑셀 — lib/exports EXPORT_META 의 menu 는 canExport 가 can(menu,'엑셀') 로 막는다
+  //   (3) 나머지 — 서버 코드의 can('메뉴', '기능') 직접 호출
+  const enfPermSrc = readFileSync(path.join(ROOT, 'lib', 'perm.ts'), 'utf8')
+  const enfExportSrc = readFileSync(path.join(ROOT, 'lib', 'exports.ts'), 'utf8')
+  const enfCodePairs = new Map() //  메뉴 → 기능 집합
+  const enfAddPair = (m, act) => { if (!enfCodePairs.has(m)) enfCodePairs.set(m, new Set()); enfCodePairs.get(m).add(act) }
+  for (const m of [...enfPermSrc.matchAll(/'\/[^']*':\s*'([^']+)',/g)]) enfAddPair(m[1], '조회')
+  for (const m of [...enfExportSrc.matchAll(/menu:\s*'([^']+)'/g)]) enfAddPair(m[1], '엑셀')
+  const enfSrcFiles = []
+  const enfWalkSrc = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const fp = path.join(dir, e.name); if (e.isDirectory()) enfWalkSrc(fp); else if (/\.tsx?$/.test(e.name)) enfSrcFiles.push(fp) } }
+  enfWalkSrc(path.join(ROOT, 'app')); enfWalkSrc(path.join(ROOT, 'lib'))
+  for (const fp of enfSrcFiles) {
+    for (const m of [...readFileSync(fp, 'utf8').matchAll(/\bcan\('([^']+)',\s*'([^']+)'/g)]) enfAddPair(m[1], m[2])
+  }
+  const enfDefsBlk = storeSrc.slice(storeSrc.indexOf('function seedMenuDefs'), storeSrc.indexOf('function seedMenuPermissions'))
+  const enfDeclared = new Map()
+  for (const m of [...enfDefsBlk.matchAll(/menu: '([^']+)',[\s\S]*?enforced: \[([^\]]*)\]/g)]) {
+    enfDeclared.set(m[1], new Set([...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1])))
+  }
+  const enfGaps = []
+  for (const [menu, acts] of enfCodePairs) {
+    const dec = enfDeclared.get(menu)
+    if (!dec) continue //  매트릭스 메뉴가 아닌 값(있다면)은 대조 대상이 아니다
+    for (const act of acts) if (!dec.has(act)) enfGaps.push(menu + ' × ' + act)
+  }
+  check('메뉴 정의: 코드가 강제하는 (화면×기능)이 모두 enforced 로 선언돼 있다',
+    enfCodePairs.size > 0 && enfGaps.length === 0,
+    `대조 ${enfCodePairs.size}개 메뉴 · 선언 누락=${enfGaps.join(', ') || '없음'}`)
+  //  반대 방향 — 선언만 해 놓고 코드가 검사하지 않으면 화면이 회수 불가라고 거짓 안내를 한다
+  const enfOver = []
+  for (const [menu, dec] of enfDeclared) {
+    const acts = enfCodePairs.get(menu)
+    for (const act of dec) if (!acts || !acts.has(act)) enfOver.push(menu + ' × ' + act)
+  }
+  check('메뉴 정의: enforced 로 선언한 조합은 모두 코드가 실제로 검사한다(거짓 회수 불가 방지)',
+    enfOver.length === 0,
+    `코드에 근거 없는 선언=${enfOver.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
