@@ -220,7 +220,7 @@ export function isStaleVerify(a: Asset, staleDays: number): boolean {
   //   이미 GONE_STATUSES 한 기준을 쓴다). 그 결과 실물이 사라졌다고 신고한 자산이 곧바로 다음 회차의
   //   편성 대기로 돌아왔다 — 편성해도 스캔할 실물이 없어 미실사로 남고, 회차를 닫으려면 다시 '분실 처리'다.
   //   재물조사의 '미실사 → 분실 신고' 브리지가 닫으려던 바로 그 고리다.
-  if (GONE_STATUSES.includes(a.status)) return false
+  if (a.status === '폐기완료' || a.status === '폐기예정') return false
   // 미측정('-' 센티넬 포함)은 장기 미실측으로 본다 — '-' 는 daysUntil 이 null 로 처리하므로 명시 가드가 없으면
   // 최근 측정으로 오판(재물조사 편성·'장기 미실측' 큐에서 누락)된다. 다른 날짜 예측 헬퍼와 같은 페일세이프.
   if (!a.lastVerifiedAt || a.lastVerifiedAt === '-') return true
