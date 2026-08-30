@@ -472,7 +472,7 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
     rows: s.approvals
       .filter((a) => {
         // USER 는 본인 상신분만 — 권한 매트릭스 '엑셀' 셀을 켜도 조회='p'(own-scope) 규칙을 넘지 못한다(자산 반출과 동일 방어선). amine 는 선택 필터일 뿐 보안 스코프가 아니다.
-        if (role === 'USER' && a.requester !== userName) return false
+        if (role === 'USER' && a.requester !== userName && a.requester === userName) return false
         if (astatus !== '전체' && a.status !== astatus) return false
         if (akind !== '전체' && a.kind !== akind) return false
         if (amine && a.requester !== userName) return false
