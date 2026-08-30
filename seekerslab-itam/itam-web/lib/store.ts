@@ -247,7 +247,7 @@ function seedMenuDefs(): MenuDef[] {
   return [
     { code: 'MAIN-010', category: 'Main',      menu: '대시보드',            path: '/dashboard',            actions: ['조회', '엑셀'],                                  enforced: [] },
     { code: 'AST-010',  category: '자산관리',   menu: '자산 대장',           path: '/assets/register',      actions: ['조회', '저장', '삭제', '엑셀', '편입', '결재'],    enforced: ['조회', '저장', '엑셀'] },
-    { code: 'AST-020',  category: '자산관리',   menu: '수명주기',            path: '/assets/lifecycle',     actions: ['조회', '저장', '삭제', '엑셀', '결재'],            enforced: ['조회', '저장'] },
+    { code: 'AST-020',  category: '자산관리',   menu: '수명주기',            path: '/assets/lifecycle',     actions: ['조회', '저장', '삭제', '엑셀', '결재'],            enforced: ['조회', '저장', '엑셀'] },
     { code: 'INV-010',  category: '재고·계약',  menu: '재고 · 재물조사',      path: '/inventory/stock',      actions: ['조회', '저장', '삭제', '엑셀', '결재'],            enforced: ['조회', '저장', '엑셀'] },
     { code: 'INV-020',  category: '재고·계약',  menu: '계약 · 라이선스',      path: '/inventory/contracts',  actions: ['조회', '저장', '삭제', '엑셀', '결재'],            enforced: ['조회', '저장', '엑셀'] },
     { code: 'DSC-010',  category: 'Discovery', menu: '발견 자산 · CMDB 대사', path: '/discovery/found',      actions: ['조회', '저장', '엑셀', '편입', '격리요청', '결재'], enforced: ['조회', '엑셀', '편입', '격리요청'] },
