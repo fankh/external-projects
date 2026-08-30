@@ -3,6 +3,7 @@
  * 실행: npm run e2e   (원격 배포본: E2E_BASE=http://localhost:3390 npm run e2e)
  * 신선한 인메모리 시드에서 시작(ITAM_DATA_FILE 미설정)하므로 결정적. */
 import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertFreshBuild, assertPortFree } from './build-guard.mjs'
@@ -4858,9 +4859,26 @@ try {
 } catch (err) {
   fail++
   console.error('실행 오류:', err instanceof Error ? err.message : err)
+  console.error('  ↑ 이 지점에서 스위트가 멈췄습니다 — 남은 검사는 실행되지 않았습니다(아래 총 검사 수로 확인).')
 } finally {
   server?.kill()
 }
 
+//  실행한 검사 수가 문서가 적은 수와 같은가 — 스위트가 중간에 멈추면 남은 검사는 '실패'가 아니라 아예 실행되지
+//   않아 로그에는 '1건 실패'로만 남는다(실제로는 수백 건이 돌지 않았다). 컨트롤 전제가 깨진 자리에서 클릭·
+//   innerText 가 던지면 그 지점에서 끝나는데, 그런 자리가 40곳 있다 — 자리마다 막는 대신 중단 자체를 드러낸다.
+//   스모크의 문서 대조와 같은 규약이다. 검사를 늘리면 README·구축 요약의 수도 함께 고친다.
+//   원격 대상 실행(E2E_BASE)은 시드가 다를 수 있어 건너뛴다.
+if (!REMOTE) {
+  const docSrc = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+  const claimed = Number((/e2e (\d+)건 검증/.exec(docSrc) ?? [])[1] ?? -1)
+  const total = pass + fail
+  if (claimed !== total) {
+    fail++
+    console.log(`  ✗ e2e 검사 수: 문서 ${claimed}건 ≠ 실행 ${total}건 — 중간 중단이거나 문서 미갱신입니다`)
+  } else {
+    console.log(`  ✓ e2e 검사 수: 문서 ${claimed}건과 일치(중간 중단 없음)`)
+  }
+}
 console.log(`\n결과: ${pass} passed / ${fail} failed`)
 process.exit(fail ? 1 : 0)
