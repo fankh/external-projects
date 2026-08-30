@@ -4485,6 +4485,22 @@ try {
   check('장기 미실측 판정: 손을 떠난 자산을 GONE_STATUSES 한 기준으로 뺀다(분실 포함)',
     stVerifyBlk.length > 0 && stGaps.length === 0,
     `어긋난 곳=${stGaps.join(', ') || '없음'}`)
+  //  상단 '워크플로' 배지는 '내 결재 차례'(지금 이 사람이 결재할 수 있는 대기 건)를 센다. 결재함이 승인
+  //   버튼을 내주는 건과 같은 수여야 한다 — 어긋나면 배지는 0 인데 결재함에는 누를 버튼이 있거나, 반대로
+  //   들어가도 할 일이 없는 큐가 된다. 실제로 부르는 쪽들이 판정에 없는 규칙(상신자 이름 비교)을 각자
+  //   덧붙여, 보안담당의 본인 상신 격리 요청(필수·SLA 초과)이 배지에서만 빠져 있었다.
+  const aprGaps = []
+  for (const r of ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']) {
+    const dashH = await (await get('/dashboard', r)).text()
+    const navSeg = dashH.slice(dashH.indexOf('워크플로'), dashH.indexOf('워크플로') + 400).replace(/<[^>]*>/g, '|')
+    const badge = Number((/워크플로\|*\s*(\d+)/.exec(navSeg) ?? [])[1] ?? 0)
+    const aprH = await (await get('/workflow/approvals', r)).text()
+    const decidable = aprH.split(/<tr[^>]*>/).slice(1).filter((row) => row.includes('>승인<')).length
+    if (badge !== decidable) aprGaps.push(`${r} 배지=${badge}·결재함=${decidable}`)
+  }
+  check('결재 배지: 내 결재 차례 수 = 결재함에서 실제로 결재 가능한 건 수(권한그룹 4종)',
+    aprGaps.length === 0,
+    `어긋난 권한그룹=${aprGaps.join(', ') || '없음'}`)
   // 커넥터·탐지 채널 수 — 문서가 '커넥터 7종'·'6채널'이라고 적는 값이다. 시드가 늘거나 줄면 문서만 남는다
   //  (샘플 8종/10종처럼 실제로 갈렸던 계열). 시드 정의에서 세어 주장과 맞춘다.
   const seedCount = (fn, re) => {
