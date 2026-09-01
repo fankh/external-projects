@@ -58,6 +58,15 @@ const yPlus = (endStr, n) => {
   const pad = (v) => String(v).padStart(2, '0')
   return `${y + n}-${pad(m)}-${pad(Math.min(dd, last))}`
 }
+/** 달력에 실재하는 날짜인가 — '2029-02-29' 처럼 없는 날짜를 Date 에 넣으면 3/1 로 굴러 원문과 달라진다.
+ *  화면이 적은 날짜를 이 잣대로 재면, 클램프가 빠져 만들어진 유령 날짜를 날짜 계산 없이 잡아낸다. */
+const isRealDate = (s) => {
+  const m = /^(d{4})-(d{2})-(d{2})$/.exec(s || '')
+  if (!m) return false
+  const [y, mo, d] = m.slice(1).map(Number)
+  const dt = new Date(Date.UTC(y, mo - 1, d))
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d
+}
 
 // 빌드 신선도 — 예전 빌드로 회귀를 돌리면 고친 결함이 그대로인 채 초록으로 통과한다(scripts/build-guard.mjs)
 assertFreshBuild(ROOT, { remote: REMOTE })
@@ -3229,17 +3238,27 @@ try {
   await pWY.goto(`${BASE}/assets/register?sel=AST-2022-000641`, { waitUntil: 'networkidle' })
   ok(`보증 연장(로24): 연장 → 보증 만료일 +1년(${wyNow} → ${wyExpect})`, wyExpect !== '' && ((await pWY.textContent('body')) || '').includes(wyExpect))
   await ctxWY.close()
-  // 윤년 보증 연장 회귀 — 2/29 만료 자산(AST-2025-000701 · 보증 2028-02-29)을 1년 연장하면 실재하지 않는 2029-02-29 가 아니라 말일 2029-02-28 이어야 한다(lib/dates addYears 클램프).
-  //  그전엔 호출부가 연도만 +1 해 달력에 없는 날짜가 대장·보증연장 이력·엑셀 반출·갱신 원장에 남고, Date 파싱이 3/1 로 굴러 표시일과 잔여일이 하루 어긋났다(재연장마다 승계).
+  // 윤년 보증 연장 회귀 — 2/29 만료 자산(AST-2025-000701)을 1년 연장하면 달력에 없는 2/29 가 아니라 말일이어야
+  //  한다(lib/dates addYears 클램프). 그전엔 호출부가 연도만 +1 해 없는 날짜가 대장·보증연장 이력·엑셀 반출·갱신
+  //  원장에 남고, Date 파싱이 3/1 로 굴러 표시일과 잔여일이 하루 어긋났다(재연장마다 승계).
+  //  기대값은 화면이 보여 준 현재 만료일에서 파생한다 — 고정 날짜(2028-02-29 → 2029-02-28)로 적으면 시계가
+  //   그 만료일을 지나는 순간 서버 규칙이 '만료 지난 보증은 오늘부터' 로 바뀌어(extendWarranty), 클램프가
+  //   멀쩡한데도 회귀처럼 보고된다(같은 이유로 로24 검사가 이미 yPlus 파생을 쓴다).
   const ctxLY = await browser.newContext(); await ctxLY.addCookies([cookie(ASSET)]); const pLY = await ctxLY.newPage()
   await pLY.goto(`${BASE}/assets/register?sel=AST-2025-000701`, { waitUntil: 'networkidle' })
   await pLY.locator('button', { hasText: /^보증 연장$/ }).first().click()
   await pLY.waitForTimeout(200)
+  const lyNow = (((await pLY.textContent('body')) || '').match(/보증 연장 · 현재 만료 (d{4}-d{2}-d{2})/) || [])[1] || ''
+  const lyExpect = lyNow ? yPlus(lyNow, 1) : ''
   await pLY.locator('button', { hasText: /^1년$/ }).first().click()
   await pLY.waitForTimeout(700)
   await pLY.goto(`${BASE}/assets/register?sel=AST-2025-000701`, { waitUntil: 'networkidle' })
   const lyBody = (await pLY.textContent('body')) || ''
-  ok('윤년 보증 연장: 2028-02-29 +1년 → 말일 2029-02-28 (달력에 없는 2029-02-29 미생성)', lyBody.includes('2029-02-28') && !lyBody.includes('2029-02-29'))
+  await pLY.locator('button', { hasText: /^보증 연장$/ }).first().click()
+  await pLY.waitForTimeout(200)
+  const lyAfter = (((await pLY.textContent('body')) || '').match(/보증 연장 · 현재 만료 (d{4}-d{2}-d{2})/) || [])[1] || ''
+  ok(`윤년 보증 연장: ${lyNow || '?'} +1년 → ${lyExpect || '?'} (말일 클램프 · 서버 규칙 기대값)`, lyExpect !== '' && lyBody.includes(lyExpect))
+  ok(`윤년 보증 연장: 대장이 적은 새 만료일이 달력에 실재한다(${lyAfter || '?'} · 2/29 같은 유령 날짜 금지)`, isRealDate(lyAfter) && lyAfter === lyExpect)
   await ctxLY.close()
   // 거버넌스 가드(로19) — 본인/마지막 관리자 강등 방지 + 필수 결재선 잠금. UI 가 서버 규칙(lastAdmin · MANDATORY_APPROVAL_KINDS)을 반영해 잠근다. 그동안 오프보딩 읽기만 있고 가드는 미검증(잠금 풀리면 관리자 락아웃·필수 보안 결재 제거).
   const ctxGD = await browser.newContext(); await ctxGD.addCookies([cookie(ADMIN)]); const pGD = await ctxGD.newPage()
