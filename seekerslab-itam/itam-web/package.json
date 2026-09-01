@@ -12,6 +12,7 @@
     "layout": "node scripts/layout-sweep.mjs",
     "empty": "node scripts/empty-store.mjs",
     "e2e": "node scripts/e2e-findings.mjs",
+    "e2e:future": "node scripts/e2e-future.mjs",
     "samples": "node scripts/gen-samples.mjs",
     "samples:check": "node scripts/gen-samples.mjs --check",
     "verify": "node scripts/verify.mjs"
