@@ -751,6 +751,16 @@ try {
   check('권한 매트릭스: 본인 범위 안내 문구', permHtml.includes('전사 조회·전사 엑셀 반출'))
   // can() 이 최종 판정 — 구현 없는 칸에 남은 'p'(가드 이전 스냅샷)를 허용으로 읽으면 다시 전사가 열린다
   check('권한 판정: 구현 없는 칸의 잔존 본인은 불가로 읽는다', /cell === 'p' && !hasPartialScope\(/.test(permSrc))
+  // 그 화면에 없는 기능(na 칸)도 같은 세 겹으로 막는다 — 'p' 와 형제인데 그동안 열려 있었다.
+  //  화면은 na 칸을 눌러도 값이 바뀌지 않아야 하고(잠김), 서버는 그 변경을 거부해야 하며,
+  //  can() 은 정의에 없는 기능을 저장값과 무관하게 불가로 읽어야 한다. 셋 중 하나만 빠져도
+  //  메뉴 관리에서 그 기능을 부여하는 순간 아무도 준 적 없는 권한이 살아난다.
+  const menuActSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'actions.ts'), 'utf8')
+  const matrixSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'permissions', 'MatrixEditor.tsx'), 'utf8')
+  check('권한 변경: 화면에 없는 기능(na) 칸 변경을 서버가 거부', /def && !def\.actions\.includes\(action\)/.test(setPermSrc))
+  check('권한 판정: 정의에 없는 기능은 저장값과 무관하게 불가로 읽는다', /def && !def\.actions\.includes\(action\)/.test(permSrc))
+  check('권한 매트릭스 화면: na 칸은 클릭이 막혀 있다', /!pending && !na && click\(/.test(matrixSrc))
+  check('메뉴 기능 부여: 그 열을 불가로 초기화 (잠재 허용이 살아나지 않게)', menuActSrc.includes("row.cells[role][idx] = 'n'") && menuActSrc.includes('lockReason(def.menu, action, role)'))
   // 저장된 스냅샷도 로드 시 한 번 정리한다 — 화면이 그리는 값과 can() 의 판정이 갈리지 않게
   check('스토어 로드: 구현 없는 칸의 잔존 본인을 불가로 정리', permStoreSrc.includes('hasPartialScope(row.menu, PERM_ACTIONS[i], role)'))
   // 칸 순서(PERM_ACTIONS)는 정의가 하나여야 한다 — store 와 perm 이 각자 배열을 들면 i 번째 기능이 갈린다

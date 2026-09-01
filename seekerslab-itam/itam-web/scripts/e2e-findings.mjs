@@ -3487,15 +3487,21 @@ try {
   }, menu)
   const naAt = (cells, act, role) => cells[NA_ROLES.indexOf(role) * NA_ACTS.length + NA_ACTS.indexOf(act)]
   await pNa.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
-  const naCells = await pNa.$('td[title*="기능이 없다"]')
+  const naCells = await pNa.$$('td[title*="기능이 없다"]')
   ok('권한 매트릭스: 그 화면에 없는 기능(na) 칸이 존재한다 (양성 대조)', naCells.length > 0)
   const naRegBefore = await naRow('자산 대장')
   const naCell = naRegBefore && naAt(naRegBefore, '격리요청', 'SEC_MGR')
   ok('권한 매트릭스: na 칸은 저장값이 아니라 해당 없음을 그린다 (주지 않은 허용을 읽히지 않게)', !!naCell && naCell.g === '–')
   ok('권한 매트릭스: na 칸 커서는 default — 누를 수 있는 것처럼 보이지 않는다', !!naCell && naCell.c === 'default')
   const naSnapBefore = (naRegBefore || []).map((x) => x.g).join('')
-  await naCells[0].click()
-  await pNa.waitForTimeout(1200)
+  //  자산 대장 행의 그 칸을 정확히 누른다 — 아무 na 칸이나 누르면 다른 행이 걸려도 이 행은 안 변하니
+  //   "값이 안 바뀌었다"가 공허하게 통과한다(막았기 때문인지 애초에 무관한 칸이었는지 구분 못 함).
+  const naTarget = await pNa.evaluateHandle((i) => {
+    const tr = [...document.querySelectorAll('tr')].find((r) => r.querySelector('td') && r.querySelector('td').textContent.trim() === '자산 대장')
+    return tr ? [...tr.querySelectorAll('td')].slice(1)[i] : null
+  }, NA_ROLES.indexOf('SEC_MGR') * NA_ACTS.length + NA_ACTS.indexOf('격리요청'))
+  ok('권한 매트릭스: 자산 대장 × 격리요청 · SEC_MGR 칸을 집었다 (양성 대조)', !!naTarget.asElement())
+  if (naTarget.asElement()) { await naTarget.asElement().click({ force: true }); await pNa.waitForTimeout(1200) }
   await pNa.reload({ waitUntil: 'networkidle' })
   const naSnapAfter = ((await naRow('자산 대장')) || []).map((x) => x.g).join('')
   ok('권한 매트릭스: na 칸을 눌러도 값이 바뀌지 않는다 (화면·서버 양쪽 차단)', naSnapBefore !== '' && naSnapBefore === naSnapAfter)
@@ -3504,8 +3510,8 @@ try {
     const tr = [...document.querySelectorAll('tr')].find((r) => r.textContent.includes('AST-010'))
     return tr ? [...tr.querySelectorAll('button')].find((b) => b.textContent.trim() === '격리요청') : null
   })
-  await naBtn.asElement().click()
-  await pNa.waitForTimeout(1200)
+  ok('메뉴 관리(STEP2): 자산 대장의 격리요청 부여 버튼을 집었다 (양성 대조)', !!naBtn.asElement())
+  if (naBtn.asElement()) { await naBtn.asElement().click(); await pNa.waitForTimeout(1200) }
   await pNa.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
   const naGranted = naAt((await naRow('자산 대장')) || [], '격리요청', 'SEC_MGR')
   ok('권한 매트릭스: STEP 2 부여 직후 그 열은 불가에서 시작한다 (잠재 허용이 살아나지 않는다)', !!naGranted && naGranted.g === '·' && naGranted.o === '1')
