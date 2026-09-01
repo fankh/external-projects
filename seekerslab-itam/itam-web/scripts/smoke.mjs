@@ -305,8 +305,15 @@ try {
   check('자산 대장: 상세에 수리 비용 이력·누계(자산 TCO)', regRepairCost.includes('수리 비용 이력') && regRepairCost.includes('243,000') && regRepairCost.includes('배터리 교체'))
   // 취득가 + TCO(취득+수리) — AST-2023-000112 취득가 1,680,000 + 수리 243,000 = TCO 1,923,000
   check('자산 대장: 상세에 취득가·TCO 표시', regRepairCost.includes('취득가') && regRepairCost.includes('1,680,000') && regRepairCost.includes('TCO(취득+수리)') && regRepairCost.includes('1,923,000'))
-  // 잔존가치(정액법 감가상각) — AST-2023-000112(도입 2023-03, 상각 진행 중)엔 잔존가치·정액법 표기
-  check('자산 대장: 상세에 잔존가치(정액법 감가상각)', regRepairCost.includes('잔존가치(장부가)') && regRepairCost.includes('정액법'))
+  // 잔존가치 표기는 두 갈래다 — 내용연수 안이면 '정액법 · 상각 N%', 넘겼으면 '상각 완료'(RegisterView).
+  //  어느 쪽이 나오는지는 오늘이 그 자산의 내용연수 안인지에 달렸으므로, 특정 자산을 '상각 진행 중' 이라고
+  //  가정하면 시계가 그 선을 넘는 순간 제품이 멀쩡한데도 깨진다 — 실제로 ITAM_TODAY=2028-09-01 에서
+  //  그랬다(도입 2023-03 자산은 2028-03 에 상각이 끝난다). 가정 대신 성질을 잰다: 블록은 반드시 있고,
+  //  두 갈래 중 정확히 하나만 나온다. 어느 한쪽이 통째로 사라지면(계산 실패로 표기 누락) 여기서 걸린다.
+  const depDone = regRepairCost.includes('상각 완료')
+  const depRunning = regRepairCost.includes('정액법')
+  check('자산 대장: 상세에 잔존가치(장부가) 블록', regRepairCost.includes('잔존가치(장부가)'))
+  check('자산 대장: 잔존가치 표기는 정액법·상각 완료 중 정확히 하나(시계 가정 없음)', depDone !== depRunning)
   // 내용연수(5년) 초과 자산은 상각 완료(잔존가치 0) — AST-2020-000883(도입 2020-02) 로 결정적 검증
   const regOldDep = await (await get('/assets/register?sel=AST-2020-000883', 'ASSET_MGR')).text()
   check('자산 대장: 내용연수 초과 자산 상각 완료', regOldDep.includes('잔존가치(장부가)') && regOldDep.includes('상각 완료'))
