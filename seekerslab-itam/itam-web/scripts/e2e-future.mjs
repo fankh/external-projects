@@ -22,6 +22,16 @@ import process from 'node:process'
 const ROOT = path.resolve(import.meta.dirname, '..')
 const arg = (process.argv[2] || '').trim()
 
+// 원격 대상(E2E_BASE)에는 쓸 수 없다 — ITAM_TODAY 는 이 프로세스의 환경변수라 원격 서버의 시계를 바꾸지
+//  못한다. 그대로 두면 "미래 시계로 돌렸다"고 출력하면서 실제로는 원격의 현재 시계를 검사하는 무증상
+//  실행이 된다(게다가 검사 쪽만 미래를 기준일로 삼아 서버와 어긋난 채 거짓 실패를 낸다). 이 진단이 잡으려는
+//  실패가 바로 그런 모양이므로, 조용히 도는 대신 멈추고 무엇이 안 되는지 말한다.
+if (process.env.E2E_BASE) {
+  console.error('미래 시계 e2e 는 원격 대상(E2E_BASE)에 쓸 수 없습니다 — ITAM_TODAY 로 원격 서버의 시계를 바꿀 수 없습니다.')
+  console.error('  원격 배포본을 미래 시계로 보려면 그 서버를 ITAM_TODAY 를 지정해 기동한 뒤 E2E_BASE 로 npm run e2e 를 돌리세요.')
+  process.exit(2)
+}
+
 /** 실행 시점 + n년 — 2/29 는 말일로 당긴다(lib/dates addYears 와 같은 달력 규칙). */
 function plusYears(n) {
   const d = new Date()
