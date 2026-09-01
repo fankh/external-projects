@@ -25,6 +25,15 @@ export async function setPermission(menu: PermMenu, action: PermAction, role: Ro
   const idx = PERM_ACTIONS.indexOf(action)
   if (idx < 0) return { ok: false, message: '기능을 찾을 수 없습니다.' }
 
+  // 그 화면이 제공하지 않는 기능(매트릭스의 na 칸)은 값을 바꿀 수 없다 — 바로 위 'p' 가드와 같은 종류다:
+  //  저장은 되는데 뜻이 없고, 나중에 메뉴 관리(STEP 2)에서 그 기능을 부여하는 순간 아무도 매트릭스에서
+  //  준 적 없는 허용으로 살아난다(시드에 자산 대장 × 격리요청 · SEC_MGR = y 가 그렇게 남아 있었다).
+  //  화면도 na 칸의 클릭을 막지만 서버가 최종 판정이다 — 액션 직접 호출은 화면 가드를 지나친다.
+  const def = s.menuDefs.find((d) => d.menu === menu)
+  if (def && !def.actions.includes(action)) {
+    return { ok: false, message: `${menu} 화면에 '${action}' 기능이 없습니다 — 메뉴 관리(STEP 2)에서 먼저 부여하세요.` }
+  }
+
   // '본인(부분)'은 범위를 좁히는 구현이 있는 칸에만 줄 수 있다 — 구현 없는 칸의 'p' 는 can() 을 그대로 통과해
   //  허용(y)과 똑같이 동작하므로, 관리자가 좁혔다고 믿는 사이 전사가 열린다(엑셀 칸은 그대로 전사 반출).
   //  화면도 순환에서 건너뛰지만 서버가 최종 판정이다 — 여기서 막지 않으면 액션 직접 호출로 넘어온다.
