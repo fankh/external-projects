@@ -761,6 +761,52 @@ try {
   check('권한 판정: 정의에 없는 기능은 저장값과 무관하게 불가로 읽는다', /def && !def\.actions\.includes\(action\)/.test(permSrc))
   check('권한 매트릭스 화면: na 칸은 클릭이 막혀 있다', /!pending && !na && click\(/.test(matrixSrc))
   check('메뉴 기능 부여: 그 열을 불가로 초기화 (잠재 허용이 살아나지 않게)', menuActSrc.includes("row.cells[role][idx] = 'n'") && menuActSrc.includes('lockReason(def.menu, action, role)'))
+  // ── 공통코드 참조 집계(codeUsage)가 그 코드 체계를 저장하는 모든 컬렉션을 세는가 ──
+  //  lib/codes.ts 가 스스로 적어 둔 규약이다: "참조 필드를 하나라도 빠뜨리면 가드가 조용히 열린다".
+  //  공통코드 화면은 "살아있는 레코드가 참조하는 코드는 미사용 전환이 차단됩니다"라고 약속하고
+  //  "사용 중 N건"을 이관 기준으로 제시하는데, 세지 않은 컬렉션이 있으면 그 N건만 옮긴 뒤 전환이
+  //  통과한다 — 남은 참조는 드롭다운에서 사라진 코드를 붙든 채 재선택 불가로 방치된다.
+  //  목록을 손으로 적지 않고 타입에서 끌어낸다: 코드 체계마다 타입 별칭이 있으니, Store 의 각 컬렉션
+  //  원소 타입에서 그 별칭으로 선언된 필드를 모두 찾아 codeUsage 의 해당 case 가 세는지 본다.
+  //  (LOCATION·DATA_GRADE 는 별칭이 없어 — location: string, dataGrade 는 인라인 유니온 — 이 방식으로
+  //   추적할 수 없다. 그 둘은 codes.ts 주석이 근거이고, 여기서는 별칭이 있는 4종만 고정한다.)
+  const codesSrc = readFileSync(path.join(ROOT, 'lib', 'codes.ts'), 'utf8')
+  const storeTypeSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const storeIface = storeTypeSrc.slice(storeTypeSrc.indexOf('export interface Store'))
+  const storeFields = storeIface.slice(0, storeIface.indexOf(String.fromCharCode(10) + '}'))
+  const storeColls = [...storeFields.matchAll(/^\s{2}(\w+):\s*(\w+)\[\]/gm)].map((m) => ({ field: m[1], type: m[2] }))
+  const ifaceFields = new Map()
+  for (const src of [permTypesSrc, storeTypeSrc]) {
+    for (const m of src.matchAll(/export interface (\w+)\s*\{([\s\S]*?)\n\}/g)) {
+      ifaceFields.set(m[1], [...m[2].matchAll(/^\s{2}(\w+)\??:\s*([^\n;/]+)/gm)].map((x) => ({ name: x[1], type: x[2].trim() })))
+    }
+  }
+  const codeUsageBlock = codesSrc.slice(codesSrc.indexOf('export function codeUsage'), codesSrc.indexOf('export function activeLocations'))
+  const codeCase = (g) => {
+    const i = codeUsageBlock.indexOf(`case '${g}':`)
+    if (i < 0) return ''
+    const rest = codeUsageBlock.slice(i)
+    const j = rest.indexOf("case '", 6)
+    return rest.slice(0, j < 0 ? rest.indexOf('default:') : j)
+  }
+  const CODE_SYS = [['AssetCategory', 'ASSET_CATEGORY'], ['AssetStatus', 'ASSET_STATUS'], ['ReconcileState', 'RECONCILE'], ['RiskLevel', 'RISK']]
+  const codeHolders = []
+  const codeMissed = []
+  for (const [typeName, group] of CODE_SYS) {
+    const body = codeCase(group)
+    for (const c of storeColls) {
+      for (const fld of ifaceFields.get(c.type) ?? []) {
+        if (!new RegExp(`(^|[^A-Za-z0-9_])${typeName}([^A-Za-z0-9_]|$)`).test(fld.type)) continue
+        codeHolders.push(`${c.field}.${fld.name}`)
+        if (!(body.includes(`s.${c.field}`) && body.includes(fld.name))) codeMissed.push(`${group} ← ${c.field}.${fld.name}`)
+      }
+    }
+  }
+  //  양성 대조 — 저장 지점을 하나도 못 읽으면 "빠진 것 없음"이 공허하게 통과한다(파싱이 깨진 경우).
+  check(`공통코드 참조 집계: 코드 체계 4종의 저장 지점 ${codeHolders.length}종을 타입에서 찾았다 (양성 대조)`,
+    storeColls.length > 10 && codeHolders.length >= 20)
+  check('공통코드 참조 집계: codeUsage 규약 — 그 코드 체계를 저장하는 모든 컬렉션을 센다',
+    codeMissed.length === 0, codeMissed.join(' · '))
   // 저장된 스냅샷도 로드 시 한 번 정리한다 — 화면이 그리는 값과 can() 의 판정이 갈리지 않게
   check('스토어 로드: 구현 없는 칸의 잔존 본인을 불가로 정리', permStoreSrc.includes('hasPartialScope(row.menu, PERM_ACTIONS[i], role)'))
   // 칸 순서(PERM_ACTIONS)는 정의가 하나여야 한다 — store 와 perm 이 각자 배열을 들면 i 번째 기능이 갈린다
