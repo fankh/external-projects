@@ -87,13 +87,19 @@ export function MatrixEditor(props: {
                           ].filter(Boolean).join(' · ')}
                       style={{
                         ...(i === 0 ? { borderLeft: '1px solid var(--line-strong)' } : {}),
-                        cursor: locked || pending ? 'default' : 'pointer',
+                        cursor: locked || na || pending ? 'default' : 'pointer',
                         opacity: pending ? 0.55 : na ? 0.28 : 1,
                         ...(enforced ? { textDecoration: 'underline', textUnderlineOffset: 3 } : {}),
                       }}
-                      onClick={() => !pending && click(row.menu, action, r, c)}
+                      //  na 칸은 누를 수 없다 — 메뉴 관리(STEP 2)가 "회수하면 매트릭스에서 na 로 잠깁니다"
+                      //   라고 약속하는데 그동안 클릭이 그대로 먹혔다. 그 화면에 없는 기능에 값을 넣으면
+                      //   뜻이 없을뿐더러, 나중에 STEP 2 에서 부여하는 순간 살아나는 잠재 권한이 된다.
+                      //   서버(setPermission)도 같은 이유로 막지만 여기서 먼저 유혹을 없앤다.
+                      onClick={() => !pending && !na && click(row.menu, action, r, c)}
                     >
-                      {GLYPH[c]}{locked && <span className="mut" style={{ fontSize: 10 }}> 🔒</span>}
+                      {/* na 칸은 저장된 값 대신 해당 없음을 그린다 — 그 화면에 없는 기능이라 y/n 어느 쪽도
+                          사실이 아니다. 흐린 ✓ 를 그대로 두면 관리자는 주지도 않은 허용을 읽게 된다. */}
+                      {na ? <span className="mut">–</span> : GLYPH[c]}{locked && <span className="mut" style={{ fontSize: 10 }}> 🔒</span>}
                     </td>
                   )
                 }))}

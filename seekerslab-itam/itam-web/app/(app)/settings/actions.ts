@@ -11,8 +11,8 @@ import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
 import { getStore, nextId } from '@/lib/store'
 import { requiresApproval } from '@/lib/approval'
 import { saasEscalateTargets } from '@/lib/reminders'
-import { can, PERM_ACTIONS } from '@/lib/perm'
-import { LOCKED_AI_POLICY_TOGGLES, SCAN_INTERVALS, type Channel, type PermAction, type SaasCatalogEntry } from '@/lib/types'
+import { can, lockReason, PERM_ACTIONS } from '@/lib/perm'
+import { LOCKED_AI_POLICY_TOGGLES, SCAN_INTERVALS, type Channel, type PermAction, type Role, type SaasCatalogEntry } from '@/lib/types'
 
 /** 정책 변경은 전량 추적 (§07 감사) — 적재는 lib/audit 로 일원화 */
 const audit = appendAdminAudit
@@ -56,9 +56,32 @@ export async function toggleMenuAction(code: string, action: PermAction) {
   if (!def) return { ok: false, message: '화면 정의를 찾을 수 없습니다.' }
   if (def.enforced.includes(action)) return { ok: false, message: `'${action}'은 서버가 직접 강제하는 기능이라 회수할 수 없습니다 (코드 바인딩·API 403).` }
   const has = def.actions.includes(action)
+
+  // 부여는 매트릭스를 "편집 가능하게"만 해야 한다 — 이 화면 안내문이 "여기 편집으로 권한이 상승하지 않습니다"
+  //  라고 약속하는 바로 그 성질이다. 그런데 회수돼 있는 동안에도 매트릭스 칸에는 예전 값이 그대로 남아 있어,
+  //  부여하는 순간 아무도 매트릭스에서 준 적 없는 허용이 켜졌다(시드의 자산 대장 × 격리요청 · SEC_MGR = y 가
+  //  그런 값이었다 — 부여 한 번으로 보안담당에게 격리요청 권한이 생겼다). 그래서 부여할 때 그 열을 불가로
+  //  되돌린다: 권한은 매트릭스에서 명시적으로 켤 때만 생긴다(fail closed). 잠긴 칸은 건드리지 않는다 —
+  //  회수 자체가 금지된 칸이라 여기서 불가로 되돌리면 그 잠금을 우회하는 것이 된다.
+  const reset: string[] = []
+  if (!has) {
+    const row = s.menuPermissions.find((m) => m.menu === def.menu)
+    const idx = PERM_ACTIONS.indexOf(action)
+    if (row && idx >= 0) {
+      for (const role of ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'] as Role[]) {
+        if (lockReason(def.menu, action, role)) continue
+        if (row.cells[role][idx] === 'n') continue
+        reset.push(`${role}: ${row.cells[role][idx]} → n`)
+        row.cells[role][idx] = 'n'
+      }
+    }
+  }
   // PERM_ACTIONS 순서 유지 — 매트릭스 열 순서와 일치하도록 부여 시 정렬 삽입
   def.actions = has ? def.actions.filter((a) => a !== action) : PERM_ACTIONS.filter((a) => def.actions.includes(a) || a === action)
-  audit(session.name, `메뉴 기능 ${has ? '회수' : '부여'} — ${def.menu} × ${action}`, code)
+  //  초기화된 칸을 함께 남긴다 — 부여가 매트릭스 값을 바꾸므로, 무엇이 불가로 돌아갔는지 적지 않으면
+  //   나중에 '왜 권한이 사라졌나'를 감사 로그에서 재구성할 수 없다.
+  const resetNote = reset.length ? ` (매트릭스 초기화: ${reset.join(', ')})` : ''
+  audit(session.name, `메뉴 기능 ${has ? '회수' : '부여'} — ${def.menu} × ${action}${resetNote}`, code)
   revalidatePath('/', 'layout')
   return { ok: true, message: `${def.menu} · '${action}' 기능 ${has ? '회수(매트릭스 na 잠금)' : '부여(매트릭스 편집 가능)'}` }
 }

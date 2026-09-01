@@ -20,6 +20,13 @@ export function can(menu: PermMenu, action: PermAction, role: Role): boolean {
   if (isLocked(menu, action, role)) return true
   const cell = row.cells[role]?.[idx]
   if (cell === 'n') return false
+  // 그 화면이 제공하지 않는 기능(매트릭스의 na 칸)은 저장값과 무관하게 불가다 — 바로 아래 잔존 'p' 와
+  //  같은 종류의 보수적 판정이다. 정의(STEP 2)에 없는 기능의 칸에는 예전 값이 남아 있을 수 있고
+  //  (시드에도 자산 대장 × 격리요청 · SEC_MGR = y 가 그렇게 있었다), 나중에 화면에 그 버튼을 붙이면서
+  //  정의 갱신을 빠뜨리면 아무도 준 적 없는 권한이 그대로 판정에 쓰인다. 부여 경로는 toggleMenuAction 이
+  //  열을 초기화해 막지만, 정의와 코드가 어긋나는 경로는 여기서만 막힌다 — 권한은 닫힌 쪽으로 읽는다.
+  const def = getStore().menuDefs.find((d) => d.menu === menu)
+  if (def && !def.actions.includes(action)) return false
   // 'p'(부분)는 본인 범위 한정 허용 — 스코핑은 각 화면·반출이 따로 처리한다(PARTIAL_SCOPES).
   //  구현이 없는 칸에 'p' 가 남아 있으면(이 가드 이전에 저장된 스냅샷) 허용과 구분되지 않아 전사가 열린다 —
   //  권한은 보수적으로 읽어 불가로 판정한다. 지정 자체는 setPermission 이 이미 막는다.

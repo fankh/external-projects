@@ -3471,6 +3471,53 @@ try {
   ok('메뉴 관리(STEP2): 회수 후 부여 버튼 복귀', (await dashRow().locator('button', { hasText: /^저장$/ }).count()) > 0)
   await ctxMn.close()
 
+  // ── 매트릭스 na 칸은 실제로 잠겨야 하고, STEP 2 부여가 잠재 권한을 켜면 안 된다 ──
+  //  이 화면들은 두 가지를 글로 약속한다: (1) 회수하면 매트릭스에서 "na 로 잠깁니다",
+  //  (2) "부여는 매트릭스를 편집 가능하게만 합니다 — 여기 편집으로 권한이 상승하지 않습니다".
+  //  둘 다 지켜지지 않았다. na 칸은 커서가 pointer 인 채 눌리면 서버까지 값이 저장됐고, 회수된 동안
+  //  칸에 남아 있던 예전 값은 STEP 2 에서 그 기능을 부여하는 순간 살아났다 — 시드의
+  //  자산 대장 × 격리요청 · SEC_MGR = y 가 그런 값이라, 부여 한 번으로 보안담당에게 격리요청이 생겼다.
+  //  화면 문구가 아니라 성질을 고정한다: na 칸은 눌러도 안 바뀌고, 부여 직후 그 열은 불가에서 시작한다.
+  const ctxNa = await browser.newContext(); await ctxNa.addCookies([cookie(ADMIN)]); const pNa = await ctxNa.newPage()
+  const NA_ACTS = ['조회', '저장', '삭제', '엑셀', '편입', '격리요청', '결재']
+  const NA_ROLES = ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']
+  const naRow = (menu) => pNa.evaluate((m) => {
+    const tr = [...document.querySelectorAll('tr')].find((r) => r.querySelector('td') && r.querySelector('td').textContent.trim() === m)
+    return tr ? [...tr.querySelectorAll('td')].slice(1).map((t) => ({ g: t.textContent.trim(), o: t.style.opacity, c: t.style.cursor })) : null
+  }, menu)
+  const naAt = (cells, act, role) => cells[NA_ROLES.indexOf(role) * NA_ACTS.length + NA_ACTS.indexOf(act)]
+  await pNa.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
+  const naCells = await pNa.$('td[title*="기능이 없다"]')
+  ok('권한 매트릭스: 그 화면에 없는 기능(na) 칸이 존재한다 (양성 대조)', naCells.length > 0)
+  const naRegBefore = await naRow('자산 대장')
+  const naCell = naRegBefore && naAt(naRegBefore, '격리요청', 'SEC_MGR')
+  ok('권한 매트릭스: na 칸은 저장값이 아니라 해당 없음을 그린다 (주지 않은 허용을 읽히지 않게)', !!naCell && naCell.g === '–')
+  ok('권한 매트릭스: na 칸 커서는 default — 누를 수 있는 것처럼 보이지 않는다', !!naCell && naCell.c === 'default')
+  const naSnapBefore = (naRegBefore || []).map((x) => x.g).join('')
+  await naCells[0].click()
+  await pNa.waitForTimeout(1200)
+  await pNa.reload({ waitUntil: 'networkidle' })
+  const naSnapAfter = ((await naRow('자산 대장')) || []).map((x) => x.g).join('')
+  ok('권한 매트릭스: na 칸을 눌러도 값이 바뀌지 않는다 (화면·서버 양쪽 차단)', naSnapBefore !== '' && naSnapBefore === naSnapAfter)
+  await pNa.goto(`${BASE}/settings/menus`, { waitUntil: 'networkidle' })
+  const naBtn = await pNa.evaluateHandle(() => {
+    const tr = [...document.querySelectorAll('tr')].find((r) => r.textContent.includes('AST-010'))
+    return tr ? [...tr.querySelectorAll('button')].find((b) => b.textContent.trim() === '격리요청') : null
+  })
+  await naBtn.asElement().click()
+  await pNa.waitForTimeout(1200)
+  await pNa.goto(`${BASE}/settings/permissions`, { waitUntil: 'networkidle' })
+  const naGranted = naAt((await naRow('자산 대장')) || [], '격리요청', 'SEC_MGR')
+  ok('권한 매트릭스: STEP 2 부여 직후 그 열은 불가에서 시작한다 (잠재 허용이 살아나지 않는다)', !!naGranted && naGranted.g === '·' && naGranted.o === '1')
+  // 원복 — 좌석 오염 방지(뒤 검증이 자산 대장 기능 구성을 본다)
+  await pNa.goto(`${BASE}/settings/menus`, { waitUntil: 'networkidle' })
+  const naBtn2 = await pNa.evaluateHandle(() => {
+    const tr = [...document.querySelectorAll('tr')].find((r) => r.textContent.includes('AST-010'))
+    return tr ? [...tr.querySelectorAll('button')].find((b) => b.textContent.trim() === '✓ 격리요청') : null
+  })
+  if (naBtn2.asElement()) { await naBtn2.asElement().click(); await pNa.waitForTimeout(900) }
+  await ctxNa.close()
+
   // ── 모바일 웹 지원(제품안내서 §03) 회귀 가드 — 좁은 뷰포트(390px)에서 가로 오버플로가 없고 LV2 내비가 접힌다 ──
   const ctxMob = await browser.newContext({ viewport: { width: 390, height: 844 } })
   await ctxMob.addCookies([cookie(ASSET)])
