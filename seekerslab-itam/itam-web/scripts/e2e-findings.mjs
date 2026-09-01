@@ -272,8 +272,23 @@ async function aiPeriodQuery(page) {
   //  픽스처와 성질을 나눈다 — '그 분기에 나열할 자산이 있다'(양성 대조)와 '나열된 것은 모두 창 안'(성질)은
   //   다른 주장이다. 하나로 묶으면 그 분기에 만료 자산이 없는 시계에서 창 판정이 틀린 것처럼 보고된다
   //   (실제로 시계를 앞으로 돌린 회귀가 그렇게 읽혔다). 해당 없음 응답 자체는 아래 2099년 검사가 덮는다.
-  ok('AI 기간질의(양성 대조): 그 분기에 나열할 만료 자산이 있다', dates.length > 0)
-  ok('AI 기간질의: 나열 만료일 전부 창 안', !!win && dates.every((d) => d >= win[1] && d <= win[2]))
+  //  '내년 1분기' 는 상대 라벨 파싱을 재는 질의다 — 그 분기에 시드 자산이 있는지는 시계에 달렸으므로
+  //   목록 유무를 주장하지 않고, 나열이 있을 때만 창 안이라는 조건부 성질로 남긴다.
+  ok("AI 기간질의('내년 1분기'): 나열이 있으면 전부 창 안", !!win && dates.every((d) => d >= win[1] && d <= win[2]))
+  //  양성 대조는 픽스처를 가정하지 않고 발견한다 — 앱이 임박순으로 내놓은 실제 만료일 하나를 집어 그 날짜가
+  //   속한 분기를 명시(YYYY년 N분기)로 되묻는다. 그 분기에는 정의상 최소 한 대가 있으므로 어느 시계에서도
+  //   '목록이 비지 않는다' 가 성립하고, 빈 목록이 조용히 통과하는 무증상 앵커가 생기지 않는다.
+  const seedList = await ask('보증 만료되는 자산 목록')
+  const seedDate = (seedList.match(/보증 만료 (\d{4}-\d{2}-\d{2})/) || [])[1] || ''
+  const seedNo = (seedList.match(/· (AST-\d{4}-\d{6}) —/) || [])[1] || ''
+  const qy = seedDate.slice(0, 4)
+  const qq = seedDate ? Math.floor((Number(seedDate.slice(5, 7)) - 1) / 3) + 1 : 0
+  const qQtr = seedDate ? await ask(`${qy}년 ${qq}분기 보증 만료 자산`) : ''
+  const winQ = qQtr.match(/(\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})/)
+  const datesQ = [...qQtr.matchAll(/보증 만료 (\d{4}-\d{2}-\d{2})/g)].map((m) => m[1])
+  ok(`AI 기간질의(양성 대조): 실제 만료 자산이 있는 분기(${qy || '?'}년 ${qq || '?'}분기)는 목록이 비지 않는다`, datesQ.length > 0)
+  ok('AI 기간질의(명시 연도·분기): 임박순에서 집은 그 자산이 해당 분기 목록에 있다', seedNo !== '' && qQtr.includes(seedNo))
+  ok('AI 기간질의(명시 연도·분기): 나열 만료일 전부 창 안', !!winQ && datesQ.every((d) => d >= winQ[1] && d <= winQ[2]))
   // count↔destination — 임의 기간 창은 '보증 임박(≤90일)' 필터와 집합이 어긋나므로 그 링크로 오연결되지 않아야 한다(전체/유형 대장으로).
   ok('AI 기간질의: 무관한 보증 임박 필터(?warranty=soon)로 오연결 안 됨', (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?warranty=soon"]').count()) === 0)
   const q2 = await ask('2099년 1분기 보증 만료 자산')
@@ -3258,7 +3273,7 @@ try {
   await pLY.locator('button', { hasText: /^보증 연장$/ }).first().click()
   await pLY.waitForTimeout(200)
   const lyAfter = (((await pLY.textContent('body')) || '').match(/보증 연장 · 현재 만료 (\d{4}-\d{2}-\d{2})/) || [])[1] || ''
-  ok(`윤년 보증 연장: ${lyNow || '?'} +1년 → ${lyExpect || '?'} (말일 클램프 · 서버 규칙 기대값)`, lyExpect !== '' && lyBody.includes(lyExpect))
+  ok(`윤년 보증 연장: 현재 만료 ${lyNow || '?'} → ${lyExpect || '?'} (만료·오늘 중 뒤쪽 +1년 · 말일 클램프)`, lyExpect !== '' && lyBody.includes(lyExpect))
   ok(`윤년 보증 연장: 대장이 적은 새 만료일이 달력에 실재한다(${lyAfter || '?'} · 2/29 같은 유령 날짜 금지)`, isRealDate(lyAfter) && lyAfter === lyExpect)
   await ctxLY.close()
   // 거버넌스 가드(로19) — 본인/마지막 관리자 강등 방지 + 필수 결재선 잠금. UI 가 서버 규칙(lastAdmin · MANDATORY_APPROVAL_KINDS)을 반영해 잠근다. 그동안 오프보딩 읽기만 있고 가드는 미검증(잠금 풀리면 관리자 락아웃·필수 보안 결재 제거).
