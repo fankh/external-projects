@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "smoke": "node scripts/smoke.mjs",
+    "smoke:future": "node scripts/smoke-future.mjs",
     "health": "node scripts/client-health.mjs",
     "layout": "node scripts/layout-sweep.mjs",
     "empty": "node scripts/empty-store.mjs",
