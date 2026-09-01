@@ -59,9 +59,10 @@ const yPlus = (endStr, n) => {
   return `${y + n}-${pad(m)}-${pad(Math.min(dd, last))}`
 }
 /** 달력에 실재하는 날짜인가 — '2029-02-29' 처럼 없는 날짜를 Date 에 넣으면 3/1 로 굴러 원문과 달라진다.
- *  화면이 적은 날짜를 이 잣대로 재면, 클램프가 빠져 만들어진 유령 날짜를 날짜 계산 없이 잡아낸다. */
+ *  앱 쪽 lib/dates isValidDate 와 같은 규칙이지만 일부러 여기서 따로 쓴다 — 검사가 피검사 대상의
+ *  구현을 빌려 쓰면 그 구현이 틀렸을 때 같이 틀리기 때문이다(독립한 잣대로 화면이 적은 날짜를 잰다). */
 const isRealDate = (s) => {
-  const m = /^(d{4})-(d{2})-(d{2})$/.exec(s || '')
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '')
   if (!m) return false
   const [y, mo, d] = m.slice(1).map(Number)
   const dt = new Date(Date.UTC(y, mo - 1, d))
@@ -3248,7 +3249,7 @@ try {
   await pLY.goto(`${BASE}/assets/register?sel=AST-2025-000701`, { waitUntil: 'networkidle' })
   await pLY.locator('button', { hasText: /^보증 연장$/ }).first().click()
   await pLY.waitForTimeout(200)
-  const lyNow = (((await pLY.textContent('body')) || '').match(/보증 연장 · 현재 만료 (d{4}-d{2}-d{2})/) || [])[1] || ''
+  const lyNow = (((await pLY.textContent('body')) || '').match(/보증 연장 · 현재 만료 (\d{4}-\d{2}-\d{2})/) || [])[1] || ''
   const lyExpect = lyNow ? yPlus(lyNow, 1) : ''
   await pLY.locator('button', { hasText: /^1년$/ }).first().click()
   await pLY.waitForTimeout(700)
@@ -3256,7 +3257,7 @@ try {
   const lyBody = (await pLY.textContent('body')) || ''
   await pLY.locator('button', { hasText: /^보증 연장$/ }).first().click()
   await pLY.waitForTimeout(200)
-  const lyAfter = (((await pLY.textContent('body')) || '').match(/보증 연장 · 현재 만료 (d{4}-d{2}-d{2})/) || [])[1] || ''
+  const lyAfter = (((await pLY.textContent('body')) || '').match(/보증 연장 · 현재 만료 (\d{4}-\d{2}-\d{2})/) || [])[1] || ''
   ok(`윤년 보증 연장: ${lyNow || '?'} +1년 → ${lyExpect || '?'} (말일 클램프 · 서버 규칙 기대값)`, lyExpect !== '' && lyBody.includes(lyExpect))
   ok(`윤년 보증 연장: 대장이 적은 새 만료일이 달력에 실재한다(${lyAfter || '?'} · 2/29 같은 유령 날짜 금지)`, isRealDate(lyAfter) && lyAfter === lyExpect)
   await ctxLY.close()
