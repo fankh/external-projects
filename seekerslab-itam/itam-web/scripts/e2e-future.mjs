@@ -18,6 +18,7 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import process from 'node:process'
+import { announce, pinnedDate } from './future-clock.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const arg = (process.argv[2] || '').trim()
@@ -32,20 +33,8 @@ if (process.env.E2E_BASE) {
   process.exit(2)
 }
 
-/** 실행 시점 + n년 — 2/29 는 말일로 당긴다(lib/dates addYears 와 같은 달력 규칙). */
-function plusYears(n) {
-  const d = new Date()
-  const y = d.getUTCFullYear() + n
-  const mo = d.getUTCMonth() + 1
-  const day = d.getUTCDate()
-  const last = new Date(Date.UTC(y, mo, 0)).getUTCDate()
-  const pad = (v) => String(v).padStart(2, '0')
-  return `${y}-${pad(mo)}-${pad(Math.min(day, last))}`
-}
-
-const pinned = /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : plusYears(Number(arg) > 0 ? Number(arg) : 2)
-console.log(`미래 시계 e2e — ITAM_TODAY=${pinned}`)
-console.log('  (제품 회귀가 아니라 검사 자신의 시계 의존을 찾는 진단입니다 — 실패는 그 검사의 가정을 먼저 의심하세요)')
+const pinned = pinnedDate(arg)
+announce('e2e', pinned)
 
 const p = spawn(process.execPath, [path.join(ROOT, 'scripts', 'e2e-findings.mjs')], {
   cwd: ROOT, stdio: 'inherit', env: { ...process.env, ITAM_TODAY: pinned },
