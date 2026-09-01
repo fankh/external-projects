@@ -259,7 +259,11 @@ async function aiPeriodQuery(page) {
   const win = q1.match(/(\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})/)
   ok('AI 기간질의: 분기 창 범위 헤드라인', /보증 만료 예정/.test(q1) && !!win)
   const dates = [...q1.matchAll(/보증 만료 (\d{4}-\d{2}-\d{2})/g)].map((m) => m[1])
-  ok('AI 기간질의: 나열 만료일 전부 창 안', !!win && dates.length > 0 && dates.every((d) => d >= win[1] && d <= win[2]))
+  //  픽스처와 성질을 나눈다 — '그 분기에 나열할 자산이 있다'(양성 대조)와 '나열된 것은 모두 창 안'(성질)은
+  //   다른 주장이다. 하나로 묶으면 그 분기에 만료 자산이 없는 시계에서 창 판정이 틀린 것처럼 보고된다
+  //   (실제로 시계를 앞으로 돌린 회귀가 그렇게 읽혔다). 해당 없음 응답 자체는 아래 2099년 검사가 덮는다.
+  ok('AI 기간질의(양성 대조): 그 분기에 나열할 만료 자산이 있다', dates.length > 0)
+  ok('AI 기간질의: 나열 만료일 전부 창 안', !!win && dates.every((d) => d >= win[1] && d <= win[2]))
   // count↔destination — 임의 기간 창은 '보증 임박(≤90일)' 필터와 집합이 어긋나므로 그 링크로 오연결되지 않아야 한다(전체/유형 대장으로).
   ok('AI 기간질의: 무관한 보증 임박 필터(?warranty=soon)로 오연결 안 됨', (await page.locator('.msg.assistant').last().locator('.refs a[href="/assets/register?warranty=soon"]').count()) === 0)
   const q2 = await ask('2099년 1분기 보증 만료 자산')
