@@ -4464,6 +4464,19 @@ try {
   check(`게이트 요약: 성공 줄에 박힌 단계 목록이 없다 (하드코딩 회귀 방지)`,
     !verSrc.includes('빌드 · 스모크'))
 
+  //  다섯 스위트 검사 수 합계 — 문서가 적는 수 중 유일하게 주인이 없어 조용히 밀려 있었다(2512 ≠ 2595).
+  //  개별 수는 각자 지킨다: 스모크는 자기 수를, e2e 는 자기 수를, 헬스·레이아웃은 구조 수치를. 합계만
+  //  아무도 재지 않았다. 그 대조는 러너가 다섯 수를 실제로 센 뒤에 할 수 있으므로 verify.mjs 에 두고,
+  //  여기서는 그 대조가 실제로 있다는 것과 문서에 읽을 마커가 남아 있다는 것을 고정한다.
+  const verSum = readFileSync(path.join(ROOT, 'scripts', 'verify.mjs'), 'utf8')
+  const readmeSum = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+  const sumMark = '다섯 스위트의 검사 수 합계는 ' + String.fromCharCode(42, 42)
+  const sumClaim = Number((readmeSum.split(sumMark)[1] || '').split('건')[0] || -1)
+  check(`검사 수 합계: 문서가 ${sumClaim > 0 ? sumClaim + '건을' : '수를'} 적고 있다 (양성 대조 — 마커가 없으면 러너가 대조할 대상이 없다)`,
+    sumClaim > 0)
+  check(`검사 수 합계: 러너가 실측값으로 대조한다 (소스 텍스트가 아니라 방금 센 수)`,
+    verSum.includes('const measured = results.filter((r) => allDigits(r.passed))') && verSum.includes('claimedSum !== measured'))
+
   //  린트 단계도 '빈 출력은 통과가 아니라 미지' 규약을 따라야 한다 — 종료 코드 0 과 경고 문자열 없음만
   //  보면, 린트가 아무것도 검사하지 않고 0 을 내는 날 게이트는 '린트 통과'라고 말한다. next lint 는
   //  스스로 Next 16 에서 없어진다고 알리므로 그날은 예고돼 있다. 스위트가 0건을 검사하고 통과하던 것과

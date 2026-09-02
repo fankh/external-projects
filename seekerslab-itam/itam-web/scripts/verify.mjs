@@ -9,7 +9,7 @@
  *
  * 사용: npm run verify   (개별 실행은 그대로 npm run smoke|e2e|health) */
 import { spawn } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import process from 'node:process'
@@ -153,4 +153,19 @@ if (bad || results.length !== SUITES.length + 2) {
 }
 //  성공 줄은 실제로 결과 행이 쌓인 단계에서 만든다 — 목록을 문자열로 박아 두면 단계를 더하거나 뺐을 때
 //   그대로 남아, 게이트가 돌지 않은 것을 통과했다고 말한다(린트를 넣었을 때 실제로 그렇게 어긋나 있었다).
+//  다섯 스위트의 검사 수 합계를 문서와 대조한다 — 개별 스위트는 각자 자기 수를 지키는데(스모크·e2e 는
+//   README 대조, 헬스·레이아웃은 구조 수치) 합계만 주인이 없어 조용히 밀려 있었다(문서 2512 ≠ 실제 2595).
+//   여기가 제자리다: 러너는 방금 다섯 수를 직접 세었으므로 소스 텍스트가 아니라 **실측값**으로 대조한다.
+//   정규식을 쓰지 않는다 — 패치를 거치며 백슬래시가 사라져 조용히 깨지는 자리다(구문 검사는 통과한다).
+const allDigits = (v) => { const t = String(v); if (!t) return false; for (const c of t) if (c < "0" || c > "9") return false; return true }
+const measured = results.filter((r) => allDigits(r.passed)).reduce((n, r) => n + Number(r.passed), 0)
+const readmeSrc = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+const sumMarker = '다섯 스위트의 검사 수 합계는 ' + '*' + '*'
+const afterMarker = readmeSrc.split(sumMarker)[1] || ''
+const claimedSum = Number(afterMarker.split('건')[0] || -1)
+if (claimedSum !== measured) {
+  console.error(`✗ 검사 수 합계가 문서와 다릅니다 — 문서 ${claimedSum}건 ≠ 실측 ${measured}건 (README 미래 시계 진단 절을 고치세요).`)
+  process.exit(1)
+}
+console.log(`  · 검사 수 합계 ${measured}건 — 문서와 일치`)
 console.log('✓ ' + results.map((r) => r.name).join(' · ') + ' 전부 통과')
