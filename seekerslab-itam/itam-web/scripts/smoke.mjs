@@ -4334,6 +4334,17 @@ try {
     .filter((e) => e.isDirectory() && !SKIP_DIRS.has(e.name) && e.name[0] !== '.')
     .map((e) => e.name)
     .filter((n) => hasSourceFile(path.join(ROOT, n)))
+  //  가드가 꺼지는 범위도 고정한다 — ITAM_BUILT_BY_VERIFY 우회는 "러너가 방금 세운 빌드를 믿는다"는
+  //   근거로 신선도만 건너뛰어야 한다. 그 분기가 .next 부재 검사보다 앞에 오면 하나의 return 이 둘을
+  //   함께 꺼서, 빌드가 아예 없어도 통과한다(그 변수는 verify 가 자식 env 에 주입하는 값이라 셸에
+  //   남아 있으면 개별 실행과 구분되지 않는다). 부재는 어떤 근거로도 정당화되지 않는다 —
+  //   next start 가 띄울 것이 없어 스위트가 엉뚱하게 죽는다. 파일 안 순서로 못박는다.
+  const bgMissingAt = guardSrc.indexOf('✗ .next 빌드가 없습니다')
+  const bgBypassAt = guardSrc.indexOf("process.env.ITAM_BUILT_BY_VERIFY === '1'")
+  check(`빌드 가드: 부재 검사와 신선도 우회가 모두 있다 (양성 대조)`,
+    bgMissingAt > 0 && bgBypassAt > 0)
+  check(`빌드 가드: 부재 검사가 우회보다 앞 — 빌드가 없으면 우회해도 막힌다`,
+    bgMissingAt > 0 && bgBypassAt > 0 && bgMissingAt < bgBypassAt)
   const guardMissing = realSrcDirs.filter((d) => !guardDirs.includes(d))
   const guardStale = guardDirs.filter((d) => !realSrcDirs.includes(d))
   //  양성 대조 — 어느 쪽도 못 읽으면 "빠진 것 없음"이 공허하다.
