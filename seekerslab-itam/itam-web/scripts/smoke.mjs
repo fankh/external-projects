@@ -1397,6 +1397,32 @@ try {
     actionCount >= 150)
   check(`서버 액션 가드: 세션·권한 확인 없이 시작하는 액션이 없다 (버튼을 숨겨도 액션 id 로 직접 호출된다)`,
     unguarded.length === 0, `가드 없음: ${unguarded.join(', ')}`)
+
+  // ── 거부를 조용히 끝내는 액션이 없는가 ──
+  //  이 저장소의 규약은 액션 주석에 적혀 있다: "거부를 조용히 끝내면 버튼이 아무 반응 없이 죽는다."
+  //  ok: false 를 돌려주면서 사유(message)를 빼면 화면은 눌러도 아무 일이 없고, 사용자는 권한 문제인지
+  //  데이터 문제인지 알 수 없다. 개별 액션마다 사유 문구를 검사하는 곳은 많지만 '하나도 빠짐없이'는 없었다.
+  //  이 검사는 예전에 접힌 적이 있는데 원인은 결함이 아니라 측정이었다 — 반환문이 여러 줄로 나뉘면
+  //  같은 줄에 message 가 없어 거짓 경보가 난다. 창을 5줄로 잡아 그 형태를 인정한다.
+  //  배경 집계(조회수 증가)는 버튼이 아니라 화면 진입 시 자동 호출이라 보여 줄 사유가 없다 —
+  //  views 를 함께 돌려주는 형태로 구분해 제외한다(이름을 나열하면 새 집계가 생길 때 거짓 경보가 난다).
+  let rejectCount = 0
+  const silentRejects = []
+  for (const f of actionFiles) {
+    const lines = readFileSync(f, 'utf8').split(String.fromCharCode(10))
+    lines.forEach((ln, i) => {
+      if (!ln.includes('ok: false')) return
+      if (ln.includes('views:')) return
+      rejectCount++
+      if (!lines.slice(i, i + 5).join(' ').includes('message')) {
+        silentRejects.push(path.basename(path.dirname(f)) + ':' + (i + 1))
+      }
+    })
+  }
+  check(`거부 사유: ok:false 반환 ${rejectCount}곳을 읽었다 (양성 대조 — 0곳이면 "빠진 것 없음"이 공허하다)`,
+    rejectCount >= 500)
+  check(`거부 사유: 사유 없이 거부하는 액션이 없다 (버튼이 아무 반응 없이 죽는다)`,
+    silentRejects.length === 0, `사유 없음: ${silentRejects.join(', ')}`)
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
