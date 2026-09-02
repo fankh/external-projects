@@ -3609,39 +3609,47 @@ try {
   //  lib/quality assetDataIssues 는 네 규칙을 갖는데(소유자 미지정·시리얼 누락·위치 누락·부서 불일치),
   //  앞의 셋은 시드에 사례가 있어 화면에 뜨지만 부서 불일치만 0건이다. 그 규칙이 잡으려는 것은 주석이
   //  밝힌 대로 "부서별 비용 배분·통지·오프보딩 집계가 실제 보유 부서가 아닌 곳을 가리키는" 상태다.
-  //  시드에 사례를 심으면 리포트의 정합성 정확도가 바뀌어 17종 샘플이 드리프트한다 — 그래서 데이터를
-  //  건드리지 않고, 이미 있는 보정 UI 로 그 조건을 런타임에 만들어 규칙을 태운다(끝나면 되돌린다).
-  //  AST-2022-000512 는 부서가 '영업1팀'이고 소유자가 '-' 다. 소유자를 김민준(플랫폼개발팀)으로 보정하면
-  //  보유자의 부서와 자산의 부서가 갈려 정확히 이 규칙의 조건이 된다.
+  //  시드에 사례를 심으면 리포트 정합성 정확도가 바뀌어 17종 샘플이 전부 드리프트한다 — 검증 대상이
+  //  아닌 것을 흔드는 대가가 크다. 그래서 데이터를 건드리지 않고 앱의 정상 경로로 그 상태를 만든다.
+  //
+  //  경로 선택이 이 검사의 핵심이다. 정합성 보정(correctField)으로는 만들 수 없다 — 소유자를 채울 때
+  //  그 사람의 부서로 자산 부서를 함께 동기화하기 때문이다(보정이 한 이슈를 고치며 다른 이슈를 만들지
+  //  않게 하는 의도된 설계다). 대여(loanAsset)는 대여자와 부서를 각각 입력받아 둘이 독립이다 —
+  //  규칙 주석이 말하는 "수기 입력에서 생긴다"가 바로 이 경로다.
   const ctxDq = await browser.newContext(); await ctxDq.addCookies([cookie(ASSET)]); const pDq = await ctxDq.newPage()
-  await pDq.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
-  //  페이지 전체가 아니라 선택 자산의 정합성 배너만 읽는다 — 대장은 자산 37건을 한 페이지에 렌더하므로
-  //   body 로 재면 다른 자산의 이슈까지 걸린다(실제로 그래서 음성 대조가 헛돌았다: 앞 검사들이 만든
-  //   다른 자산의 부서 불일치를 이 자산 것으로 읽었다).
+  await pDq.goto(`${BASE}/assets/register?avail=1`, { waitUntil: 'networkidle' })
+  //  유휴 자산 하나를 골라 대여자=김민준(플랫폼개발팀) · 부서=영업1팀 으로 대여한다 — 둘이 갈린다.
+  const dqBox = pDq.locator('input[type="checkbox"][aria-label*="선택"]').first()
+  ok('정합성(부서 불일치): 대여 가능한 유휴 자산이 있다 (양성 대조)', (await dqBox.count()) > 0)
+  let dqNo = ""
+  if ((await dqBox.count()) > 0) {
+    dqNo = ((await dqBox.getAttribute('aria-label')) || '').replace(' 선택', '')
+    await dqBox.check()
+    await pDq.waitForTimeout(400)
+    await pDq.locator('input[placeholder="대여자"]').first().fill("김민준")
+    await pDq.locator('input[placeholder="부서"]').first().fill("영업1팀")
+    const due = new Date(Date.parse(baseToday() + 'T00:00:00Z') + 30 * 86400000).toISOString().slice(0, 10)
+    await pDq.locator('input[type="date"]').first().fill(due)
+    await pDq.locator('button', { hasText: /^대여$/ }).first().click()
+    await pDq.waitForTimeout(1500)
+  }
+  await pDq.goto(`${BASE}/assets/register?sel=${dqNo}`, { waitUntil: 'networkidle' })
+  //  선택 자산의 정합성 배너만 읽는다 — 대장은 자산 수십 건을 한 페이지에 렌더하므로 body 로 재면
+  //   다른 자산의 이슈까지 걸린다(실제로 그래서 이 검사가 헛돌았다: 앞 검사들이 만든 남의 부서 불일치를
+  //   이 자산 것으로 읽고 통과했다).
   const dqPanel = async () => {
     const t = (await pDq.textContent('body')) || ''
     const i = t.indexOf('대장 정합성 미흡')
     return i < 0 ? '' : t.slice(i, i + 200)
   }
-  const dqBefore = await dqPanel()
-  ok('정합성: 대상 자산의 상세가 열렸고 소유자 미지정으로 표시된다 (양성 대조)',
-    ((await pDq.textContent('body')) || '').includes('AST-2022-000512') && dqBefore.includes('소유자 미지정'))
-  ok('정합성: 보정 전에는 부서 불일치가 표시되지 않는다 (음성 대조)', !dqBefore.includes('부서 불일치'))
-  const dqInput = pDq.locator('input[placeholder="보정할 소유자(성명)"]').first()
-  ok('정합성: 소유자 보정 입력이 노출된다 (양성 대조)', (await dqInput.count()) > 0)
-  if ((await dqInput.count()) > 0) {
-    await dqInput.fill('김민준')
-    await pDq.locator('button', { hasText: /^보정$/ }).first().click()
-    await pDq.waitForTimeout(1200)
-    await pDq.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
-  }
   const dqAfter = await dqPanel()
-  //  보유자(플랫폼개발팀)와 자산 부서(영업1팀)가 갈렸다 — 이때 규칙이 울려야 한다.
-  ok('정합성: 보유자 부서와 자산 부서가 갈리면 부서 불일치로 잡는다 (그동안 시드에 사례가 없어 미검증이던 규칙)',
+  ok(`정합성(부서 불일치): 대여로 보유자(김민준·플랫폼개발팀)와 자산 부서(영업1팀)를 갈라 놓았다 (${dqNo || '?'})`,
+    dqNo !== '' && ((await pDq.textContent('body')) || '').includes('김민준'))
+  ok('정합성(부서 불일치): 보유자 부서와 자산 부서가 갈리면 부서 불일치로 잡는다 (시드에 사례가 없어 미검증이던 규칙)',
     dqAfter.includes('부서 불일치'))
-  //  소유자 미지정은 해소돼야 한다 — 보정이 실제로 반영됐다는 증거(규칙이 울린 것이 보정 실패 때문이 아니다).
-  ok('정합성: 소유자 보정이 반영돼 소유자 미지정은 해소된다 (규칙이 운 이유가 보정 실패가 아니다)',
-    ((await pDq.textContent('body')) || '').includes('김민준') && !dqAfter.includes('소유자 미지정'))
+  //  반납해 좌석을 되돌린다 — 이 자산은 유휴 재고였고, 대여 상태로 남기면 뒤 검사의 가용 재고가 줄어든다.
+  const dqRet = pDq.locator('button', { hasText: /^반납 처리$|^반납 접수$/ }).first()
+  if ((await dqRet.count()) > 0) { await dqRet.click(); await pDq.waitForTimeout(1200) }
   await ctxDq.close()
 
   // ── 모바일 웹 지원(제품안내서 §03) 회귀 가드 — 좁은 뷰포트(390px)에서 가로 오버플로가 없고 LV2 내비가 접힌다 ──
