@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
 import { nowMinute, today } from '@/lib/dates'
-import { inScanWindow } from '@/lib/scan-policy'
+import { INTENSITY_ORDER, inScanWindow } from '@/lib/scan-policy'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { Channel, ScanPolicy, ScanRun } from '@/lib/types'
@@ -31,10 +31,6 @@ export async function rerunScan(runId: string) {
     override: prev.override || `이전 회차(${prev.id}) 재실행`,
   })
 }
-
-/** 스캔 강도의 세기 순서 — 정책 강도를 상한으로 읽을 때 '넘어섰는지'를 판정하는 유일한 기준.
- *  화면(ScanConsole)도 같은 순서로 선택지를 좁힌다. */
-export const INTENSITY_ORDER = ['낮음', '보통', '높음'] as const
 
 /** 스캔 실행 — 선택한 채널이 관측을 수집하고, 지문으로 병합되어 발견 저장소에 반영된다. */
 export async function runScan(input: ScanInput) {

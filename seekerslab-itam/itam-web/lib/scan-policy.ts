@@ -1,3 +1,9 @@
+/** 스캔 강도의 세기 순서 — 정책 강도를 상한으로 읽을 때 '넘어섰는지'를 판정하는 유일한 기준.
+ *  서버(runScan)와 화면(ScanConsole)이 같은 배열을 쓴다 — 각자 들면 상한 판정이 갈린다.
+ *  서버 액션 파일('use server')에 두면 안 된다: 그 파일은 async 함수만 export 할 수 있어,
+ *  상수를 export 하는 순간 그 모듈의 액션이 전부 런타임에 터진다(스캔 실행이 통째로 죽었다). */
+export const INTENSITY_ORDER = ['낮음', '보통', '높음'] as const
+
 import type { ChannelObservation, ScanPolicy } from './types'
 
 /** 재탐지 주기 → 밀리초. 활성 채널인데 주기를 넘기도록 수집이 없으면 정체된 수집기(Discovery 사각).

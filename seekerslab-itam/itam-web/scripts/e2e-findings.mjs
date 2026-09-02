@@ -3572,6 +3572,21 @@ try {
   await pCap.goto(`${BASE}/discovery/scan`, { waitUntil: 'networkidle' })
   const capHigh = await pCap.evaluate(() => [...document.querySelectorAll('tr')].filter((r) => /SCN-RUN/.test(r.textContent) && /높음/.test(r.textContent)).length)
   ok('스캔 강도: 화면을 우회해도 상한을 넘는 실행은 이력에 남지 않는다 (서버 백스톱)', capHigh === 0)
+  //  양성 대조 — "이력에 남지 않는다"만 보면 막혀서인지 아무것도 실행되지 않아서인지 구분할 수 없다.
+  //   실제로 그 함정에 빠졌다: 상수를 'use server' 파일에 export 해 스캔 액션이 통째로 터졌는데,
+  //   위 단언은 초록이었다(회차가 안 늘었으니까). 상한 안쪽 강도로는 반드시 실행돼야 한다.
+  const capRunsBefore = Number(((await pCap.textContent('body')) || '').match(/스캔 이력 (\d+)회차/)?.[1] ?? '0')
+  await pCap.evaluate(() => {
+    const sel = document.querySelector('select[aria-label="스캔 강도"]')
+    sel.value = sel.options[sel.options.length - 1].value
+    sel.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await pCap.waitForTimeout(400)
+  const capRun2 = await pCap.evaluateHandle(() => [...document.querySelectorAll('button')].find((b) => /스캔 실행/.test(b.textContent) && !b.disabled))
+  if (capRun2.asElement()) { await capRun2.asElement().click(); await pCap.waitForTimeout(3000) }
+  await pCap.goto(`${BASE}/discovery/scan`, { waitUntil: 'networkidle' })
+  const capRunsAfter = Number(((await pCap.textContent('body')) || '').match(/스캔 이력 (\d+)회차/)?.[1] ?? '0')
+  ok(`스캔 강도(양성 대조): 상한 안쪽 강도로는 스캔이 실제로 실행된다 (${capRunsBefore} → ${capRunsAfter}회차)`, capRunsBefore > 0 && capRunsAfter === capRunsBefore + 1)
   //  시간대 원복 — 좌석 오염 방지(뒤 검증이 창 밖 경고를 본다)
   if (capWindowBefore) {
     await pCap.goto(`${BASE}/settings/scan-policy`, { waitUntil: 'networkidle' })
