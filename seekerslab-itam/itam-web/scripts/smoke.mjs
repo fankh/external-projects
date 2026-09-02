@@ -758,6 +758,22 @@ try {
   //  남의 자산 한 건을 이름으로 집는다 — 개수 비교만으로는 '조금 적게 보여 주기'와 구분되지 않는다.
   check('본인 범위(조회): 남의 자산이 사용자 화면에 새지 않는다(AST-2020-000883 인프라운영팀)',
     regAdminNos.includes('AST-2020-000883') && !regUserNos.includes('AST-2020-000883'))
+  //  목록 스코핑만 보면 '직접 지목' 경로가 빈칸으로 남는다 — ?sel= 는 목록을 거치지 않고 상세를 연다.
+  //  남의 자산 번호를 손으로 넣어도 그 자산의 실체가 사용자 화면에 나타나선 안 된다.
+  //  자산번호 문자열로 재면 안 된다 — sel 파라미터가 링크·속성에 그대로 되울려 '노출됐다'가 항상 참이 된다
+  //  (실제로 그렇게 보여서 한 번 잘못 읽었다). 그 자산에만 있는 실체(부서·모델·중요도)로 잰다.
+  const selNo = 'AST-2020-000883'
+  const selMarks = ['인프라운영팀', 'CentOS', '핵심']
+  const stripComments = (t) => t.split('<!-- -->').join('')
+  const selAdmin = stripComments(await (await get(`/assets/register?sel=${selNo}`, 'ADMIN')).text())
+  const selUser = stripComments(await (await get(`/assets/register?sel=${selNo}`, 'USER')).text())
+  const selAdminSees = selMarks.filter((m) => selAdmin.includes(m))
+  const selUserSees = selMarks.filter((m) => selUser.includes(m))
+  //  양성 대조 — 관리자에게도 안 보이면 "사용자에게 안 샌다"가 화면이 깨진 덕분일 수 있다.
+  check(`본인 범위(직접 지목): 관리자 화면에는 그 자산 실체가 ${selAdminSees.length}/${selMarks.length}종 보인다 (양성 대조)`,
+    selAdminSees.length === selMarks.length)
+  check(`본인 범위(직접 지목): 남의 자산을 ?sel= 로 지목해도 사용자 화면에 실체가 없다 (목록 스코핑만으로는 못 막는 경로)`,
+    selUserSees.length === 0, `새어 나옴: ${selUserSees.join(',')}`)
   const setPermSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'permissions', 'actions.ts'), 'utf8')
   check('권한 변경: 구현 없는 칸의 본인 지정을 서버가 거부', /next === 'p' && !hasPartialScope\(/.test(setPermSrc))
   // 화면도 두 종류의 칸을 구분해 안내해야 한다 — 둘 다 실제로 렌더돼야 무증상 통과가 아니다
