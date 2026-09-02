@@ -1322,6 +1322,27 @@ try {
     cardMine.status === 200 && cardMineBody.length > 1000)
   check(`자산 카드(범위): 사용자가 남의 자산 문서는 못 받는다 (${cardOther.status} — 역할만이 아니라 범위도 서버가 막는다)`,
     cardOther.status === 403)
+  //  한 라우트만 짚으면 옆 라우트가 빈다 — #823 이 자산 대장만 덮어 #824 가 필요했던 것과 같다.
+  //  자산번호를 경로로 받는 문서 API 를 전수로 훑는다. 목록은 app/api 에서 읽어 새 라우트가 생기면
+  //  자동으로 포함되게 한다(손으로 고른 목록은 새 항목을 놓친다 — .dockerignore 에서 겪었다).
+  const docApiDir = path.join(ROOT, 'app', 'api')
+  const assetNoRoutes = readdirSync(docApiDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && existsSync(path.join(docApiDir, e.name, '[assetNo]', 'route.ts')))
+    .map((e) => e.name)
+  const docLeak = []
+  for (const r of assetNoRoutes) {
+    const res = await get(`/api/${r}/AST-2020-000883`, 'USER')
+    //  200 이면 실체가 담겼는지까지 본다 — 상태 코드만 보면 빈 200 도 통과한다.
+    if (res.status === 200) {
+      const body = await res.text()
+      if (['인프라운영팀', 'CentOS'].some((m) => body.includes(m))) docLeak.push(`${r} → 200 실체 노출`)
+      else docLeak.push(`${r} → 200 (실체는 없으나 거부되지 않음)`)
+    } else if (res.status !== 403 && res.status !== 404) docLeak.push(`${r} → ${res.status}`)
+  }
+  check(`문서 API(범위): 자산번호를 받는 라우트 ${assetNoRoutes.length}종을 훑었다 (양성 대조 — 목록이 비면 "없음"이 공허하다)`,
+    assetNoRoutes.length >= 4)
+  check(`문서 API(범위): 사용자가 남의 자산 문서를 받아 가는 라우트가 없다 (화면만 막고 API 가 열리면 결과는 같다)`,
+    docLeak.length === 0, docLeak.join(' | '))
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
