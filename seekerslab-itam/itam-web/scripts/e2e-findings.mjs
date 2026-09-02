@@ -3615,9 +3615,17 @@ try {
   //  보유자의 부서와 자산의 부서가 갈려 정확히 이 규칙의 조건이 된다.
   const ctxDq = await browser.newContext(); await ctxDq.addCookies([cookie(ASSET)]); const pDq = await ctxDq.newPage()
   await pDq.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
-  const dqBefore = (await pDq.textContent('body')) || ''
+  //  페이지 전체가 아니라 선택 자산의 정합성 배너만 읽는다 — 대장은 자산 37건을 한 페이지에 렌더하므로
+  //   body 로 재면 다른 자산의 이슈까지 걸린다(실제로 그래서 음성 대조가 헛돌았다: 앞 검사들이 만든
+  //   다른 자산의 부서 불일치를 이 자산 것으로 읽었다).
+  const dqPanel = async () => {
+    const t = (await pDq.textContent('body')) || ''
+    const i = t.indexOf('대장 정합성 미흡')
+    return i < 0 ? '' : t.slice(i, i + 200)
+  }
+  const dqBefore = await dqPanel()
   ok('정합성: 대상 자산의 상세가 열렸고 소유자 미지정으로 표시된다 (양성 대조)',
-    dqBefore.includes('AST-2022-000512') && dqBefore.includes('소유자 미지정'))
+    ((await pDq.textContent('body')) || '').includes('AST-2022-000512') && dqBefore.includes('소유자 미지정'))
   ok('정합성: 보정 전에는 부서 불일치가 표시되지 않는다 (음성 대조)', !dqBefore.includes('부서 불일치'))
   const dqInput = pDq.locator('input[placeholder="보정할 소유자(성명)"]').first()
   ok('정합성: 소유자 보정 입력이 노출된다 (양성 대조)', (await dqInput.count()) > 0)
@@ -3627,13 +3635,13 @@ try {
     await pDq.waitForTimeout(1200)
     await pDq.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
   }
-  const dqAfter = (await pDq.textContent('body')) || ''
+  const dqAfter = await dqPanel()
   //  보유자(플랫폼개발팀)와 자산 부서(영업1팀)가 갈렸다 — 이때 규칙이 울려야 한다.
   ok('정합성: 보유자 부서와 자산 부서가 갈리면 부서 불일치로 잡는다 (그동안 시드에 사례가 없어 미검증이던 규칙)',
     dqAfter.includes('부서 불일치'))
   //  소유자 미지정은 해소돼야 한다 — 보정이 실제로 반영됐다는 증거(규칙이 울린 것이 보정 실패 때문이 아니다).
   ok('정합성: 소유자 보정이 반영돼 소유자 미지정은 해소된다 (규칙이 운 이유가 보정 실패가 아니다)',
-    dqAfter.includes('김민준') && !dqAfter.includes('소유자 미지정'))
+    ((await pDq.textContent('body')) || '').includes('김민준') && !dqAfter.includes('소유자 미지정'))
   await ctxDq.close()
 
   // ── 모바일 웹 지원(제품안내서 §03) 회귀 가드 — 좁은 뷰포트(390px)에서 가로 오버플로가 없고 LV2 내비가 접힌다 ──
