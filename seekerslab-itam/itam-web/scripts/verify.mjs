@@ -9,6 +9,7 @@
  *
  * 사용: npm run verify   (개별 실행은 그대로 npm run smoke|e2e|health) */
 import { spawn } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import process from 'node:process'
@@ -53,14 +54,18 @@ function run(cmd, args, label) {
   return new Promise((resolve) => {
     const p = spawn(cmd, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], shell: false, env: { ...process.env, ITAM_BUILT_BY_VERIFY: '1' } })
     let tail = ''
+    //  전체 출력도 모은다 — 스위트가 중간에 죽으면 마지막 4000자에는 원인이 없다(서버 기동·포트 가드·
+    //   첫 실패는 모두 앞부분에 찍힌다). 실패했을 때만 파일로 남겨 다음 사람이 tail 밖을 볼 수 있게 한다.
+    let full = ''
     const keep = (buf) => {
       const s = String(buf)
       process.stdout.write(s)
       tail = (tail + s).slice(-4000)
+      full += s
     }
     p.stdout.on('data', keep)
     p.stderr.on('data', keep)
-    p.on('close', (code) => resolve({ code: code ?? 1, tail, label }))
+    p.on('close', (code) => resolve({ code: code ?? 1, tail, full, label }))
   })
 }
 
@@ -100,6 +105,13 @@ for (const s of SUITES) {
   //   그 둘을 구분하지 않으면 게이트가 "검증했다"고 말하면서 실제로는 아무것도 돌지 않은 상태가 된다.
   if (!m && !sm) {
     console.error(`  · ${s.name}: 검사 수를 확인할 수 없어 통과로 처리하지 않습니다 (0 failed 가 아니라 0 checked).`)
+    //  전체 출력을 파일로 남긴다 — tail 4000자에는 원인이 없다(실제로 포트 선점으로 스위트가 조기
+    //   종료했을 때, 남은 tail 이 권한 매트릭스 검사 목록이라 원인을 세 번 재현해서야 찾았다).
+    const failLog = path.join(ROOT, `verify-fail-${s.name}.log`)
+    try {
+      writeFileSync(failLog, r.full)
+      console.error(`  · 전체 출력: ${failLog}`)
+    } catch { /* 로그를 못 남겨도 게이트 판정은 그대로 진행한다 */ }
     results[results.length - 1].code = r.code === 0 ? 2 : r.code
     break
   }

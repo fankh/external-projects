@@ -8,3 +8,6 @@ next-env.d.ts
 # 로컬 파일 영속화 (ITAM_DATA_FILE)
 .data/
 *.store.json
+
+# 게이트 실패 시 남기는 스위트 전체 출력 — 원인 추적용이고 커밋 대상이 아니다
+verify-fail-*.log
