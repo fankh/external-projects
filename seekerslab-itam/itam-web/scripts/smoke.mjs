@@ -4378,6 +4378,21 @@ try {
   //   둘 다 없으면 통과로 세지 않는다.
   check('verify 게이트: 검사 수를 못 읽은 스위트를 통과로 세지 않는다 (0 checked 를 통과로 세지 않는다)',
     verifySrc.includes('results[results.length - 1].code = r.code === 0 ? 2 : r.code'))
+  //  실패한 스위트의 전체 출력을 남기는지도 고정한다 — tail 은 마지막 4000자만 보관해서, 스위트가
+  //   중간에 죽으면 서버 기동 로그·포트 가드 메시지·첫 실패가 모두 잘린다. 실제로 게이트가 멈췄는데
+  //   tail 에 권한 매트릭스 검사 목록만 남아, 원인(포트 선점)을 세 번 재현해서야 찾았다.
+  //   통과 경로에서는 남기지 않아야 한다 — 매 실행마다 파일이 쌓이면 그 자체가 잡동사니가 된다.
+  const vFailAt = verifySrc.indexOf('verify-fail-')
+  const vBranchAt = verifySrc.indexOf('if (!m && !sm) {')
+  check(`verify 게이트: 실패 로그와 그 분기가 모두 있다 (양성 대조)`,
+    vFailAt > 0 && vBranchAt > 0)
+  check(`verify 게이트: 실패한 스위트의 전체 출력을 남긴다 (tail 4000자에는 원인이 없다)`,
+    verifySrc.includes('full += s') && verifySrc.includes('writeFileSync(failLog, r.full)'))
+  check(`verify 게이트: 실패 분기 안에서만 남긴다 (통과 경로에는 파일을 만들지 않는다)`,
+    vFailAt > 0 && vBranchAt > 0 && vFailAt > vBranchAt)
+  //  리포에 섞이지 않아야 한다 — 이 저장소는 임시 파일이 자동 커밋된 적이 있다(probe-tmp.mjs).
+  check(`verify 게이트: 실패 로그가 .gitignore 에 있다 (리포에 섞이지 않게)`,
+    readFileSync(path.join(ROOT, '.gitignore'), 'utf8').includes('verify-fail-*.log'))
   check('verify 게이트: 결과 줄과 샘플 요약 두 형식을 모두 인정한다 (정상 경로를 막지 않는다)',
     verifySrc.includes('const sm =') && verifySrc.includes('if (!m && !sm) {'))
   const gateMissing = pkgSuites.filter((x) => !verifySteps.includes(x.s)).map((x) => x.k)
