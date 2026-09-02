@@ -94,6 +94,15 @@ for (const s of SUITES) {
     console.error(`  · ${s.name}: 결과 줄을 찾지 못했습니다 (종료 코드 ${r.code}) — 마지막 출력:`)
     console.error(r.tail.split(/\r?\n/).filter((x) => x.trim()).slice(-12).map((x) => '      ' + x).join('\n'))
   }
+  //  결과 줄이 없으면 통과로 세지 않는다 — 스위트가 아무것도 검사하지 않고 종료 코드 0 으로 끝나는 일이
+  //   실제로 있다(작업 디렉터리가 어긋나 npm 이 package.json 을 못 찾으면 제목만 찍히고 0 으로 끝난다).
+  //   그때 요약은 '? passed / 0 failed' 가 되는데, 실패가 0 인 것이 아니라 아무것도 세지 않은 것이다.
+  //   그 둘을 구분하지 않으면 게이트가 "검증했다"고 말하면서 실제로는 아무것도 돌지 않은 상태가 된다.
+  if (!m && !sm) {
+    console.error(`  · ${s.name}: 검사 수를 확인할 수 없어 통과로 처리하지 않습니다 (0 failed 가 아니라 0 checked).`)
+    results[results.length - 1].code = r.code === 0 ? 2 : r.code
+    break
+  }
   if (r.code !== 0) break
 }
 
