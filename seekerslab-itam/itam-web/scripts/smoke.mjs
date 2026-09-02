@@ -4437,6 +4437,15 @@ try {
   check(`게이트 요약: 성공 줄에 박힌 단계 목록이 없다 (하드코딩 회귀 방지)`,
     !verSrc.includes('빌드 · 스모크'))
 
+  //  린트 단계도 '빈 출력은 통과가 아니라 미지' 규약을 따라야 한다 — 종료 코드 0 과 경고 문자열 없음만
+  //  보면, 린트가 아무것도 검사하지 않고 0 을 내는 날 게이트는 '린트 통과'라고 말한다. next lint 는
+  //  스스로 Next 16 에서 없어진다고 알리므로 그날은 예고돼 있다. 스위트가 0건을 검사하고 통과하던 것과
+  //  같은 자리이고, 같은 해법을 쓴다 — 깨끗하다는 표시를 양성으로 요구한다.
+  check(`게이트 린트: 깨끗하다는 표시를 양성으로 요구한다 (0 errors 가 아니라 0 checked 를 가른다)`,
+    verSrc.includes("lint.full.includes('No ESLint warnings or errors')") && verSrc.includes('if (!lintRan)'))
+  check(`게이트 린트: 경고도 실패로 본다 (경고만 있으면 next lint 는 종료 코드 0 을 낸다)`,
+    verSrc.includes("lint.full.includes('Warning:')") && verSrc.includes('lintDirty'))
+
   //  README 의 게이트 순서 설명도 같은 이유로 갈린다 — 린트를 넣었을 때 설명은 '빌드 →' 그대로였다.
   //  사람이 게이트가 무엇을 보는지 아는 유일한 요약이므로, 단계 수를 러너에서 세어 맞춘다.
   const readmeAll = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
