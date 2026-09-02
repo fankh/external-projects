@@ -16,6 +16,7 @@
     "e2e:future": "node scripts/e2e-future.mjs",
     "samples": "node scripts/gen-samples.mjs",
     "samples:check": "node scripts/gen-samples.mjs --check",
+    "ai:keycheck": "node scripts/ai-keycheck.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "dependencies": {
