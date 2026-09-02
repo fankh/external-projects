@@ -4321,8 +4321,11 @@ try {
   for (const df of docFiles) {
     const body = readFileSync(df, 'utf8')
     const base = path.dirname(df)
-    for (const m of body.matchAll(new RegExp(']\(([^)]+)\)', 'g'))) {
-      let t = m[1].trim()
+    //  정규식을 쓰지 않는다 — 패치를 거치며 백슬래시가 사라져 조용히 깨지는 자리다(구문 검사는 통과한다).
+    for (const seg of body.split('](').slice(1)) {
+      const close = seg.indexOf(')')
+      if (close < 0) continue
+      let t = seg.slice(0, close).trim()
       if (/^https?:/.test(t) || t.startsWith('#') || t.startsWith('mailto:')) continue
       t = t.split('#')[0]
       if (!t) continue
