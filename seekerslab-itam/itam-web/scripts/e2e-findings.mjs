@@ -3649,7 +3649,9 @@ try {
   ok('정합성(부서 불일치): 보유자 부서와 자산 부서가 갈리면 부서 불일치로 잡는다 (시드에 사례가 없어 미검증이던 규칙)',
     dqAfter.includes('부서 불일치'))
   //  반납해 좌석을 되돌린다 — 이 자산은 유휴 재고였고, 대여 상태로 남기면 뒤 검사의 가용 재고가 줄어든다.
-  const dqRet = pDq.locator('button', { hasText: /^반납 처리$|^반납 접수$/ }).first()
+  //  대여 자산의 반환 버튼은 '대여 반환 접수' 다 — '자산 회수 (반납 처리)' 는 사용중 자산용이라 이 자산에는 없다.
+  const dqRet = pDq.locator('button', { hasText: '대여 반환 접수' }).first()
+  ok('정합성(부서 불일치): 원복할 대여 반환 버튼을 집었다 (좌석 오염 방지)', (await dqRet.count()) > 0)
   if ((await dqRet.count()) > 0) { await dqRet.click(); await pDq.waitForTimeout(1200) }
   await ctxDq.close()
 
