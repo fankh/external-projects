@@ -582,8 +582,16 @@ export async function requestOffSeatRemoval(licenseId: string, rawAssetNo: strin
   if (!lic) return { ok: false, message: '라이선스를 찾을 수 없습니다.' }
   const assetNo = rawAssetNo.trim().toUpperCase()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
-  const dept = asset?.dept ?? '자산관리팀'
-  const owner = asset?.owner ?? '-'
+  //  수신자는 **설치가 관측된 곳**이다 — 대장에 등록된 보유자가 아니라. 무단 설치를 실제로 지울 수 있는
+  //   사람은 그 호스트를 쓰는 사람이고, 화면도 배정 밖 설치 행에 그 사람·부서를 그려 준다
+  //   (lib/license-usage.ts offSeat 는 swInstalls 의 user·dept 를 싣는다). 대장만 보면 둘이 갈릴 때
+  //   통지가 엉뚱한 곳으로 간다 — AST-2021-000432 는 대장상 '유휴 · 자산관리팀(창고 보관)'이지만
+  //   실제로는 연구개발팀 이한결의 RND-432 에 설치돼 있다(재물조사 차이 DIF-04 가 그 미승인 불출을
+  //   따로 기록한다). 그때 제거 요청은 창고 팀 앞으로 나가고 정작 쓰는 사람은 아무것도 듣지 못했다 —
+  //   발송 이력만 남고 무단 사용은 그대로다. 화면이 보여 준 수신자와 실제 발송처가 어긋나는 자리이기도 하다.
+  const install = s.swInstalls.find((i) => i.licenseId === licenseId && i.assetNo === assetNo)
+  const dept = install?.dept ?? asset?.dept ?? '자산관리팀'
+  const owner = install?.user ?? asset?.owner ?? '-'
   const t = today()
   const ref = `${licenseId}:${assetNo}`
   if (s.dispatches.some((m) => m.kind === '라이선스 제거 요청' && m.ref === ref && m.at.startsWith(t))) {
