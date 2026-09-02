@@ -1311,6 +1311,17 @@ try {
   // 자산 카드 — 전체 프로필·이력 인쇄용 dossier
   check('자산 카드: 미로그인 차단 (401)', (await get('/api/asset-card/AST-2023-000112')).status === 401)
   check('자산 카드: 없는 자산 404', (await get('/api/asset-card/NOPE', 'ADMIN')).status === 404)
+  //  자산 카드 API 는 자산번호를 그대로 받는다 — 화면을 거치지 않고 문서를 받아 가는 경로다.
+  //  기존 검사는 미로그인(401)·없는 자산(404)·자산담당 접근만 봤다. 사용자가 **남의 자산** 문서를
+  //  직접 요청하는 경우는 빈칸이었다(#823·#824 가 화면에서 덮은 것의 한 층 아래).
+  //  거부만 확인하면 공허하다 — 본인 자산은 실제로 받아지는지를 양성 대조로 함께 본다.
+  const cardOther = await get('/api/asset-card/AST-2020-000883', 'USER')
+  const cardMine = await get('/api/asset-card/AST-2024-000015', 'USER')
+  const cardMineBody = cardMine.status === 200 ? await cardMine.text() : ''
+  check(`자산 카드(범위): 사용자가 본인 자산 문서는 받는다 (${cardMine.status} · ${cardMineBody.length}B · 양성 대조)`,
+    cardMine.status === 200 && cardMineBody.length > 1000)
+  check(`자산 카드(범위): 사용자가 남의 자산 문서는 못 받는다 (${cardOther.status} — 역할만이 아니라 범위도 서버가 막는다)`,
+    cardOther.status === 403)
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
