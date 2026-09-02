@@ -4306,6 +4306,43 @@ try {
   const apprSecN = await apprBtns('SEC_MGR')
   check(`결재 잠금 방지: ADMIN 승인 가능 건이 가장 넓다 (Admin ${apprAdminN} ≥ 자산담당 ${apprAssetN} · 보안담당 ${apprSecN})`,
     apprAdminN > 0 && apprAdminN >= apprAssetN && apprAdminN >= apprSecN)
+  // ── 빌드 가드가 소스 디렉터리를 하나도 빠뜨리지 않는가 ──
+  //  build-guard 의 SOURCE_DIRS 는 손으로 관리된다(app·lib·components). 새 소스 디렉터리를 만들고
+  //  여기 넣는 것을 잊으면 그 안의 변경은 빌드를 낡게 만들지 않는 것으로 취급돼, 예전 코드를 검증하면서
+  //  스위트가 초록으로 통과한다 — build-guard 자신이 "빌드를 잊으면 예전 코드를 검증하면서 초록으로
+  //  통과한다(고친 결함이 그대로인데 회귀는 통과한다)"고 경고하는 바로 그 상태이고, 목록이 불완전해도
+  //  결과가 같다. scripts/ 는 의도적으로 제외한다 — 빌드 산출물에 들어가지 않는다(build-guard 가 밝힌다).
+  const guardSrc = readFileSync(path.join(ROOT, 'scripts', 'build-guard.mjs'), 'utf8')
+  const gdStart = guardSrc.indexOf('const SOURCE_DIRS = [')
+  const guardDirsRaw = gdStart < 0 ? '' : guardSrc.slice(gdStart, guardSrc.indexOf(']', gdStart))
+  //  작은따옴표로 쪼개 홀수 조각만 — 정규식 없이 목록을 읽는다.
+  const guardDirs = guardDirsRaw.split(String.fromCharCode(39)).filter((_, i) => i % 2 === 1)
+  //  실재 소스 디렉터리 — 루트 최상위 중 .ts/.tsx 를 담은 것(빌드·의존성·스크립트 제외).
+  const SKIP_DIRS = new Set(['node_modules', '.next', '.git', 'public', 'scripts'])
+  const hasSourceFile = (dir) => {
+    const stack = [dir]
+    while (stack.length) {
+      const d = stack.pop()
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        if (e.isDirectory()) stack.push(path.join(d, e.name))
+        else if (e.name.endsWith('.ts') || e.name.endsWith('.tsx')) return true
+      }
+    }
+    return false
+  }
+  const realSrcDirs = readdirSync(ROOT, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !SKIP_DIRS.has(e.name) && e.name[0] !== '.')
+    .map((e) => e.name)
+    .filter((n) => hasSourceFile(path.join(ROOT, n)))
+  const guardMissing = realSrcDirs.filter((d) => !guardDirs.includes(d))
+  const guardStale = guardDirs.filter((d) => !realSrcDirs.includes(d))
+  //  양성 대조 — 어느 쪽도 못 읽으면 "빠진 것 없음"이 공허하다.
+  check(`빌드 가드 감시 범위: 선언 ${guardDirs.length}종 · 실재 소스 디렉터리 ${realSrcDirs.length}종을 읽었다 (양성 대조)`,
+    guardDirs.length >= 3 && realSrcDirs.length >= 3)
+  check(`빌드 가드 감시 범위: 소스를 담은 디렉터리가 모두 감시 대상 (빠지면 낡은 빌드로 초록이 뜬다)`,
+    guardMissing.length === 0, `감시 누락: ${guardMissing.join(", ")}`)
+  check(`빌드 가드 감시 범위: 감시 목록에 사라진 디렉터리가 없다`,
+    guardStale.length === 0, `실재 없음: ${guardStale.join(", ")}`)
   // ── verify 게이트가 스위트를 하나도 빠뜨리지 않는가 ──
   //  게이트 단계 목록(scripts/verify.mjs)은 손으로 관리된다. 새 스위트를 package.json 에 넣고
   //  게이트에 넣는 것을 잊으면 그 검사들이 통째로 돌지 않으면서 verify 는 초록으로 끝난다 —
