@@ -4306,6 +4306,21 @@ try {
   const apprSecN = await apprBtns('SEC_MGR')
   check(`결재 잠금 방지: ADMIN 승인 가능 건이 가장 넓다 (Admin ${apprAdminN} ≥ 자산담당 ${apprAssetN} · 보안담당 ${apprSecN})`,
     apprAdminN > 0 && apprAdminN >= apprAssetN && apprAdminN >= apprSecN)
+  // ── 파일 영속화 경로를 게이트가 실제로 지나는가 ──
+  //  컨테이너는 ITAM_DATA_FILE 이 항상 켜진 채 돈다(Dockerfile 이 /data/store.json 을 지정한다).
+  //  그런데 스위트는 대부분 인메모리(미설정)로 돌아, 저장·로드 경로는 empty 스위트가 그 기능을
+  //  스냅샷 도구로 쓰면서 **부수적으로** 검증한다 — 서버를 그 환경변수로 띄우고, 만들어진 파일이
+  //  없으면 예외를 던지며, 비운 파일로 다시 띄운다. 누군가 empty 를 인메모리 방식으로 바꾸면
+  //  배포가 실제로 쓰는 경로의 유일한 검증이 조용히 사라진다 — 그 의존을 여기 적어 고정한다.
+  const emptySrc = readFileSync(path.join(ROOT, 'scripts', 'empty-store.mjs'), 'utf8')
+  const dockerSrc = readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8')
+  check(`파일 영속화 경로: 배포가 그 경로를 쓴다 (Dockerfile 이 ITAM_DATA_FILE 을 지정) (양성 대조)`,
+    dockerSrc.includes('ITAM_DATA_FILE='))
+  check(`파일 영속화 경로: empty 스위트가 그 환경변수로 서버를 띄운다 (배포 경로를 지난다)`,
+    emptySrc.includes('ITAM_DATA_FILE: DATA'))
+  check(`파일 영속화 경로: 스냅샷이 안 만들어지면 실패한다 (조용히 인메모리로 돌지 않게)`,
+    emptySrc.includes('스토어 스냅샷이 생성되지 않았습니다'))
+
   // ── 이미지 제외 목록이 커밋 제외 목록을 따라가는가 ──
   //  Dockerfile 은 COPY . . 로 빌드 컨텍스트 전체를 담는다. .gitignore 가 막는 산출물을
   //  .dockerignore 가 빠뜨리면 커밋에는 안 들어가지만 이미지에는 들어간다 — 로컬 파일 영속화
