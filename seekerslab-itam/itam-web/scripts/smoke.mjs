@@ -4356,6 +4356,16 @@ try {
   const pkgSuites = Object.entries(pkgJson)
     .filter(([k, cmd]) => /^node scripts\//.test(cmd) && !/future/.test(k) && k !== 'samples' && k !== 'verify')
     .map(([k, cmd]) => ({ k, s: cmd.replace('node ', '').split(' ')[0] }))
+  //  게이트가 결과를 읽는 방식도 고정한다 — 스위트가 아무것도 검사하지 않고 종료 코드 0 으로 끝나면
+  //   요약은 '? passed / 0 failed' 가 된다. 실패가 0 인 것이 아니라 아무것도 세지 않은 것이라,
+  //   그 둘을 구분하지 않으면 게이트가 "검증했다"고 말하면서 실제로는 아무것도 돌지 않은 상태가 된다
+  //   (실제로 작업 디렉터리가 어긋나 다섯 스위트가 제목만 찍고 0 으로 끝난 적이 있다).
+  //   결과 줄(m)도 샘플 요약(sm)도 못 읽으면 게이트를 세워야 한다 — 두 형식을 모두 인정하되
+  //   둘 다 없으면 통과로 세지 않는다.
+  check('verify 게이트: 검사 수를 못 읽은 스위트를 통과로 세지 않는다 (0 checked 를 통과로 세지 않는다)',
+    verifySrc.includes('results[results.length - 1].code = r.code === 0 ? 2 : r.code'))
+  check('verify 게이트: 결과 줄과 샘플 요약 두 형식을 모두 인정한다 (정상 경로를 막지 않는다)',
+    verifySrc.includes('const sm =') && verifySrc.includes('if (!m && !sm) {'))
   const gateMissing = pkgSuites.filter((x) => !verifySteps.includes(x.s)).map((x) => x.k)
   const gateExtra = verifySteps.filter((sc) => !pkgSuites.some((x) => x.s === sc))
   //  양성 대조 — 두 목록을 못 읽으면 "빠진 것 없음"이 공허하게 통과한다(파싱이 깨진 경우).
