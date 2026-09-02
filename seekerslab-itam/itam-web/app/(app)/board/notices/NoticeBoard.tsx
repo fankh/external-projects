@@ -53,7 +53,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
       if (needle && ![p.title, p.body, p.author].some((f) => f?.toLowerCase().includes(needle))) return false
       return true
     })
-  }, [posts, fq, fpinned, fscheduled, fcat, fgap, hasAckGap])
+  }, [posts, fq, fpinned, fscheduled, fcat, fgap, hasAckGap, today])
   // 다른 공지로 넘어가면 편집 모드 해제. 새 공지를 여는 경우 조회수를 올린다(닫기·같은 글 토글은 제외).
   const select = (id: string) => {
     setEditing(null)
