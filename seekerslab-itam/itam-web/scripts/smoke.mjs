@@ -4306,6 +4306,29 @@ try {
   const apprSecN = await apprBtns('SEC_MGR')
   check(`결재 잠금 방지: ADMIN 승인 가능 건이 가장 넓다 (Admin ${apprAdminN} ≥ 자산담당 ${apprAssetN} · 보안담당 ${apprSecN})`,
     apprAdminN > 0 && apprAdminN >= apprAssetN && apprAdminN >= apprSecN)
+  // ── 이미지 제외 목록이 커밋 제외 목록을 따라가는가 ──
+  //  Dockerfile 은 COPY . . 로 빌드 컨텍스트 전체를 담는다. .gitignore 가 막는 산출물을
+  //  .dockerignore 가 빠뜨리면 커밋에는 안 들어가지만 이미지에는 들어간다 — 로컬 파일 영속화
+  //  스냅샷(.data/ · *.store.json)에는 자산 대장·사용자·감사 로그가 담긴다.
+  //  두 목록은 손으로 각자 관리되므로 갈리기 쉽다(실제로 갈려 있었다).
+  const giSrc = readFileSync(path.join(ROOT, '.gitignore'), 'utf8')
+  const diSrc = readFileSync(path.join(ROOT, '.dockerignore'), 'utf8')
+  const ignorePatterns = (t) => t.split(String.fromCharCode(10))
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0 && x[0] !== '#')
+    .map((x) => (x.endsWith('/') ? x.slice(0, -1) : x))
+  const giPat = ignorePatterns(giSrc)
+  const diPat = ignorePatterns(diSrc)
+  //  이미지에 들어가면 안 되는 것만 본다 — 커밋 제외 목록 중 산출물·데이터 계열(이름으로 지정).
+  const MUST_EXCLUDE = ['.data', '*.store.json', '.next', 'node_modules']
+  const mustExclude = MUST_EXCLUDE.filter((p) => giPat.includes(p))
+  const diMissing = mustExclude.filter((p) => !diPat.includes(p))
+  //  양성 대조 — 어느 목록도 못 읽으면 "빠진 것 없음"이 공허하다.
+  check(`이미지 제외 목록: .gitignore ${giPat.length}종 · .dockerignore ${diPat.length}종 · 대상 ${mustExclude.length}종을 읽었다 (양성 대조)`,
+    giPat.length >= 5 && diPat.length >= 5 && mustExclude.length >= 3)
+  check(`이미지 제외 목록: 커밋에서 막는 산출물을 이미지에서도 막는다 (COPY . . 로 들어간다)`,
+    diMissing.length === 0, `.dockerignore 누락: ${diMissing.join(', ')}`)
+
   // ── 문서가 가리키는 파일이 실재하는가 ──
   //  이 저장소는 문서가 주장하는 수치를 13종이나 검사하면서, 문서가 가리키는 파일이 실재하는지는
   //  보지 않았다. 문서 파일 이름을 바꾸거나 옮기면 링크가 조용히 깨지고, 그 문서를 따라간 사람은

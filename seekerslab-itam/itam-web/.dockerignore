@@ -3,3 +3,12 @@ node_modules
 Dockerfile
 .dockerignore
 *.log
+
+# 로컬 파일 영속화 산출물 — .gitignore 와 같은 목록이어야 한다.
+#  Dockerfile 은 COPY . . 로 전체를 담으므로, 여기서 빼지 않으면 개발 중 만들어진
+#  스토어 스냅샷(자산 대장·사용자·감사 로그)이 그대로 이미지에 들어간다.
+.data/
+*.store.json
+
+# 게이트 실패 시 남기는 스위트 전체 출력
+verify-fail-*.log
