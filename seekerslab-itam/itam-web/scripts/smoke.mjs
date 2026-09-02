@@ -4306,6 +4306,23 @@ try {
   const apprSecN = await apprBtns('SEC_MGR')
   check(`결재 잠금 방지: ADMIN 승인 가능 건이 가장 넓다 (Admin ${apprAdminN} ≥ 자산담당 ${apprAssetN} · 보안담당 ${apprSecN})`,
     apprAdminN > 0 && apprAdminN >= apprAssetN && apprAdminN >= apprSecN)
+  // ── package.json 과 package-lock.json 이 어긋나지 않는가 ──
+  //  Dockerfile 은 npm ci 로 이미지를 세우는데(COPY package.json package-lock.json → RUN npm ci),
+  //  게이트는 이미 설치된 node_modules 로 돈다. 의존성을 고치고 lock 을 갱신하지 않으면 로컬·게이트는
+  //  통과하고 이미지 빌드만 깨진다 — 배포 시점에야 드러난다. npm ci 가 거부하는 조건(루트 의존성
+  //  불일치)을 파일 비교로 직접 본다: spawn 없이 즉시 끝나고, npm 이 전역 설치라도 동작한다.
+  const pkgLock = JSON.parse(readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'))
+  const lockRoot = (pkgLock.packages && pkgLock.packages['']) || {}
+  const sameDeps = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {})
+  const depsMatch = sameDeps(pkgAll.dependencies, lockRoot.dependencies)
+  const devMatch = sameDeps(pkgAll.devDependencies, lockRoot.devDependencies)
+  const depCount = Object.keys(pkgAll.dependencies || {}).length + Object.keys(pkgAll.devDependencies || {}).length
+  //  양성 대조 — 어느 쪽도 못 읽으면 "일치"가 공허하게 통과한다(빈 객체끼리 같다).
+  check(`의존성 잠금: package ${depCount}종 · lock v${pkgLock.lockfileVersion} 을 읽었다 (양성 대조)`,
+    depCount >= 5 && Object.keys(lockRoot.dependencies || {}).length >= 5)
+  check(`의존성 잠금: package.json 과 package-lock.json 이 일치한다 (npm ci 가 거부하면 이미지가 안 선다)`,
+    depsMatch && devMatch)
+
   // ── 검증하는 런타임과 배포하는 런타임이 같은 계열인가 ──
   //  게이트는 개발자 로컬 Node 로 돌고 컨테이너는 Dockerfile 이 고정한 버전으로 돈다. 둘이 갈리면
   //  로컬·게이트는 통과하는데 컨테이너에서만 깨진다 — 새 API 를 쓰는 순간 그렇게 된다
