@@ -774,6 +774,19 @@ try {
     selAdminSees.length === selMarks.length)
   check(`본인 범위(직접 지목): 남의 자산을 ?sel= 로 지목해도 사용자 화면에 실체가 없다 (목록 스코핑만으로는 못 막는 경로)`,
     selUserSees.length === 0, `새어 나옴: ${selUserSees.join(',')}`)
+  //  같은 경로가 결재함에도 있다 — 사용자는 자기 신청만 봐야 하는데 ?sel= 은 목록을 거치지 않는다.
+  //  #823 이 자산 대장 한 곳만 덮어 같은 한계를 남겼으므로 여기서 함께 고정한다. 잣대는 같다:
+  //  id 문자열이 아니라 그 결재에만 있는 실체(신청 내용·신청자)로 잰다.
+  const selAprId = 'APR-2607-120'
+  const selAprMarks = ['AI팀 증원', '오세훈', 'GPU 워크스테이션']
+  const selAprAdmin = stripComments(await (await get(`/workflow/approvals?sel=${selAprId}`, 'ADMIN')).text())
+  const selAprUser = stripComments(await (await get(`/workflow/approvals?sel=${selAprId}`, 'USER')).text())
+  const selAprAdminSees = selAprMarks.filter((m) => selAprAdmin.includes(m))
+  const selAprUserSees = selAprMarks.filter((m) => selAprUser.includes(m))
+  check(`본인 범위(직접 지목·결재함): 관리자 화면에는 그 결재 실체가 ${selAprAdminSees.length}/${selAprMarks.length}종 보인다 (양성 대조)`,
+    selAprAdminSees.length === selAprMarks.length)
+  check(`본인 범위(직접 지목·결재함): 남의 결재를 ?sel= 로 지목해도 사용자 화면에 내용이 없다`,
+    selAprUserSees.length === 0, `새어 나옴: ${selAprUserSees.join(',')}`)
   const setPermSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'permissions', 'actions.ts'), 'utf8')
   check('권한 변경: 구현 없는 칸의 본인 지정을 서버가 거부', /next === 'p' && !hasPartialScope\(/.test(setPermSrc))
   // 화면도 두 종류의 칸을 구분해 안내해야 한다 — 둘 다 실제로 렌더돼야 무증상 통과가 아니다
