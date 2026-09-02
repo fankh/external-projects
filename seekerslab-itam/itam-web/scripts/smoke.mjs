@@ -4432,6 +4432,19 @@ try {
   //   (실제로 작업 디렉터리가 어긋나 다섯 스위트가 제목만 찍고 0 으로 끝난 적이 있다).
   //   결과 줄(m)도 샘플 요약(sm)도 못 읽으면 게이트를 세워야 한다 — 두 형식을 모두 인정하되
   //   둘 다 없으면 통과로 세지 않는다.
+  //  게이트가 lint 를 돌리는지도 고정한다 — package.json 에 있어도 게이트가 부르지 않으면 아무도
+  //   돌리지 않아 경고가 쌓인다(실제로 그렇게 쌓인 경고 하나가 useMemo 의존성 누락이었다:
+  //   위치 레지스트리가 바뀌어도 일괄 등록 미리보기가 예전 목록으로 검증했다).
+  //   next lint 는 경고만 있어도 종료 코드 0 을 내므로, 종료 코드만 보면 그 상태가 그대로 재현된다 —
+  //   출력에서 경고를 직접 찾아 실패로 처리해야 한다. 두 조건을 짝으로 고정한다.
+  const lintStepAt = verifySrc.indexOf("[nextBin, 'lint']")
+  const lintWarnAt = verifySrc.indexOf('lintDirty')
+  check(`verify 게이트: lint 단계와 경고 판정이 모두 있다 (양성 대조)`,
+    lintStepAt > 0 && lintWarnAt > 0)
+  check(`verify 게이트: lint 를 돌린다 (package 에만 있으면 아무도 돌리지 않는다)`,
+    lintStepAt > 0)
+  check(`verify 게이트: lint 경고도 실패로 본다 (종료 코드만 보면 경고가 쌓인다)`,
+    verifySrc.includes("lint.full.includes('Warning:')") && verifySrc.includes('lint.code !== 0 || lintDirty'))
   check('verify 게이트: 검사 수를 못 읽은 스위트를 통과로 세지 않는다 (0 checked 를 통과로 세지 않는다)',
     verifySrc.includes('results[results.length - 1].code = r.code === 0 ? 2 : r.code'))
   //  실패한 스위트의 전체 출력을 남기는지도 고정한다 — tail 은 마지막 4000자만 보관해서, 스위트가
