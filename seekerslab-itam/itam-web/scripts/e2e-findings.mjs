@@ -1970,13 +1970,24 @@ try {
   ok('라이선스 STEP2: 배정 밖 설치에 제거 요청 액션(합법화 아니면 제거)', (await rmSpan.locator('button', { hasText: /^제거 요청$/ }).count()) > 0)
   await rmSpan.locator('button', { hasText: /^제거 요청$/ }).first().click()
   await p3.waitForTimeout(800)
-  ok('라이선스 STEP2: 제거 요청 발송 성공(소유 부서 통지·발송 이력)', ((await step2Card().textContent()) || '').includes('통지·감사 적재'))
-  // 수신자 표기(신규) — 보유자가 없는 자산(유휴·검수중)의 통지가 "- (부서)" 앞으로 나가면 발송 이력에는 남지만
-  //  아무도 읽지 않는다. 보유자가 없으면 관리 부서 앞으로 보낸다(lib/notify recipientOf 단일 소스).
+  const rmMsg = (await step2Card().textContent()) || ''
+  ok('라이선스 STEP2: 제거 요청 발송 성공(소유 부서 통지·발송 이력)', rmMsg.includes('통지·감사 적재'))
+  //  수신자는 설치가 관측된 곳이어야 한다 — 대장의 등록 보유자가 아니라. AST-2021-000432 는 대장상
+  //   '유휴 · 자산관리팀(창고 보관)'인데 실제 설치는 연구개발팀 이한결의 RND-432 에 있다(재물조사 차이
+  //   DIF-04 가 그 미승인 불출을 기록한다). 대장을 보고 보내면 창고 팀 앞으로 나가고, 정작 지울 수 있는
+  //   사람은 아무것도 듣지 못한다 — 화면은 버튼 옆에 '(연구개발팀)'이라 적어 두므로 보이는 값과도 어긋난다.
+  ok('라이선스 STEP2: 제거 요청 수신자가 설치 관측처다(대장 등록 부서 아님)',
+    rmMsg.includes('이한결·연구개발팀') && !rmMsg.includes('-·자산관리팀'))
+  // 수신자 표기 — 통지가 "- (부서)"·"미지정 (부서)" 앞으로 나가면 발송 이력에는 남지만 아무도 읽지 않는다.
+  //  발송 이력에서 실제 수신자를 확인한다. 부재만 주장하면(자리표시자가 없다) 발송 자체가 사라져도 통과하므로
+  //  이름을 양성으로 확인한다. 이 자산은 대장 보유자가 '-' 라 예전에는 관리 부서(자산관리팀·창고) 앞으로 나갔는데,
+  //  그건 자리표시자를 피한 것이지 지울 수 있는 사람에게 간 것이 아니었다 — 실제 설치는 연구개발팀 이한결이다.
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
-  const rmRow = ((await p3.locator('tr', { hasText: '라이선스 배정 밖 설치 제거 요청' }).first().textContent()) || '').replace(/\s+/g, ' ')
-  ok('라이선스 제거 요청 수신자: 보유자 없는 자산은 관리 부서 앞으로(자리표시자 수신자 방지)',
-    rmRow.includes('자산관리팀') && !rmRow.includes('- (자산관리팀)') && !rmRow.includes('미지정 ('))
+  //  발송 이력 행으로 좁힌다 — 같은 문구가 감사 로그 행에도 있어 .first() 는 그쪽을 집는다(수신자 칸이 없는 면이라
+  //  '자리표시자가 없다'가 언제나 참이 된다). MSG- 로 발송 행을 특정한다.
+  const rmRow = ((await p3.locator('tr').filter({ hasText: '라이선스 배정 밖 설치 제거 요청' }).filter({ hasText: 'MSG-' }).first().textContent()) || '').replace(/\s+/g, ' ')
+  ok('라이선스 제거 요청 수신자: 발송 이력이 실제 담당자를 가리킨다(자리표시자 수신자 방지)',
+    rmRow.includes('MSG-') && rmRow.includes('이한결 (연구개발팀)') && !rmRow.includes('- (') && !rmRow.includes('미지정 ('))
 
   // 좌석 배정 이탈-자산 가드 — 폐기·분실·반납대기 등 이탈한 자산에 좌석을 새로 배정하면 좌석 자동 회수(이탈 시점에만 돎)가 다시 돌지 않아 좌석이 영구 누수된다(보유 초과·사용량 과대·SAM 배정 대장 오기록, 로56 무결성). 폐기완료 자산(AST-2018-000090) 배정 시도 → 거부·배정 2석 유지.
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })

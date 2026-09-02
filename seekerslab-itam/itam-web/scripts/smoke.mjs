@@ -4391,6 +4391,26 @@ try {
   check(`이미지 제외 목록: 커밋 제외 ${giPat.length}종이 이미지 제외 ${diPat.length}종에 모두 있다 (손으로 고른 목록은 새 항목을 놓친다)`,
     giNotDi.length === 0, `이미지에서 안 막힘: ${giNotDi.join(', ')}`)
 
+  // ── 무단 설치 제거 요청이 '지울 수 있는 사람'에게 가는가 ──
+  //  배정 밖 설치(무단 사용)를 실제로 지울 수 있는 사람은 그 호스트를 쓰는 사람이지, 대장에 등록된
+  //  보유자가 아니다. 둘은 갈릴 수 있고 시드가 그 경우를 담고 있다 — AST-2021-000432 는 대장상
+  //  '유휴 · 자산관리팀(창고 보관)'인데 설치는 연구개발팀 이한결의 RND-432 에서 관측된다(재물조사 차이
+  //  DIF-04 가 그 미승인 불출을 따로 기록한다). 제거 요청이 대장만 보면 통지가 창고 팀 앞으로 나가고,
+  //  화면이 버튼 옆에 그려 준 '(연구개발팀)'과도 어긋난다 — 보이는 값 ≠ 실제 발송처.
+  //  e2e 가 그 발송 메시지를 직접 확인하고, 여기서는 그 검사가 의미를 갖는 조건을 고정한다:
+  //   (1) 액션이 설치 관측 레코드를 수신자 근거로 읽는다, (2) 시드에 실제로 갈리는 설치가 남아 있다.
+  const licActSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'inventory', 'contracts', 'actions.ts'), 'utf8')
+  check(`무단 설치 제거 요청: 수신자를 설치 관측 레코드에서 읽는다 (대장 등록 보유자가 아니라)`,
+    licActSrc.includes('s.swInstalls.find((i) => i.licenseId === licenseId && i.assetNo === assetNo)')
+    && licActSrc.includes("install?.dept ?? asset?.dept") && licActSrc.includes("install?.user ?? asset?.owner"))
+  //  양성 대조 — 시드에서 대장 부서와 설치 관측 부서가 갈리는 설치가 실제로 있어야 e2e 검사가 의미를 갖는다.
+  //   전부 일치하는 시드로 바뀌면 e2e 는 통과하지만 아무것도 증명하지 않는다(공허한 초록).
+  const seedSrc = readFileSync(path.join(ROOT, 'lib', 'store.ts'), 'utf8')
+  const swiLine = seedSrc.split(String.fromCharCode(10)).find((l) => l.includes("id: 'SWI-0002'")) || ''
+  const ledgerLine = seedSrc.split(String.fromCharCode(10)).find((l) => l.includes("assetNo: 'AST-2021-000432'") && l.includes('mk(')) || ''
+  check(`무단 설치 제거 요청: 시드에 대장↔설치 관측이 갈리는 설치가 남아 있다 (양성 대조 — e2e 가 잴 대상)`,
+    swiLine.includes("dept: '연구개발팀'") && ledgerLine.includes("dept: '자산관리팀'"))
+
   // ── 문서가 가리키는 파일이 실재하는가 ──
   //  이 저장소는 문서가 주장하는 수치를 13종이나 검사하면서, 문서가 가리키는 파일이 실재하는지는
   //  보지 않았다. 문서 파일 이름을 바꾸거나 옮기면 링크가 조용히 깨지고, 그 문서를 따라간 사람은
