@@ -1343,6 +1343,23 @@ try {
     assetNoRoutes.length >= 4)
   check(`문서 API(범위): 사용자가 남의 자산 문서를 받아 가는 라우트가 없다 (화면만 막고 API 가 열리면 결과는 같다)`,
     docLeak.length === 0, docLeak.join(' | '))
+
+  // ── 대장 반출의 두 층: 역할 게이트와 행 스코핑 ──
+  //  반출은 문서 한 건이 아니라 대장 전체가 나갈 수 있어 유출 규모가 다르다. 방어가 둘로 되어 있다:
+  //   (1) canExport — 권한 매트릭스의 '엑셀' 기능 단위 통제(사용자는 403).
+  //   (2) 행 스코핑 — buildKindSheets 가 role === 'USER' 이면 본인 보유분만 담는다.
+  //  둘째 층은 지금 첫째 층에 가려 한 번도 실행되지 않는다. 그런데 매트릭스는 Admin 이 편집할 수 있어,
+  //  '엑셀'을 켜 주는 순간 둘째 층만 남는다 — 그때 그 층이 없으면 대장 전량이 나간다.
+  //  실행 경로로는 닿을 수 없으므로(403 이 먼저다) 결합으로 고정한다.
+  const expSrc = readFileSync(path.join(ROOT, 'lib', 'exports.ts'), 'utf8')
+  const expUser = await get('/api/export/assets', 'USER')
+  const expMgr = await get('/api/export/assets', 'ASSET_MGR')
+  const expMgrLen = expMgr.status === 200 ? (await expMgr.arrayBuffer()).byteLength : 0
+  check(`대장 반출: 엑셀 권한이 있는 역할은 실제로 받는다 (${expMgr.status} · ${expMgrLen}B · 양성 대조)`,
+    expMgr.status === 200 && expMgrLen > 10000)
+  check(`대장 반출(1층): 엑셀 권한이 없는 역할은 서버가 막는다 (${expUser.status})`, expUser.status === 403)
+  check(`대장 반출(2층): 행 자체도 본인 범위로 좁힌다 (매트릭스에서 엑셀을 켜 줘도 전량이 나가지 않는다)`,
+    expSrc.includes("role === 'USER' ? s.assets.filter((a) => a.owner === userName) : s.assets"))
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
