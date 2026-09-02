@@ -4485,6 +4485,26 @@ try {
   check(`문서 코드블록: powershell 로 표시한 블록에 bash 이어쓰기(줄 끝 역슬래시)가 없다 (붙여 넣으면 실패한다)`,
     labelBad.length === 0, `라벨 불일치: ${labelBad.join(', ')}`)
 
+  // ── 빌드가 대장 데이터를 정적으로 굳혀 두지 않았는가 ──
+  //  정적 생성된 페이지는 **빌드 시점의 데이터**를 담고 그대로 굳는다. 컨테이너는 파일 영속화로 도는데
+  //  대장 화면 하나가 정적으로 넘어가면, 자산을 등록해도 그 화면은 영원히 빌드 때의 시드를 보여 준다.
+  //  이 결함은 어느 스위트도 잡지 못한다 — 스위트는 전부 신선한 시드 위에서 도니 '빌드 시점 데이터'와
+  //  '지금 데이터'가 같고, 정적 페이지도 똑같이 정답을 낸다. 갈라지는 곳은 배포뿐이다.
+  //  (쿠키·헤더를 읽으면 Next 가 알아서 동적으로 잡지만, 그 호출이 사라지거나 force-static 이 붙으면
+  //   조용히 정적으로 넘어간다 — 빌드 로그를 사람이 보지 않으면 알 길이 없다.)
+  const prerenderMf = JSON.parse(readFileSync(path.join(ROOT, '.next', 'prerender-manifest.json'), 'utf8'))
+  const appRoutesMf = JSON.parse(readFileSync(path.join(ROOT, '.next', 'app-path-routes-manifest.json'), 'utf8'))
+  const prerendered = Object.keys(prerenderMf.routes || {})
+  //  허용 목록 — 데이터를 읽지 않는 두 곳뿐이다(로그인 화면 · 404).
+  const PRERENDER_OK = ['/login', '/_not-found']
+  const prerenderBad = prerendered.filter((r) => !PRERENDER_OK.includes(r))
+  //  양성 대조 — 실제 빌드 산출물을 읽었는지 라우트 총수로 확인한다. 매니페스트를 못 읽으면
+  //   "굳은 것 없음"은 공허하다(빈 객체도 통과한다).
+  check(`정적 생성: 빌드 산출물에서 앱 라우트 ${Object.keys(appRoutesMf).length}개 · 정적 ${prerendered.length}개를 읽었다 (양성 대조)`,
+    Object.keys(appRoutesMf).length >= 30)
+  check(`정적 생성: 데이터 화면이 빌드 시점 값으로 굳지 않았다 (스위트는 이 결함을 못 잡는다 — 배포에서만 갈라진다)`,
+    prerenderBad.length === 0, `정적으로 굳은 라우트: ${prerenderBad.join(', ')}`)
+
   // ── 빌드 가드가 소스 디렉터리를 하나도 빠뜨리지 않는가 ──
   //  build-guard 의 SOURCE_DIRS 는 손으로 관리된다(app·lib·components). 새 소스 디렉터리를 만들고
   //  여기 넣는 것을 잊으면 그 안의 변경은 빌드를 낡게 만들지 않는 것으로 취급돼, 예전 코드를 검증하면서
