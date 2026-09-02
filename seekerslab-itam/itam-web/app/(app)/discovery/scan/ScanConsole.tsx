@@ -24,6 +24,20 @@ export function ScanConsole(props: { policies: Pol[]; clock: string; defaultScop
   const risky = props.policies.filter((p) => picked.includes(p.channel) && p.kind === '능동' && !p.inWindow)
   const blockedByIntensity = risky.length > 0 && intensity === '높음'
 
+  //  정책 강도는 상한이다(서버 runScan 과 같은 규칙) — 선택한 능동 채널 중 가장 낮은 정책 강도가
+  //   이 실행의 상한이 된다. 넘는 선택지를 남겨 두면 고를 수는 있는데 늘 거부되는 막다른 길이 되므로
+  //   여기서 아예 내주지 않고, 상한이 어디서 왔는지(어느 채널) 함께 밝힌다.
+  const LEVELS = ['낮음', '보통', '높음'] as const
+  const activePicked = props.policies.filter((p) => picked.includes(p.channel) && p.kind === '능동')
+  const capIdx = activePicked.length === 0 ? LEVELS.length - 1
+    : Math.min(...activePicked.map((p) => LEVELS.indexOf(p.intensity)))
+  const capIntensity = LEVELS[capIdx]
+  const capFrom = activePicked.filter((p) => LEVELS.indexOf(p.intensity) === capIdx).map((p) => p.channel)
+
+  //  채널 선택이 바뀌면 상한도 바뀐다 — 이미 고른 값이 새 상한을 넘으면 상한으로 내린다.
+  //   내리지 않으면 select 가 목록에 없는 값을 들고 있어 화면은 예전 강도를 보여 주는데 서버는 거부한다.
+  if (LEVELS.indexOf(intensity) > capIdx) setIntensity(capIntensity)
+
   const submit = () => {
     startTransition(async () => {
       const r = await runScan({ channels: picked, scope, intensity, override })
@@ -59,12 +73,18 @@ export function ScanConsole(props: { policies: Pol[]; clock: string; defaultScop
           <input className="input" style={{ flex: 1 }} value={scope} onChange={(e) => setScope(e.target.value)}
             placeholder="대상 대역 — 예: 10.20.0.0/16" />
           <select aria-label="스캔 강도" className="select" value={intensity} onChange={(e) => setIntensity(e.target.value as ScanPolicy['intensity'])}>
-            {(['낮음', '보통', '높음'] as const).map((x) => <option key={x} value={x}>강도 — {x}</option>)}
+            {LEVELS.slice(0, capIdx + 1).map((x) => <option key={x} value={x}>강도 — {x}</option>)}
           </select>
           <button className="btn pri" disabled={pending || picked.length === 0 || blockedByIntensity} onClick={submit}>
             {pending ? '수집 중…' : '스캔 실행'}
           </button>
         </div>
+
+        {activePicked.length > 0 && capIdx < LEVELS.length - 1 && (
+          <div className="dim" style={{ fontSize: 11.5 }}>
+            강도 상한 <b>{capIntensity}</b> — {capFrom.join(', ')} 의 정책 강도입니다. 더 높은 강도로 돌리려면 탐지 채널·정책에서 상향하세요.
+          </div>
+        )}
 
         {risky.length > 0 && (
           <div className="callout warn">

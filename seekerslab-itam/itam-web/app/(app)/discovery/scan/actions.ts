@@ -32,6 +32,10 @@ export async function rerunScan(runId: string) {
   })
 }
 
+/** 스캔 강도의 세기 순서 — 정책 강도를 상한으로 읽을 때 '넘어섰는지'를 판정하는 유일한 기준.
+ *  화면(ScanConsole)도 같은 순서로 선택지를 좁힌다. */
+export const INTENSITY_ORDER = ['낮음', '보통', '높음'] as const
+
 /** 스캔 실행 — 선택한 채널이 관측을 수집하고, 지문으로 병합되어 발견 저장소에 반영된다. */
 export async function runScan(input: ScanInput) {
   const session = await getSession()
@@ -45,6 +49,21 @@ export async function runScan(input: ScanInput) {
   const disabled = input.channels.filter((c) => !policies.get(c)?.enabled)
   if (disabled.length > 0) {
     return { ok: false, message: `정책에서 중지된 채널입니다 — ${disabled.join(', ')} (탐지 채널·정책에서 재개)` }
+  }
+
+  // 정책 강도는 상한이다 — 두 화면이 "능동 스캔은 허용 시간대·대역·강도 정책 안에서만 실행되며"(스캔 실행),
+  //  "능동 스캔은 대역·시간대·강도를 정책으로 통제합니다"(탐지 채널·정책)라고 약속하는데, 그동안 정책의
+  //  강도는 표에 표시만 될 뿐 실행을 제약하지 않았다 — 운영자가 콘솔에서 아무 강도나 골라 그대로 돌았다.
+  //  관리자가 운영망 부하를 낮추려고 채널 강도를 낮춰도 아무 일도 일어나지 않는, 통제처럼 보이는 표시였다.
+  //  능동 채널에만 적용한다 — 강도는 능동 스캔의 부하를 뜻하고(시간대 가드도 능동만 본다), 패시브·로그
+  //  수집에는 부하 개념이 없어 상한을 씌우면 뜻 없는 차단이 된다.
+  const overIntensity = input.channels.filter((c) => {
+    const p = policies.get(c)
+    return p && p.kind === '능동' && INTENSITY_ORDER.indexOf(input.intensity) > INTENSITY_ORDER.indexOf(p.intensity)
+  })
+  if (overIntensity.length > 0) {
+    const cap = policies.get(overIntensity[0])!.intensity
+    return { ok: false, message: `${overIntensity.join(', ')} 의 정책 강도는 '${cap}' 입니다 — 강도 '${input.intensity}' 로는 실행할 수 없습니다 (탐지 채널·정책에서 상향).` }
   }
 
   const clock = nowMinute().slice(11, 16)
