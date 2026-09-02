@@ -3572,6 +3572,38 @@ try {
     catSrc.includes('useState(Boolean(overdueOnlyParam))') && !catSrc.includes('Boolean(overdueOnlyParam) && overdueSet.size'))
   check(`SaaS 필터: 대상 0건이어도 해제 버튼이 남는다 (빈 상태 안내가 '해제하면 보입니다'라고 적는다)`,
     catSrc.includes('(overdueSet.size > 0 || overdueOnly)'))
+
+  //  같은 결함이 다른 화면에도 있는가 — 패턴 자체를 막는다. 화면 필터는 URL 로 요청된 대로 적용해야 하고,
+  //  "대상이 0건이면 켜지 않는다"는 조건이 붙으면 그 순간 필터가 조용히 꺼져 전체 목록이 필터 결과인 양
+  //  그려진다. 대상 0은 대개 고장이 아니라 **일이 다 끝난 가장 바람직한 상태**이고, 하필 그때 화면이
+  //  거짓을 말한다(SaaS 기한 경과·발견 확인 미응답 둘 다 그랬다). 반출 범위도 필터 상태에 걸려 있어
+  //  파일까지 전체로 넓어진다. 개별 파일을 세는 대신 초기화 식 전수를 훑는다.
+  const tsxFiles = []
+  {
+    const stack = [path.join(ROOT, 'app')]
+    while (stack.length) {
+      const d = stack.pop()
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name)
+        if (e.isDirectory()) stack.push(p)
+        else if (e.name.endsWith('.tsx')) tsxFiles.push(p)
+      }
+    }
+  }
+  let filterInits = 0
+  const droppedFilters = []
+  for (const f of tsxFiles) {
+    for (const ln of readFileSync(f, 'utf8').split(String.fromCharCode(10))) {
+      if (!ln.includes('useState(Boolean(')) continue
+      filterInits++
+      //  초기화 식에 '&&' 와 '> 0' 이 함께 있으면 대상 유무로 필터를 끄는 형태다.
+      if (ln.includes('&&') && ln.includes('> 0')) droppedFilters.push(path.basename(f) + ': ' + ln.trim())
+    }
+  }
+  check(`화면 필터: URL 필터 초기화 ${filterInits}곳을 읽었다 (양성 대조 — 하나도 못 읽으면 "없음"이 공허하다)`,
+    filterInits >= 20)
+  check(`화면 필터: 대상 0건이라고 필터를 스스로 끄는 곳이 없다 (전체 목록이 필터 결과인 양 그려진다)`,
+    droppedFilters.length === 0, `조건부 해제: ${droppedFilters.join(' | ')}`)
   // 정례 리포트 배포 기한 경과 큐 — 스케줄 표는 정상 주기 항목까지 함께 보여 주므로, 큐가 말한 '기한 도래 N건'을
   //  화면에서 다시 세어야 했다. 큐 링크가 기한 도래만 보기를 켠 채 연다.
   const repDueHtml = await (await get('/ai/reports?due=1', 'ASSET_MGR')).text()
