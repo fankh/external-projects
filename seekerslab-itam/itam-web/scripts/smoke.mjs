@@ -3604,6 +3604,30 @@ try {
     filterInits >= 20)
   check(`화면 필터: 대상 0건이라고 필터를 스스로 끄는 곳이 없다 (전체 목록이 필터 결과인 양 그려진다)`,
     droppedFilters.length === 0, `조건부 해제: ${droppedFilters.join(' | ')}`)
+
+  // ── 엉뚱한 질의 파라미터로 열어도 화면이 버티는가 ──
+  //  모든 스위트가 시드가 만들어 준 정상 링크만 따라간다 — 대장에서 뽑은 필터 칩, 대시보드 큐의 드릴다운.
+  //  그래서 '없는 필터 값'으로 들어오는 경로는 아무도 지키지 않는 빈칸이었다. 북마크·손으로 고친 URL·
+  //  옛 링크는 실제로 그렇게 들어온다. 여기서 보는 것은 두 가지다: 서버가 5xx 로 죽지 않는가, 그리고
+  //  숫자·객체가 그대로 새어 화면에 찍히지 않는가(NaN·Infinity·[object Object] — 빈 대장 스위트가
+  //  데이터 0에서 보는 것과 같은 표기 무결성을, 여기서는 입력이 이상할 때 본다).
+  const JUNK_QS = '?state=zzz&status=zzz&sel=zzz&open=zzz&await=zzz&act=zzz&q=%25%25&cat=zzz&risk=zzz'
+    + '&kind=zzz&live=zzz&stale=zzz&sort=zzz&page=-1&warrant=zzz&dq=zzz'
+  const junkBad = []
+  let junkChecked = 0
+  for (const [route, roles] of Object.entries(ROUTES)) {
+    if (!roles.includes('ADMIN')) continue
+    junkChecked++
+    const res = await get(route + JUNK_QS, 'ADMIN')
+    const body = await res.text()
+    const dirty = ['NaN', 'Infinity', '[object Object]', 'undefined건'].filter((t) => body.includes(t))
+    if (res.status >= 500) junkBad.push(`${route} → ${res.status}`)
+    else if (dirty.length) junkBad.push(`${route} → ${dirty.join(',')}`)
+  }
+  check(`엉뚱한 질의 파라미터: 라우트 ${junkChecked}종을 없는 필터 값으로 열었다 (양성 대조)`,
+    junkChecked >= 25)
+  check(`엉뚱한 질의 파라미터: 5xx·표기 오염 없이 열린다 (북마크·손으로 고친 URL 로 실제로 들어온다)`,
+    junkBad.length === 0, junkBad.join(' | '))
   // 정례 리포트 배포 기한 경과 큐 — 스케줄 표는 정상 주기 항목까지 함께 보여 주므로, 큐가 말한 '기한 도래 N건'을
   //  화면에서 다시 세어야 했다. 큐 링크가 기한 도래만 보기를 켠 채 연다.
   const repDueHtml = await (await get('/ai/reports?due=1', 'ASSET_MGR')).text()
