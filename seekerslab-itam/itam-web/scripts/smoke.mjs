@@ -4311,12 +4311,13 @@ try {
   //  게이트는 이미 설치된 node_modules 로 돈다. 의존성을 고치고 lock 을 갱신하지 않으면 로컬·게이트는
   //  통과하고 이미지 빌드만 깨진다 — 배포 시점에야 드러난다. npm ci 가 거부하는 조건(루트 의존성
   //  불일치)을 파일 비교로 직접 본다: spawn 없이 즉시 끝나고, npm 이 전역 설치라도 동작한다.
+  const pkgForLock = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
   const pkgLock = JSON.parse(readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'))
   const lockRoot = (pkgLock.packages && pkgLock.packages['']) || {}
   const sameDeps = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {})
-  const depsMatch = sameDeps(pkgAll.dependencies, lockRoot.dependencies)
-  const devMatch = sameDeps(pkgAll.devDependencies, lockRoot.devDependencies)
-  const depCount = Object.keys(pkgAll.dependencies || {}).length + Object.keys(pkgAll.devDependencies || {}).length
+  const depsMatch = sameDeps(pkgForLock.dependencies, lockRoot.dependencies)
+  const devMatch = sameDeps(pkgForLock.devDependencies, lockRoot.devDependencies)
+  const depCount = Object.keys(pkgForLock.dependencies || {}).length + Object.keys(pkgForLock.devDependencies || {}).length
   //  양성 대조 — 어느 쪽도 못 읽으면 "일치"가 공허하게 통과한다(빈 객체끼리 같다).
   check(`의존성 잠금: package ${depCount}종 · lock v${pkgLock.lockfileVersion} 을 읽었다 (양성 대조)`,
     depCount >= 5 && Object.keys(lockRoot.dependencies || {}).length >= 5)
