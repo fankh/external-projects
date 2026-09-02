@@ -22,7 +22,7 @@ npm run dev        # http://localhost:3000
 ## 테스트
 
 ```powershell
-npm run verify     # 빌드 → 스모크 → e2e → 헬스 → 레이아웃 → 빈 대장 → 리포트 샘플 드리프트 순차 실행
+npm run verify     # 린트 → 빌드 → 스모크 → e2e → 헬스 → 레이아웃 → 빈 대장 → 리포트 샘플 드리프트 순차 실행
 
 # 개별 실행
 npm run build
@@ -549,7 +549,7 @@ Next.js 15 App Router + React 19 + TS (UI 라이브러리 없음, qrcode 만 사
 
 ## 배포
 
-```powershell
+```bash
 docker build -t itam-web .
 docker run -d --name itam-web --restart unless-stopped -p 127.0.0.1:3390:3390 \
   -v itam-data:/data --env-file ~/.itam.env itam-web:latest

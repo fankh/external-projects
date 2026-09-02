@@ -4417,6 +4417,65 @@ try {
   check(`문서 링크: 가리키는 파일이 모두 실재한다 (이름을 바꾸면 조용히 끊긴다)`,
     docLinkBad.length === 0, `끊김: ${docLinkBad.join(', ')}`)
 
+  // ── 게이트 요약이 실제로 돈 단계를 다 말하는가 ──
+  //  검증 요약은 사람이 읽고 "게이트 통과"라고 옮기는 유일한 문장이다. 그 성공 줄이 단계 이름을 문자열로
+  //  박아 두면 러너의 실제 단계 목록과 갈린다 — 린트를 앞에 넣은 뒤에도 성공 줄은 '빌드 · 스모크 …'
+  //  그대로였다(돈 것보다 좁게 보고). 위험한 방향은 그 반대다: 단계를 빼도 성공 줄은 그 단계를
+  //  통과했다고 계속 주장한다. 요약을 결과 행에서 만들게 하고, 그 결합을 여기서 고정한다.
+  const verSrc = readFileSync(path.join(ROOT, 'scripts', 'verify.mjs'), 'utf8')
+  //  이름을 리터럴로 밀어 넣는 고정 단계(린트·빌드)만 센다 — 스위트는 반복문에서 s.name 으로 넣는다.
+  const fixedStages = verSrc.split("results.push({ name: '").length - 1
+  const suiteCount = verSrc.split('script: ').length - 1
+  check(`게이트 요약: 고정 단계 ${fixedStages}종 · 스위트 ${suiteCount}종을 읽었다 (양성 대조)`,
+    fixedStages === 2 && suiteCount >= 5)
+  check(`게이트 요약: 린트·빌드도 결과 행으로 남는다 (돈 단계가 요약에 나타난다)`,
+    verSrc.includes("name: 'lint'") && verSrc.includes("name: 'build'"))
+  check(`게이트 요약: 완결성 판정이 스위트 + 고정 단계 ${fixedStages}종을 센다 (중간 중단을 통과로 세지 않는다)`,
+    verSrc.includes(`SUITES.length + ${fixedStages}`))
+  check(`게이트 요약: 성공 줄을 결과 행에서 만든다 (목록을 박아 두면 단계가 바뀌어도 통과를 주장한다)`,
+    verSrc.includes('results.map((r) => r.name).join'))
+  check(`게이트 요약: 성공 줄에 박힌 단계 목록이 없다 (하드코딩 회귀 방지)`,
+    !verSrc.includes('빌드 · 스모크'))
+
+  //  README 의 게이트 순서 설명도 같은 이유로 갈린다 — 린트를 넣었을 때 설명은 '빌드 →' 그대로였다.
+  //  사람이 게이트가 무엇을 보는지 아는 유일한 요약이므로, 단계 수를 러너에서 세어 맞춘다.
+  const readmeAll = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+  const gateLine = readmeAll.split(String.fromCharCode(10)).find((l) => l.startsWith('npm run verify')) || ''
+  const gateSteps = gateLine.includes('#') ? gateLine.split('#')[1].split('→').length : 0
+  check(`README 게이트 순서: 설명 ${gateSteps}단계 · 러너 ${suiteCount + fixedStages}단계를 읽었다 (양성 대조)`,
+    gateSteps > 0)
+  check(`README 게이트 순서: 설명이 실제 단계를 빠짐없이 적는다 (린트가 빠져 있었다)`,
+    gateSteps === suiteCount + fixedStages)
+
+  // ── 문서 코드블록의 라벨이 그 안의 문법과 맞는가 ──
+  //  README 는 붙여 넣어 쓰는 런북이다. 배포 블록이 powershell 로 표시돼 있었는데 내용은 bash 였다
+  //  (줄 끝 역슬래시 이어쓰기 · ~/ 경로). PowerShell 에서 역슬래시는 이어쓰기가 아니라 그냥 인자라,
+  //  라벨대로 붙여 넣으면 docker 가 그 역슬래시를 이미지 이름으로 받고 다음 줄은 별도 명령으로 갈려
+  //  실패한다 — 런북에서 가장 중요한 명령 하나가 적힌 대로는 실행되지 않는 상태였다.
+  const DOC_BS = String.fromCharCode(92)
+  const DOC_FENCE = String.fromCharCode(96, 96, 96)
+  let psBlocks = 0
+  let contLines = 0
+  const labelBad = []
+  for (const df of docFiles) {
+    let lang = null
+    readFileSync(df, 'utf8').split(String.fromCharCode(10)).forEach((ln, i) => {
+      const t = ln.trimEnd()
+      if (t.startsWith(DOC_FENCE)) {
+        if (lang === null) { lang = t.slice(3).trim(); if (lang === 'powershell') psBlocks++ } else lang = null
+        return
+      }
+      if (lang === null || !t.endsWith(' ' + DOC_BS)) return
+      contLines++
+      if (lang === 'powershell') labelBad.push(`${path.basename(df)}:${i + 1}`)
+    })
+  }
+  //  양성 대조 — powershell 블록도 이어쓰기 줄도 하나도 못 읽으면 "불일치 없음"이 공허하다.
+  check(`문서 코드블록: powershell 블록 ${psBlocks}개 · 셸 이어쓰기 줄 ${contLines}개를 읽었다 (양성 대조)`,
+    psBlocks >= 3 && contLines >= 1)
+  check(`문서 코드블록: powershell 로 표시한 블록에 bash 이어쓰기(줄 끝 역슬래시)가 없다 (붙여 넣으면 실패한다)`,
+    labelBad.length === 0, `라벨 불일치: ${labelBad.join(', ')}`)
+
   // ── 빌드 가드가 소스 디렉터리를 하나도 빠뜨리지 않는가 ──
   //  build-guard 의 SOURCE_DIRS 는 손으로 관리된다(app·lib·components). 새 소스 디렉터리를 만들고
   //  여기 넣는 것을 잊으면 그 안의 변경은 빌드를 낡게 만들지 않는 것으로 취급돼, 예전 코드를 검증하면서

@@ -1,4 +1,4 @@
-/* 전체 검증 러너 — 빌드 → 스모크 → e2e → 헬스 → 레이아웃 → 빈 대장 → 샘플을 한 번에, 순서대로 돌린다.
+/* 전체 검증 러너 — 린트 → 빌드 → 스모크 → e2e → 헬스 → 레이아웃 → 빈 대장 → 샘플을 한 번에, 순서대로 돌린다.
  *
  * 왜 따로 두는가: 세 스위트는 각자 `next start` 로 **이미 만들어진** .next 를 띄우고 각자 고정 포트를 쓴다.
  * 그래서 손으로 돌릴 때 두 가지가 반복해서 어긋났다.
@@ -74,6 +74,10 @@ const nextBin = path.join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next')
 
 // 러너가 세운 빌드를 스위트가 그대로 검증하도록 표시를 넘긴다 — 러너가 도는 동안 소스를 건드려도
 //  뒤 스위트가 신선도 가드에 걸려 멈추지 않게 한다(빌드 자체는 아래에서 항상 먼저, 끝까지 돌린다).
+//  요약에 남길 결과 행 — 린트·빌드도 여기에 넣는다. 요약이 스위트만 세면 게이트는 자기가
+//   실제로 돌린 것보다 좁은 범위를 보고한다(그 반대가 더 위험하다 — 단계를 빼도 성공 줄은 그대로 주장한다).
+const results = []
+
 // 정적 검사를 먼저 돌린다 — 빌드보다 빠르고, 여기서 걸리면 빌드 시간을 아낀다.
 //  next lint 는 경고만 있어도 종료 코드 0 을 내므로 출력을 직접 본다 — 그대로 두면 '통과'로 읽혀
 //  경고가 쌓인다(실제로 그렇게 쌓인 경고 하나가 useMemo 의존성 누락이었다: 위치 레지스트리가
@@ -85,6 +89,7 @@ if (lint.code !== 0 || lintDirty) {
   console.error(String.fromCharCode(10) + '✗ lint 실패 — 경고도 실패로 봅니다(쌓이면 아무도 보지 않게 됩니다).')
   process.exit(1)
 }
+results.push({ name: 'lint', code: 0, passed: '경고 0', failed: '0' })
 
 console.log('▶ 빌드')
 const build = await run(process.execPath, [nextBin, 'build'], 'build')
@@ -92,8 +97,8 @@ if (build.code !== 0) {
   console.error('\n✗ 빌드 실패 — 스위트를 돌리지 않습니다(끊긴 빌드로 검증하면 예전 코드가 통과합니다).')
   process.exit(1)
 }
+results.push({ name: 'build', code: 0, passed: '성공', failed: '0' })
 
-const results = []
 for (const s of SUITES) {
   console.log(`\n▶ ${s.name}`)
   if (!(await waitForPort(s.port, s.name))) {
@@ -134,8 +139,10 @@ const mins = Math.round((Date.now() - started) / 60000)
 console.log(`\n── 검증 요약 (${mins}분)`)
 for (const r of results) console.log(`  ${r.code === 0 ? '✓' : '✗'} ${r.name}: ${r.passed} passed / ${r.failed} failed`)
 const bad = results.find((r) => r.code !== 0)
-if (bad || results.length !== SUITES.length) {
+if (bad || results.length !== SUITES.length + 2) {
   console.error(`✗ ${bad?.name ?? '중단'} 에서 실패 — 위 출력에서 첫 ✗ 를 보세요.`)
   process.exit(1)
 }
-console.log('✓ 빌드 · 스모크 · e2e · 헬스 · 레이아웃 · 빈 대장 · 샘플 전부 통과')
+//  성공 줄은 실제로 결과 행이 쌓인 단계에서 만든다 — 목록을 문자열로 박아 두면 단계를 더하거나 뺐을 때
+//   그대로 남아, 게이트가 돌지 않은 것을 통과했다고 말한다(린트를 넣었을 때 실제로 그렇게 어긋나 있었다).
+console.log('✓ ' + results.map((r) => r.name).join(' · ') + ' 전부 통과')
