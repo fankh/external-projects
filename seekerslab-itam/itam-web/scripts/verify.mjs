@@ -74,6 +74,18 @@ const nextBin = path.join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next')
 
 // 러너가 세운 빌드를 스위트가 그대로 검증하도록 표시를 넘긴다 — 러너가 도는 동안 소스를 건드려도
 //  뒤 스위트가 신선도 가드에 걸려 멈추지 않게 한다(빌드 자체는 아래에서 항상 먼저, 끝까지 돌린다).
+// 의존성 잠금 정합 — Dockerfile 은 npm ci 로 이미지를 세우는데, 게이트는 이미 설치된 node_modules 로
+//  돈다. package.json 을 고치고 package-lock.json 을 갱신하지 않으면 로컬·게이트는 통과하고
+//  이미지 빌드만 깨진다(배포 시점에야 드러난다). npm ci 는 두 파일이 어긋나면 거부하므로,
+//  --dry-run 으로 그 판정만 빌려 온다 — 설치는 하지 않아 1초면 끝난다.
+console.log('▶ 의존성 잠금')
+const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const deps = await run(npmBin, ['ci', '--dry-run', '--no-audit', '--no-fund'], '의존성 잠금')
+if (deps.code !== 0) {
+  console.error(String.fromCharCode(10) + '✗ 의존성 잠금 불일치 — package.json 과 package-lock.json 이 어긋납니다(npm install 로 갱신하세요).')
+  process.exit(1)
+}
+
 // 정적 검사를 먼저 돌린다 — 빌드보다 빠르고, 여기서 걸리면 빌드 시간을 아낀다.
 //  next lint 는 경고만 있어도 종료 코드 0 을 내므로 출력을 직접 본다 — 그대로 두면 '통과'로 읽혀
 //  경고가 쌓인다(실제로 그렇게 쌓인 경고 하나가 useMemo 의존성 누락이었다: 위치 레지스트리가
