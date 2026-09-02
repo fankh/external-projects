@@ -12,3 +12,13 @@ Dockerfile
 
 # 게이트 실패 시 남기는 스위트 전체 출력
 verify-fail-*.log
+
+# 로컬 환경파일 — .gitignore 가 커밋에서 막는 이유가 그대로 이미지에도 적용된다.
+#  ANTHROPIC_API_KEY 가 담기는 파일이고(README 의 --env-file 참조), COPY . . 로 들어가면
+#  나중에 지워도 레이어에 남는다. 키가 이미지와 함께 어디로든 따라간다.
+.env*.local
+
+# 나머지 빌드 산출물 — 이미지에 들어갈 이유가 없다(빌드가 다시 만든다).
+out/
+*.tsbuildinfo
+next-env.d.ts
