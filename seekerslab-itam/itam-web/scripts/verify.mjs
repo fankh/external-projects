@@ -85,11 +85,19 @@ const results = []
 console.log('▶ lint')
 const lint = await run(process.execPath, [nextBin, 'lint'], 'lint')
 const lintDirty = lint.full.includes('Warning:') || lint.full.includes('Error:')
+//  깨끗함을 **양성으로** 확인한다 — 종료 코드 0 + 경고 문자열 없음만 보면 빈 출력이 통과가 된다.
+//   (`next lint` 는 Next 16 에서 없어진다고 스스로 알린다. 그날 이 단계는 아무것도 검사하지 않으면서
+//    조용히 0 을 내고, 게이트는 '린트 통과'라고 말한다 — 스위트가 0건을 검사하고 통과하던 것과 같은 자리다.)
+const lintRan = lint.full.includes('No ESLint warnings or errors')
 if (lint.code !== 0 || lintDirty) {
   console.error(String.fromCharCode(10) + '✗ lint 실패 — 경고도 실패로 봅니다(쌓이면 아무도 보지 않게 됩니다).')
   process.exit(1)
 }
-results.push({ name: 'lint', code: 0, passed: '경고 0', failed: '0' })
+if (!lintRan) {
+  console.error(String.fromCharCode(10) + '✗ lint 를 통과로 처리하지 않습니다 — 깨끗하다는 표시가 출력에 없습니다(0 errors 가 아니라 0 checked).')
+  process.exit(1)
+}
+results.push({ name: 'lint', code: 0, passed: '경고 0 (검사 확인)', failed: '0' })
 
 console.log('▶ 빌드')
 const build = await run(process.execPath, [nextBin, 'build'], 'build')

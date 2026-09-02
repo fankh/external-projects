@@ -4437,6 +4437,15 @@ try {
   check(`게이트 요약: 성공 줄에 박힌 단계 목록이 없다 (하드코딩 회귀 방지)`,
     !verSrc.includes('빌드 · 스모크'))
 
+  //  린트 단계도 '빈 출력은 통과가 아니라 미지' 규약을 따라야 한다 — 종료 코드 0 과 경고 문자열 없음만
+  //  보면, 린트가 아무것도 검사하지 않고 0 을 내는 날 게이트는 '린트 통과'라고 말한다. next lint 는
+  //  스스로 Next 16 에서 없어진다고 알리므로 그날은 예고돼 있다. 스위트가 0건을 검사하고 통과하던 것과
+  //  같은 자리이고, 같은 해법을 쓴다 — 깨끗하다는 표시를 양성으로 요구한다.
+  check(`게이트 린트: 깨끗하다는 표시를 양성으로 요구한다 (0 errors 가 아니라 0 checked 를 가른다)`,
+    verSrc.includes("lint.full.includes('No ESLint warnings or errors')") && verSrc.includes('if (!lintRan)'))
+  check(`게이트 린트: 경고도 실패로 본다 (경고만 있으면 next lint 는 종료 코드 0 을 낸다)`,
+    verSrc.includes("lint.full.includes('Warning:')") && verSrc.includes('lintDirty'))
+
   //  README 의 게이트 순서 설명도 같은 이유로 갈린다 — 린트를 넣었을 때 설명은 '빌드 →' 그대로였다.
   //  사람이 게이트가 무엇을 보는지 아는 유일한 요약이므로, 단계 수를 러너에서 세어 맞춘다.
   const readmeAll = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
@@ -4475,6 +4484,26 @@ try {
     psBlocks >= 3 && contLines >= 1)
   check(`문서 코드블록: powershell 로 표시한 블록에 bash 이어쓰기(줄 끝 역슬래시)가 없다 (붙여 넣으면 실패한다)`,
     labelBad.length === 0, `라벨 불일치: ${labelBad.join(', ')}`)
+
+  // ── 빌드가 대장 데이터를 정적으로 굳혀 두지 않았는가 ──
+  //  정적 생성된 페이지는 **빌드 시점의 데이터**를 담고 그대로 굳는다. 컨테이너는 파일 영속화로 도는데
+  //  대장 화면 하나가 정적으로 넘어가면, 자산을 등록해도 그 화면은 영원히 빌드 때의 시드를 보여 준다.
+  //  이 결함은 어느 스위트도 잡지 못한다 — 스위트는 전부 신선한 시드 위에서 도니 '빌드 시점 데이터'와
+  //  '지금 데이터'가 같고, 정적 페이지도 똑같이 정답을 낸다. 갈라지는 곳은 배포뿐이다.
+  //  (쿠키·헤더를 읽으면 Next 가 알아서 동적으로 잡지만, 그 호출이 사라지거나 force-static 이 붙으면
+  //   조용히 정적으로 넘어간다 — 빌드 로그를 사람이 보지 않으면 알 길이 없다.)
+  const prerenderMf = JSON.parse(readFileSync(path.join(ROOT, '.next', 'prerender-manifest.json'), 'utf8'))
+  const appRoutesMf = JSON.parse(readFileSync(path.join(ROOT, '.next', 'app-path-routes-manifest.json'), 'utf8'))
+  const prerendered = Object.keys(prerenderMf.routes || {})
+  //  허용 목록 — 데이터를 읽지 않는 두 곳뿐이다(로그인 화면 · 404).
+  const PRERENDER_OK = ['/login', '/_not-found']
+  const prerenderBad = prerendered.filter((r) => !PRERENDER_OK.includes(r))
+  //  양성 대조 — 실제 빌드 산출물을 읽었는지 라우트 총수로 확인한다. 매니페스트를 못 읽으면
+  //   "굳은 것 없음"은 공허하다(빈 객체도 통과한다).
+  check(`정적 생성: 빌드 산출물에서 앱 라우트 ${Object.keys(appRoutesMf).length}개 · 정적 ${prerendered.length}개를 읽었다 (양성 대조)`,
+    Object.keys(appRoutesMf).length >= 30)
+  check(`정적 생성: 데이터 화면이 빌드 시점 값으로 굳지 않았다 (스위트는 이 결함을 못 잡는다 — 배포에서만 갈라진다)`,
+    prerenderBad.length === 0, `정적으로 굳은 라우트: ${prerenderBad.join(', ')}`)
 
   // ── 빌드 가드가 소스 디렉터리를 하나도 빠뜨리지 않는가 ──
   //  build-guard 의 SOURCE_DIRS 는 손으로 관리된다(app·lib·components). 새 소스 디렉터리를 만들고
