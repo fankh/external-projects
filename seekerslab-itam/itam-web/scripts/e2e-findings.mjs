@@ -1970,7 +1970,14 @@ try {
   ok('라이선스 STEP2: 배정 밖 설치에 제거 요청 액션(합법화 아니면 제거)', (await rmSpan.locator('button', { hasText: /^제거 요청$/ }).count()) > 0)
   await rmSpan.locator('button', { hasText: /^제거 요청$/ }).first().click()
   await p3.waitForTimeout(800)
-  ok('라이선스 STEP2: 제거 요청 발송 성공(소유 부서 통지·발송 이력)', ((await step2Card().textContent()) || '').includes('통지·감사 적재'))
+  const rmMsg = (await step2Card().textContent()) || ''
+  ok('라이선스 STEP2: 제거 요청 발송 성공(소유 부서 통지·발송 이력)', rmMsg.includes('통지·감사 적재'))
+  //  수신자는 설치가 관측된 곳이어야 한다 — 대장의 등록 보유자가 아니라. AST-2021-000432 는 대장상
+  //   '유휴 · 자산관리팀(창고 보관)'인데 실제 설치는 연구개발팀 이한결의 RND-432 에 있다(재물조사 차이
+  //   DIF-04 가 그 미승인 불출을 기록한다). 대장을 보고 보내면 창고 팀 앞으로 나가고, 정작 지울 수 있는
+  //   사람은 아무것도 듣지 못한다 — 화면은 버튼 옆에 '(연구개발팀)'이라 적어 두므로 보이는 값과도 어긋난다.
+  ok('라이선스 STEP2: 제거 요청 수신자가 설치 관측처다(대장 등록 부서 아님)',
+    rmMsg.includes('이한결·연구개발팀') && !rmMsg.includes('-·자산관리팀'))
   // 수신자 표기(신규) — 보유자가 없는 자산(유휴·검수중)의 통지가 "- (부서)" 앞으로 나가면 발송 이력에는 남지만
   //  아무도 읽지 않는다. 보유자가 없으면 관리 부서 앞으로 보낸다(lib/notify recipientOf 단일 소스).
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
