@@ -741,6 +741,23 @@ try {
   check(`권한 매트릭스: 시드의 '본인' 칸 ${seedPartials.length}개가 모두 구현 목록 안에 있다`,
     seedPartialOrphans.length === 0 && seedPartials.length >= 3, `구현 없는 시드 'p': ${seedPartialOrphans.join(', ')}`)
   // 서버가 최종 판정 — 화면이 순환에서 건너뛰어도 액션 직접 호출을 막는 가드가 있어야 한다
+  // ── 본인 범위(조회)가 화면에서도 실제로 좁히는가 — PARTIAL_SCOPES 가 '자산 대장|조회|USER' 에 대해
+  //  "본인 보유 자산만 — app/(app)/assets/register/page.tsx 가 owner 로 거른다"라고 구현 지점까지 적어 둔다.
+  //  같은 규약의 엑셀 칸('자산 대장|엑셀|USER')은 반출본에 남의 자산이 섞이는지 e2e 가 이미 밟는데,
+  //  정작 데이터가 가장 많은 화면 쪽은 아무도 보지 않았다 — 반출은 막고 화면은 새는 비대칭이 가능했다.
+  //  스코핑이 깨지면 사용자가 전사 자산 대장을 그대로 읽는다(소유자·위치·취득가·계약까지).
+  const regUser = await (await get('/assets/register', 'USER')).text()
+  const regAdmin = await (await get('/assets/register', 'ADMIN')).text()
+  const assetNos = (t) => [...new Set(t.match(/AST-\d{4}-\d{6}/g) || [])]
+  const regUserNos = assetNos(regUser)
+  const regAdminNos = assetNos(regAdmin)
+  //  양성 대조 — 사용자 화면이 비어 있으면 "남의 자산이 없다"가 스코핑 덕분인지 화면이 깨진 건지 모른다.
+  check(`본인 범위(조회): 사용자 화면에 본인 보유 자산이 실제로 나온다 (${regUserNos.length}건 · 양성 대조)`, regUserNos.length > 0)
+  check(`본인 범위(조회): 사용자 화면이 전량이 아니다 (사용자 ${regUserNos.length}건 < 관리자 ${regAdminNos.length}건)`,
+    regAdminNos.length > regUserNos.length)
+  //  남의 자산 한 건을 이름으로 집는다 — 개수 비교만으로는 '조금 적게 보여 주기'와 구분되지 않는다.
+  check('본인 범위(조회): 남의 자산이 사용자 화면에 새지 않는다(AST-2020-000883 인프라운영팀)',
+    regAdminNos.includes('AST-2020-000883') && !regUserNos.includes('AST-2020-000883'))
   const setPermSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'permissions', 'actions.ts'), 'utf8')
   check('권한 변경: 구현 없는 칸의 본인 지정을 서버가 거부', /next === 'p' && !hasPartialScope\(/.test(setPermSrc))
   // 화면도 두 종류의 칸을 구분해 안내해야 한다 — 둘 다 실제로 렌더돼야 무증상 통과가 아니다
