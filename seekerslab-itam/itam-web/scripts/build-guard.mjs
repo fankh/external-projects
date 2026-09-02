@@ -39,18 +39,22 @@ function newestSource(root) {
 
 /** .next 가 없거나 소스보다 오래됐으면 안내하고 종료한다(스위트를 시작하지 않는다). */
 export function assertFreshBuild(root, { remote = false } = {}) {
-  // 전체 러너(verify)가 방금 빌드하고 부른 경우 — 검증 대상은 그 빌드다. 러너가 도는 12~15분 동안 소스를
-  //  건드리면(다음 작업을 시작하는 것이 보통이다) 뒤 스위트가 '빌드가 오래됐다'로 멈춰, 실제로는 통과할
-  //  검사가 실패로 남는다 — 실제로 그렇게 헬스가 죽었다. 러너가 세운 빌드를 신뢰하고 가드를 건너뛴다.
-  if (process.env.ITAM_BUILT_BY_VERIFY === '1') {
-    console.log('· 빌드 신선도 가드 생략 — 전체 러너가 방금 세운 빌드를 검증합니다(ITAM_BUILT_BY_VERIFY).')
-    return
-  }
   if (remote) return
   const buildId = path.join(root, '.next', 'BUILD_ID')
+  //  빌드 자체가 없는 것은 우회 대상이 아니다 — 아래 신선도 우회(ITAM_BUILT_BY_VERIFY)보다 먼저 본다.
+  //   그 환경변수는 verify 가 자식에게 주입하는 값인데, 셸에 남아 있으면 개별 실행과 구분되지 않는다.
+  //   신선도는 "러너가 방금 세운 빌드를 믿는다"는 근거로 건너뛸 수 있지만, .next 가 아예 없는 상태는
+  //   어떤 근거로도 정당화되지 않는다 — `next start` 가 띄울 것이 없어 스위트가 엉뚱하게 죽는다.
   if (!existsSync(path.join(root, '.next')) || !existsSync(buildId)) {
     console.error('✗ .next 빌드가 없습니다 — 먼저 `npm run build`를 실행하세요.')
     process.exit(1)
+  }
+  // 전체 러너(verify)가 방금 빌드하고 부른 경우 — 검증 대상은 그 빌드다. 러너가 도는 12~15분 동안 소스를
+  //  건드리면(다음 작업을 시작하는 것이 보통이다) 뒤 스위트가 '빌드가 오래됐다'로 멈춰, 실제로는 통과할
+  //  검사가 실패로 남는다 — 실제로 그렇게 헬스가 죽었다. 러너가 세운 빌드를 신뢰하고 신선도만 건너뛴다.
+  if (process.env.ITAM_BUILT_BY_VERIFY === '1') {
+    console.log('· 빌드 신선도 가드 생략 — 전체 러너가 방금 세운 빌드를 검증합니다(ITAM_BUILT_BY_VERIFY).')
+    return
   }
   const built = statSync(buildId).mtimeMs
   const newest = newestSource(root)
