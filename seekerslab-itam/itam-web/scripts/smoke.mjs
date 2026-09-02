@@ -4284,6 +4284,28 @@ try {
   const unmappedSteps = stepNames.filter((x) => !mappedSteps.includes(x))
   check(`결재선: 결재자 단계가 모두 역할에 매핑돼 있다 (${mappedSteps.length}종 매핑)`,
     mappedSteps.length >= 4 && unmappedSteps.length === 0, `매핑 없음: ${unmappedSteps.join(', ')}`)
+  // ── 결재 잠금 방지: 두 규칙이 서로에게 기대고 있다 ──
+  //  setUserRole 은 권한그룹 강등을 막을 때 ADMIN 고갈만 본다 — 마지막 SEC_MGR·ASSET_MGR 은 강등할 수
+  //  있다. 그래도 결재가 막히지 않는 이유는 canDecideApproval 이 ADMIN 에게 모든 단계를 열어 주기
+  //  때문이다(시드 SEC_MGR 은 한 명뿐이라, 그 한 명을 사용자로 내려도 격리 요청·SaaS 인가 결재선의
+  //  보안담당 단계를 ADMIN 이 대신 처리한다). 두 규칙 중 하나만 바뀌면 그 순간 결재가 막힌다 —
+  //  ADMIN 보편 결재를 빼면 마지막 보안담당 강등이 격리 요청을 영구 정지시키고(필수 결재라 해제도 불가),
+  //  ADMIN 고갈 가드를 빼면 모든 단계를 대신할 사람이 사라진다. 의존을 코드 어디에도 적어 두지 않았으므로
+  //  여기서 짝으로 고정한다 — 한쪽만 지우면 이 검사가 먼저 걸린다.
+  const apprLibSrc = readFileSync(path.join(ROOT, 'lib', 'approval.ts'), 'utf8')
+  const usersActSrc2 = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'users', 'actions.ts'), 'utf8')
+  check('결재 잠금 방지: ADMIN 은 결재선의 모든 단계를 결재할 수 있다 (다른 역할 고갈의 안전판)',
+    apprLibSrc.includes("return role === 'ADMIN' ||"))
+  check('결재 잠금 방지: 마지막 ADMIN 은 강등할 수 없다 (그 안전판 자신을 지킨다)',
+    usersActSrc2.includes('admins <= 1'))
+  //  선언만으로는 부족하다 — ADMIN 이 실제로 가장 넓게 결재하는지 화면에서 센다. 어느 역할보다 승인
+  //   버튼이 많아야 "모든 단계를 대신할 수 있다"가 관측으로 뒷받침된다(선언과 렌더가 갈리는 것을 막는다).
+  const apprBtns = async (role) => (((await (await get('/workflow/approvals', role)).text()).match(/>승인</g)) || []).length
+  const apprAdminN = await apprBtns('ADMIN')
+  const apprAssetN = await apprBtns('ASSET_MGR')
+  const apprSecN = await apprBtns('SEC_MGR')
+  check(`결재 잠금 방지: ADMIN 승인 가능 건이 가장 넓다 (Admin ${apprAdminN} ≥ 자산담당 ${apprAssetN} · 보안담당 ${apprSecN})`,
+    apprAdminN > 0 && apprAdminN >= apprAssetN && apprAdminN >= apprSecN)
   // 시드 참조 무결성 — 끊긴 참조는 화면·반출에서 '조회되지 않는 번호'로 나간다.
   //  폐기 증적 대장(ISMS A.8.3)의 결재번호가 대표 사례다: 대장에 없는 번호를 적으면 '결재를 받았다'고
   //  주장하면서 근거를 댈 수 없고, 감사 로그의 대상 딥링크도 없는 문서로 향한다(실제로 두 건이 그랬다).
