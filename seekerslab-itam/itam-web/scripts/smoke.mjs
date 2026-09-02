@@ -4306,6 +4306,36 @@ try {
   const apprSecN = await apprBtns('SEC_MGR')
   check(`결재 잠금 방지: ADMIN 승인 가능 건이 가장 넓다 (Admin ${apprAdminN} ≥ 자산담당 ${apprAssetN} · 보안담당 ${apprSecN})`,
     apprAdminN > 0 && apprAdminN >= apprAssetN && apprAdminN >= apprSecN)
+  // ── 문서가 가리키는 파일이 실재하는가 ──
+  //  이 저장소는 문서가 주장하는 수치를 13종이나 검사하면서, 문서가 가리키는 파일이 실재하는지는
+  //  보지 않았다. 문서 파일 이름을 바꾸거나 옮기면 링크가 조용히 깨지고, 그 문서를 따라간 사람은
+  //  막다른 길에 닿는다(README 가 구축_요약·DISCOVERY_CONCEPT·리포트 샘플로 보내는 경로들이다).
+  //  http(s)·앵커 전용 링크는 대상이 리포 밖이거나 같은 문서 안이라 제외한다.
+  const docDir = path.join(ROOT, '..', 'docs')
+  const docFiles = [
+    path.join(ROOT, 'README.md'),
+    ...readdirSync(docDir).filter((x) => x.endsWith('.md')).map((x) => path.join(docDir, x)),
+  ]
+  let docLinkCount = 0
+  const docLinkBad = []
+  for (const df of docFiles) {
+    const body = readFileSync(df, 'utf8')
+    const base = path.dirname(df)
+    for (const m of body.matchAll(new RegExp(']\(([^)]+)\)', 'g'))) {
+      let t = m[1].trim()
+      if (/^https?:/.test(t) || t.startsWith('#') || t.startsWith('mailto:')) continue
+      t = t.split('#')[0]
+      if (!t) continue
+      docLinkCount++
+      if (!existsSync(path.resolve(base, t))) docLinkBad.push(`${path.basename(df)} → ${t}`)
+    }
+  }
+  //  양성 대조 — 문서나 링크를 하나도 못 읽으면 "끊긴 것 없음"이 공허하게 통과한다.
+  check(`문서 링크: 문서 ${docFiles.length}종에서 파일 링크 ${docLinkCount}개를 읽었다 (양성 대조)`,
+    docFiles.length >= 3 && docLinkCount >= 5)
+  check(`문서 링크: 가리키는 파일이 모두 실재한다 (이름을 바꾸면 조용히 끊긴다)`,
+    docLinkBad.length === 0, `끊김: ${docLinkBad.join(', ')}`)
+
   // ── 빌드 가드가 소스 디렉터리를 하나도 빠뜨리지 않는가 ──
   //  build-guard 의 SOURCE_DIRS 는 손으로 관리된다(app·lib·components). 새 소스 디렉터리를 만들고
   //  여기 넣는 것을 잊으면 그 안의 변경은 빌드를 낡게 만들지 않는 것으로 취급돼, 예전 코드를 검증하면서
