@@ -4361,11 +4361,14 @@ try {
   //  (그 아래 모든 검사가 함께 사라진다). 두 목록을 맞대 본다.
   //  `:future` 는 진단이라 게이트 대상이 아니다(README 가 그 이유를 밝힌다) — 비교에서 뺀다.
   //  `samples` 는 생성이고 게이트가 도는 것은 `samples:check` 다(같은 스크립트에 --check).
+  //  `ai:keycheck` 도 게이트 대상이 아니다 — 실제 Anthropic API 를 호출해 키·크레딧·모델 접근을 보는
+  //   배포 전 운영 도구다. 게이트에 넣으면 검증이 외부 서비스와 키 유무에 묶여, 앱이 멀쩡해도 게이트가
+  //   빨개진다. 명령 목록에는 둬야 발견된다(그전에는 package.json 에 없어 파일을 직접 찾아야 했다).
   const pkgJson = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')).scripts
   const verifySrc = readFileSync(path.join(ROOT, 'scripts', 'verify.mjs'), 'utf8')
   const verifySteps = [...verifySrc.matchAll(/script: '([^']+)'/g)].map((m) => m[1])
   const pkgSuites = Object.entries(pkgJson)
-    .filter(([k, cmd]) => /^node scripts\//.test(cmd) && !/future/.test(k) && k !== 'samples' && k !== 'verify')
+    .filter(([k, cmd]) => /^node scripts\//.test(cmd) && !/future/.test(k) && k !== 'samples' && k !== 'verify' && k !== 'ai:keycheck')
     .map(([k, cmd]) => ({ k, s: cmd.replace('node ', '').split(' ')[0] }))
   //  게이트가 결과를 읽는 방식도 고정한다 — 스위트가 아무것도 검사하지 않고 종료 코드 0 으로 끝나면
   //   요약은 '? passed / 0 failed' 가 된다. 실패가 0 인 것이 아니라 아무것도 세지 않은 것이라,
