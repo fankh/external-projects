@@ -3524,6 +3524,87 @@ try {
   if (naBtn2.asElement()) { await naBtn2.asElement().click(); await pNa.waitForTimeout(900) }
   await ctxNa.close()
 
+  // ── 정책 강도가 실행 강도의 상한인가 — 스캔 안전장치의 실체 ──
+  //  스캔 실행 화면은 "능동 스캔은 허용 시간대·대역·강도 정책 안에서만 실행되며"라고, 탐지 채널·정책
+  //  화면은 "강도를 정책으로 통제합니다 — 운영망 영향을 최소화하는 스캔 안전장치"라고 적는다.
+  //  그런데 정책 강도는 표에 표시만 되고 실행을 제약하지 않아, 정책 보통인 채널에서 높음 실행이 그대로
+  //  완료됐다 — 관리자가 부하를 낮추려 강도를 내려도 아무 일도 일어나지 않는 표시뿐인 통제였다.
+  //  시간대와 강도를 섞지 않으려고 시간대를 현재 시각 포함으로 넓힌 뒤 강도만 본다(원복한다).
+  const ctxCap = await browser.newContext(); await ctxCap.addCookies([cookie(ADMIN)]); const pCap = await ctxCap.newPage()
+  await pCap.goto(`${BASE}/settings/scan-policy`, { waitUntil: 'networkidle' })
+  const capEdit = await pCap.evaluateHandle(() => {
+    const tr = [...document.querySelectorAll('tr')].find((r) => r.textContent.includes('네트워크 능동 스캔'))
+    return tr ? [...tr.querySelectorAll('button')].find((b) => /정책 편집/.test(b.textContent)) : null
+  })
+  ok('스캔 정책: 네트워크 능동 스캔의 정책 편집 버튼을 집었다 (양성 대조)', !!capEdit.asElement())
+  let capWindowBefore = ''
+  if (capEdit.asElement()) {
+    await capEdit.asElement().click(); await pCap.waitForTimeout(500)
+    for (const inp of await pCap.$$('input.input')) {
+      const v = await inp.inputValue()
+      if (v.includes('~')) { capWindowBefore = v; await inp.fill('00:00 ~ 23:59'); break }
+    }
+    const sv = await pCap.evaluateHandle(() => [...document.querySelectorAll('button')].find((b) => /저장/.test(b.textContent)))
+    if (sv.asElement()) { await sv.asElement().click(); await pCap.waitForTimeout(1000) }
+  }
+  await pCap.goto(`${BASE}/discovery/scan`, { waitUntil: 'networkidle' })
+  await pCap.evaluate(() => {
+    for (const btn of document.querySelectorAll('button')) {
+      const t = btn.textContent.trim().replace(' ⚠', '').replace(' (중지)', '')
+      if (['패시브 트래픽', 'DNS·프록시 로그', 'EDR·엔드포인트', '클라우드 API', 'AD/IdP·SSO 로그'].includes(t) && btn.className.includes('pri')) btn.click()
+    }
+  })
+  await pCap.waitForTimeout(500)
+  const capOpts = await pCap.$$eval('select[aria-label="스캔 강도"] option', (os) => os.map((o) => o.value))
+  ok(`스캔 강도: 정책 강도가 상한이라 선택지가 거기까지만 (${JSON.stringify(capOpts)})`, capOpts.length > 0 && !capOpts.includes('높음'))
+  const capBody = (await pCap.textContent('body')).replace(/s+/g, ' ')
+  ok('스캔 강도: 상한이 어느 채널에서 왔는지 밝힌다 (막다른 선택지 대신 이유)', /강도 상한/.test(capBody) && capBody.includes('네트워크 능동 스캔'))
+  //  화면을 우회해 상한 밖 강도를 넣어도 서버가 막아야 한다 — 액션 직접 호출과 같은 경로다.
+  await pCap.evaluate(() => {
+    const sel = document.querySelector('select[aria-label="스캔 강도"]')
+    const opt = document.createElement('option'); opt.value = '높음'; opt.textContent = '강도 — 높음'
+    sel.appendChild(opt); sel.value = '높음'
+    sel.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await pCap.waitForTimeout(500)
+  const capRun = await pCap.evaluateHandle(() => [...document.querySelectorAll('button')].find((b) => /스캔 실행/.test(b.textContent) && !b.disabled))
+  if (capRun.asElement()) { await capRun.asElement().click(); await pCap.waitForTimeout(2500) }
+  await pCap.goto(`${BASE}/discovery/scan`, { waitUntil: 'networkidle' })
+  const capHigh = await pCap.evaluate(() => [...document.querySelectorAll('tr')].filter((r) => /SCN-RUN/.test(r.textContent) && /높음/.test(r.textContent)).length)
+  ok('스캔 강도: 화면을 우회해도 상한을 넘는 실행은 이력에 남지 않는다 (서버 백스톱)', capHigh === 0)
+  //  양성 대조 — "이력에 남지 않는다"만 보면 막혀서인지 아무것도 실행되지 않아서인지 구분할 수 없다.
+  //   실제로 그 함정에 빠졌다: 상수를 'use server' 파일에 export 해 스캔 액션이 통째로 터졌는데,
+  //   위 단언은 초록이었다(회차가 안 늘었으니까). 상한 안쪽 강도로는 반드시 실행돼야 한다.
+  const capRunsBefore = Number(((await pCap.textContent('body')) || '').match(/스캔 이력 (\d+)회차/)?.[1] ?? '0')
+  await pCap.evaluate(() => {
+    const sel = document.querySelector('select[aria-label="스캔 강도"]')
+    sel.value = sel.options[sel.options.length - 1].value
+    sel.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await pCap.waitForTimeout(400)
+  const capRun2 = await pCap.evaluateHandle(() => [...document.querySelectorAll('button')].find((b) => /스캔 실행/.test(b.textContent) && !b.disabled))
+  if (capRun2.asElement()) { await capRun2.asElement().click(); await pCap.waitForTimeout(3000) }
+  await pCap.goto(`${BASE}/discovery/scan`, { waitUntil: 'networkidle' })
+  const capRunsAfter = Number(((await pCap.textContent('body')) || '').match(/스캔 이력 (\d+)회차/)?.[1] ?? '0')
+  ok(`스캔 강도(양성 대조): 상한 안쪽 강도로는 스캔이 실제로 실행된다 (${capRunsBefore} → ${capRunsAfter}회차)`, capRunsBefore > 0 && capRunsAfter === capRunsBefore + 1)
+  //  시간대 원복 — 좌석 오염 방지(뒤 검증이 창 밖 경고를 본다)
+  if (capWindowBefore) {
+    await pCap.goto(`${BASE}/settings/scan-policy`, { waitUntil: 'networkidle' })
+    const back = await pCap.evaluateHandle(() => {
+      const tr = [...document.querySelectorAll('tr')].find((r) => r.textContent.includes('네트워크 능동 스캔'))
+      return tr ? [...tr.querySelectorAll('button')].find((b) => /정책 편집/.test(b.textContent)) : null
+    })
+    if (back.asElement()) {
+      await back.asElement().click(); await pCap.waitForTimeout(500)
+      for (const inp of await pCap.$$('input.input')) {
+        if ((await inp.inputValue()).includes('~')) { await inp.fill(capWindowBefore); break }
+      }
+      const sv2 = await pCap.evaluateHandle(() => [...document.querySelectorAll('button')].find((b) => /저장/.test(b.textContent)))
+      if (sv2.asElement()) { await sv2.asElement().click(); await pCap.waitForTimeout(900) }
+    }
+  }
+  await ctxCap.close()
+
   // ── 모바일 웹 지원(제품안내서 §03) 회귀 가드 — 좁은 뷰포트(390px)에서 가로 오버플로가 없고 LV2 내비가 접힌다 ──
   const ctxMob = await browser.newContext({ viewport: { width: 390, height: 844 } })
   await ctxMob.addCookies([cookie(ASSET)])

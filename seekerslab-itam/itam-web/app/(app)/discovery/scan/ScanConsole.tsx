@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
+import { INTENSITY_ORDER } from '@/lib/scan-policy'
 import type { Channel, ScanPolicy } from '@/lib/types'
 import { runScan } from './actions'
 
@@ -27,7 +28,7 @@ export function ScanConsole(props: { policies: Pol[]; clock: string; defaultScop
   //  정책 강도는 상한이다(서버 runScan 과 같은 규칙) — 선택한 능동 채널 중 가장 낮은 정책 강도가
   //   이 실행의 상한이 된다. 넘는 선택지를 남겨 두면 고를 수는 있는데 늘 거부되는 막다른 길이 되므로
   //   여기서 아예 내주지 않고, 상한이 어디서 왔는지(어느 채널) 함께 밝힌다.
-  const LEVELS = ['낮음', '보통', '높음'] as const
+  const LEVELS = INTENSITY_ORDER
   const activePicked = props.policies.filter((p) => picked.includes(p.channel) && p.kind === '능동')
   const capIdx = activePicked.length === 0 ? LEVELS.length - 1
     : Math.min(...activePicked.map((p) => LEVELS.indexOf(p.intensity)))

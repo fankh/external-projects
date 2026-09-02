@@ -1669,6 +1669,27 @@ try {
   check('탐지 채널 정책: 현재 발견 자산 KPI → 발견 자산 드릴다운', scanHtml.includes('href="/discovery/found"') && scanHtml.includes('현재 발견 자산'))
   // 대역·시간대 정책 편집(§07 스캔 안전장치) — 능동 스캔 채널에 정책 편집 컨트롤. 시간대는 로15(시간대 밖 사유 필요)의 통제 원천.
   check('탐지 채널 정책: 능동 스캔 대역·시간대 정책 편집 노출', scanHtml.includes('정책 편집') && scanHtml.includes('비고 · 정책 편집'))
+  // ── 정책 강도가 실행을 제약하는가 — 화면이 "강도 정책 안에서만 실행되며"라고 약속한다 ──
+  //  그동안 정책의 강도는 표에 표시만 되고 실행을 제약하지 않았다: 운영자가 콘솔에서 아무 강도나
+  //  골라 그대로 돌았고, 관리자가 운영망 부하를 줄이려 채널 강도를 낮춰도 아무 일도 일어나지 않았다
+  //  (정책 강도 보통인 네트워크 능동 스캔에서 높음 실행이 완료되는 것을 실제로 확인했다).
+  //  시간대 가드와 같은 범위(능동 채널)에만 적용한다 — 패시브·로그 수집에는 부하 개념이 없다.
+  const scanActSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'scan', 'actions.ts'), 'utf8')
+  const scanConSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'discovery', 'scan', 'ScanConsole.tsx'), 'utf8')
+  check('스캔 강도: 정책 강도를 상한으로 서버가 강제', /INTENSITY_ORDER\.indexOf\(input\.intensity\) > INTENSITY_ORDER\.indexOf\(p\.intensity\)/.test(scanActSrc))
+  check('스캔 강도: 상한 판정은 능동 채널만 (시간대 가드와 같은 범위)', scanActSrc.includes("p.kind === '능동' && INTENSITY_ORDER"))
+  check('스캔 강도: 콘솔이 상한을 넘는 선택지를 내주지 않는다 (막다른 선택지 금지)', scanConSrc.includes('LEVELS.slice(0, capIdx + 1)'))
+  check('스캔 강도: 채널을 바꿔 상한이 낮아지면 고른 값도 내린다 (화면 값 ≠ 서버 판정 방지)', scanConSrc.includes('if (LEVELS.indexOf(intensity) > capIdx) setIntensity(capIntensity)'))
+  //  강도 순서는 정의가 하나여야 한다 — 서버와 화면이 각자 배열을 들면 상한 판정이 갈린다.
+  //  세기 순서는 정의가 하나여야 한다 — 서버와 화면이 각자 배열을 들면 상한 판정이 갈린다.
+  //   그 하나를 서버 액션 파일('use server')에 두면 안 된다: 그 파일은 async 함수만 export 할 수 있어,
+  //   상수를 export 하는 순간 그 모듈의 액션이 전부 런타임에 터진다 — 실제로 스캔 실행이 통째로 죽었고,
+  //   "상한을 넘는 실행이 이력에 남지 않는다"가 막혀서가 아니라 아무것도 실행되지 않아 초록이었다.
+  const scanPolSrc = readFileSync(path.join(ROOT, 'lib', 'scan-policy.ts'), 'utf8')
+  check('스캔 강도: 세기 순서의 정의는 lib/scan-policy.ts 한 곳', scanPolSrc.includes("export const INTENSITY_ORDER = ['낮음', '보통', '높음']"))
+  check('스캔 강도: 서버·화면이 그 정의를 가져다 쓴다 (각자 배열 금지)', scanActSrc.includes("INTENSITY_ORDER") && scanConSrc.includes('const LEVELS = INTENSITY_ORDER'))
+  check('스캔 실행 액션 파일은 async 함수만 내보낸다 (export const 는 모듈 전체를 죽인다)',
+    !/^export const /m.test(scanActSrc))
   // 재탐지 주기 편집(§04 스케줄러) — 강도·대역·시간대뿐 아니라 재탐지 주기도 전 채널에서 조정 가능(표시 전용 공백 보완)
   check('탐지 채널 정책: 재탐지 주기(스케줄러) 편집 노출', scanHtml.includes('재탐지 주기 변경 (스케줄러)'))
   const catHtml = await (await get('/settings/saas-catalog', 'ADMIN')).text()
