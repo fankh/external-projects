@@ -3605,6 +3605,37 @@ try {
   }
   await ctxCap.close()
 
+  // ── 대장 정합성의 "부서 불일치" 규칙이 실제로 작동하는가 — 시드에 사례가 없어 한 번도 실행된 적이 없다 ──
+  //  lib/quality assetDataIssues 는 네 규칙을 갖는데(소유자 미지정·시리얼 누락·위치 누락·부서 불일치),
+  //  앞의 셋은 시드에 사례가 있어 화면에 뜨지만 부서 불일치만 0건이다. 그 규칙이 잡으려는 것은 주석이
+  //  밝힌 대로 "부서별 비용 배분·통지·오프보딩 집계가 실제 보유 부서가 아닌 곳을 가리키는" 상태다.
+  //  시드에 사례를 심으면 리포트의 정합성 정확도가 바뀌어 17종 샘플이 드리프트한다 — 그래서 데이터를
+  //  건드리지 않고, 이미 있는 보정 UI 로 그 조건을 런타임에 만들어 규칙을 태운다(끝나면 되돌린다).
+  //  AST-2022-000512 는 부서가 '영업1팀'이고 소유자가 '-' 다. 소유자를 김민준(플랫폼개발팀)으로 보정하면
+  //  보유자의 부서와 자산의 부서가 갈려 정확히 이 규칙의 조건이 된다.
+  const ctxDq = await browser.newContext(); await ctxDq.addCookies([cookie(ASSET)]); const pDq = await ctxDq.newPage()
+  await pDq.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
+  const dqBefore = (await pDq.textContent('body')) || ''
+  ok('정합성: 대상 자산의 상세가 열렸고 소유자 미지정으로 표시된다 (양성 대조)',
+    dqBefore.includes('AST-2022-000512') && dqBefore.includes('소유자 미지정'))
+  ok('정합성: 보정 전에는 부서 불일치가 표시되지 않는다 (음성 대조)', !dqBefore.includes('부서 불일치'))
+  const dqInput = pDq.locator('input[placeholder="보정할 소유자(성명)"]').first()
+  ok('정합성: 소유자 보정 입력이 노출된다 (양성 대조)', (await dqInput.count()) > 0)
+  if ((await dqInput.count()) > 0) {
+    await dqInput.fill('김민준')
+    await pDq.locator('button', { hasText: /^보정$/ }).first().click()
+    await pDq.waitForTimeout(1200)
+    await pDq.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
+  }
+  const dqAfter = (await pDq.textContent('body')) || ''
+  //  보유자(플랫폼개발팀)와 자산 부서(영업1팀)가 갈렸다 — 이때 규칙이 울려야 한다.
+  ok('정합성: 보유자 부서와 자산 부서가 갈리면 부서 불일치로 잡는다 (그동안 시드에 사례가 없어 미검증이던 규칙)',
+    dqAfter.includes('부서 불일치'))
+  //  소유자 미지정은 해소돼야 한다 — 보정이 실제로 반영됐다는 증거(규칙이 울린 것이 보정 실패 때문이 아니다).
+  ok('정합성: 소유자 보정이 반영돼 소유자 미지정은 해소된다 (규칙이 운 이유가 보정 실패가 아니다)',
+    dqAfter.includes('김민준') && !dqAfter.includes('소유자 미지정'))
+  await ctxDq.close()
+
   // ── 모바일 웹 지원(제품안내서 §03) 회귀 가드 — 좁은 뷰포트(390px)에서 가로 오버플로가 없고 LV2 내비가 접힌다 ──
   const ctxMob = await browser.newContext({ viewport: { width: 390, height: 844 } })
   await ctxMob.addCookies([cookie(ASSET)])
