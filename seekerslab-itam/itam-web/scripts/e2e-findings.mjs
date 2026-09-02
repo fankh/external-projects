@@ -3619,7 +3619,8 @@ try {
   const ctxDq = await browser.newContext(); await ctxDq.addCookies([cookie(ASSET)]); const pDq = await ctxDq.newPage()
   await pDq.goto(`${BASE}/assets/register?avail=1`, { waitUntil: 'networkidle' })
   //  유휴 자산 하나를 골라 대여자=김민준(플랫폼개발팀) · 부서=영업1팀 으로 대여한다 — 둘이 갈린다.
-  const dqBox = pDq.locator('input[type="checkbox"][aria-label*="선택"]').first()
+  //  "전체 선택" 체크박스가 먼저 걸리지 않게 자산번호가 붙은 것만 고른다(aria-label="AST-… 선택").
+  const dqBox = pDq.locator('input[type="checkbox"][aria-label^="AST-"]').first()
   ok('정합성(부서 불일치): 대여 가능한 유휴 자산이 있다 (양성 대조)', (await dqBox.count()) > 0)
   let dqNo = ""
   if ((await dqBox.count()) > 0) {
