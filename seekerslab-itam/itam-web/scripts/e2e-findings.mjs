@@ -3605,6 +3605,57 @@ try {
   }
   await ctxCap.close()
 
+  // ── 대장 정합성의 "부서 불일치" 규칙이 실제로 작동하는가 — 시드에 사례가 없어 한 번도 실행된 적이 없다 ──
+  //  lib/quality assetDataIssues 는 네 규칙을 갖는데(소유자 미지정·시리얼 누락·위치 누락·부서 불일치),
+  //  앞의 셋은 시드에 사례가 있어 화면에 뜨지만 부서 불일치만 0건이다. 그 규칙이 잡으려는 것은 주석이
+  //  밝힌 대로 "부서별 비용 배분·통지·오프보딩 집계가 실제 보유 부서가 아닌 곳을 가리키는" 상태다.
+  //  시드에 사례를 심으면 리포트 정합성 정확도가 바뀌어 17종 샘플이 전부 드리프트한다 — 검증 대상이
+  //  아닌 것을 흔드는 대가가 크다. 그래서 데이터를 건드리지 않고 앱의 정상 경로로 그 상태를 만든다.
+  //
+  //  경로 선택이 이 검사의 핵심이다. 정합성 보정(correctField)으로는 만들 수 없다 — 소유자를 채울 때
+  //  그 사람의 부서로 자산 부서를 함께 동기화하기 때문이다(보정이 한 이슈를 고치며 다른 이슈를 만들지
+  //  않게 하는 의도된 설계다). 대여(loanAsset)는 대여자와 부서를 각각 입력받아 둘이 독립이다 —
+  //  규칙 주석이 말하는 "수기 입력에서 생긴다"가 바로 이 경로다.
+  const ctxDq = await browser.newContext(); await ctxDq.addCookies([cookie(ASSET)]); const pDq = await ctxDq.newPage()
+  await pDq.goto(`${BASE}/assets/register?avail=1`, { waitUntil: 'networkidle' })
+  //  유휴 자산 하나를 골라 대여자=김민준(플랫폼개발팀) · 부서=영업1팀 으로 대여한다 — 둘이 갈린다.
+  //  "전체 선택" 체크박스가 먼저 걸리지 않게 자산번호가 붙은 것만 고른다(aria-label="AST-… 선택").
+  const dqBox = pDq.locator('input[type="checkbox"][aria-label^="AST-"]').first()
+  ok('정합성(부서 불일치): 대여 가능한 유휴 자산이 있다 (양성 대조)', (await dqBox.count()) > 0)
+  let dqNo = ""
+  if ((await dqBox.count()) > 0) {
+    dqNo = ((await dqBox.getAttribute('aria-label')) || '').replace(' 선택', '')
+    await dqBox.check()
+    await pDq.waitForTimeout(400)
+    await pDq.locator('input[placeholder="대여자"]').first().fill("김민준")
+    await pDq.locator('input[placeholder="부서"]').first().fill("영업1팀")
+    //  기준일 파생은 dPlus() 하나로 — UTC 를 직접 쓰면 KST 자정~09시에 하루 뒤처진다(스모크가 이 규약을 강제한다).
+    const due = dPlus(30)
+    await pDq.locator('input[type="date"]').first().fill(due)
+    await pDq.locator('button', { hasText: /^대여$/ }).first().click()
+    await pDq.waitForTimeout(1500)
+  }
+  await pDq.goto(`${BASE}/assets/register?sel=${dqNo}`, { waitUntil: 'networkidle' })
+  //  선택 자산의 정합성 배너만 읽는다 — 대장은 자산 수십 건을 한 페이지에 렌더하므로 body 로 재면
+  //   다른 자산의 이슈까지 걸린다(실제로 그래서 이 검사가 헛돌았다: 앞 검사들이 만든 남의 부서 불일치를
+  //   이 자산 것으로 읽고 통과했다).
+  const dqPanel = async () => {
+    const t = (await pDq.textContent('body')) || ''
+    const i = t.indexOf('대장 정합성 미흡')
+    return i < 0 ? '' : t.slice(i, i + 200)
+  }
+  const dqAfter = await dqPanel()
+  ok(`정합성(부서 불일치): 대여로 보유자(김민준·플랫폼개발팀)와 자산 부서(영업1팀)를 갈라 놓았다 (${dqNo || '?'})`,
+    dqNo !== '' && ((await pDq.textContent('body')) || '').includes('김민준'))
+  ok('정합성(부서 불일치): 보유자 부서와 자산 부서가 갈리면 부서 불일치로 잡는다 (시드에 사례가 없어 미검증이던 규칙)',
+    dqAfter.includes('부서 불일치'))
+  //  반납해 좌석을 되돌린다 — 이 자산은 유휴 재고였고, 대여 상태로 남기면 뒤 검사의 가용 재고가 줄어든다.
+  //  대여 자산의 반환 버튼은 '대여 반환 접수' 다 — '자산 회수 (반납 처리)' 는 사용중 자산용이라 이 자산에는 없다.
+  const dqRet = pDq.locator('button', { hasText: '대여 반환 접수' }).first()
+  ok('정합성(부서 불일치): 원복할 대여 반환 버튼을 집었다 (좌석 오염 방지)', (await dqRet.count()) > 0)
+  if ((await dqRet.count()) > 0) { await dqRet.click(); await pDq.waitForTimeout(1200) }
+  await ctxDq.close()
+
   // ── 모바일 웹 지원(제품안내서 §03) 회귀 가드 — 좁은 뷰포트(390px)에서 가로 오버플로가 없고 LV2 내비가 접힌다 ──
   const ctxMob = await browser.newContext({ viewport: { width: 390, height: 844 } })
   await ctxMob.addCookies([cookie(ASSET)])
