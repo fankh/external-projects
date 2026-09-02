@@ -74,6 +74,18 @@ const nextBin = path.join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next')
 
 // 러너가 세운 빌드를 스위트가 그대로 검증하도록 표시를 넘긴다 — 러너가 도는 동안 소스를 건드려도
 //  뒤 스위트가 신선도 가드에 걸려 멈추지 않게 한다(빌드 자체는 아래에서 항상 먼저, 끝까지 돌린다).
+// 정적 검사를 먼저 돌린다 — 빌드보다 빠르고, 여기서 걸리면 빌드 시간을 아낀다.
+//  next lint 는 경고만 있어도 종료 코드 0 을 내므로 출력을 직접 본다 — 그대로 두면 '통과'로 읽혀
+//  경고가 쌓인다(실제로 그렇게 쌓인 경고 하나가 useMemo 의존성 누락이었다: 위치 레지스트리가
+//  바뀌어도 일괄 등록 미리보기가 예전 목록으로 검증했다).
+console.log('▶ lint')
+const lint = await run(process.execPath, [nextBin, 'lint'], 'lint')
+const lintDirty = lint.full.includes('Warning:') || lint.full.includes('Error:')
+if (lint.code !== 0 || lintDirty) {
+  console.error(String.fromCharCode(10) + '✗ lint 실패 — 경고도 실패로 봅니다(쌓이면 아무도 보지 않게 됩니다).')
+  process.exit(1)
+}
+
 console.log('▶ 빌드')
 const build = await run(process.execPath, [nextBin, 'build'], 'build')
 if (build.code !== 0) {
