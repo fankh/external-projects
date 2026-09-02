@@ -4306,6 +4306,28 @@ try {
   const apprSecN = await apprBtns('SEC_MGR')
   check(`결재 잠금 방지: ADMIN 승인 가능 건이 가장 넓다 (Admin ${apprAdminN} ≥ 자산담당 ${apprAssetN} · 보안담당 ${apprSecN})`,
     apprAdminN > 0 && apprAdminN >= apprAssetN && apprAdminN >= apprSecN)
+  // ── verify 게이트가 스위트를 하나도 빠뜨리지 않는가 ──
+  //  게이트 단계 목록(scripts/verify.mjs)은 손으로 관리된다. 새 스위트를 package.json 에 넣고
+  //  게이트에 넣는 것을 잊으면 그 검사들이 통째로 돌지 않으면서 verify 는 초록으로 끝난다 —
+  //  이 저장소가 반복해서 닫아 온 "조용한 누락"이고, 게이트 자신에게 생기면 가장 무겁다
+  //  (그 아래 모든 검사가 함께 사라진다). 두 목록을 맞대 본다.
+  //  `:future` 는 진단이라 게이트 대상이 아니다(README 가 그 이유를 밝힌다) — 비교에서 뺀다.
+  //  `samples` 는 생성이고 게이트가 도는 것은 `samples:check` 다(같은 스크립트에 --check).
+  const pkgJson = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')).scripts
+  const verifySrc = readFileSync(path.join(ROOT, 'scripts', 'verify.mjs'), 'utf8')
+  const verifySteps = [...verifySrc.matchAll(/script: '([^']+)'/g)].map((m) => m[1])
+  const pkgSuites = Object.entries(pkgJson)
+    .filter(([k, cmd]) => /^node scripts\//.test(cmd) && !/future/.test(k) && k !== 'samples' && k !== 'verify')
+    .map(([k, cmd]) => ({ k, s: cmd.replace('node ', '').split(' ')[0] }))
+  const gateMissing = pkgSuites.filter((x) => !verifySteps.includes(x.s)).map((x) => x.k)
+  const gateExtra = verifySteps.filter((sc) => !pkgSuites.some((x) => x.s === sc))
+  //  양성 대조 — 두 목록을 못 읽으면 "빠진 것 없음"이 공허하게 통과한다(파싱이 깨진 경우).
+  check(`verify 게이트: 단계 ${verifySteps.length}종 · package 스위트 ${pkgSuites.length}종을 읽었다 (양성 대조)`,
+    verifySteps.length >= 5 && pkgSuites.length >= 5)
+  check(`verify 게이트: package 의 스위트가 모두 게이트에 있다 (빠지면 그 검사가 통째로 안 돈다)`,
+    gateMissing.length === 0, `게이트 누락: ${gateMissing.join(', ')}`)
+  check(`verify 게이트: 게이트 단계가 모두 package 에 있다 (사라진 스크립트를 부르지 않는다)`,
+    gateExtra.length === 0, `package 없음: ${gateExtra.join(', ')}`)
   // 시드 참조 무결성 — 끊긴 참조는 화면·반출에서 '조회되지 않는 번호'로 나간다.
   //  폐기 증적 대장(ISMS A.8.3)의 결재번호가 대표 사례다: 대장에 없는 번호를 적으면 '결재를 받았다'고
   //  주장하면서 근거를 댈 수 없고, 감사 로그의 대상 딥링크도 없는 문서로 향한다(실제로 두 건이 그랬다).
