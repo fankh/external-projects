@@ -1390,6 +1390,23 @@ try {
   check('통합 검색: 사용자에겐 위협·노출 그룹 미노출(권한 스코핑 · 위협 도메인 밖)', !srchThreatUser.groups.some((g) => g.kind === '위협·노출'))
   const srchUser = await (await get('/api/search?q=' + encodeURIComponent('CT-2023-014'), 'USER')).json()
   check('통합 검색: 사용자에겐 계약 그룹 미노출(권한 스코핑)', !srchUser.groups.some((g) => g.kind === '계약·라이선스'))
+  // ── 자산 그룹 안에서도 본인 범위를 지키는가 — 위 검사들은 그룹 통째 미노출만 본다 ──
+  //  검색은 자산번호 한 줄로 대장 밖에서 자산을 집는 경로다. 화면(본인 범위 조회)과 반출(e2e)이 범위를
+  //  지켜도 검색이 전량을 돌려주면, 사용자는 남의 자산번호만 알면 모델·소유자·위치를 그대로 읽는다.
+  //  PARTIAL_SCOPES 의 '자산 대장|조회|USER' 가 화면 파일만 구현으로 적고 있어 검색은 사각이었다.
+  //  양방향으로 잰다 — 남의 것은 안 나오고(스코핑), 본인 것은 나온다(막다른 검색이 아님).
+  const srchOtherU = await (await get('/api/search?q=AST-2020-000883', 'USER')).json()
+  const srchOtherA = await (await get('/api/search?q=AST-2020-000883', 'ADMIN')).json()
+  const assetHits = (r) => (r.groups.find((g) => g.kind === '자산')?.items ?? []).map((i) => i.href).join(' ')
+  check('통합 검색(자산 범위): 남의 자산은 사용자 검색에 나오지 않는다(AST-2020-000883 인프라운영팀)',
+    !assetHits(srchOtherU).includes('AST-2020-000883'))
+  //  양성 대조 — 관리자에겐 나와야 '스코핑'이지 '검색이 통째로 막힘'이 아니다.
+  check('통합 검색(자산 범위): 그 자산이 관리자 검색에는 나온다 (스코핑이지 소실 아님 · 양성 대조)',
+    assetHits(srchOtherA).includes('AST-2020-000883'))
+  //  본인 자산은 찾을 수 있어야 한다 — 못 찾으면 사용자는 자기 자산을 검색으로 집을 수 없다.
+  const srchOwnU = await (await get('/api/search?q=AST-2023-000112', 'USER')).json()
+  check('통합 검색(자산 범위): 본인 보유 자산은 사용자 검색에서 찾힌다(AST-2023-000112 · 양성 대조)',
+    assetHits(srchOwnU).includes('AST-2023-000112'))
   const srchAsset = await (await get('/api/search?q=AST-2023-000112', 'ASSET_MGR')).json()
   check('통합 검색: 자산 매칭이 sel 딥링크로 점프', srchAsset.groups.some((g) => g.kind === '자산' && g.items.some((i) => i.href.includes('sel=AST-2023-000112'))))
   // 폐기·입고 교차 검색 — 입고 SR 번호(SR-2607-041)·폐기 자산으로 찾는다
