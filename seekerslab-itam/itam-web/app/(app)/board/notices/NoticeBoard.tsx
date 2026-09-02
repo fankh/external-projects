@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState, useTransition } from 'react'
+import { useCallback, useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { noticeAudienceLabel, noticeTargets } from '@/lib/notice'
 import { NOTICE_CATEGORIES, type BoardPost, type NoticeCategory } from '@/lib/types'
@@ -34,11 +34,14 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
   // 확인 미달만 보기 — 대시보드 '필독 공지 확인 미달' 큐의 드릴다운. 공지 목록은 확인이 끝난 공지·일반 공지까지
   //  함께 쌓이므로, 큐가 말한 건수를 화면에서 다시 세어야 했다. 판정은 큐와 같다(발행 도래한 필독 중 대상자 미확인 존재).
   const [fgap, setFgap] = useState(Boolean(initialGap))
-  const hasAckGap = (p: BoardPost) => {
+  //  useCallback 으로 고정한다 — 아래 rows(useMemo) 가 이 함수를 쓰는데, 매 렌더 새로 만들면
+  //   의존성에 넣을 수 없어 exhaustive-deps 가 경고한다. 이 함수가 읽는 값(today · allUsers)은
+  //   이미 그 의존성에 있어 판정 자체는 옳았지만, 경고를 남겨 두면 다음 사람이 같은 판단을 다시 한다.
+  const hasAckGap = useCallback((p: BoardPost) => {
     if (!p.pinned || (p.publishAt && p.publishAt > today)) return false
     const acked = new Set((p.acks ?? []).map((a) => a.by))
     return noticeTargets(p, allUsers).some((u) => !acked.has(u.name))
-  }
+  }, [today, allUsers])
   const gapCount = posts.filter(hasAckGap).length
   const rows = useMemo(() => {
     const needle = fq.trim().toLowerCase()
@@ -50,7 +53,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
       if (needle && ![p.title, p.body, p.author].some((f) => f?.toLowerCase().includes(needle))) return false
       return true
     })
-  }, [posts, fq, fpinned, fscheduled, fcat, fgap, allUsers, today])
+  }, [posts, fq, fpinned, fscheduled, fcat, fgap, hasAckGap])
   // 다른 공지로 넘어가면 편집 모드 해제. 새 공지를 여는 경우 조회수를 올린다(닫기·같은 글 토글은 제외).
   const select = (id: string) => {
     setEditing(null)

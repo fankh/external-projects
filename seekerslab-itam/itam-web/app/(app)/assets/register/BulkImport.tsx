@@ -61,7 +61,10 @@ function splitCsvLine(line: string): string[] {
       out.push({ row, valid: !reason, reason })
     }
     return out
-  }, [text])
+  //  locations 도 의존성이다 — 공통코드 레지스트리에서 오는 prop 이라 관리자가 위치를 추가하거나
+  //   미사용 처리하면 바뀐다. [text] 만 보면 예전 목록으로 검증해, 미리보기는 초록인데 등록에서만
+  //   빠지는 상태가 된다 — 바로 위 주석이 경계하는 "화면이 내준 것을 서버가 거절하는 자리" 그대로다.
+  }, [text, locations])
   const validRows = parsed.filter((p) => p.valid).map((p) => p.row)
 
   const submit = () => startTransition(async () => {
