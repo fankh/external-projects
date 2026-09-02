@@ -1360,6 +1360,43 @@ try {
   check(`대장 반출(1층): 엑셀 권한이 없는 역할은 서버가 막는다 (${expUser.status})`, expUser.status === 403)
   check(`대장 반출(2층): 행 자체도 본인 범위로 좁힌다 (매트릭스에서 엑셀을 켜 줘도 전량이 나가지 않는다)`,
     expSrc.includes("role === 'USER' ? s.assets.filter((a) => a.owner === userName) : s.assets"))
+
+  // ── 모든 서버 액션이 세션·권한을 확인하는가 ──
+  //  서버 액션은 화면을 거치지 않고 호출된다 — 버튼을 숨겨도 액션 id 로 직접 부를 수 있다(이 저장소가
+  //  여러 곳에 적어 둔 규약이다). 개별 액션 가드는 많지만 '하나도 빠짐없이'라는 불변식은 없었다.
+  //  새 액션을 가드 없이 추가하면 지금은 아무도 말해 주지 않는다.
+  //  인정하는 형태는 공통 guard 와 파일 지역 헬퍼(requireAdmin·requireSaasPolicy 등) 둘 다다 —
+  //  헬퍼 이름을 빠뜨리면 멀쩡한 액션이 무더기로 걸리는 거짓 경보가 난다(실제로 17개가 그렇게 나왔다).
+  //  그래서 이름 목록이 아니라 'require' 로 시작하는 지역 헬퍼 호출을 형태로 인정한다.
+  const actionFiles = []
+  {
+    const stack = [path.join(ROOT, 'app')]
+    while (stack.length) {
+      const d = stack.pop()
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name)
+        if (e.isDirectory()) stack.push(p)
+        else if (e.name === 'actions.ts') actionFiles.push(p)
+      }
+    }
+  }
+  const GUARD_SIGNS = ['guard(', 'getSession(', 'forbidden']
+  let actionCount = 0
+  const unguarded = []
+  for (const f of actionFiles) {
+    for (const part of readFileSync(f, 'utf8').split('export async function ').slice(1)) {
+      actionCount++
+      const name = part.slice(0, part.indexOf('('))
+      const head = part.slice(0, 600)
+      //  지역 헬퍼는 이름을 나열하지 않고 형태로 인정한다 — 'const x = await requireXxx()' 꼴.
+      const localHelper = head.includes('= await require') || head.includes('=await require')
+      if (!localHelper && !GUARD_SIGNS.some((s) => head.includes(s))) unguarded.push(path.basename(path.dirname(f)) + '/' + name)
+    }
+  }
+  check(`서버 액션 가드: 액션 ${actionCount}개를 읽었다 (양성 대조 — 0개면 "빠진 것 없음"이 공허하다)`,
+    actionCount >= 150)
+  check(`서버 액션 가드: 세션·권한 확인 없이 시작하는 액션이 없다 (버튼을 숨겨도 액션 id 로 직접 호출된다)`,
+    unguarded.length === 0, `가드 없음: ${unguarded.join(', ')}`)
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
