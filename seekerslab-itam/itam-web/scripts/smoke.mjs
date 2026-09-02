@@ -4383,6 +4383,13 @@ try {
     giPat.length >= 5 && diPat.length >= 5 && mustExclude.length >= 3)
   check(`이미지 제외 목록: 커밋에서 막는 산출물을 이미지에서도 막는다 (COPY . . 로 들어간다)`,
     diMissing.length === 0, `.dockerignore 누락: ${diMissing.join(', ')}`)
+  //  손으로 고른 목록(MUST_EXCLUDE)만 보면 뒤에 추가된 커밋 제외 항목을 놓친다 — 실제로 .env*.local 이
+  //   그렇게 빠져 있었다. ANTHROPIC_API_KEY 가 담기는 파일이고(README 의 --env-file), COPY . . 로
+  //   한 번 들어가면 나중에 지워도 레이어에 남아 키가 이미지와 함께 어디로든 따라간다.
+  //   .dockerignore 자신의 주석이 "`.gitignore` 와 같은 목록이어야 한다"고 적고 있으니 전량 대조한다.
+  const giNotDi = giPat.filter((p) => !diPat.includes(p))
+  check(`이미지 제외 목록: 커밋 제외 ${giPat.length}종이 이미지 제외 ${diPat.length}종에 모두 있다 (손으로 고른 목록은 새 항목을 놓친다)`,
+    giNotDi.length === 0, `이미지에서 안 막힘: ${giNotDi.join(', ')}`)
 
   // ── 문서가 가리키는 파일이 실재하는가 ──
   //  이 저장소는 문서가 주장하는 수치를 13종이나 검사하면서, 문서가 가리키는 파일이 실재하는지는
