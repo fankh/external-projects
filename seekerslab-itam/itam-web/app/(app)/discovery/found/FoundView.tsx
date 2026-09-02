@@ -42,7 +42,12 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
   // 기한 경과만 보기 — 대시보드 '소유자 확인 미응답' 큐의 드릴다운. 에스컬레이션 바가 건수를 세지만 그 아래
   //  목록에는 그 집합을 여는 수단이 없어, 큐가 말한 건을 전체 발견 목록에서 눈으로 찾아야 했다.
   const awaitOverdueSet = useMemo(() => new Set(awaitOverdueIds ?? []), [awaitOverdueIds])
-  const [fAwait, setFAwait] = useState(Boolean(initialAwaitOverdue) && (awaitOverdueIds ?? []).length > 0)
+  //  대상이 0건이어도 요청대로 적용한다 — 예전엔 ` && (awaitOverdueIds ?? []).length > 0` 가 붙어 있어,
+  //   미응답 건이 없으면 필터가 조용히 꺼지고 발견 목록 전체가 '확인 미응답만 보기' 결과인 양 그려졌다.
+  //   미응답 0은 고장이 아니라 소유자 확인이 모두 회신된 가장 바람직한 상태인데, 하필 그때 화면이
+  //   거짓을 말했다(SaaS 카탈로그의 기한 경과 필터가 같은 결함이었다). 반출도 함께 샌다 — byIds 가
+  //   fAwait 에 걸려 있어, 필터가 꺼지면 내려받는 파일이 전체 발견 목록이 된다.
+  const [fAwait, setFAwait] = useState(Boolean(initialAwaitOverdue))
   // 미조치만 보기 — 처리(편입 요청·관리 제외·격리 등)가 끝난 건을 뺀다. 대시보드 KPI 가 세는 축이다.
   const [fOpen, setFOpen] = useState(Boolean(initialUnactioned))
   const openCount = items.filter((d) => !d.action).length
@@ -156,7 +161,8 @@ export function FoundView({ items, observations, mergeCandidates, canExport, can
           title="아직 처리하지 않은 발견만 — 대시보드 '미등록 신규 발견' KPI 와 같은 축">
           {fOpen ? '✓ ' : ''}미조치만 {openCount}
         </button>
-        {awaitOverdueSet.size > 0 && (
+        {/*  필터가 켜져 있으면 대상이 0건이어도 버튼을 남긴다 — 켜진 필터를 끌 수단이 보여야 한다. */}
+        {(awaitOverdueSet.size > 0 || fAwait) && (
           <button className={`btn sm ${fAwait ? 'err' : 'ghost'}`} onClick={() => setFAwait((v) => !v)}
             title="소유자 확인 요청에 기한 내 응답이 없는 자산만 — 위 에스컬레이션 바·대시보드 큐와 같은 집합">
             {fAwait ? '✓ ' : ''}확인 미응답 {awaitOverdueSet.size}
