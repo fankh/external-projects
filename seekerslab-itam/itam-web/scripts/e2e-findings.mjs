@@ -1983,9 +1983,11 @@ try {
   //  이름을 양성으로 확인한다. 이 자산은 대장 보유자가 '-' 라 예전에는 관리 부서(자산관리팀·창고) 앞으로 나갔는데,
   //  그건 자리표시자를 피한 것이지 지울 수 있는 사람에게 간 것이 아니었다 — 실제 설치는 연구개발팀 이한결이다.
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
-  const rmRow = ((await p3.locator('tr', { hasText: '라이선스 배정 밖 설치 제거 요청' }).first().textContent()) || '').replace(/\s+/g, ' ')
+  //  발송 이력 행으로 좁힌다 — 같은 문구가 감사 로그 행에도 있어 .first() 는 그쪽을 집는다(수신자 칸이 없는 면이라
+  //  '자리표시자가 없다'가 언제나 참이 된다). MSG- 로 발송 행을 특정한다.
+  const rmRow = ((await p3.locator('tr').filter({ hasText: '라이선스 배정 밖 설치 제거 요청' }).filter({ hasText: 'MSG-' }).first().textContent()) || '').replace(/\s+/g, ' ')
   ok('라이선스 제거 요청 수신자: 발송 이력이 실제 담당자를 가리킨다(자리표시자 수신자 방지)',
-    rmRow.includes('이한결 (연구개발팀)') && !rmRow.includes('- (') && !rmRow.includes('미지정 ('))
+    rmRow.includes('MSG-') && rmRow.includes('이한결 (연구개발팀)') && !rmRow.includes('- (') && !rmRow.includes('미지정 ('))
 
   // 좌석 배정 이탈-자산 가드 — 폐기·분실·반납대기 등 이탈한 자산에 좌석을 새로 배정하면 좌석 자동 회수(이탈 시점에만 돎)가 다시 돌지 않아 좌석이 영구 누수된다(보유 초과·사용량 과대·SAM 배정 대장 오기록, 로56 무결성). 폐기완료 자산(AST-2018-000090) 배정 시도 → 거부·배정 2석 유지.
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
