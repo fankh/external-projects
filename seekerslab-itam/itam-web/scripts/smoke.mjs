@@ -3556,6 +3556,22 @@ try {
   check("SaaS 판정 기한 경과 큐: 링크가 그 필터를 켠 채 연다", dashSec.includes('/settings/saas-catalog?status=overdue'))
   // 기한 경과는 검토 대기의 부분집합이어야 한다 — 두 필터가 각자 판정하면 이 관계가 깨진다.
   check("SaaS 필터: 기한 경과는 검토 대기의 부분집합", saasOverShown <= saasShown, `경과 ${saasOverShown} · 검토중 ${saasShown}`)
+
+  // ── 좁히는 필터가 대상 0건일 때 조용히 전체로 떨어지지 않는가 ──
+  //  SaaS 카탈로그의 '기한 경과만 보기'는 대상이 0건이면 필터를 스스로 끄고 대장 전체를 그렸다
+  //  (`Boolean(overdueOnlyParam) && overdueSet.size > 0`). 형제 필터 '검토 대기만'은 무조건 적용해
+  //  0건을 정직하게 보여 주므로, 같은 질문에 둘이 다르게 답하고 있었다. 경과분 0은 고장이 아니라
+  //  팀이 밀린 판정을 다 처리한 가장 바람직한 상태인데, 하필 그때 화면이 거짓을 말했다.
+  //  반출도 함께 샜다 — 필터가 꺼지면 cFilterActive 가 false 라 엑셀이 전체 대장으로 내려간다
+  //  (바로 옆 주석이 "기한 경과만 골라 놓고 내려받은 파일이 전체 대장이면 다른 문서가 된다"고 적는다).
+  //  실제 시계에서는 경과분이 있어 이 경로를 지날 수 없으므로(과거 시계 진단에서 드러났다) 결합으로 고정한다.
+  const catSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'settings', 'saas-catalog', 'CatalogTable.tsx'), 'utf8')
+  check(`SaaS 필터: 검토 대기 필터는 요청대로 적용된다 (양성 대조 — 형제 필터의 기준선)`,
+    catSrc.includes('useState(Boolean(reviewOnlyParam))'))
+  check(`SaaS 필터: 기한 경과 필터도 대상 0건일 때 요청대로 적용된다 (전체로 떨어지지 않는다)`,
+    catSrc.includes('useState(Boolean(overdueOnlyParam))') && !catSrc.includes('Boolean(overdueOnlyParam) && overdueSet.size'))
+  check(`SaaS 필터: 대상 0건이어도 해제 버튼이 남는다 (빈 상태 안내가 '해제하면 보입니다'라고 적는다)`,
+    catSrc.includes('(overdueSet.size > 0 || overdueOnly)'))
   // 정례 리포트 배포 기한 경과 큐 — 스케줄 표는 정상 주기 항목까지 함께 보여 주므로, 큐가 말한 '기한 도래 N건'을
   //  화면에서 다시 세어야 했다. 큐 링크가 기한 도래만 보기를 켠 채 연다.
   const repDueHtml = await (await get('/ai/reports?due=1', 'ASSET_MGR')).text()

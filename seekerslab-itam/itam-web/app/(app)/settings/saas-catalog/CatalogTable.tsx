@@ -31,7 +31,12 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, re
   // 기한 경과만 보기 — 검토 대기(위 필터)보다 좁은 집합이다. 에스컬레이션 안내가 대상 서비스명을 나열하긴 했지만
   //  표를 그 집합으로 좁힐 수단이 없어, 큐가 말한 건을 대장에서 눈으로 골라야 했다.
   const overdueSet = new Set(overdueIds ?? [])
-  const [overdueOnly, setOverdueOnly] = useState(Boolean(overdueOnlyParam) && overdueSet.size > 0)
+  //  대상이 0건이어도 요청대로 적용한다 — 예전엔 ` && overdueSet.size > 0` 가 붙어 있어, 경과분이 없으면
+  //   필터가 조용히 꺼지고 대장 전체가 '기한 경과만 보기' 결과인 양 그려졌다(형제 필터 reviewOnly 는 무조건
+  //   적용해 0건을 정직하게 보여 준다 — 같은 질문에 둘이 다르게 답하고 있었다). 경과분이 0인 상태는 고장이
+  //   아니라 팀이 밀린 판정을 다 처리한 **가장 바람직한 상태**이고, 하필 그때 화면이 거짓을 말했다.
+  //   반출도 같이 새어 나갔다: 필터가 꺼지면 cFilterActive 가 false 라 엑셀이 전체 대장으로 내려간다.
+  const [overdueOnly, setOverdueOnly] = useState(Boolean(overdueOnlyParam))
   const reviewCount = entries.filter((e) => e.status === '검토중').length
   const shown = overdueOnly ? entries.filter((e) => overdueSet.has(e.id))
     : reviewOnly ? entries.filter((e) => e.status === '검토중')
@@ -81,7 +86,9 @@ export function CatalogTable({ entries, today, slaDays, approveNeedsApproval, re
         title="아직 인가·차단 판정이 나지 않은 항목만 — 대시보드 미판정 SaaS 큐와 같은 집합">
         {reviewOnly ? '✓ ' : ''}검토 대기만 {reviewCount}
       </button>
-      {overdueSet.size > 0 && (
+      {/*  필터가 켜져 있으면 대상이 0건이어도 버튼을 남긴다 — 빈 상태 안내가 '필터를 해제하면 전체가
+            보입니다'라고 적는데 해제할 수단이 없으면 막다른 길이 된다. */}
+      {(overdueSet.size > 0 || overdueOnly) && (
         <button className={`btn sm ${overdueOnly ? 'err' : 'ghost'}`} onClick={() => { setOverdueOnly((v) => !v); setReviewOnly(false) }}
           title={`접수 후 ${slaDays}일이 지나도 판정이 안 난 항목만 — 대시보드 판정 기한 경과 큐와 같은 집합`}>
           {overdueOnly ? '✓ ' : ''}기한 경과만 {overdueSet.size}
