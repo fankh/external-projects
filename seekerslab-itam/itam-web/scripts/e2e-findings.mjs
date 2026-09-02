@@ -3629,7 +3629,8 @@ try {
     await pDq.waitForTimeout(400)
     await pDq.locator('input[placeholder="대여자"]').first().fill("김민준")
     await pDq.locator('input[placeholder="부서"]').first().fill("영업1팀")
-    const due = new Date(Date.parse(baseToday() + 'T00:00:00Z') + 30 * 86400000).toISOString().slice(0, 10)
+    //  기준일 파생은 dPlus() 하나로 — UTC 를 직접 쓰면 KST 자정~09시에 하루 뒤처진다(스모크가 이 규약을 강제한다).
+    const due = dPlus(30)
     await pDq.locator('input[type="date"]').first().fill(due)
     await pDq.locator('button', { hasText: /^대여$/ }).first().click()
     await pDq.waitForTimeout(1500)
