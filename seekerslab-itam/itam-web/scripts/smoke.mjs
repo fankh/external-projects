@@ -4306,6 +4306,28 @@ try {
   const apprSecN = await apprBtns('SEC_MGR')
   check(`결재 잠금 방지: ADMIN 승인 가능 건이 가장 넓다 (Admin ${apprAdminN} ≥ 자산담당 ${apprAssetN} · 보안담당 ${apprSecN})`,
     apprAdminN > 0 && apprAdminN >= apprAssetN && apprAdminN >= apprSecN)
+  // ── 검증하는 런타임과 배포하는 런타임이 같은 계열인가 ──
+  //  게이트는 개발자 로컬 Node 로 돌고 컨테이너는 Dockerfile 이 고정한 버전으로 돈다. 둘이 갈리면
+  //  로컬·게이트는 통과하는데 컨테이너에서만 깨진다 — 새 API 를 쓰는 순간 그렇게 된다
+  //  (실제로 engines 선언이 없어 '어느 쪽이 기준인지' 적힌 곳이 없었다: 로컬 v24 · 컨테이너 v22).
+  //  package.json engines 를 기준으로 삼고, Dockerfile 의 베이스 이미지가 그 하한 이상인지 본다.
+  const pkgAll = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
+  const dockerAll = readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8')
+  const enginesNode = (pkgAll.engines && pkgAll.engines.node) || ''
+  const dockerFrom = dockerAll.split(String.fromCharCode(10)).find((l) => l.startsWith('FROM node:')) || ''
+  //  숫자만 앞에서부터 모은다 — 정규식을 쓰지 않는다(패치를 거치며 백슬래시가 사라지는 자리다).
+  const leadDigits = (t) => {
+    let out = ''
+    for (const ch of String(t)) { if (ch >= '0' && ch <= '9') out += ch; else if (out) break }
+    return Number(out || 0)
+  }
+  const dockerMajor = leadDigits((dockerFrom.split('node:')[1] || ''))
+  const enginesMajor = leadDigits(enginesNode)
+  check(`런타임 버전: engines(${enginesNode || '없음'}) 와 Dockerfile(${dockerFrom || '없음'}) 을 읽었다 (양성 대조)`,
+    enginesMajor > 0 && dockerMajor > 0)
+  check(`런타임 버전: 배포 이미지가 engines 하한 이상이다 (로컬만 통과하는 코드를 막는다)`,
+    enginesMajor > 0 && dockerMajor >= enginesMajor)
+
   // ── 파일 영속화 경로를 게이트가 실제로 지나는가 ──
   //  컨테이너는 ITAM_DATA_FILE 이 항상 켜진 채 돈다(Dockerfile 이 /data/store.json 을 지정한다).
   //  그런데 스위트는 대부분 인메모리(미설정)로 돌아, 저장·로드 경로는 empty 스위트가 그 기능을
