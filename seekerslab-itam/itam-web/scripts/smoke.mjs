@@ -231,6 +231,39 @@ try {
   check('인도 문서 보안 표 양성 대조: 표에 없는 이름은 뽑히지 않고, 없는 헤더 조회는 null 이다',
     !secDocSrc.includes("`X-Itam-Not-A-Header`") && liveRes.headers.get("x-itam-not-a-header") === null)
 
+  // 인라인 이벤트 핸들러 금지 — CSP 의 script-src 에 unsafe-inline 이 없으므로 onclick="…" 같은 인라인
+  //  핸들러는 브라우저가 실행을 거부한다. 무서운 점은 조용하다는 것이다: 화면은 멀쩡히 그려지고 버튼도
+  //  보이는데 누르면 아무 일도 일어나지 않는다. 실제로 CSP 를 세우면서 인쇄 문서 10곳의 인쇄·닫기
+  //  버튼이 전부 죽었고(브라우저 콘솔에만 위반이 남았다), 스위트는 이 라우트들을 브라우저로 열지
+  //  않아 초록이었다. 응답 HTML 에서 직접 찾는다 — 소스에 없어도 조립 과정에서 섞여 들 수 있다.
+  const INLINE_DOC_ROUTES = [
+    ['자산 카드', '/api/asset-card/AST-2019-000218', 'ASSET_MGR'],
+    ['라벨', '/api/label/AST-2019-000218', 'ASSET_MGR'],
+    ['라벨 묶음', '/api/labels?nos=AST-2019-000218', 'ASSET_MGR'],
+  ]
+  const inlineHandlers = []
+  const nonceMismatch = []
+  for (const [label, route, role] of INLINE_DOC_ROUTES) {
+    const res = await get(route, role)
+    const body = await res.text()
+    const hits = (body.match(/ on[a-z]+=/g) || []).length
+    if (hits > 0) inlineHandlers.push(`${label}:${hits}곳`)
+    // 대신 nonce 스크립트로 배선했는가 — 없으면 버튼이 배선되지 않은 채 조용히 죽는다.
+    const bNonce = (body.match(/<script nonce="([^"]+)"/) || [])[1]
+    const hNonce = ((res.headers.get('content-security-policy') || '').match(/nonce-([^']+)/) || [])[1]
+    if (!bNonce || bNonce !== hNonce) nonceMismatch.push(`${label}:${bNonce ? "헤더와 불일치" : "nonce 스크립트 없음"}`)
+  }
+  check(`인쇄 문서: 인라인 이벤트 핸들러 0곳 · nonce 스크립트로 배선(${INLINE_DOC_ROUTES.length}경로)`,
+    inlineHandlers.length === 0 && nonceMismatch.length === 0,
+    `인라인=${inlineHandlers.join(",") || "없음"} · 배선=${nonceMismatch.join(",") || "정상"}`)
+
+  // 양성 대조 — 인라인 핸들러를 찾는 패턴이 실제로 잡는지, 정상 마크업은 오탐하지 않는지 본다.
+  //  (0곳이라는 결과는 패턴이 아무것도 못 잡을 때도 나온다 — 측정면을 의심한다.)
+  const inlineProbe = (s) => (s.match(/ on[a-z]+=/g) || []).length
+  check('인쇄 문서 양성 대조: 인라인 핸들러 패턴이 실제로 잡고, 정상 버튼은 오탐하지 않는다',
+    inlineProbe('<button onclick="window.print()">인쇄</button>') === 1 &&
+    inlineProbe('<button class="pri" id="doc-print">인쇄</button>') === 0)
+
   console.log('\n[권한 매트릭스 — 라우트 × 권한그룹]')
   for (const [route, allowed] of Object.entries(ROUTES)) {
     for (const role of Object.keys(ACCOUNTS)) {
