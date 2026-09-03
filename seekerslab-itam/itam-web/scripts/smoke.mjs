@@ -1491,6 +1491,22 @@ try {
     fragileSites >= 40)
   check(`e2e 중단 취약면: 주석이 적은 수(${fragClaimed})와 실측(${fragileSites})이 같다 (늘어난 것을 아무도 모르면 주석만 낡는다)`,
     fragClaimed === fragileSites)
+
+  // ── 대시보드가 내주는 드릴다운 링크를 세어 둔다 ──
+  //  대시보드 큐는 '건수 + 그 건들을 여는 링크' 짝이다. 링크가 좁히지 못하면 큐가 말한 건을 사용자가
+  //  전체 목록에서 눈으로 찾아야 한다(#820·#821 이 그 결함이었다 — 필터가 스스로 꺼졌다).
+  //  개별 정합은 이미 24곳에서 '큐 건수 = 필터 화면 표시 건수'로 본다. 없는 것은 총수다 —
+  //  링크가 늘어도 검사 없이 지나간다. 주석의 40곳이 73곳이 되고(#833) 문서의 2512 가 2595 가 된
+  //  것과 같은 자리다(#818). 수를 세어 두면 늘어난 것이 눈에 띈다.
+  //  질의 문자열이 붙은 내부 링크만 센다 — 그것이 드릴다운이다(단순 메뉴 이동은 제외).
+  const drillCount = (html) => new Set((html.split('<!-- -->').join('').match(/href="\/[a-z/-]+\?[^"]+"/g) || [])
+    .map((h) => h.slice(6, -1))).size
+  const drillMgr = drillCount(await (await get('/dashboard', 'ASSET_MGR')).text())
+  const drillSec = drillCount(await (await get('/dashboard', 'SEC_MGR')).text())
+  check(`대시보드 드릴다운: 자산담당 ${drillMgr}개 · 보안담당 ${drillSec}개를 읽었다 (양성 대조 — 0개면 파싱이 깨진 것)`,
+    drillMgr > 0 && drillSec > 0)
+  check(`대시보드 드릴다운: 링크 수가 기준선과 같다 (늘면 정합 검사도 함께 늘려야 한다)`,
+    drillMgr === 32 && drillSec === 21, `자산담당 ${drillMgr}(기준 32) · 보안담당 ${drillSec}(기준 21)`)
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
