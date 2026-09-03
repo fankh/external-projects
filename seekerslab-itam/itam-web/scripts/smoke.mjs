@@ -124,6 +124,41 @@ try {
   const nfBody = await nf.text()
   check('없는 주소: 404 + 한국어 안내 + 돌아갈 링크', nf.status === 404 && nfBody.includes('요청하신 화면을 찾을 수 없습니다') && nfBody.includes('/dashboard'), `status=${nf.status}`)
 
+  // 보안 응답 헤더 — 이 앱은 헤더를 하나도 내보내지 않았다(next.config 에 headers() 자체가 없었다).
+  //  결재 승인·반려처럼 한 번의 클릭이 대장을 바꾸는 화면이 있는데 프레임 삽입을 막는 헤더가 없으면,
+  //  공격자 페이지가 이 앱을 투명 iframe 으로 겹쳐 두고 결재자가 자기 화면을 누른다고 믿는 사이
+  //  '승인'을 누르게 할 수 있다(UI redress). URL 에는 ?sel=AST-… 처럼 식별자가 실려 Referer 로도 샌다.
+  //  판정은 설정 파일을 읽어서 하지 않는다 — 실제 응답에서 잰다(설정이 있어도 안 붙는 경로가 있을 수 있다).
+  const SEC_HEADERS = {
+    'x-frame-options': 'DENY',
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+  }
+  //  화면(SSR)·문서(HTML)·반출(xlsx) 세 계열을 각각 잰다 — 층마다 따로 검사한다.
+  const HDR_TARGETS = [
+    ['화면', '/dashboard', 'ADMIN'],
+    ['로그인', '/login', null],
+    ['없는 주소', '/이런화면은없습니다', null],
+    ['인쇄 문서', '/api/asset-card/AST-2019-000218', 'ASSET_MGR'],
+    ['엑셀 반출', '/api/export/assets', 'ASSET_MGR'],
+  ]
+  const hdrMissing = []
+  for (const [label, route, role] of HDR_TARGETS) {
+    const res = await get(route, role)
+    for (const [h, want] of Object.entries(SEC_HEADERS)) {
+      const got = res.headers.get(h)
+      if (got !== want) hdrMissing.push(`${label}:${h}=${got ?? "없음"}`)
+    }
+  }
+  check(`보안 헤더: 화면·문서·반출 ${HDR_TARGETS.length}경로에 ${Object.keys(SEC_HEADERS).length}종이 모두 붙는다`,
+    hdrMissing.length === 0, `누락=${hdrMissing.join(", ") || "없음"}`)
+
+  // 양성 대조 — 헤더를 정말 응답에서 읽고 있는가. 설정하지 않은 헤더는 없어야 하고,
+  //  설정한 값과 다른 값을 기대하면 걸려야 한다(둘 다 통과하면 위 검사는 무엇이든 초록이다).
+  const hdrProbe = await get('/login')
+  check('보안 헤더 양성 대조: 응답에서 실제로 읽는다(설정 안 한 헤더는 없고, 다른 값은 불일치)',
+    hdrProbe.headers.get('x-itam-not-set') === null && hdrProbe.headers.get('x-frame-options') !== 'SAMEORIGIN')
+
   console.log('\n[권한 매트릭스 — 라우트 × 권한그룹]')
   for (const [route, allowed] of Object.entries(ROUTES)) {
     for (const role of Object.keys(ACCOUNTS)) {
