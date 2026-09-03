@@ -5218,19 +5218,30 @@ try {
     }
     await pRTM.locator("textarea").first().fill(`반납·이동 동시 대기 회귀 — ${kind}`)
     await pRTM.locator("button", { hasText: /^상신$/ }).click()
-    await pRTM.waitForTimeout(900)
-    return chosen
+    await pRTM.waitForTimeout(1000)
+    // 상신 결과를 읽는다 — 안 읽으면 실패한 상신 위에서 나머지 검사가 헛돈다(무엇이 막았는지도 안 보인다).
+    const note = ((await pRTM.locator(".callout").first().textContent().catch(() => "")) || "").trim()
+    return { chosen, id: (note.match(/APR-[0-9-]+/) || [])[0] || "", note }
   }
-  await raiseRTM("반납", false)
-  const rtmTo = await raiseRTM("이동", true)
-  ok(`반납·이동 충돌: 같은 자산에 두 종류가 함께 대기한다(이동 목적지 ${rtmTo || "없음"})`,
-    Boolean(rtmTo) && ((await pRTM.textContent("body")) || "").includes("이동 신청"))
+  const rtmRet = await raiseRTM("반납", false)
+  const rtmMov = await raiseRTM("이동", true)
+  ok(`반납·이동 충돌: 반납 상신 성공(${rtmRet.id || rtmRet.note.slice(0, 40) || "메시지 없음"})`, Boolean(rtmRet.id))
+  ok(`반납·이동 충돌: 같은 자산에 이동도 함께 대기한다(${rtmMov.id || rtmMov.note.slice(0, 40)} · 목적지 ${rtmMov.chosen || "없음"})`,
+    Boolean(rtmMov.id) && Boolean(rtmMov.chosen))
+  const rtmTo = rtmMov.chosen
   const ctxRTM2 = await browser.newContext(); await ctxRTM2.addCookies([cookie(ADMIN)]); const pRTM2 = await ctxRTM2.newPage()
-  for (let r = 0; r < 2; r += 1) {
-    await pRTM2.goto(`${BASE}/workflow/approvals`, { waitUntil: "networkidle" })
-    const btn = pRTM2.locator("tr", { hasText: rtmAsset }).locator("button", { hasText: /^승인$/ }).first()
-    if (await btn.count()) { await btn.click(); await pRTM2.waitForTimeout(1000) }
+  //  이동 신청의 제목에는 자산번호가 없다(모델 + 위치만) — 행은 결재 ID 로 찾는다.
+  const rtmApproved = []
+  for (const id of [rtmRet.id, rtmMov.id]) {
+    if (!id) continue
+    await pRTM2.goto(`${BASE}/workflow/approvals?sel=${id}`, { waitUntil: "networkidle" })
+    const btn = pRTM2.locator("tr", { has: pRTM2.locator("td", { hasText: id }) }).locator("button", { hasText: /^승인$/ }).first()
+    if ((await btn.count()) === 0) continue
+    await btn.click()
+    await pRTM2.waitForTimeout(1200)
+    rtmApproved.push(id)
   }
+  ok(`반납·이동 충돌: 두 건 모두 승인됐다(${rtmApproved.join(" · ") || "없음"} · 양성 대조)`, rtmApproved.length === 2)
   await pRTM2.goto(`${BASE}/assets/register?sel=${rtmAsset}`, { waitUntil: "networkidle" })
   const rtmBefore = (await pRTM2.locator("tr", { hasText: rtmAsset }).first().textContent()) || ""
   ok("반납·이동 충돌: 반납 승인으로 자산이 반납대기가 됐다(집행 전 전제)", rtmBefore.includes("반납대기"))
