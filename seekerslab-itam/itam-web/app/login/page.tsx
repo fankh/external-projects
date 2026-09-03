@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { appendAudit } from '@/lib/audit'
 import { nowMinute } from '@/lib/dates'
@@ -18,7 +18,13 @@ async function loginAs(formData: FormData) {
   const acct = ACCOUNTS.find((a) => a.login === login)
   if (!acct) return
   const jar = await cookies()
-  jar.set(SESSION_COOKIE, JSON.stringify(acct), { httpOnly: true, sameSite: 'lax', path: '/' })
+  // https 로 들어온 요청에는 secure 를 붙인다 — 이 플래그가 없으면 브라우저는 같은 사이트의 평문 http
+  //  요청에도 세션 쿠키를 실어 보낸다. TLS 뒤에 둔 배포에서 이미지 하나, 잘못된 링크 하나가 평문으로
+  //  나가면 그 요청에 세션이 통째로 실린다(httpOnly 는 스크립트 접근만 막지, 전송 경로를 고르지 않는다).
+  //  프로토콜은 리버스 프록시가 넘기는 x-forwarded-proto 로 판단한다. README 의 기본 배포 절차는 평문
+  //  http(3390)이라 무조건 붙이면 그 구성에서 로그인이 되지 않는다 — 조건부여야 둘 다 산다.
+  const proto = (await headers()).get('x-forwarded-proto')?.split(',')[0].trim()
+  jar.set(SESSION_COOKIE, JSON.stringify(acct), { httpOnly: true, sameSite: 'lax', path: '/', secure: proto === 'https' })
   // 로그인 사실을 대장에 남긴다 — 사용자·그룹 화면의 '최근 로그인'은 시드 값에 멈춰 있어 방금 들어온 사람도
   //  예전 시각으로 보였고(표시가 사실과 다름), 접근 기록(로그인)이 감사 로그에 아예 없었다(ISMS 접근 기록 항목).
   const user = getStore().users.find((u) => u.login === acct.login)

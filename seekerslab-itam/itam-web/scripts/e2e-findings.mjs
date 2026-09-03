@@ -3937,6 +3937,24 @@ try {
   await pLI.locator('form', { has: pLI.locator('input[value="ba.yoon"]') }).locator('button[type="submit"]').click()
   await pLI.waitForURL(/\/dashboard/, { timeout: 10000 })
   ok('로그인: 폼 로그인 성공(대시보드 진입)', pLI.url().endsWith('/dashboard'))
+  // 세션 쿠키의 secure — httpOnly 는 스크립트 접근만 막을 뿐 전송 경로를 고르지 않는다. secure 가 없으면
+  //  브라우저는 같은 사이트의 평문 http 요청에도 세션 쿠키를 실어 보낸다(TLS 뒤 배포에서 잘못된 링크·이미지
+  //  하나면 세션이 통째로 평문으로 나간다). README 의 기본 배포 절차는 평문 http(3390)라 무조건 붙이면
+  //  그 구성에서 로그인이 되지 않으므로, 프록시가 넘기는 x-forwarded-proto 로 판단한다.
+  //  두 방향을 모두 잰다 — 붙는 것만 보면 "항상 붙는" 구현도 통과하고, 안 붙는 것만 보면 아무것도 증명하지 못한다.
+  const liCookie = (await ctxLI.cookies()).find((c) => c.name === "itam_session")
+  ok(`세션 쿠키(평문 http): secure 없음 · httpOnly 있음 · sameSite=Lax (평문 배포에서 로그인이 되도록)`,
+    Boolean(liCookie) && liCookie.secure === false && liCookie.httpOnly === true && liCookie.sameSite === "Lax")
+  // https 로 들어온 것처럼 프록시 헤더를 붙여 같은 폼 로그인을 다시 한다 — 이번에는 secure 가 붙어야 한다.
+  const ctxTLS = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-proto": "https" } })
+  const pTLS = await ctxTLS.newPage()
+  await pTLS.goto(`${BASE}/login`, { waitUntil: "networkidle" })
+  await pTLS.locator("form", { has: pTLS.locator('input[value="ba.yoon"]') }).locator('button[type="submit"]').click()
+  await pTLS.waitForTimeout(1200)
+  const tlsCookie = (await ctxTLS.cookies()).find((c) => c.name === "itam_session")
+  ok("세션 쿠키(x-forwarded-proto=https): secure 붙음 (평문 요청에 세션이 실려 나가지 않게)",
+    Boolean(tlsCookie) && tlsCookie.secure === true)
+  await ctxTLS.close()
   const liDay = baseToday()
   const ctxLI2 = await browser.newContext(); await ctxLI2.addCookies([cookie(ADMIN)]); const pLI2 = await ctxLI2.newPage()
   await pLI2.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
