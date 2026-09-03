@@ -1,4 +1,5 @@
 'use client'
+import { NUM_LOCALE } from '@/lib/dates'
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
@@ -195,7 +196,7 @@ export function ReturnsView(props: {
                             {a.repair.eta && props.today && a.repair.eta < props.today && <Chip tone="err">반환 지연</Chip>}
                           </span>
                           <span className="dim" style={{ fontSize: 11 }}>
-                            의뢰 {a.repair.sentAt}{a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}{a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}
+                            의뢰 {a.repair.sentAt}{a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}{a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString(NUM_LOCALE)}원` : ''}
                           </span>
                           {a.warranty && a.repair.estCost ? <span className="hstack"><Chip tone="warn" bare>보증 내 · 견적 대신 무상 보증 청구 권장</Chip></span> : null}
                         </span>

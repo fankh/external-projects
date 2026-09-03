@@ -3,7 +3,7 @@ import { DEGRADED_CONNECTOR_STATUSES, isUserRequestKind, isApprovalVisibleToUser
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isWarrantyExpiring, isQnaOverdue, isRepairOverdue, nowMinute, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isWarrantyExpiring, isQnaOverdue, isRepairOverdue, nowMinute, roundProgressPct, today, NUM_LOCALE } from '@/lib/dates'
 import { isEasmRescanOverdue } from '@/lib/easm'
 import { criticalDependencies } from '@/lib/cmdb'
 import { UPCOMING_WINDOW_DAYS, upcomingSchedule } from '@/lib/upcoming'
@@ -251,7 +251,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       />
 
       <div className="stat-row">
-        <Stat value={s.assets.length.toLocaleString()} label="총 등록 자산" delta={{ text: `사용중 ${inUse} · 유휴/반납 ${idle}`, dir: 'flat' }} href="/assets/register" />
+        <Stat value={s.assets.length.toLocaleString(NUM_LOCALE)} label="총 등록 자산" delta={{ text: `사용중 ${inUse} · 유휴/반납 ${idle}`, dir: 'flat' }} href="/assets/register" />
         <Stat value={newFound.length} label="미등록 신규 발견 (Shadow IT)" tone="err" delta={{ text: '소유자 확인·편입 필요', dir: 'up' }} href={session.role !== 'USER' ? `/discovery/found?state=${encodeURIComponent('미등록')}&act=open` : undefined} />
         <Stat value={expiring.length} label={`만료 임박 (계약·라이선스 ${s.opsPolicy.expiryWindowDays}일)`} tone="warn"
           delta={{ text: expiring.some((x) => (x.d ?? 0) < 0) ? `만료 ${expiring.filter((x) => (x.d ?? 0) < 0).length}건 포함` : `최단 ${expiring[0]?.d ?? '-'}일`, dir: 'flat' }}
@@ -264,7 +264,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             value={<>{roundProgressPct(round)}<small>%</small></>}
             label={`재물조사 진행률 — ${round.name.replace(' 정기 재물조사', '')}`}
             tone="ok"
-            delta={{ text: `${round.scanned.toLocaleString()} / ${round.planned.toLocaleString()} 스캔`, dir: 'flat' }}
+            delta={{ text: `${round.scanned.toLocaleString(NUM_LOCALE)} / ${round.planned.toLocaleString(NUM_LOCALE)} 스캔`, dir: 'flat' }}
           />
         )}
       </div>

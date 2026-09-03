@@ -1,5 +1,5 @@
 'use client'
-import { ratioPct } from '@/lib/dates'
+import { ratioPct, NUM_LOCALE } from '@/lib/dates'
 import { useMemo, useState } from 'react'
 import { Chip } from '@/components/ui'
 import { contractHref } from '@/lib/reflink'
@@ -94,8 +94,8 @@ export function LicenseTable({ rows, sel, canEdit, expiryWindowDays, lic }: { ro
                         {l.baseTerminated && <Chip tone="err" bare>근거 해지</Chip>}
                       </span>
                     : <Chip tone="warn" bare>미연계</Chip>}</td>
-                  <td className="num tnum">{l.purchased.toLocaleString()}</td>
-                  <td className="num tnum" style={over ? { color: 'var(--err)', fontWeight: 700 } : undefined}>{l.used.toLocaleString()}</td>
+                  <td className="num tnum">{l.purchased.toLocaleString(NUM_LOCALE)}</td>
+                  <td className="num tnum" style={over ? { color: 'var(--err)', fontWeight: 700 } : undefined}>{l.used.toLocaleString(NUM_LOCALE)}</td>
                   <td>
                     <div className="meter">
                       <div className="bar"><i className={over ? 'over' : low ? 'low' : ''} style={{ width: `${ratio}%` }} /></div>

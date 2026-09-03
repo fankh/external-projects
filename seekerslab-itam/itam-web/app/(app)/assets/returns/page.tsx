@@ -1,7 +1,7 @@
 import { LONG_IDLE_DAYS } from '@/lib/types'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, isRepairUnrecorded, today } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, isRepairUnrecorded, today, NUM_LOCALE } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { warrantySavingsOf } from '@/lib/cost'
 import { buildRepairVendors } from '@/lib/repair-vendors'
@@ -104,7 +104,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
         <Stat value={idle.length} label="유휴 자산 풀" />
         <Stat value={longIdle} label={`${LONG_IDLE_DAYS}일 이상 장기 유휴`} tone={longIdle ? 'warn' : 'ok'} delta={{ text: '재배치·폐기 검토', dir: 'flat' }} />
         <Stat value={openRequests} label="배정 대기 자산 신청" tone={openRequests ? 'accent' : 'ok'} />
-        <Stat value={warrantySaved > 0 ? `${warrantySaved.toLocaleString()}원` : '0'} label="보증 절감 (무상 청구)" tone={warrantySaved > 0 ? 'ok' : undefined} delta={{ text: '제조사 보증 수리 비용 회피', dir: 'flat' }} />
+        <Stat value={warrantySaved > 0 ? `${warrantySaved.toLocaleString(NUM_LOCALE)}원` : '0'} label="보증 절감 (무상 청구)" tone={warrantySaved > 0 ? 'ok' : undefined} delta={{ text: '제조사 보증 수리 비용 회피', dir: 'flat' }} />
       </div>
 
       <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} repairRemindable={repairRemindable} repairUnrecorded={repairUnrecorded} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} initialLoan={loan === '연체' || loan === '임박' ? loan : undefined} initialRepairOverdue={repair === 'overdue'} />
@@ -121,9 +121,9 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
                   <tr key={v.vendor}>
                     <td className="strong">{v.vendor}</td>
                     <td className="num tnum">{v.completed}</td>
-                    <td className="num tnum">{v.selfBorne.toLocaleString()}원</td>
-                    <td className="num tnum">{v.avgSelfBorne.toLocaleString()}원</td>
-                    <td className="tnum">{v.warrantyClaims > 0 ? `${v.warrantyClaims}건 · 절감 ${v.warrantySaved.toLocaleString()}원` : <span className="mut">-</span>}</td>
+                    <td className="num tnum">{v.selfBorne.toLocaleString(NUM_LOCALE)}원</td>
+                    <td className="num tnum">{v.avgSelfBorne.toLocaleString(NUM_LOCALE)}원</td>
+                    <td className="tnum">{v.warrantyClaims > 0 ? `${v.warrantyClaims}건 · 절감 ${v.warrantySaved.toLocaleString(NUM_LOCALE)}원` : <span className="mut">-</span>}</td>
                     <td className="num tnum">{v.inFlight}</td>
                     <td className="c">{v.overdue > 0 ? <Chip tone="err">지연 {v.overdue}</Chip> : <span className="mut">-</span>}</td>
                     <td className="c">{v.onTimePct === null ? <span className="mut" title="예상 반환일이 지정된 완료 건이 없어 판정 불가">-</span> : <Chip tone={v.onTimePct >= 80 ? 'ok' : v.onTimePct >= 50 ? 'warn' : 'err'}>{`${v.onTimePct}% (${v.onTimeCount}/${v.slaCount})`}</Chip>}</td>

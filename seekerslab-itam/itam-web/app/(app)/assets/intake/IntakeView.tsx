@@ -1,4 +1,5 @@
 'use client'
+import { NUM_LOCALE } from '@/lib/dates'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { ASSET_CATEGORIES } from '@/lib/types'
@@ -259,7 +260,7 @@ export function IntakeView({ lots, labels, contracts, today, remindCount = 0, in
               ))}
             </div>
             {sel.unitCost ? (
-              <div className="dim" style={{ marginTop: 12, fontSize: 12 }}>발주 단가 <b>{sel.unitCost.toLocaleString()}원</b> — 채번 시 각 자산의 취득가로 반영됩니다.</div>
+              <div className="dim" style={{ marginTop: 12, fontSize: 12 }}>발주 단가 <b>{sel.unitCost.toLocaleString(NUM_LOCALE)}원</b> — 채번 시 각 자산의 취득가로 반영됩니다.</div>
             ) : null}
             <div className="hstack" style={{ marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
               <button className="btn pri" disabled={pending || sel.status !== '검수 완료' || sel.issued.length >= sel.qty}

@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
-import { roundProgressPct } from '@/lib/dates'
+import { roundProgressPct, NUM_LOCALE } from '@/lib/dates'
 import type { InventoryRound, RoundKind } from '@/lib/types'
 import { cancelRound, composeStaleVerifyRound, composeUnconfirmedRound, planRound, remindRound, startRound } from './actions'
 
@@ -125,13 +125,13 @@ export function PlanView(props: {
                       {r.dueDate}
                       {overdue && <div><Chip tone="err">기한 경과</Chip></div>}
                     </td>
-                    <td className="num tnum">{r.planned.toLocaleString()}</td>
+                    <td className="num tnum">{r.planned.toLocaleString(NUM_LOCALE)}</td>
                     <td style={{ minWidth: 130 }}>
                       <div className="meter">
                         <div className="bar"><i className={overdue ? 'low' : ''} style={{ width: `${pct}%` }} /></div>
                         <div className="lbl">
                           <span>{pct}%</span>
-                          <span>{r.scanned.toLocaleString()} / {r.planned.toLocaleString()}</span>
+                          <span>{r.scanned.toLocaleString(NUM_LOCALE)} / {r.planned.toLocaleString(NUM_LOCALE)}</span>
                         </div>
                       </div>
                     </td>

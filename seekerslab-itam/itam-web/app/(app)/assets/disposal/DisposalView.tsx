@@ -1,4 +1,5 @@
 'use client'
+import { NUM_LOCALE } from '@/lib/dates'
 import { Fragment, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, HELD_STATUSES, type Disposition, type DisposalPhotoLabel, type DisposalRecord, type WipeMethod } from '@/lib/types'
@@ -190,7 +191,7 @@ export function DisposalView({ candidates, records, initialStatus, canExport }: 
                     {d.status === '완료' ? (
                       <span>
                         <b>{d.wipeMethod}</b> · {d.wipedAt} {d.wipedBy}
-                        {d.disposition && <div style={{ fontSize: 11.5 }}>처분: <b>{d.disposition}</b>{d.proceeds ? ` · 대금 ${d.proceeds.toLocaleString()}원` : ''}</div>}
+                        {d.disposition && <div style={{ fontSize: 11.5 }}>처분: <b>{d.disposition}</b>{d.proceeds ? ` · 대금 ${d.proceeds.toLocaleString(NUM_LOCALE)}원` : ''}</div>}
                         <div className="mono" style={{ fontSize: 11, color: 'var(--ok)' }}>{d.evidence}</div>
                         <span className="hstack" style={{ gap: 5, marginTop: 4 }}>
                           <a className="btn sm ghost" href={`/api/wipe-cert/${d.id}`} download>소거 확인서 다운로드</a>

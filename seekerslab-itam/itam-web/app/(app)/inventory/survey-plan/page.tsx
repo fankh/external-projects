@@ -1,6 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
-import { today } from '@/lib/dates'
+import { today, NUM_LOCALE } from '@/lib/dates'
 import { staleComposeBlocked, staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
 import { getStore } from '@/lib/store'
 import { PlanView } from './PlanView'
@@ -90,8 +90,8 @@ export default async function SurveyPlanPage() {
                     <td className="strong">{r.name}<div className="dim" style={{ fontSize: 11 }}>{r.id}</div></td>
                     <td className="c"><Chip tone="neutral" bare>{r.kind}</Chip></td>
                     <td className="dim">{r.scope}</td>
-                    <td className="num tnum">{r.planned.toLocaleString()}</td>
-                    <td className="num tnum">{r.scanned.toLocaleString()}</td>
+                    <td className="num tnum">{r.planned.toLocaleString(NUM_LOCALE)}</td>
+                    <td className="num tnum">{r.scanned.toLocaleString(NUM_LOCALE)}</td>
                     <td className="num tnum">{r.mismatched > 0 ? <Chip tone="warn" bare>{r.mismatched}</Chip> : 0}</td>
                     <td>{r.assignee}</td>
                     <td className="tnum">{r.dueDate}</td>

@@ -1,3 +1,4 @@
+import { NUM_LOCALE } from '@/lib/dates'
 import { blockedSaasServices, shadowSaasPending } from '@/lib/saas'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
@@ -69,7 +70,7 @@ export default async function SaasPage() {
                   <tr key={r.dept}>
                     <td className="strong">{r.dept}</td>
                     <td className="num tnum"><Chip tone="err" bare>{r.count}</Chip></td>
-                    <td className="num tnum">{r.users.toLocaleString()}</td>
+                    <td className="num tnum">{r.users.toLocaleString(NUM_LOCALE)}</td>
                     <td className="c"><RiskChip risk={r.risk as '높음' | '중간' | '낮음'} /></td>
                   </tr>
                 ))}
