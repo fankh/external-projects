@@ -1440,6 +1440,36 @@ try {
     remindDedupSrc.includes('function sentTodayRefs(') && remindDedupSrc.includes("m.at.startsWith(t)"))
   check(`중복 발송 차단: 만료 임박 통지도 같은 규약을 따른다 (lib/expiry — 액션이 아니라 대상 산출에서 뺀다)`,
     expiryDedupSrc.includes('오늘 미발송'))
+
+  // ── 사용자에게 돌려주는 문구가 반말로 끝나지 않는가 ──
+  //  액션 반환 message 는 화면에 그대로 뜬다. 912개가 있고 두 문체가 섞여 쓰인다:
+  //  존댓말 종결('대여 가능한 상태가 아닙니다')과 명사형 종결('상신 완료 — 부서장 결재 대기').
+  //  둘 다 정당하고 쓰임이 갈린다(거부·안내 / 성공 통보). 검사할 것은 문체 선택이 아니라
+  //  **반말이 섞이는 것**이다 — 한 문구만 '…했다' 로 끝나도 제품 말투가 무너진다.
+  //  '존댓말 어미가 있는가'로 재면 명사형 종결 162개가 통째로 걸려 거짓 경보가 된다(실제로 그랬다).
+  //  종결 어미만 본다.
+  const PLAIN_ENDINGS = ['한다', '된다', '이다', '했다', '였다', '아니다', '같다', '많다']
+  let msgCount = 0
+  const plainMsgs = []
+  for (const f of actionFiles) {
+    for (const seg of readFileSync(f, 'utf8').split('message: ').slice(1)) {
+      const q = seg[0]
+      if (q !== '`' && q !== "'" && q !== '"') continue
+      const end = seg.indexOf(q, 1)
+      if (end < 1) continue
+      const msg = seg.slice(1, end).trim()
+      if (msg.length < 4) continue
+      msgCount++
+      //  끝의 마침표·괄호·공백을 걷어낸 뒤 종결 어미를 본다.
+      let tail = msg
+      while (tail.length && '. )]}`'.includes(tail[tail.length - 1])) tail = tail.slice(0, -1)
+      if (PLAIN_ENDINGS.some((p) => tail.endsWith(p))) plainMsgs.push(path.basename(path.dirname(f)) + ': ' + msg.slice(0, 40))
+    }
+  }
+  check(`사용자 문구: 액션 반환 message ${msgCount}개를 읽었다 (양성 대조 — 0개면 "반말 없음"이 공허하다)`,
+    msgCount >= 500)
+  check(`사용자 문구: 반말로 끝나는 문구가 없다 (한 문구만 섞여도 제품 말투가 무너진다)`,
+    plainMsgs.length === 0, `반말 종결: ${plainMsgs.join(' | ')}`)
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
