@@ -75,6 +75,7 @@ try {
     const notFocusable = []
     const seenApi = new Set()
     // 한 화면에서 링크 두 종류를 함께 본다 — 화면 링크는 라우트 권한, API 링크는 실제 응답으로 판정한다.
+    const htmlDocLinks = new Set()
     const collectLinks = async (page, label) => {
       try {
         const hrefs = await page.$$eval('a[href^="/"]', (as) => as.map((a) => a.getAttribute('href') || ''))
@@ -92,6 +93,10 @@ try {
           seenApi.add(raw)
           const res = await ctx.request.get(`${BASE}${raw}`)
           if (res.status() >= 400) badApis.push(`${label} → ${raw} (HTTP ${res.status()})`)
+          // HTML 을 돌려주는 문서(인쇄용 자산 카드·라벨·확인서…)는 따로 모아 뒤에서 브라우저로 연다.
+          //  여기서는 상태 코드만 본다 — 200 이라고 화면이 동작하는 것은 아니다. 실제로 CSP 를 세운 뒤
+          //  이 문서들의 인쇄·닫기 버튼이 전부 죽었는데(인라인 onclick 차단) 이 검사는 200 이라 초록이었다.
+          if ((res.headers()['content-type'] || '').startsWith('text/html')) htmlDocLinks.add(raw)
         }
       } catch (e) { badApis.push(`${label} → API 링크 확인 실패: ${e.message}`) }
       // 이름 없는 조작 컨트롤 — 보이는 글자도 aria-label·title 도 없는 버튼·링크는 스크린리더에서 '버튼'으로만 읽히고,
@@ -221,6 +226,36 @@ try {
     const apiOk = badApis.length === 0
     apiOk ? pass++ : fail++
     console.log(`${apiOk ? '✓' : '✗'} [${tag}] API 링크 권한 정합 — 화면이 내준 API 링크가 모두 응답${apiOk ? '' : ' — ' + [...new Set(badApis)].slice(0, 6).join(', ')}`)
+
+    // 인쇄 문서를 브라우저로 연다 — 이 스위트의 사각이던 자리다. 화면(SSR)만 열고 문서는 상태 코드만
+    //  봤기 때문에, CSP 를 세우면서 인쇄 문서 10곳의 인쇄·닫기 버튼이 전부 죽었을 때 게이트 2651건이
+    //  모두 초록이었다. 화면은 그려지고 버튼도 보이는데 누르면 아무 일도 없는, 조용한 고장이다.
+    //  대상은 화면이 스스로 내준 링크에서 모은다 — 여기에 id 목록을 적어 두면 시드가 바뀔 때 낡는다.
+    //  각 문서에서 콘솔 오류(=CSP 위반 포함)가 없는지, 인쇄 버튼이 실제로 window.print 를 부르는지 본다.
+    const docTargets = [...htmlDocLinks]
+    const docBad = []
+    for (const href of docTargets) {
+      const dp = await ctx.newPage()
+      const derr = []
+      dp.on('pageerror', (e) => derr.push('PAGEERROR: ' + (e.message || e)))
+      dp.on('console', (m) => { if (m.type() === 'error' && !BENIGN.some((re) => re.test(m.text()))) derr.push('CONSOLE: ' + m.text().slice(0, 100)) })
+      try {
+        const r = await dp.goto(`${BASE}${href}`, { waitUntil: 'networkidle', timeout: 20000 })
+        if (!r || r.status() >= 400) { docBad.push(`${href} (HTTP ${r ? r.status() : 0})`); await dp.close(); continue }
+        await dp.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed += 1 } })
+        const btn = dp.locator('#doc-print')
+        if ((await btn.count()) === 0) { docBad.push(`${href} (인쇄 버튼 없음)`); await dp.close(); continue }
+        await btn.click({ timeout: 5000 })
+        await dp.waitForTimeout(250)
+        if ((await dp.evaluate(() => window.__printed)) === 0) docBad.push(`${href} (인쇄 버튼이 동작하지 않음)`)
+        if (derr.length) docBad.push(`${href} — ${derr[0]}`)
+      } catch (e) { docBad.push(`${href} — ${e.message.slice(0, 80)}`) }
+      await dp.close()
+    }
+    // 대상이 0건이면 "문제 0건"으로 통과한다 — 수를 이름에 찍고, 걸러진 것이 있으면 드러낸다.
+    const docOk = docBad.length === 0 && docTargets.length > 0
+    docOk ? pass++ : fail++
+    console.log(`${docOk ? '✓' : '✗'} [${tag}] 인쇄 문서 ${docTargets.length}종을 브라우저로 열어 인쇄 버튼까지 동작${docOk ? '' : ' — ' + (docTargets.length === 0 ? '대상 0건(수집 실패)' : docBad.slice(0, 4).join(', '))}`)
     // 역할당 한 건으로 집계 — 컨트롤마다 세면 화면 구성이 바뀔 때 검사 수가 흔들린다(링크 검사와 같은 규약).
     const nameOk = unnamed.length === 0
     nameOk ? pass++ : fail++
