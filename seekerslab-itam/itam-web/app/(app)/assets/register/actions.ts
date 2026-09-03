@@ -1,4 +1,5 @@
 'use server'
+import { inDisposalProcess } from '@/lib/stock'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, appendDenial, denied } from '@/lib/audit'
 import { hasHolder, isPlaceholder } from '@/lib/quality'
@@ -311,7 +312,7 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   //  보안 조사가 열린 채 보유자만 바뀌어 조치 대상이 흐려진다(격리 해제가 선행 조건 · 폐기 절차 가드와 같은 자리).
   if (asset.quarantinedAt) return { ok: false, message: `NAC 격리 중인 자산입니다 — ${asset.assetNo} (격리 ${asset.quarantinedAt}) · 격리 해제 후 처리하세요.` }
   // 폐기 절차(대상 선정~소거 대기) 중인 유휴 자산은 재불출 대상이 아니다 — 파기 예정 자산이 다시 순환되면 안 된다(가용 재고 산정과 동일 판정).
-  if (s.disposals.some((d) => d.assetNo === assetNo && d.status !== '완료')) return { ok: false, message: `폐기 절차 중인 자산은 대여할 수 없습니다 — ${assetNo} (먼저 폐기 대상 선정을 취소하세요).` }
+  if (inDisposalProcess(s.disposals, assetNo)) return { ok: false, message: `폐기 절차 중인 자산은 대여할 수 없습니다 — ${assetNo} (먼저 폐기 대상 선정을 취소하세요).` }
   const to = rawTo.trim()
   const dept = rawDept.trim()
   if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }

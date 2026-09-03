@@ -10,6 +10,15 @@ export function pendingDisposalNos(disposals: DisposalRecord[]): Set<string> {
   return new Set(disposals.filter((d) => d.status !== '완료').map((d) => d.assetNo))
 }
 
+/** 이 자산이 폐기 절차 진행 중인가 — 위 집합의 단건 조회 형태. 판정(완료 제외)은 한 곳에서만 정한다.
+ *  집행 가드들이 저마다 `disposals.some((d) => d.assetNo === x && d.status !== '완료')` 를 다시 적고 있었다.
+ *  네 벌이 지금은 모두 같지만, 복사본이 넷이라는 사실 자체가 결함이다 — 한 곳이 `!== '완료'` 를 빠뜨리면
+ *  이미 폐기된 자산까지 절차 중으로 보아 재불출을 막고, 반대로 조건을 넓히면 소거 대기 자산이 다시
+ *  순환한다. 화면이 추천·집계한 자산을 서버가 거부하는 막다른 길도 여기서 갈린다. 서버 전용. */
+export function inDisposalProcess(disposals: DisposalRecord[], assetNo: string): boolean {
+  return disposals.some((d) => d.assetNo === assetNo && d.status !== '완료')
+}
+
 /** 재배치 가능(가용) 자산 풀 — 상태 '유휴' AND 폐기 절차(완료 제외) 미진입 AND NAC 격리 아님. 재불출·재배치의 단일 정의.
  *  폐기 선정된 유휴 자산은 재불출 대상이 아니므로 제외한다. 격리(quarantinedAt) 자산도 마찬가지다 — 망이 막혀
  *  넘겨줘도 못 쓰고, 서버 가드(loanAsset·issueAsset)가 거절하므로 가용으로 세면 재고가 실제보다 넉넉해 보인다. 안전재고 경보(lowStockCategories)와
