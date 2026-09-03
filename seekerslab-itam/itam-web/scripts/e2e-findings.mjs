@@ -5196,7 +5196,9 @@ try {
   //  동시에 대기할 수 있고, 둘 다 승인하면 이동 집행이 그대로 통과했다: 회수를 기다리는 자산(반납대기)의
   //  위치만 대장에서 바뀌고 신청자에게는 "이동 완료"가 통보된다(실측으로 본사 8F → 본사 9F 가 찍혔다).
   //  대상 자산과 이동 위치는 실행 시점의 대장에서 고른다 — 앞 시나리오가 무엇을 소진했든 따라온다.
-  const ctxRTM = await browser.newContext(); await ctxRTM.addCookies([cookie(ASSET)]); const pRTM = await ctxRTM.newPage()
+  //  상신자는 사용자(본인 명의 자산)여야 한다. 관리자가 남의 자산에 상신하면 반납 결재가 보유자 불일치로
+  //   미적용되어 자산이 반납대기까지 가지 않고, 이동 거부도 "보유자 변경" 가지로 걸려 재현하려던 경로가 아니다.
+  const ctxRTM = await browser.newContext(); await ctxRTM.addCookies([cookie(USER)]); const pRTM = await ctxRTM.newPage()
   await pRTM.goto(`${BASE}/assets/register?status=%EC%82%AC%EC%9A%A9%EC%A4%91`, { waitUntil: "networkidle" })
   const rtmRow = pRTM.locator("tbody tr.clickable").first()
   const rtmAsset = ((await rtmRow.textContent()) || "").match(/AST-[0-9]{4}-[0-9]{6}/)?.[0] || ""
