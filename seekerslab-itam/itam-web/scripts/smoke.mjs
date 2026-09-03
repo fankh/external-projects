@@ -1528,6 +1528,20 @@ try {
     pcSmoke > 0 && pcE2e > 0)
   check(`양성 대조 수: 문서가 적은 수(${pcNums.join(' · ')})와 실측(${pcSmoke} · ${pcE2e})이 같다`,
     pcNums.includes(pcSmoke) && pcNums.includes(pcE2e), `문서=${pcNums.join(',')} 실측=${pcSmoke},${pcE2e}`)
+
+  // ── 샘플 산출물의 줄바꿈이 생성기와 같은가 ──
+  //  `npm run samples` 는 항상 LF 로 다시 쓴다. 저장소 파일이 CRLF 로 섞여 있으면 재생성할 때마다
+  //  내용은 그대로인데 줄바꿈만 바뀐 변경이 잡히고, 실수로 커밋되면 의미 없는 차이가 이력에 남는다
+  //  (실제로 34개 중 20개가 CRLF, 15개가 LF 로 섞여 있었다 — 재생성 한 번에 3개가 변경으로 잡혔다).
+  //  드리프트 검사(samples:check)는 내용만 비교하므로 이 섞임을 못 잡는다 — 검사와 재생성이 서로 다른
+  //  답을 내던 자리다. .gitattributes 가 새 파일을 정규화하고, 이 검사가 현재 상태를 고정한다.
+  const sampleDir = path.join(ROOT, '..', 'docs')
+  const sampleFilesEol = readdirSync(sampleDir).filter((f) => f.startsWith('샘플_'))
+  const crlfSamples = sampleFilesEol.filter((f) => readFileSync(path.join(sampleDir, f), 'utf8').includes(String.fromCharCode(13, 10)))
+  check(`샘플 줄바꿈: 샘플 산출물 ${sampleFilesEol.length}개를 읽었다 (양성 대조 — 0개면 경로가 틀린 것)`,
+    sampleFilesEol.length >= 30)
+  check(`샘플 줄바꿈: 생성기와 같은 LF 로 저장돼 있다 (CRLF 가 섞이면 재생성이 매번 변경을 만든다)`,
+    crlfSamples.length === 0, `CRLF: ${crlfSamples.slice(0, 5).join(', ')}`)
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
