@@ -2609,12 +2609,22 @@ try {
 
   // 화면 갱신 누락 가드 — 스토어를 바꿔 놓고 revalidatePath 를 부르지 않으면 화면이 예전 데이터를 계속 보여 준다.
   //  조작자는 아무 일도 안 일어난 줄 알고 같은 버튼을 다시 누르고, 그 사이 중복 발송·중복 상신이 생긴다.
-  //  판정은 감사 가드와 같은 훑기를 쓰되, 이쪽은 "상태를 바꾸는 코드"를 형태로 찾는다(배열 변경·주요 필드 대입).
+  //  판정은 감사 가드와 같은 훑기를 쓰되, 이쪽은 "상태를 바꾸는 코드"를 형태로 찾는다.
+  //  형태 목록이 원래 배열 자리 변경과 여섯 개 필드 이름뿐이라 199개 액션 중 93개만 걸렸다. 배열 통째 재대입
+  //  (`s.x = s.x.filter(...)` — 삭제 액션이 쓰는 꼴)·필드 삭제·Object.assign·목록에 없는 필드 대입은 전부
+  //  사각지대여서, 그 꼴로 바꾸는 액션이 revalidatePath 를 잃어도 가드가 조용히 통과했다(이름이 아니라 형태).
+  //  형태를 넓혀 155개를 덮고, 대상 수를 이름에 찍어 하한을 둔다 — 형태가 하나도 안 맞아 0개를 검사해도
+  //  "누락 0건"으로 통과하던 자리다(측정면을 의심한다).
   const MUTATION_SHAPES = [
-    /\bs\.[a-zA-Z]+\.(push|unshift|splice)\(/,
-    /\.status = /, /\.action = /, /\.owner = /, /\.dept = /, /\.enabled = /,
+    /\bs\.[a-zA-Z]+\.(push|unshift|splice|sort|reverse)\(/,  // 배열 자리 변경
+    /\bs\.[a-zA-Z]+ = /,                                     // 배열 통째 재대입(삭제·정렬 결과 대입)
+    /^\s*[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z][a-zA-Z0-9_]* = [^=]/m, // 찾은 레코드의 필드 대입
+    /^\s*delete [a-zA-Z_]/m,                                  // 필드 삭제
+    /Object\.assign\(/,                                      // 부분 갱신
   ]
+  const mutatingShaped = (body) => MUTATION_SHAPES.some((re) => re.test(body))
   const staleScreens = []
+  let shapedActions = 0
   for (const f of actionFiles) {
     const lines = readFileSync(f, 'utf8').split(/\r?\n/)
     for (let li = 0; li < lines.length; li += 1) {
@@ -2623,13 +2633,29 @@ try {
       let e = li + 1
       while (e < lines.length && lines[e] !== '}') e += 1
       const body = lines.slice(li, e + 1).join('\n')
-      if (!MUTATION_SHAPES.some((re) => re.test(body))) continue
+      if (!mutatingShaped(body)) continue
+      shapedActions += 1
       if (body.includes('revalidatePath')) continue
       staleScreens.push(`${fileLabel(f)}:${m[1]}`)
     }
   }
-  check(`화면 갱신 가드: 스토어를 바꾸는 액션이 모두 revalidatePath 호출(액션 파일 ${actionFiles.length}개 검사)`,
-    staleScreens.length === 0, `갱신 없음=${staleScreens.join(',')}`)
+  check(`화면 갱신 가드: 스토어를 바꾸는 액션 ${shapedActions}개가 모두 revalidatePath 호출(액션 파일 ${actionFiles.length}개)`,
+    staleScreens.length === 0 && shapedActions >= 150, `갱신 없음=${staleScreens.join(',')} · 대상=${shapedActions}`)
+
+  // 양성 대조 — 형태 목록이 실제로 잡는지 확인한다. 다섯 꼴을 각각 갱신 없이 쓴 가짜 액션 본문으로 전부
+  //  걸리는지 보고, 아무것도 바꾸지 않는 본문은 걸리지 않는지도 본다(과탐이면 읽기 전용 액션에 revalidatePath 를
+  //  달라고 요구하게 되어 가드가 잡음이 된다).
+  const SHAPE_SAMPLES = [
+    ['배열 변경', 'export async function x() {\n  s.assets.push(a)\n}'],
+    ['배열 재대입', 'export async function x() {\n  s.reports = s.reports.filter((r) => r.id !== id)\n}'],
+    ['필드 대입', 'export async function x() {\n  target.memo = note\n}'],
+    ['필드 삭제', 'export async function x() {\n  delete target.loanDueDate\n}'],
+    ['부분 갱신', 'export async function x() {\n  Object.assign(target, patch)\n}'],
+  ]
+  const shapeMissed = SHAPE_SAMPLES.filter(([, body]) => !mutatingShaped(body)).map(([n]) => n)
+  const readOnlySample = 'export async function x() {\n  const n = s.assets.filter((a) => a.status === arg).length\n  return { ok: true, n }\n}'
+  check(`화면 갱신 가드 양성 대조: 변경 ${SHAPE_SAMPLES.length}꼴 모두 검출 · 읽기 전용은 미검출`,
+    shapeMissed.length === 0 && !mutatingShaped(readOnlySample), `놓친 꼴=${shapeMissed.join(',')}`)
 
   // 통지 수신자 가드 — 보유자 자리에 자리표시자가 그대로 실리면 "- (자산관리팀)"·"미지정 (부서)" 앞으로 발송된다.
   //  발송 이력에는 남지만 아무도 읽지 않는 통지가 되고, 조치는 아무도 하지 않은 채 큐만 비어 보인다.
