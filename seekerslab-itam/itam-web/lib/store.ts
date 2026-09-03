@@ -1005,7 +1005,12 @@ function startAutosave(): void {
   const timer = setInterval(saveStore, 2000)
   ;(timer as { unref?: () => void }).unref?.() // 인터벌이 프로세스 종료를 막지 않게
   g.__itamSaveTimer = timer
-  // 정상 종료(SIGTERM·SIGINT) 시 마지막 상태를 동기 저장
+  // 정상 종료(SIGTERM·SIGINT) 시 마지막 상태를 동기 저장 — **컨테이너에서는 돌지 않는다**.
+  //  실측: 스냅샷 파일을 지우고 `docker stop` 해도 파일이 다시 생기지 않는다(종료 코드 0 · 정상 종료).
+  //  SIGTERM 은 도달한다 — next start 가 자체 종료 절차로 프로세스를 끝내며 이 리스너를 기다리지 않는다.
+  //  CMD 를 npm 에서 next 직접 실행으로 바꿔도 같다(둘 다 재현했다). 고치려면 커스텀 서버로 종료를
+  //  가로채야 하는데 그건 v1 범위 밖이다. 실질 유실은 2초 주기 저장이 덮으므로 그대로 둔다.
+  //  로컬(node scripts/*.mjs)에서는 정상 동작하므로 리스너 자체는 남긴다.
   process.once('SIGTERM', saveStore)
   process.once('SIGINT', saveStore)
   process.once('beforeExit', saveStore)
