@@ -112,20 +112,30 @@ export async function moveAsset(approvalId: string) {
   //  방어를 둔다(불출은 유휴·검수중만·폐기 절차 제외, 반납은 재배정 자산 미적용, 라이선스는 좌석 전량 회수 시 미적용).
   //  없으면 폐기·분실 확정 자산의 위치만 바뀌고 신청자에게는 '이동 완료' 통보가 나간다 — 대장이 실물과 어긋나고
   //  통보가 사실과 다르다. 신청 자체는 남겨 둔다(반려·취소로 정리할 대상이라 조용히 지우지 않는다).
-  if (GONE_STATUSES.includes(asset.status)) {
+  //  떠난 것은 분실·폐기만이 아니다. 이동 신청은 본인 명의 자산에 올리는데, 상신 뒤 그 자산이 반납 결재로
+  //  회수 대기에 들어가거나(반납대기) 다른 사람에게 대여되거나(대여중) 수리 업체로 나가면(수리중) 신청자의
+  //  손을 이미 떠난 것이고, 보유자가 재배정으로 바뀌었어도 마찬가지다. 종류가 다른 신청은 서로를 막지 않아
+  //  (중복 검사는 같은 종류만 본다) 같은 자산에 반납과 이동이 동시에 대기할 수 있고, 둘 다 승인하면 이동
+  //  집행이 그대로 통과했다 — 회수를 기다리는 자산의 위치만 대장에서 바뀌고 신청자에게는 "이동 완료"가
+  //  통보된다(실측: 반납대기 자산이 본사 8F → 본사 9F 로 이동 완료 처리됐다). 반납 결재가 쓰는 판정과
+  //  같은 모양으로 막는다(decide 의 스테일 반납 방어 reConfirmed).
+  const handedOver = asset.owner !== ap.requester || ['반납대기', '대여중', '수리중'].includes(asset.status)
+  if (GONE_STATUSES.includes(asset.status) || handedOver) {
     // 이 신청은 영원히 집행할 수 없다 — 이동 대상 자산은 결재에 고정돼 있어(refId) 다른 자산으로 바꿀 수 없고,
     //  그 자산이 분실·폐기로 떠났기 때문이다(불출은 담당자가 다른 자산을 고르면 되므로 이 경우가 아니다).
     //  예전에는 '반려·취소로 정리하세요'라고 안내했는데, 반려(decide)도 상신 취소(withdrawRequest)도 '대기'
     //  건만 받는다 — 이미 승인된 이 건에는 두 길이 다 막혀 있어, 따를 수 없는 안내였다. 그동안 이 신청은
     //  '이동 집행 대기' 큐에 영원히 남았다(빠져나갈 문이 없는 큐).
     //  시스템이 불가능을 확정한 지금 그 사실을 결재 건에 적어 큐에서 닫는다(대여 승인 미집행과 같은 규약).
-    const why = `${asset.status} 이탈`
+    const why = GONE_STATUSES.includes(asset.status) ? `${asset.status} 이탈`
+      : asset.owner !== ap.requester ? `보유자 변경(현재 ${asset.owner})`
+      : `${asset.status} 재확인`
     ap.unfulfilledReason = why
     ap.unfulfilledAt = today()
     appendAudit({ actor: session.name, action: `자산 이동 미적용 — ${asset.assetNo} (${asset.status}) · ${ap.id} 집행 불가 종결`, target: asset.assetNo })
     dispatch({ channel: '이메일', to: ap.requester, subject: `[결재 결과] 자산 이동 승인 — 다만 ${asset.assetNo} 는 ${why}로 집행되지 않았습니다 (${ap.id})`, kind: '결재 결과', ref: ap.id })
     revalidatePath('/', 'layout')
-    return { ok: false, message: `${asset.status} 자산은 이동 처리할 수 없습니다 — ${asset.assetNo} (신청 ${ap.id} 을 집행 불가로 종결하고 신청자에게 통보했습니다).` }
+    return { ok: false, message: `이동 처리할 수 없습니다 — ${asset.assetNo} (${why}) · 신청 ${ap.id} 을 집행 불가로 종결하고 신청자에게 통보했습니다.` }
   }
 
   const from = asset.location
