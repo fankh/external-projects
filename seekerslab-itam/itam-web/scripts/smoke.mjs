@@ -2969,23 +2969,28 @@ try {
   //  선언된 단일 출처가 실제로는 쓰이지 않던 자리다. 한 곳이 조건을 놓치면 이미 폐기된 자산까지
   //  절차 중으로 보아 재불출을 막거나, 반대로 소거 대기 자산이 다시 순환한다. 단건 조회는
   //  inDisposalProcess 로 모았고, 여기서 인라인 재작성이 다시 들어오지 않는지 센다.
-  const dpNeedle = "disposals.some(" 
-  const dpInline = sourceFiles.filter((f) => {
+  //  판정은 줄 단위다 — 파일 어딘가에 disposals.some 이 있고 다른 줄에 완료 비교가 있다고 재작성인 것은 아니다
+  //   (폐기 화면에는 "이미 목록에 있는가"라는 더 넓은 술어와, 개별 폐기 건의 상태 비교가 각각 따로 있다).
+  const dpLineHit = (line) => (line.includes("disposals.some(") || line.includes("disposals.filter(")) && line.includes("status !== '완료'")
+  const dpInline = []
+  let dpUsers = 0
+  for (const f of sourceFiles) {
     const rel = path.relative(ROOT, f).split(path.sep).join("/")
-    if (rel === "lib/stock.ts") return false // 판정을 정하는 곳
     const body = readFileSync(f, "utf8")
-    return body.includes(dpNeedle) && body.includes("d.status !== '완료'")
-  }).map((f) => path.relative(ROOT, f).split(path.sep).join("/"))
-  const dpUsers = sourceFiles.filter((f) => readFileSync(f, "utf8").includes("inDisposalProcess(")).length
+    if (body.includes("inDisposalProcess(") || body.includes("pendingDisposalNos(")) dpUsers += 1
+    if (rel === "lib/stock.ts") continue // 판정을 정하는 곳
+    body.split(/\r?\n/).forEach((line, li) => { if (dpLineHit(line)) dpInline.push(`${rel}:${li + 1}`) })
+  }
   check(`폐기 절차 판정: lib/stock 한 곳만 정의 · 사용처 ${dpUsers}곳이 그걸 부른다(소스 ${sourceFiles.length}개 검사)`,
     dpInline.length === 0 && dpUsers >= 4, `인라인 재작성=${dpInline.join(", ") || "없음"} · 사용처=${dpUsers}`)
 
   // 양성 대조 — 인라인 재작성을 찾는 판정이 실제로 잡는지, 헬퍼를 부르는 코드는 오탐하지 않는지 본다.
   //  (0곳이라는 결과는 패턴이 아무것도 못 잡을 때도 나온다.)
-  const dpHit = (t) => t.includes(dpNeedle) && t.includes("d.status !== '완료'")
   check('폐기 절차 판정 양성 대조: 인라인 재작성은 잡고, 헬퍼 호출은 오탐하지 않는다',
-    dpHit("if (s.disposals.some((d) => d.assetNo === x && d.status !== '완료')) return") &&
-    !dpHit("if (inDisposalProcess(s.disposals, assetNo)) return"))
+    dpLineHit("  if (s.disposals.some((d) => d.assetNo === x && d.status !== '완료')) return") &&
+    dpLineHit("  const p = new Set(s.disposals.filter((d) => d.status !== '완료').map((d) => d.assetNo))") &&
+    !dpLineHit("  if (inDisposalProcess(s.disposals, assetNo)) return") &&
+    !dpLineHit("  if (d.status !== '완료') return { ok: false }"))
 
   // HTML 문서 라우트의 이스케이프 단일 출처 가드 — 인쇄용 문서(자산 카드·계약 카드·인수인계서·검수 확인서·
   //  라벨·라벨 묶음·라이선스 카드·대여 확인서·분실 신고서·오프보딩 명세서)는 사람이 넣은 모델명·비고·사유를

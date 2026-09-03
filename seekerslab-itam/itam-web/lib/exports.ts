@@ -2,7 +2,7 @@ import { blockedSaasServices } from './saas'
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf, repairTotalOf } from './cost'
 import { buildLicenseUsage } from './license-usage'
-import { lowStockCategories } from './stock'
+import { lowStockCategories, disposalInProcess } from './stock'
 import { ratioPct, approvalAgeDays, daysUntil, isApprovalOverdue, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, roundProgressPct, today, warrantyState, isWarrantyExpiring } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { contractAssetCount, getStore } from './store'
@@ -84,7 +84,7 @@ function buildKindSheets(kind: ExportKind, role: Role, userName: string, filter?
   if (kind === 'assets') {
     // 진행 중인 폐기 절차(완료 제외) 단계 — 화면 상세는 대여·재불출을 막으며 사유를 밝히는데 반출본에는 흔적이
     //  없어, 엑셀만 보면 파기 예정 자산이 평범한 '유휴' 재고로 읽힌다(가용 재고·불출 가드는 이미 제외한다).
-    const disposalStage = new Map(s.disposals.filter((d) => d.status !== '완료').map((d) => [d.assetNo, d.status]))
+    const disposalStage = new Map(s.disposals.filter(disposalInProcess).map((d) => [d.assetNo, d.status]))
     // 화면(자산 대장)의 검색·유형·상태·장기 미실측·보증 임박 필터를 그대로 반영 — 좁혀 본 그 집합을 반출한다.
     // nos(선택 자산번호)가 주어지면 그 선택분만 반출한다(다중 선택 → 선택 내보내기).
     const q = (filter?.q ?? '').trim().toLowerCase()

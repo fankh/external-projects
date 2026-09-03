@@ -1,3 +1,4 @@
+import { disposalInProcess } from './stock'
 import { getStore } from './store'
 
 /** 공통코드 참조 수 — 특정 코드값(label)을 참조하는 살아있는 레코드 수를 그룹별 참조 필드에서 센다.
@@ -37,7 +38,7 @@ export function codeUsage(groupId: string, label: string): number {
       //  없는 상태를 대장에 만든다 — 이 함수의 규약('해당 코드 체계를 저장하는 모든 컬렉션을 센다')이
       //  상태에서만 한 곳이었다. 완료된 폐기는 되돌리지 않으므로 세지 않는다(LOCATION 과 같은 살아있는 참조 규약).
       return s.assets.filter((a) => a.status === label).length
-        + s.disposals.filter((d) => d.status !== '완료' && d.prevStatus === label).length
+        + s.disposals.filter((d) => disposalInProcess(d) && d.prevStatus === label).length
     case 'DATA_GRADE':
       return s.saasCatalog.filter((c) => c.dataGrade === label).length
     case 'RECONCILE':

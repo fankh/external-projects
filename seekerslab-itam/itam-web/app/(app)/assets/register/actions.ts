@@ -1,5 +1,5 @@
 'use server'
-import { inDisposalProcess } from '@/lib/stock'
+import { inDisposalProcess, pendingDisposalNos } from '@/lib/stock'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, appendDenial, denied } from '@/lib/audit'
 import { hasHolder, isPlaceholder } from '@/lib/quality'
@@ -359,7 +359,7 @@ export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: 
   if (dueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
   const s = getStore()
   // 유휴 재고만, 폐기 절차(완료 제외) 중인 자산은 제외 — 파기 예정 자산 재순환 방지(단건 가드·가용 재고 산정과 동일 판정).
-  const pendingDisposal = new Set(s.disposals.filter((d) => d.status !== '완료').map((d) => d.assetNo))
+  const pendingDisposal = pendingDisposalNos(s.disposals)
   // 격리 자산은 일괄에서도 뺀다(단건 가드와 같은 규약 · 아래 제외 건수로 밝힌다)
   const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.status === '유휴' && !pendingDisposal.has(a.assetNo) && !a.quarantinedAt)
   if (targets.length === 0) return { ok: false, message: '대여할 자산이 없습니다 (유휴 재고만·폐기 절차 자산 제외).' }

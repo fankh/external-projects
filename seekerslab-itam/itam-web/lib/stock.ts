@@ -6,8 +6,17 @@ export type LowStock = { category: string; available: number; safetyStock: numbe
 /** 폐기 절차 진행 중(완료 제외) 자산번호 — 대상 선정·결재 대기·소거 대기 자산은 다시 순환시키지 않는다.
  *  불출·대여·재배치 가드(dispatchAsset·loanAsset…)와 화면의 가용/배정 가능 재고가 이 한 기준을 공유해야
  *  화면이 추천·집계한 자산을 서버가 거부하는 일이 없다. 서버 전용. */
+/** 이 폐기 건이 아직 진행 중인가 — 대상 선정·결재 대기·소거 대기. 완료만 제외한다.
+ *  "완료 제외"라는 기준 자체를 정하는 한 곳이다. 그전에는 이 비교가 여섯 군데에 흩어져 있었다
+ *  (자산번호 집합·단건 가드·단계 지도·리포트 집계·공통코드 사용처 집계). 지금은 전부 같지만,
+ *  한 곳이 조건을 놓치면 이미 폐기된 자산까지 절차 중으로 보아 재불출을 막고, 반대로 넓히면
+ *  소거 대기 자산이 다시 순환한다 — 화면이 추천·집계한 자산을 서버가 거부하는 막다른 길이 여기서 갈린다. */
+export function disposalInProcess(d: DisposalRecord): boolean {
+  return d.status !== '완료'
+}
+
 export function pendingDisposalNos(disposals: DisposalRecord[]): Set<string> {
-  return new Set(disposals.filter((d) => d.status !== '완료').map((d) => d.assetNo))
+  return new Set(disposals.filter(disposalInProcess).map((d) => d.assetNo))
 }
 
 /** 이 자산이 폐기 절차 진행 중인가 — 위 집합의 단건 조회 형태. 판정(완료 제외)은 한 곳에서만 정한다.
@@ -16,7 +25,7 @@ export function pendingDisposalNos(disposals: DisposalRecord[]): Set<string> {
  *  이미 폐기된 자산까지 절차 중으로 보아 재불출을 막고, 반대로 조건을 넓히면 소거 대기 자산이 다시
  *  순환한다. 화면이 추천·집계한 자산을 서버가 거부하는 막다른 길도 여기서 갈린다. 서버 전용. */
 export function inDisposalProcess(disposals: DisposalRecord[], assetNo: string): boolean {
-  return disposals.some((d) => d.assetNo === assetNo && d.status !== '완료')
+  return disposals.some((d) => d.assetNo === assetNo && disposalInProcess(d))
 }
 
 /** 재배치 가능(가용) 자산 풀 — 상태 '유휴' AND 폐기 절차(완료 제외) 미진입 AND NAC 격리 아님. 재불출·재배치의 단일 정의.
