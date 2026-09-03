@@ -3,7 +3,7 @@ import { TERMINAL_STATUSES } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, appendDenial } from '@/lib/audit'
 import { missingContractDocs } from '@/lib/contract'
-import { addYears, daysUntil, fmtAmount, isValidDate, today } from '@/lib/dates'
+import { addYears, daysUntil, fmtAmount, isValidDate, today, NUM_LOCALE } from '@/lib/dates'
 import { expiryNoticeTargets, warrantyNoticeRef } from '@/lib/expiry'
 import { recipientOf, dispatch } from '@/lib/notify'
 import { buildMaintenance } from '@/lib/maintenance'
@@ -503,9 +503,9 @@ export async function addContractCost(contractId: string, date: string, rawItem:
   if (c.kind !== '유지보수') return { ok: false, message: '비용 이력은 유지보수 계약에만 등록할 수 있습니다.' }
   if (!c.costs) c.costs = []
   c.costs.push({ id: nextId('CST'), date, item, amount, addedBy: session.name })
-  appendAudit({ actor: session.name, action: `유지보수 비용 등록 — ${date} ${item} ${amount.toLocaleString()}원`, target: c.id })
+  appendAudit({ actor: session.name, action: `유지보수 비용 등록 — ${date} ${item} ${amount.toLocaleString(NUM_LOCALE)}원`, target: c.id })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${c.id} 비용 등록 — ${item} ${amount.toLocaleString()}원` }
+  return { ok: true, message: `${c.id} 비용 등록 — ${item} ${amount.toLocaleString(NUM_LOCALE)}원` }
 }
 
 /** 유지보수 비용 삭제 — 잘못 등록한 비용 항목을 제거한다. 감사 로그에 남긴다. 자산담당·Admin. */

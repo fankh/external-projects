@@ -6,7 +6,7 @@ import { isPlaceholder } from '@/lib/quality'
 import { externalQueryAllowed, deidentify, egressPersonNames } from '@/lib/ai-egress'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
-import { ratioPct, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today, isWarrantyExpiring } from '@/lib/dates'
+import { ratioPct, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today, isWarrantyExpiring, NUM_LOCALE } from '@/lib/dates'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
@@ -199,7 +199,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     return {
       role: 'assistant',
       text: cur
-        ? `진행 중인 재물조사는 '${cur.name}'이며 진행률 ${roundProgressPct(cur)}% (${cur.scanned.toLocaleString()}/${cur.planned.toLocaleString()} 스캔)입니다. 차이 항목 ${cur.mismatched}건이 조정 결재 대상이며 기한은 ${cur.dueDate}입니다.\n\n전체 회차 ${rounds.length}개 — ${rounds.map((r) => `${r.name}(${r.status})`).join(', ')}.`
+        ? `진행 중인 재물조사는 '${cur.name}'이며 진행률 ${roundProgressPct(cur)}% (${cur.scanned.toLocaleString(NUM_LOCALE)}/${cur.planned.toLocaleString(NUM_LOCALE)} 스캔)입니다. 차이 항목 ${cur.mismatched}건이 조정 결재 대상이며 기한은 ${cur.dueDate}입니다.\n\n전체 회차 ${rounds.length}개 — ${rounds.map((r) => `${r.name}(${r.status})`).join(', ')}.`
         : `현재 진행 중인 재물조사가 없습니다. 전체 회차 ${rounds.length}개: ${rounds.map((r) => `${r.name}(${r.status})`).join(', ')}.`,
       evidence: [
         { label: '재물조사 수행', href: '/inventory/survey' },
@@ -343,10 +343,10 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     return {
       role: 'assistant',
       text: [
-        `${cat ? `${cat} ` : ''}교체 대상 자산은 ${scoped.length}건입니다 (내용연수 5년 초과·보증 경과·장애 이력(잦은 수리) 기준${cat ? '' : ` · 교체 예산 추정 ${budget.toLocaleString()}원 · 잔여 장부가 ${residualBook.toLocaleString()}원`}).`,
+        `${cat ? `${cat} ` : ''}교체 대상 자산은 ${scoped.length}건입니다 (내용연수 5년 초과·보증 경과·장애 이력(잦은 수리) 기준${cat ? '' : ` · 교체 예산 추정 ${budget.toLocaleString(NUM_LOCALE)}원 · 잔여 장부가 ${residualBook.toLocaleString(NUM_LOCALE)}원`}).`,
         ``,
         ...(scoped.length === 0 ? ['해당 조건의 교체 대상 자산이 없습니다.'] : []),
-        ...list.map((x) => `· ${x.a.assetNo} — ${x.a.model} (${x.a.category}, 도입 ${x.a.purchaseDate} · ${x.why}, 잔여 장부가 ${x.book.toLocaleString()}원)`),
+        ...list.map((x) => `· ${x.a.assetNo} — ${x.a.model} (${x.a.category}, 도입 ${x.a.purchaseDate} · ${x.why}, 잔여 장부가 ${x.book.toLocaleString(NUM_LOCALE)}원)`),
         scoped.length > list.length ? `… 외 ${scoped.length - list.length}건` : ``,
         ``,
         eolAssets.length > 0
@@ -505,7 +505,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       text: `라이선스 대사 결과 초과 사용 ${over.length}건, 장기 미사용 보유 ${low.length}건이 검출되었습니다.\n\n${over
         .map((l) => `· ${l.name} — 보유 ${l.purchased}석 / 사용 ${l.used}석 (${l.used - l.purchased}석 초과, 감사 리스크)`)
         .join('\n')}\n${low
-        .map((l) => `· ${l.name} — 사용률 ${ratioPct(l.used, l.purchased)}% (회수 후보 ${l.purchased - l.used}석, 연 ${Math.round(((l.purchased - l.used) * l.unitCost) / 10_000).toLocaleString()}만원 절감 가능)`)
+        .map((l) => `· ${l.name} — 사용률 ${ratioPct(l.used, l.purchased)}% (회수 후보 ${l.purchased - l.used}석, 연 ${Math.round(((l.purchased - l.used) * l.unitCost) / 10_000).toLocaleString(NUM_LOCALE)}만원 절감 가능)`)
         .join('\n')}`,
       evidence: [{ label: '라이선스 컴플라이언스', href: '/inventory/contracts' }],
     }
@@ -529,19 +529,19 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       text: [
         `보유 자산 ${valued.length}대의 자산 가치입니다(폐기완료 제외 · 정액법 감가상각 · 내용연수 5년, SW·가상자원 제외).`,
         ``,
-        `· 총 취득가 ${totalAcq.toLocaleString()}원`,
-        `· 총 잔존가치(장부가) ${totalBook.toLocaleString()}원 — 감가상각률 ${dep}%`,
-        `· 누적 유지보수(수리) 비용 ${totalRepair.toLocaleString()}원`,
+        `· 총 취득가 ${totalAcq.toLocaleString(NUM_LOCALE)}원`,
+        `· 총 잔존가치(장부가) ${totalBook.toLocaleString(NUM_LOCALE)}원 — 감가상각률 ${dep}%`,
+        `· 누적 유지보수(수리) 비용 ${totalRepair.toLocaleString(NUM_LOCALE)}원`,
         ``,
         `유형별(취득가순):`,
-        ...byCat.map((x) => `   - ${x.c} ${x.n}대 · 취득가 ${x.acq.toLocaleString()}원 / 장부가 ${x.book.toLocaleString()}원`),
+        ...byCat.map((x) => `   - ${x.c} ${x.n}대 · 취득가 ${x.acq.toLocaleString(NUM_LOCALE)}원 / 장부가 ${x.book.toLocaleString(NUM_LOCALE)}원`),
         ``,
         // 고가 자산 TOP — 개별 최고가 자산(보험·감사·중요도 판단 근거). 유형 집계만으로는 "어느 자산이 가장 비싼가"를 못 답했다.
         `고가 자산 TOP 5(취득가순):`,
         ...[...valued]
           .sort((a, b) => acquisitionCostOf(b) - acquisitionCostOf(a))
           .slice(0, 5)
-          .map((a) => `   - ${a.assetNo} ${a.model} · ${a.owner || '미배정'}(${a.dept}) · 취득가 ${acquisitionCostOf(a).toLocaleString()}원 / 장부가 ${bookValueOf(a, t).toLocaleString()}원`),
+          .map((a) => `   - ${a.assetNo} ${a.model} · ${a.owner || '미배정'}(${a.dept}) · 취득가 ${acquisitionCostOf(a).toLocaleString(NUM_LOCALE)}원 / 장부가 ${bookValueOf(a, t).toLocaleString(NUM_LOCALE)}원`),
       ].join('\n'),
       evidence: [
         { label: '자산 가치 현황(재고)', href: '/inventory/stock' },

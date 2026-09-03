@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
 import { hasHolder } from '@/lib/quality'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, isValidDate, today } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairEtaMissing, isRepairOverdue, isValidDate, today, NUM_LOCALE } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -216,7 +216,7 @@ export async function sendToRepair(assetNo: string, rawVendor: string, eta: stri
   if (eta && (!isValidDate(eta) || eta < today())) return { ok: false, message: '예상 반환일을 오늘 이후로 지정해 주세요.' }
 
   asset.repair = { vendor, sentAt: today(), eta: eta || undefined, estCost: Number.isFinite(estCost) && estCost > 0 ? Math.round(estCost) : undefined }
-  asset.history.push({ date: today(), kind: '수리', detail: `수리 의뢰 — ${vendor}${eta ? ` · 예상 반환 ${eta}` : ''}${estCost > 0 ? ` · 견적 ${estCost.toLocaleString()}원` : ''}`, actor: session.name })
+  asset.history.push({ date: today(), kind: '수리', detail: `수리 의뢰 — ${vendor}${eta ? ` · 예상 반환 ${eta}` : ''}${estCost > 0 ? ` · 견적 ${estCost.toLocaleString(NUM_LOCALE)}원` : ''}`, actor: session.name })
   appendAudit({ actor: session.name, action: `수리 의뢰 (${vendor})`, target: assetNo })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${assetNo} 수리 의뢰 접수 — ${vendor}${eta ? ` · 예상 반환 ${eta}` : ''}` }
@@ -253,8 +253,8 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
     date: today(),
     kind: '수리',
     detail: warrantyClaimed
-      ? `수리 처리 ${outcome} · 무상 보증 청구${repairVendor !== '-' ? ` · ${repairVendor}` : ''}${cost > 0 ? ` — 제조사 부담 ${cost.toLocaleString()}원 · 자사 부담 0원` : ''}${note ? ` (${note})` : ''}`
-      : `수리 처리 ${outcome}${asset.repair ? ` · ${asset.repair.vendor}` : ''}${cost > 0 ? ` · 실비 ${cost.toLocaleString()}원` : ''}${note ? ` — ${note}` : ''}`,
+      ? `수리 처리 ${outcome} · 무상 보증 청구${repairVendor !== '-' ? ` · ${repairVendor}` : ''}${cost > 0 ? ` — 제조사 부담 ${cost.toLocaleString(NUM_LOCALE)}원 · 자사 부담 0원` : ''}${note ? ` (${note})` : ''}`
+      : `수리 처리 ${outcome}${asset.repair ? ` · ${asset.repair.vendor}` : ''}${cost > 0 ? ` · 실비 ${cost.toLocaleString(NUM_LOCALE)}원` : ''}${note ? ` — ${note}` : ''}`,
     actor: session.name,
   })
   // 실비를 구조적 비용 이력에 누적한다 — 자유 이력 텍스트만으로는 자산 TCO 를 집계할 수 없다(계약 ContractCost 와 대칭).
@@ -298,6 +298,6 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   const next = outcome === '수리 완료'
     ? (stillOwned ? `원 소유자(${asset.owner}) 반환 — 사용중 복귀` : '유휴 풀 편성 — 재배치 가능')
     : '폐기예정 전환 — 폐기 절차로'
-  const claimNote = warrantyClaimed && cost > 0 ? ` · 무상 보증 청구(자사 부담 0 · 절감 ${cost.toLocaleString()}원)` : ''
+  const claimNote = warrantyClaimed && cost > 0 ? ` · 무상 보증 청구(자사 부담 0 · 절감 ${cost.toLocaleString(NUM_LOCALE)}원)` : ''
   return { ok: true, message: `${assetNo} ${outcome} → ${next}${claimNote}` }
 }

@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
-import { addDays, isValidDate, roundProgressPct, today } from '@/lib/dates'
+import { addDays, isValidDate, roundProgressPct, today, NUM_LOCALE } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -60,7 +60,7 @@ export async function planRound(input: {
 
   appendAudit({ actor: session.name, action: `재물조사 계획 수립 (${input.kind} · 대상 ${planned}건)`, target: id })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${name} 계획 등록 — 대상 ${planned.toLocaleString()}건, 담당 ${input.assignee}` }
+  return { ok: true, message: `${name} 계획 등록 — 대상 ${planned.toLocaleString(NUM_LOCALE)}건, 담당 ${input.assignee}` }
 }
 
 /** 대사 '미확인'(유령 자산) 자동 편성 — 일정 기간 실측이 없는 자산을 수시 조사 회차로 묶는다.

@@ -218,8 +218,8 @@ export function fmtAmount(n: number): string {
   // 만 단위 반올림이 1억에 닿으면 억으로 올린다 — 99,999,999원이 "10,000만"으로 찍히면 같은 금액이 화면마다
   //  다른 단위로 보이고(계약 금액은 1억 근처가 흔하다), 읽는 사람이 자릿수를 다시 세어야 한다.
   if (man >= 10_000) return `${(man / 10_000).toFixed(1)}억`
-  if (n >= 10_000) return `${man.toLocaleString()}만`
-  return n.toLocaleString()
+  if (n >= 10_000) return `${man.toLocaleString(NUM_LOCALE)}만`
+  return n.toLocaleString(NUM_LOCALE)
 }
 
 /** 장기 미실측(유령 자산 후보) 판정 — 폐기 경로 자산은 제외하고, 최근 실측이 없거나

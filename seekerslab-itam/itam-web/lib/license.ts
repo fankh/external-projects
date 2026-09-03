@@ -1,5 +1,5 @@
 import { appendAudit } from './audit'
-import { today } from './dates'
+import { today, NUM_LOCALE } from './dates'
 import { getStore, nextApprovalId } from './store'
 import type { Session } from './session'
 
@@ -33,15 +33,15 @@ export function raiseLicenseApproval(
     kind: '자산 신청',
     title:
       kind === '추가 구매'
-        ? `${l.name} 라이선스 ${seats}석 추가 구매 품의 — 초과 사용 해소 (약 ${cost.toLocaleString()}원)`
-        : `${l.name} 라이선스 ${seats}석 회수 — 장기 미사용 (연 약 ${cost.toLocaleString()}원 절감)`,
+        ? `${l.name} 라이선스 ${seats}석 추가 구매 품의 — 초과 사용 해소 (약 ${cost.toLocaleString(NUM_LOCALE)}원)`
+        : `${l.name} 라이선스 ${seats}석 회수 — 장기 미사용 (연 약 ${cost.toLocaleString(NUM_LOCALE)}원 절감)`,
     requester: session.name,
     dept: 'IT기획팀',
     requestedAt: today(),
     status: '대기',
     currentStep: 'IT기획팀장 결재',
     refId: l.id,
-    note: `보유 ${l.purchased} / 사용 ${l.used} · 단가 ${l.unitCost.toLocaleString()}원`,
+    note: `보유 ${l.purchased} / 사용 ${l.used} · 단가 ${l.unitCost.toLocaleString(NUM_LOCALE)}원`,
   })
 
   appendAudit({ actor: session.name, action: `라이선스 ${kind} 상신 (${seats}석)`, target: l.id })

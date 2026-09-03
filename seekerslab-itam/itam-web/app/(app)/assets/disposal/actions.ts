@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { today, NUM_LOCALE } from '@/lib/dates'
 import { clearDependencyRefs } from '@/lib/cmdb'
 import { clearSwInstalls, reclaimLicenseSeats } from '@/lib/license'
 import { getSession } from '@/lib/session'
@@ -160,7 +160,7 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
   d.evidence = `소거 확인서 ${d.certNo}`
   d.status = '완료'
 
-  const dispLabel = `${disposition}${proceeds > 0 ? ` · 대금 ${proceeds.toLocaleString()}원` : ''}`
+  const dispLabel = `${disposition}${proceeds > 0 ? ` · 대금 ${proceeds.toLocaleString(NUM_LOCALE)}원` : ''}`
   const asset = s.assets.find((a) => a.assetNo === d.assetNo)
   if (asset) {
     asset.status = '폐기완료'
