@@ -1,3 +1,4 @@
+import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
@@ -30,6 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const ddayLabel = dday === null ? '' : dday < 0 ? ` (연체 ${-dday}일)` : dday === 0 ? ' (오늘 만기)' : ` (D-${dday})`
   const row = (k: string, v?: string) => (v && v !== '-') ? `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>` : ''
 
+  const toolbar = await printToolbar(`대여 확인서 — ${esc(a.assetNo)}`)
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>대여 확인서 — ${esc(a.assetNo)}</title>
 <style>
@@ -57,11 +59,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   @media print { .toolbar { display: none; } body { background: #fff; } .sheet { border: 0; margin: 0; max-width: none; } @page { margin: 12mm; } }
 </style></head>
 <body>
-  <div class="toolbar">
-    <button class="pri" onclick="window.print()">인쇄</button>
-    <button onclick="window.close()">닫기</button>
-    <span class="cap">대여 확인서 — ${esc(a.assetNo)}</span>
-  </div>
+  ${toolbar}
   <div class="sheet">
     <div class="hd">
       <div class="brand">SEEKERSLAB · ASSET LOAN AGREEMENT (대여 확인서)</div>

@@ -1,3 +1,4 @@
+import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { daysUntil, fmtAmount } from '@/lib/dates'
@@ -49,6 +50,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     ? `<table><thead><tr><th>자산번호</th><th>모델</th><th>상태</th><th>소유/부서</th></tr></thead><tbody>${linked.slice(0, 200).map((a) => `<tr><td class="k">${esc(a.assetNo)}</td><td>${esc(a.model)}</td><td>${esc(a.status)}</td><td class="d">${esc(a.owner)} · ${esc(a.dept)}</td></tr>`).join('')}</tbody></table>${linked.length > 200 ? `<div class="empty">외 ${linked.length - 200}건</div>` : ''}`
     : '<div class="empty">연계된 자산이 없습니다.</div>'
 
+  const toolbar = await printToolbar(`계약 카드 — ${esc(c.id)}`)
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>계약 카드 ${esc(c.id)}</title>
 <style>
@@ -79,11 +81,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   @media print { .toolbar { display: none; } body { background: #fff; } .sheet { border: 0; margin: 0; max-width: none; } @page { margin: 12mm; } }
 </style></head>
 <body>
-  <div class="toolbar">
-    <button class="pri" onclick="window.print()">인쇄</button>
-    <button onclick="window.close()">닫기</button>
-    <span class="cap">계약 카드 — ${esc(c.id)}</span>
-  </div>
+  ${toolbar}
   <div class="sheet">
     <div class="hd">
       <div class="brand">SEEKERSLAB · CONTRACT DOSSIER</div>
