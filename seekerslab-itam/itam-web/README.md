@@ -26,7 +26,7 @@ npm run verify     # 린트 → 빌드 → 스모크 → e2e → 헬스 → 레�
 
 # 개별 실행
 npm run build
-npm run smoke      # 프로덕션 서버 기동 → 1172개 검증(SSR HTML) → 종료
+npm run smoke      # 프로덕션 서버 기동 → 1174개 검증(SSR HTML) → 종료
 npm run smoke:future # 미래 시계 스모크(기본 +2년) — 아래 "미래 시계 진단" 참조. 게이트 아님
 npm run health     # 실제 브라우저로 권한그룹 4종 × 접근 화면 74회 로드 + 역할별 링크·API 링크 권한 8건 → 응답 상태·클라이언트 크래시·하이드레이션 오류 검사
 npm run e2e        # e2e 871건 검증 — 실제 브라우저로 보안 findings 대응(45~50)·AI 제안 판정(11) 클릭·상태 전환·역할 게이트 검증
@@ -49,7 +49,7 @@ npm run empty      # 빈 대장(갓 배포한 상태) — 데이터 0에서 화�
 고정 날짜 자체가 금지는 아니다. 시드에 저장된 값을 그대로 확인하는 검사는 시계가 흘러도 썩지 않는다.
 규약은 **"오늘에서 파생되는 값을 고정하지 말라"** 이고, 이 진단이 그 위반만 골라낸다.
 
-다섯 스위트의 검사 수 합계는 **2643건**이고, `+2년` 기준으로 잰 기준선은 **전부 0 실패**다.
+다섯 스위트의 검사 수 합계는 **2645건**이고, `+2년` 기준으로 잰 기준선은 **전부 0 실패**다.
 이 합계는 손으로 적는 수가 아니라 러너가 여덟 단계를 다 돈 뒤 실제로 센 값과 대조한다(`scripts/verify.mjs`) —
 다른 문서 수치에는 각자 가드가 있는데 이 합계에만 없어서 조용히 밀려 있었다(2512 ≠ 2595). `:future` 명령을 스모크·e2e 에만
 둔 것은 결함이 실제로 나온 곳이 그 둘이기 때문이다 — `health` 는 문자열이 아니라 브라우저 오류를 보므로
@@ -95,7 +95,7 @@ npm run empty      # 빈 대장(갓 배포한 상태) — 데이터 0에서 화�
 
 ### 검사가 무엇을 증명하는가 — 양성 대조
 
-스위트 곳곳에 `(양성 대조)` 라고 이름 붙은 검사가 있다(스모크 71곳 · e2e 72곳 — 스모크가 센다). 규약이라 적어 둔다.
+스위트 곳곳에 `(양성 대조)` 라고 이름 붙은 검사가 있다(스모크 73곳 · e2e 72곳 — 스모크가 센다). 규약이라 적어 둔다.
 **무언가가 막힌다·없다·안 바뀐다를 단언하는 검사는 혼자서는 아무것도 증명하지 못한다.** 그 값이
 나오지 않은 이유가 "막았기 때문"인지 "애초에 아무것도 실행되지 않았기 때문"인지 구분되지 않는다.
 
@@ -657,8 +657,25 @@ docker run -d --name itam-web --restart unless-stopped -p 127.0.0.1:3390:3390 \
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | URL 에 실린 식별자(`?sel=AST-…`, 결재 ID, 사용자 이름)가 외부 링크의 Referer 로 새는 것 |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` | 앱이 쓰지 않는 브라우저 기능 |
 
-CSP 는 넣지 않았다 — Next 가 부트스트랩에 인라인 스크립트를 쓰므로 nonce 를 미들웨어까지 배선해야 하고,
-반쯤 맞는 CSP 는 화면을 조용히 깨뜨린다. 세션 쿠키는 이미 `httpOnly` · `sameSite=lax` 다.
+여기에 더해 `middleware.ts` 가 요청마다 nonce 를 만들어 CSP 를 세운다. 정적 헤더가 "남이 이 앱을 어떻게
+쓰는가"를 막는다면, CSP 는 "이 앱 안에서 무엇이 실행되는가"를 막는다 — 모델명·비고·사유가 인쇄 문서
+HTML 에 그대로 실리는 앱이라 이스케이프가 한 곳이라도 새면 CSP 가 마지막 방어선이 된다.
+
+```
+default-src 'self'; script-src 'self' 'nonce-<요청마다 새로> ' 'strict-dynamic';
+style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none';
+base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+```
+
+- `script-src` 에 `unsafe-inline` 이 없다. Next 는 하이드레이션 부트스트랩을 인라인 `<script>` 로 넣으므로
+  nonce 밖에 방법이 없고, `strict-dynamic` 이 그 스크립트가 불러오는 청크까지 신뢰를 전파한다.
+- `style-src` 에는 `unsafe-inline` 이 남는다. 이 앱은 `style={{…}}` 요소 속성 스타일을 광범위하게 쓰는데
+  거기엔 nonce 를 붙일 자리가 없다. 스타일 주입은 스크립트 실행이 아니라 표시 왜곡이라 등급이 다르다.
+- `/login` 과 `/_not-found` 는 `force-dynamic` 이다. 정적으로 프리렌더하면 빌드 시점 HTML 에 nonce 가 없어
+  **헤더만 보면 초록인데 인라인 스크립트는 전부 차단된다.** 실제로 그랬고(헤더 nonce 는 있는데 HTML 에는
+  없었다) 실측으로 찾아 고쳤다 — 스모크가 헤더 nonce 와 HTML nonce 를 대조해 이 자리를 고정한다.
+
+세션 쿠키는 이미 `httpOnly` · `sameSite=lax` 다.
 
 ## v1 범위 제외
 
