@@ -289,7 +289,7 @@ try {
   await pDe.waitForTimeout(800)
   const deBody = (await pDe.textContent("body")) || ""
   const deMoney = deBody.match(/[0-9][0-9.,]{5,}원/g) || []
-  const deDots = deMoney.filter((m) => /[0-9].[0-9]{3}/.test(m))
+  const deDots = deMoney.filter((m) => /[0-9]\.[0-9]{3}/.test(m))
   const deOk = deMoney.length > 0 && deDots.length === 0
   deOk ? pass++ : fail++
   console.log(`${deOk ? "✓" : "✗"} [de-DE] 숫자 표기가 보는 사람의 로케일에 흔들리지 않는다(금액 ${deMoney.length}곳 · 독일식 구분 ${deDots.length}곳)${deOk ? "" : " — " + deDots.slice(0, 3).join(", ")}`)
