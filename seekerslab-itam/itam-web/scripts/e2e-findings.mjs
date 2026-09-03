@@ -5257,9 +5257,10 @@ try {
     ok("반납·이동 충돌: 반납대기 자산의 이동 집행이 사유와 함께 거부된다",
       ((await pRTM2.textContent("body")) || "").includes("이동 처리할 수 없습니다"))
     await pRTM2.goto(`${BASE}/assets/register?sel=${rtmAsset}`, { waitUntil: "networkidle" })
-    const rtmAfter = ((await pRTM2.locator("tr", { hasText: rtmAsset }).first().locator("td").nth(5).textContent()) || "").trim()
-    ok(`반납·이동 충돌: 대장 위치가 그대로다(${rtmLocBefore} · 목적지 ${rtmTo} 로 바뀌지 않음)`,
-      rtmAfter === rtmLocBefore && rtmAfter !== rtmTo)
+    // 열 인덱스는 권한그룹마다 다르다(사용자 뷰와 관리자 뷰의 칼럼 수가 다름) — 행 전체 텍스트로 본다.
+    const rtmAfterRow = (await pRTM2.locator("tr", { hasText: rtmAsset }).first().textContent()) || ""
+    ok(`반납·이동 충돌: 대장 위치가 그대로다(${rtmLocBefore} 유지 · 목적지 ${rtmTo} 로 바뀌지 않음)`,
+      rtmAfterRow.includes(rtmLocBefore) && !rtmAfterRow.includes(rtmTo))
   } else {
     ok("반납·이동 충돌: 반납대기 자산의 이동 집행이 사유와 함께 거부된다", false)
     ok("반납·이동 충돌: 대장 위치가 그대로다", false)
