@@ -5191,6 +5191,50 @@ try {
   ok(`길이 상한: 발송 제목이 상한에서 잘린다(${lenSubject.length}자 · 말줄임표 표시)`,
     lenSubject.length === 300 && lenSubject.endsWith(String.fromCharCode(8230)))
   await ctxLen.close()
+  // 종류가 다른 신청은 서로를 막지 않는다 — 중복 검사는 같은 종류만 본다. 그래서 같은 자산에 반납과 이동이
+  //  동시에 대기할 수 있고, 둘 다 승인하면 이동 집행이 그대로 통과했다: 회수를 기다리는 자산(반납대기)의
+  //  위치만 대장에서 바뀌고 신청자에게는 "이동 완료"가 통보된다(실측으로 본사 8F → 본사 9F 가 찍혔다).
+  //  고친 뒤에도 같은 길을 그대로 밟아 위치가 안 바뀌는지 본다 — 소스가 아니라 대장 행을 읽는다.
+  const ctxRTM = await browser.newContext(); await ctxRTM.addCookies([cookie(USER)]); const pRTM = await ctxRTM.newPage()
+  await pRTM.goto(`${BASE}/workflow/approvals`, { waitUntil: "networkidle" })
+  const raiseRTM = async (kind) => {
+    await pRTM.locator("button.btn.sm.pri").first().click()
+    await pRTM.waitForTimeout(300)
+    await pRTM.locator('select[aria-label="신청 종류"]').selectOption(kind)
+    await pRTM.waitForTimeout(200)
+    const target = await pRTM.locator('select[aria-label="대상 자산"]').inputValue()
+    await pRTM.locator("textarea").first().fill(`반납·이동 동시 대기 회귀 — ${kind}`)
+    await pRTM.locator("button", { hasText: /^상신$/ }).click()
+    await pRTM.waitForTimeout(900)
+    return target
+  }
+  const rtmAsset = await raiseRTM("반납")
+  ok("반납·이동 충돌: 반납 상신 대상 자산을 잡았다(양성 대조)", /^AST-/.test(rtmAsset))
+  await pRTM.goto(`${BASE}/workflow/approvals`, { waitUntil: "networkidle" })
+  await raiseRTM("이동")
+  ok("반납·이동 충돌: 같은 자산에 종류가 다른 두 신청이 함께 대기한다(중복 검사는 같은 종류만 본다)",
+    ((await pRTM.textContent("body")) || "").includes("이동 신청"))
+  const ctxRTM2 = await browser.newContext(); await ctxRTM2.addCookies([cookie(ASSET)]); const pRTM2 = await ctxRTM2.newPage()
+  for (let r = 0; r < 2; r += 1) {
+    await pRTM2.goto(`${BASE}/workflow/approvals`, { waitUntil: "networkidle" })
+    const btn = pRTM2.locator("tr", { hasText: rtmAsset }).locator("button", { hasText: /^승인$/ }).first()
+    if (await btn.count()) { await btn.click(); await pRTM2.waitForTimeout(1000) }
+  }
+  await pRTM2.goto(`${BASE}/assets/register?sel=${rtmAsset}`, { waitUntil: "networkidle" })
+  const rtmBefore = (await pRTM2.locator("tr", { hasText: rtmAsset }).first().textContent()) || ""
+  ok("반납·이동 충돌: 반납 승인으로 자산이 반납대기가 됐다(집행 전 전제)", rtmBefore.includes("반납대기"))
+  await pRTM2.goto(`${BASE}/assets/movement`, { waitUntil: "networkidle" })
+  const rtmBtn = pRTM2.locator("tr", { hasText: rtmAsset }).locator("button").filter({ hasText: /이동/ }).first()
+  ok("반납·이동 충돌: 이동 집행 버튼이 큐에 있다(양성 대조 — 없으면 아래 검사가 헛돈다)", (await rtmBtn.count()) > 0)
+  await rtmBtn.click()
+  await pRTM2.waitForTimeout(1200)
+  ok("반납·이동 충돌: 반납대기 자산의 이동 집행이 사유와 함께 거부된다",
+    ((await pRTM2.textContent("body")) || "").includes("이동 처리할 수 없습니다"))
+  await pRTM2.goto(`${BASE}/assets/register?sel=${rtmAsset}`, { waitUntil: "networkidle" })
+  const rtmAfter = (await pRTM2.locator("tr", { hasText: rtmAsset }).first().textContent()) || ""
+  ok("반납·이동 충돌: 대장 위치가 바뀌지 않았다(회수 대기 자산이 종이 위에서만 옮겨 가지 않게)",
+    rtmAfter.includes("본사 8F") && rtmBefore.includes("본사 8F"))
+  await ctxRTM.close(); await ctxRTM2.close()
   await browser.close()
 } catch (err) {
   fail++
