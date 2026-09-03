@@ -26,4 +26,12 @@ ENV ITAM_DATA_FILE=/data/store.json
 VOLUME ["/data"]
 
 EXPOSE 3390
+
+#  헬스 체크 — README 의 배포 명령은 `--restart unless-stopped` 를 쓴다. 그런데 그 정책은 프로세스가
+#   죽었을 때만 재시작하므로, 살아 있으면서 응답하지 않는 상태(이벤트 루프 정지·핸들 고갈)는 '정상'으로
+#   남는다. 도커가 응답 여부로 판정할 수 있게 프로브를 준다.
+#   /login 을 쓴다 — 미인증으로 200 을 내는 유일한 화면이라 세션 없이 확인할 수 있다.
+#   node 로 부른다: 이미지에 curl·wget 이 없다(node:22-alpine 은 busybox wget 만 있고 그마저 옵션이 다르다).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3390/login').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 CMD ["npm", "start", "--", "-p", "3390"]
