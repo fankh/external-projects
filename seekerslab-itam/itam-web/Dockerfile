@@ -34,4 +34,8 @@ EXPOSE 3390
 #   node 로 부른다: 이미지에 curl·wget 이 없다(node:22-alpine 은 busybox wget 만 있고 그마저 옵션이 다르다).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3390/login').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
-CMD ["npm", "start", "--", "-p", "3390"]
+#  next 바이너리를 직접 PID 1 로 띄운다 — npm 을 거치면 docker stop 의 SIGTERM 이 자식 node 까지
+#   전달되지 않아 10초 유예 뒤 SIGKILL 로 죽는다(실측 21초). 그러면 lib/store.ts 가 정상 종료용으로
+#   둔 process.once('SIGTERM', saveStore) 가 한 번도 실행되지 않는다 — 코드에는 있는데 배포 구성
+#   때문에 닿지 않는 자리다. 자동 저장 2초 주기가 있어 유실은 작지만, 종료 저장 경로 자체가 죽어 있었다.
+CMD ["node", "node_modules/next/dist/bin/next", "start", "-p", "3390"]
