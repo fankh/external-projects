@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { appendAudit, forbidden } from '@/lib/audit'
 import { barcodeSvg, qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
@@ -23,7 +24,6 @@ export async function GET(req: Request) {
   const found = nos.map((no) => s.assets.find((a) => a.assetNo === no)).filter((a): a is NonNullable<typeof a> => Boolean(a))
   if (found.length === 0) return new Response('Not Found', { status: 404 })
 
-  const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const cards = await Promise.all(found.map(async (a) => {
     const qr = await qrSvg(a.assetNo, 100)
     const barcode = barcodeSvg(a.assetNo, 260, 44)

@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -21,7 +22,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   if (!a) return new Response('Not Found', { status: 404 })
   if (a.status !== '사용중') return new Response('사용중(불출 완료) 자산이 아닙니다.', { status: 400 })
 
-  const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const issueEv = [...a.history].reverse().find((h) => h.kind === '불출')
   const t = today()
   const accepted = !a.receiptPending

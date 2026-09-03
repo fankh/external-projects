@@ -2823,6 +2823,29 @@ try {
     .filter((rel) => rel !== 'lib/types.ts')
   check(`비운영 상태 목록: lib/types 한 곳만 정의(소스 ${sourceFiles.length}개 검사)`, statusDupes.length === 0, `중복 정의=${statusDupes.join(', ')}`)
 
+  // HTML 문서 라우트의 이스케이프 단일 출처 가드 — 인쇄용 문서(자산 카드·계약 카드·인수인계서·검수 확인서·
+  //  라벨·라벨 묶음·라이선스 카드·대여 확인서·분실 신고서·오프보딩 명세서)는 사람이 넣은 모델명·비고·사유를
+  //  그대로 HTML 에 꽂는다. 이 라우트들은 저마다 똑같은 esc 한 줄을 복사해 두고 있었다 — 열 벌이 다 같아도
+  //  복사본이 열 개라는 사실 자체가 결함이다. 새 문서 라우트가 하나만 빠뜨리면 저장형 XSS 가 되고,
+  //  빠뜨렸다는 것을 알려 줄 자리가 없다. lib/text 의 escHtml 한 곳에서 만들고 여기서 센다.
+  const escApiDir = path.join(ROOT, "app", "api")
+  const escRouteFiles = []
+  const walkEscApi = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, e.name); if (e.isDirectory()) walkEscApi(p); else if (e.name === "route.ts") escRouteFiles.push(p) } }
+  walkEscApi(escApiDir)
+  const htmlRoutes = escRouteFiles.filter((f) => readFileSync(f, "utf8").includes('text/html'))
+  const escLocal = htmlRoutes.filter((f) => /^\s*const esc = /m.test(readFileSync(f, "utf8"))).map(fileLabel)
+  const escMissing = htmlRoutes.filter((f) => !readFileSync(f, "utf8").includes("escHtml")).map(fileLabel)
+  check(`문서 HTML 이스케이프: 라우트 ${htmlRoutes.length}곳이 모두 lib/text escHtml 을 쓴다(자체 정의 0곳)`,
+    htmlRoutes.length >= 10 && escLocal.length === 0 && escMissing.length === 0,
+    `자체 정의=${escLocal.join(",") || "없음"} · 미사용=${escMissing.join(",") || "없음"}`)
+
+  // 양성 대조 — escHtml 이 실제로 네 글자를 바꾸는지, 그리고 라우트 수집이 헛돌지 않는지 본다.
+  //  (문자열을 세는 가드는 대상 목록이 비면 "위반 0건"으로 통과한다 — 측정면을 의심한다.)
+  const escSrc = readFileSync(path.join(ROOT, "lib", "text.ts"), "utf8")
+  const escCovers = ["&amp;", "&lt;", "&gt;", "&quot;"].filter((x) => escSrc.includes(x))
+  check(`문서 HTML 이스케이프 양성 대조: escHtml 이 & < > " 네 글자를 모두 바꾼다(${escCovers.length}/4)`,
+    escCovers.length === 4, `누락=${["&amp;", "&lt;", "&gt;", "&quot;"].filter((x) => !escSrc.includes(x)).join(",")}`)
+
   // 비율 표기 단일 규약 가드 — 백분율을 화면·리포트가 각자 Math.round 로 계산하면 이정표(0%·100%)를 넘겨 짚어
   //  표기와 판정이 어긋난다(89.6%→90% 인데 상태는 정상, 0.05%→0% 인데 상태는 정상). 규약은 lib/dates ratioPct 한 곳.
   //  신뢰도(0~1 점수)·내용연수 경과율·위험 점수처럼 부분/전체 비율이 아닌 계산은 예외로 이름과 이유를 적어 둔다.

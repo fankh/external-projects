@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { daysUntil, fmtAmount } from '@/lib/dates'
 import { getSession } from '@/lib/session'
@@ -20,7 +21,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const c = s.contracts.find((x) => x.id === id)
   if (!c) return new Response('Not Found', { status: 404 })
 
-  const esc = (v: string) => v.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch] as string)
   const d = daysUntil(c.end)
   const dLabel = c.status === '해지' ? `해지 (${c.terminatedAt ?? '-'})` : d === null ? '-' : d < 0 ? `만료 경과 ${-d}일` : `D-${d}`
   // 목록에는 연계 이력이 있는 자산을 모두 싣되(감사 증빙), 헤더 수치는 계약 표·유지보수 커버리지와 같은 기준으로
