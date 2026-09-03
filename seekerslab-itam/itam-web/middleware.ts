@@ -39,6 +39,18 @@ export function middleware(request: NextRequest) {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } })
   response.headers.set('Content-Security-Policy', csp)
+
+  // HSTS — https 로 들어온 요청에만 붙인다. 세션 쿠키의 secure 와 짝이다: secure 는 "쿠키를 평문으로
+  //  보내지 마라"이고, HSTS 는 "이 출처에는 애초에 평문으로 붙지 마라"다. 둘이 있어야 첫 요청이
+  //  http:// 로 시작해 리다이렉트되는 그 한 번의 왕복까지 없어진다.
+  //  평문 배포(README 기본 절차의 3390)에 붙이면 브라우저가 그 호스트를 https 전용으로 기억해
+  //  버려 평문으로는 다시 접속할 수 없다 — 되돌리려면 사용자가 브라우저 설정을 뒤져야 한다.
+  //  그래서 프로토콜을 보고 조건부로만 붙인다(secure 쿠키와 같은 판단 근거).
+  //  preload 는 넣지 않는다 — 브라우저 목록에 등재되면 되돌리기가 매우 어렵고, 그건 운영자가
+  //  도메인 전체를 놓고 결정할 일이지 앱이 대신 정할 일이 아니다.
+  const proto = request.headers.get('x-forwarded-proto')?.split(',')[0].trim()
+  if (proto === 'https') response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+
   return response
 }
 
