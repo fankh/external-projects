@@ -159,6 +159,45 @@ try {
   check('보안 헤더 양성 대조: 응답에서 실제로 읽는다(설정 안 한 헤더는 없고, 다른 값은 불일치)',
     hdrProbe.headers.get('x-itam-not-set') === null && hdrProbe.headers.get('x-frame-options') !== 'SAMEORIGIN')
 
+  // CSP — 정적 헤더가 "남이 이 앱을 어떻게 쓰는가"를 막는다면, CSP 는 "이 앱 안에서 무엇이 실행되는가"를
+  //  막는다. 모델명·비고·사유가 인쇄 문서 HTML 에 그대로 실리는 앱이라, 이스케이프가 한 곳이라도 새면
+  //  CSP 가 마지막 방어선이 된다. 미들웨어가 요청마다 nonce 를 만들고 Next 가 그 nonce 를 자기 인라인
+  //  부트스트랩 스크립트에 붙인다.
+  //  판정의 핵심은 헤더의 존재가 아니라 헤더의 nonce 와 HTML 의 nonce 가 같은가이다. 정적으로 프리렌더된
+  //  페이지는 빌드 시점 HTML 이라 nonce 가 없어, 헤더만 보면 초록인데 실제로는 인라인 스크립트가 전부
+  //  차단된다 — 실제로 /login·/_not-found 가 그랬고(헤더 nonce 는 있는데 HTML 에는 없었다) force-dynamic
+  //  으로 돌려서 맞췄다. 그 실측을 이 검사가 고정한다(측정면을 의심한다).
+  const CSP_TARGETS = [
+    ['화면', '/dashboard', 'ADMIN'],
+    ['로그인', '/login', null],
+    ['없는 주소', '/이런화면은없습니다', null],
+  ]
+  const cspBad = []
+  for (const [label, route, role] of CSP_TARGETS) {
+    const res = await get(route, role)
+    const csp = res.headers.get('content-security-policy') || ''
+    const body = await res.text()
+    if (!csp) { cspBad.push(`${label}:CSP 없음`); continue }
+    const hNonce = (csp.match(/nonce-([^']+)/) || [])[1]
+    const bNonce = (body.match(/nonce="([^"]+)"/) || [])[1]
+    if (!hNonce) cspBad.push(`${label}:헤더에 nonce 없음`)
+    else if (!bNonce) cspBad.push(`${label}:HTML 에 nonce 없음(정적 프리렌더 의심)`)
+    else if (hNonce !== bNonce) cspBad.push(`${label}:헤더 nonce ≠ HTML nonce`)
+    const scriptSrc = csp.includes('script-src') ? csp.split('script-src')[1].split(';')[0] : ''
+    if (scriptSrc.includes("'unsafe-inline'")) cspBad.push(`${label}:script-src 에 unsafe-inline`)
+    for (const d of ["object-src 'none'","base-uri 'self'","form-action 'self'","frame-ancestors 'none'"]) if (!csp.includes(d)) cspBad.push(`${label}:${d} 없음`)
+  }
+  check(`CSP: ${CSP_TARGETS.length}경로에서 헤더 nonce 가 HTML nonce 와 같다(정적 프리렌더로 스크립트가 통째 차단되지 않게)`,
+    cspBad.length === 0, `문제=${cspBad.join(', ') || '없음'}`)
+
+  // 양성 대조 — nonce 가 요청마다 새로 만들어지는가. 상수 nonce 는 CSP 를 무력화한다(공격자도 그 값을 쓴다).
+  //  위 검사는 "헤더와 HTML 이 같다"만 보므로 nonce 가 상수여도 통과한다. 같은 주소를 두 번 불러 대조한다.
+  const nonceOf = async () => ((((await get('/login')).headers.get('content-security-policy')) || '').match(/nonce-([^']+)/) || [])[1]
+  const cspA = await nonceOf()
+  const cspB = await nonceOf()
+  check('CSP 양성 대조: nonce 가 요청마다 달라진다(상수 nonce 면 CSP 가 무력화된다)',
+    Boolean(cspA) && Boolean(cspB) && cspA !== cspB, `A=${(cspA || '').slice(0, 8)} B=${(cspB || '').slice(0, 8)}`)
+
   console.log('\n[권한 매트릭스 — 라우트 × 권한그룹]')
   for (const [route, allowed] of Object.entries(ROUTES)) {
     for (const role of Object.keys(ACCOUNTS)) {
