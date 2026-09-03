@@ -1,3 +1,5 @@
+import { XLSX_CELL_MAX, ellipsize } from './text'
+
 /** 최소 XLSX 작성기 — 의존성 없이 Office Open XML 통합문서를 만든다.
  *
  *  CSV 는 엑셀에서 열 때 인코딩·자릿수·날짜가 깨지기 쉽다(선행 0 손실, 긴 숫자의 지수 표기,
@@ -133,7 +135,9 @@ function cell(ref: string, v: CellValue, style?: number): string {
   // 엑셀이 지수 표기나 날짜로 바꾸지 않는다. 수치 셀은 천단위 구분(#,##0) 서식(style 2)을 줘
   // 금액이 "3000000"이 아니라 "3,000,000"으로 표시되면서도 합산·수식이 가능한 네이티브 숫자로 남는다.
   if (typeof v === 'number' && Number.isFinite(v)) return `<c r="${ref}" s="2"><v>${v}</v></c>`
-  return `<c r="${ref}" t="inlineStr"${s}><is><t xml:space="preserve">${esc(String(v))}</t></is></c>`
+  // 셀 문자열은 ECMA-376 상한(32,767자)에서 자른다 — 넘으면 Excel 이 시트가 아니라 워크북 전체를
+  //  "복구할 수 없는 내용"으로 보고 열기를 거부한다. 긴 사유 한 줄 때문에 대장 반출본 전부를 못 읽는 자리다.
+  return `<c r="${ref}" t="inlineStr"${s}><is><t xml:space="preserve">${esc(ellipsize(String(v), XLSX_CELL_MAX))}</t></is></c>`
 }
 
 function sheetXml(sheet: Sheet): string {

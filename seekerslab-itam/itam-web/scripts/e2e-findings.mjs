@@ -5143,6 +5143,36 @@ try {
     rejPanel.includes('반려 사유') && !(await pRej.locator('button', { hasText: /^재검수 \(교체품 도착\)$/ }).count()))
   await ctxRej.close()
 
+  // 자유 입력 길이 상한 — 사유·비고 같은 자유 입력에는 상한이 없다(화면 input·textarea 92곳에 maxLength 0곳,
+  //  서버 액션 106곳도 trim 만 하고 길이를 보지 않는다). 상한을 입력마다 두는 대신, 무한 길이가 실제로
+  //  무언가를 깨뜨리는 출구 두 곳(엑셀 셀·발송 제목)에서 자른다 — 그 두 출구를 실제로 통과시켜 본다.
+  //  대상은 e2e 의 다른 시나리오가 건드리지 않는 대기 결재 APR-2607-122(자산 신청 — 사용자 상신이라
+  //  반려하면 결재 결과 통보가 나가고, 그 제목에 사유가 통째로 실린다).
+  const ctxLen = await browser.newContext(); await ctxLen.addCookies([cookie(ADMIN)]); const pLen = await ctxLen.newPage()
+  const LONG = String.fromCharCode(12593).repeat(40000) // 4만 자 — 엑셀 셀 상한(32,767)과 제목 상한(300)을 모두 넘는다
+  await pLen.goto(`${BASE}/workflow/approvals?sel=APR-2607-122`, { waitUntil: "networkidle" })
+  const lenRow = pLen.locator("tr", { has: pLen.locator("td", { hasText: "APR-2607-122" }) }).first()
+  ok("길이 상한: 대상 대기 결재가 결재함에 있다(양성 대조 — 없으면 아래 두 검사가 헛돈다)", (await lenRow.count()) > 0)
+  await lenRow.locator("button", { hasText: /^반려$/ }).click()
+  await pLen.waitForTimeout(200)
+  await lenRow.locator('input[placeholder="반려 사유"]').fill(LONG)
+  await lenRow.locator("button", { hasText: /^반려 확정$/ }).click()
+  await pLen.waitForTimeout(1500)
+  // (1) 엑셀 반출 셀 — 통합문서는 무압축 저장이라 워크시트 XML 이 응답 바이트에 그대로 있다.
+  //  가장 긴 셀을 재서 ECMA-376 상한(32,767자)을 넘지 않는지 본다. 넘으면 Excel 은 시트가 아니라
+  //  워크북 전체를 "복구할 수 없는 내용"으로 보고 열기를 거부한다 — 긴 사유 한 줄에 반출본 전부가 막힌다.
+  const lenXls = Buffer.from(await (await pLen.request.get(`${BASE}/api/export/approvals`)).body()).toString("utf8")
+  const cellTexts = lenXls.split('<t xml:space="preserve">').slice(1).map((p) => p.slice(0, p.indexOf("</t>")))
+  const maxCell = cellTexts.reduce((n, t) => Math.max(n, t.length), 0)
+  ok(`길이 상한: 반출 셀이 ECMA-376 상한에서 잘린다(입력 40000자 → 최장 셀 ${maxCell}자)`, maxCell === 32767)
+  // (2) 발송 제목 — 결재 결과 통보 제목에 사유가 실리는 경로. 제목 열(5번째 칸)의 길이를 직접 잰다.
+  //  자른 자리에는 말줄임표를 남긴다 — 표시 없이 자르면 받는 사람이 온전한 제목으로 읽는다.
+  await pLen.goto(`${BASE}/platform/integrations`, { waitUntil: "networkidle" })
+  const lenMsg = pLen.locator("tbody tr", { hasText: "[결재 결과]" }).first()
+  const lenSubject = (await lenMsg.locator("td").nth(4).textContent()) || ""
+  ok(`길이 상한: 발송 제목이 상한에서 잘린다(${lenSubject.length}자 · 말줄임표 표시)`,
+    lenSubject.length === 300 && lenSubject.endsWith(String.fromCharCode(8230)))
+  await ctxLen.close()
   await browser.close()
 } catch (err) {
   fail++
@@ -5154,9 +5184,9 @@ try {
 
 //  실행한 검사 수가 문서가 적은 수와 같은가 — 스위트가 중간에 멈추면 남은 검사는 '실패'가 아니라 아예 실행되지
 //   않아 로그에는 '1건 실패'로만 남는다(실제로는 수백 건이 돌지 않았다). 컨트롤 전제가 깨진 자리에서 클릭·
-//   innerText 가 던지면 그 지점에서 끝나는데, 그런 자리가 73곳 있다(존재 단언 직후 그 대상을 무조건
+//   innerText 가 던지면 그 지점에서 끝나는데, 그런 자리가 74곳 있다(존재 단언 직후 그 대상을 무조건
 //   조작하는 자리 — 스모크가 센다). 자리마다 막는 대신 중단 자체를 드러낸다. 그 수가 늘면 취약면이 넓어진
-//   것이고, 주석에만 적어 두면 조용히 낡는다 — 실제로 40곳이라 적힌 채 73곳이 됐다.
+//   것이고, 주석에만 적어 두면 조용히 낡는다 — 실제로 40곳이라 적힌 채 74곳이 됐다.
 //   스모크의 문서 대조와 같은 규약이다. 검사를 늘리면 README·구축 요약의 수도 함께 고친다.
 //   원격 대상 실행(E2E_BASE)은 시드가 다를 수 있어 건너뛴다.
 if (!REMOTE) {

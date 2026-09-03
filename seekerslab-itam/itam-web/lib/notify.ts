@@ -1,3 +1,4 @@
+import { SUBJECT_MAX, ellipsize } from './text'
 import { hasHolder } from './quality'
 import { nowMinute } from './dates'
 import { getStore } from './store'
@@ -28,7 +29,9 @@ export function dispatch(entry: {
     at: nowMinute(),
     channel: entry.channel,
     to: entry.to,
-    subject: entry.subject,
+    // 제목은 상한에서 자른다 — 결재 결과 통보는 반려 사유를 제목에 통째로 싣기 때문에 사유 길이가 곧
+    //  제목 길이가 된다. 메일 헤더 한 줄 권고(RFC 5322 998옥텟)를 넘고, 발송 이력 표도 한 줄로 밀린다.
+    subject: ellipsize(entry.subject, SUBJECT_MAX),
     kind: entry.kind,
     ref: entry.ref,
     deliveryStatus: '발송', // 배치·연동 서버 발송 성공(데모). 재발송도 이 경로로 성공 처리된다.
