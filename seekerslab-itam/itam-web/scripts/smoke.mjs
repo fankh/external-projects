@@ -4699,6 +4699,14 @@ try {
   check(`파일 영속화 경로: 스냅샷이 안 만들어지면 실패한다 (조용히 인메모리로 돌지 않게)`,
     emptySrc.includes('스토어 스냅샷이 생성되지 않았습니다'))
 
+  //  빌드 캐시가 이미지에 남지 않는가 — .dockerignore 의 '.next' 는 빌드 컨텍스트에서만 제외한다.
+  //  컨테이너 안에서 next build 가 .next 를 새로 만들므로, 그 안의 cache/ 는 그대로 최종 이미지에
+  //  남는다. 텍스트 검사로는 보이지 않아 이 세션의 배포 가드 넷이 전부 놓쳤다 — 실제로 이미지를
+  //  만들어 보고서야 드러났다: cache 215MB vs 실행에 필요한 server+static 7.1MB (30배).
+  //  이미지 1.3GB → 1.05GB, /app/.next 224MB → 8.6MB, 컨테이너 GET /login 200 으로 확인했다.
+  check(`배포 이미지: 빌드 캐시를 남기지 않는다 (.next/cache 는 실행에 안 쓰이고 실측 215MB 였다)`,
+    dockerSrc.includes('npm run build && rm -rf .next/cache'))
+
   // ── 이미지 제외 목록이 커밋 제외 목록을 따라가는가 ──
   //  Dockerfile 은 COPY . . 로 빌드 컨텍스트 전체를 담는다. .gitignore 가 막는 산출물을
   //  .dockerignore 가 빠뜨리면 커밋에는 안 들어가지만 이미지에는 들어간다 — 로컬 파일 영속화

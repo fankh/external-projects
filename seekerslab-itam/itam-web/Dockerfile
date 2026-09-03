@@ -10,7 +10,11 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-RUN npm run build
+#  빌드 캐시는 이미지에 남기지 않는다 — .next/cache 는 다음 빌드를 빠르게 하려고 쌓는 것이라
+#   실행에는 전혀 쓰이지 않는데, 실측 215MB 로 실행에 필요한 .next/server+static(7.1MB)의 30배였다.
+#   .dockerignore 의 '.next' 는 빌드 컨텍스트에서만 제외한다 — 컨테이너 안에서 next build 가
+#   .next 를 새로 만들므로 그 안의 cache 는 그대로 최종 이미지에 남는다(텍스트 검사로는 안 보인다).
+RUN npm run build && rm -rf .next/cache
 
 ENV NODE_ENV=production
 
