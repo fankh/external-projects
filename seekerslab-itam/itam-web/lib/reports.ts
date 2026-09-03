@@ -3,6 +3,7 @@ const AUDIT_TOP = 10
 
 /** 리포트 본문 생성 — 스토어 데이터에서 결정적으로 산출한다.
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
+import { disposalInProcess } from './stock'
 import { effectiveClassifyAccuracy } from './ai-accuracy'
 import { auditLogsWithinAiRetention, recordAiCall } from './ai-status'
 import { buildMaintenance } from './maintenance'
@@ -273,7 +274,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           rows: disposed.map((d) => [d.id, d.assetNo, d.model, d.disposition ?? '', d.proceeds ? `${d.proceeds.toLocaleString()}원` : '-']),
         }
     // 폐기 진행 현황 — 완료 전 파이프라인(대상 선정·결재 대기·소거 대기). 장기 유휴·분실·EOL 등에서 편입된 폐기 대상이 어느 단계에 있는지 드러낸다.
-    const inProcess = s.disposals.filter((d) => d.status !== '완료')
+    const inProcess = s.disposals.filter(disposalInProcess)
     const stageN = (st: string) => inProcess.filter((d) => d.status === st).length
     const pipelineSection: ReportSection = inProcess.length === 0
       ? { title: '폐기 진행 현황 (결재·소거 대기)', bullets: ['진행 중인 폐기 절차가 없습니다.'] }

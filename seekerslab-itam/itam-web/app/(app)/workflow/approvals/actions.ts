@@ -1,4 +1,5 @@
 'use server'
+import { inDisposalProcess } from '@/lib/stock'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
 import { approvalAgeDays, isApprovalOverdue, isValidDate, today } from '@/lib/dates'
@@ -406,7 +407,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       } else if (d.kind === '상태 불일치' && asset) {
         // 폐기 절차(대상 선정~소거 대기) 진행 중인 자산을 실사 상태 불일치로 '사용중' 되돌리면, 사용중 자산이 폐기 대상 리스트에 남아
         // 폐기 결재가 selectForDisposal 의 사용중 가드를 우회한다. 폐기 판정이 우선이므로 조정은 미적용(실사가 맞다면 폐기를 별도 취소).
-        const inDisposal = s.disposals.some((dp) => dp.assetNo === asset.assetNo && dp.status !== '완료')
+        const inDisposal = inDisposalProcess(s.disposals, asset.assetNo)
         if (inDisposal) {
           d.resolution = '미적용'
           asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 미적용 — 폐기 절차 진행 중이라 상태 보정(사용중) 보류 (${d.kind})`, actor: session.name })
@@ -552,7 +553,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         //  재배정된 자산을 반납대기로 뒤엎고 새 보유자의 좌석을 회수해 대장·SAM 이 어긋난다.
         const departed = GONE_STATUSES.includes(asset.status)
         const reConfirmed = asset.owner !== a.requester || ['대여중', '수리중'].includes(asset.status)
-        const inDisposal = s.disposals.some((dp) => dp.assetNo === asset.assetNo && dp.status !== '완료')
+        const inDisposal = inDisposalProcess(s.disposals, asset.assetNo)
         if (departed || reConfirmed || inDisposal) {
           const why = departed ? `${asset.status} 이탈` : inDisposal ? '폐기 절차 진행 중' : asset.owner !== a.requester ? `보유자 변경(현재 ${asset.owner})` : `${asset.status} 재확인`
           asset.history.push({ date: today(), kind: '반납', detail: `반납 결재 승인 미적용 — 상신 후 ${why}로 스테일 (${a.id})`, actor: session.name })

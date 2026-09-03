@@ -1,4 +1,5 @@
 'use server'
+import { inDisposalProcess, pendingDisposalNos } from '@/lib/stock'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, appendDenial, denied } from '@/lib/audit'
 import { hasHolder, isPlaceholder } from '@/lib/quality'
@@ -311,7 +312,7 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   //  보안 조사가 열린 채 보유자만 바뀌어 조치 대상이 흐려진다(격리 해제가 선행 조건 · 폐기 절차 가드와 같은 자리).
   if (asset.quarantinedAt) return { ok: false, message: `NAC 격리 중인 자산입니다 — ${asset.assetNo} (격리 ${asset.quarantinedAt}) · 격리 해제 후 처리하세요.` }
   // 폐기 절차(대상 선정~소거 대기) 중인 유휴 자산은 재불출 대상이 아니다 — 파기 예정 자산이 다시 순환되면 안 된다(가용 재고 산정과 동일 판정).
-  if (s.disposals.some((d) => d.assetNo === assetNo && d.status !== '완료')) return { ok: false, message: `폐기 절차 중인 자산은 대여할 수 없습니다 — ${assetNo} (먼저 폐기 대상 선정을 취소하세요).` }
+  if (inDisposalProcess(s.disposals, assetNo)) return { ok: false, message: `폐기 절차 중인 자산은 대여할 수 없습니다 — ${assetNo} (먼저 폐기 대상 선정을 취소하세요).` }
   const to = rawTo.trim()
   const dept = rawDept.trim()
   if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }
@@ -358,7 +359,7 @@ export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: 
   if (dueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
   const s = getStore()
   // 유휴 재고만, 폐기 절차(완료 제외) 중인 자산은 제외 — 파기 예정 자산 재순환 방지(단건 가드·가용 재고 산정과 동일 판정).
-  const pendingDisposal = new Set(s.disposals.filter((d) => d.status !== '완료').map((d) => d.assetNo))
+  const pendingDisposal = pendingDisposalNos(s.disposals)
   // 격리 자산은 일괄에서도 뺀다(단건 가드와 같은 규약 · 아래 제외 건수로 밝힌다)
   const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.status === '유휴' && !pendingDisposal.has(a.assetNo) && !a.quarantinedAt)
   if (targets.length === 0) return { ok: false, message: '대여할 자산이 없습니다 (유휴 재고만·폐기 절차 자산 제외).' }
