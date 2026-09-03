@@ -1528,6 +1528,26 @@ try {
     pcSmoke > 0 && pcE2e > 0)
   check(`양성 대조 수: 문서가 적은 수(${pcNums.join(' · ')})와 실측(${pcSmoke} · ${pcE2e})이 같다`,
     pcNums.includes(pcSmoke) && pcNums.includes(pcE2e), `문서=${pcNums.join(',')} 실측=${pcSmoke},${pcE2e}`)
+
+  // ── 샘플 산출물의 줄바꿈이 생성기와 같은가 ──
+  //  `npm run samples` 는 항상 LF 로 다시 쓴다. 저장소 파일이 CRLF 로 섞여 있으면 재생성할 때마다
+  //  내용은 그대로인데 줄바꿈만 바뀐 변경이 잡히고, 실수로 커밋되면 의미 없는 차이가 이력에 남는다
+  //  (실제로 34개 중 20개가 CRLF, 15개가 LF 로 섞여 있었다 — 재생성 한 번에 3개가 변경으로 잡혔다).
+  //  드리프트 검사(samples:check)는 내용만 비교하므로 이 섞임을 못 잡는다 — 검사와 재생성이 서로 다른
+  //  답을 내던 자리다. .gitattributes 가 새 파일을 정규화하고, 이 검사가 현재 상태를 고정한다.
+  const sampleDir = path.join(ROOT, '..', 'docs')
+  const sampleFilesEol = readdirSync(sampleDir).filter((f) => f.startsWith('샘플_'))
+  //  규칙은 종류마다 다르다 — 제품이 내주는 형식을 그대로 저장하기 때문이다.
+  //   md 는 LF, csv 는 CRLF(RFC 4180 · 엑셀 호환). 한쪽 규칙으로 통일하면 재생성이 매번 되돌린다.
+  const hasCrlf = (f) => readFileSync(path.join(sampleDir, f), 'utf8').includes(String.fromCharCode(13, 10))
+  const mdSamples = sampleFilesEol.filter((f) => f.endsWith('.md'))
+  const csvSamples = sampleFilesEol.filter((f) => f.endsWith('.csv'))
+  const mdWrong = mdSamples.filter(hasCrlf)
+  const csvWrong = csvSamples.filter((f) => !hasCrlf(f))
+  check(`샘플 줄바꿈: md ${mdSamples.length}개 · csv ${csvSamples.length}개를 읽었다 (양성 대조 — 0개면 경로가 틀린 것)`,
+    mdSamples.length >= 15 && csvSamples.length >= 15)
+  check(`샘플 줄바꿈: 제품이 내주는 형식과 같다 (md=LF · csv=CRLF — 어긋나면 재생성이 매번 변경을 만든다)`,
+    mdWrong.length === 0 && csvWrong.length === 0, `md 어긋남: ${mdWrong.join(', ') || '없음'} · csv 어긋남: ${csvWrong.join(', ') || '없음'}`)
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
