@@ -1470,6 +1470,27 @@ try {
     msgCount >= 500)
   check(`사용자 문구: 반말로 끝나는 문구가 없다 (한 문구만 섞여도 제품 말투가 무너진다)`,
     plainMsgs.length === 0, `반말 종결: ${plainMsgs.join(' | ')}`)
+
+  // ── e2e 가 중간에 멈출 수 있는 자리를 세어 둔다 ──
+  //  e2e 는 '존재 단언 → 그 대상 조작' 순으로 쓰는 곳이 많다. 전제가 깨지면 단언은 ✗ 로 남지만
+  //  다음 줄이 없는 컨트롤을 30초 기다리다 던져, 그 지점 이후 수백 건이 아예 실행되지 않는다.
+  //  (과거 시계로 돌렸을 때 실제로 87/868 에서 멈췄다 — 정기 점검 예정일이 아직 오지 않아 독촉 버튼이
+  //   없는데 다음 줄이 그 버튼의 innerText 를 읽었다. 중단 자체는 '검사 수 대조'가 잡는다.)
+  //  자리마다 막는 대신 그 수를 세어 둔다 — 늘면 취약면이 넓어진 것이다. 주석에만 적어 두면 낡는다:
+  //  실제로 '40곳'이라 적힌 채 73곳이 됐다(#818 의 2512 처럼 주인 없는 수치는 조용히 밀린다).
+  const e2eFragSrc = readFileSync(path.join(ROOT, 'scripts', 'e2e-findings.mjs'), 'utf8').split(String.fromCharCode(10))
+  let fragileSites = 0
+  e2eFragSrc.forEach((ln, i) => {
+    if (!ln.includes('ok(') || !ln.includes('count()') || !ln.includes('> 0')) return
+    const next = e2eFragSrc.slice(i + 1, i + 4).join(' ')
+    if (/\.(innerText|click|textContent|inputValue)\(/.test(next)) fragileSites++
+  })
+  const fragClaimed = Number((e2eFragSrc.find((l) => l.includes('그런 자리가') && l.includes('곳 있다')) || '')
+    .split('그런 자리가')[1]?.split('곳')[0]?.trim() || -1)
+  check(`e2e 중단 취약면: 존재 단언 직후 무조건 조작하는 자리 ${fragileSites}곳 (양성 대조 — 0곳이면 패턴을 못 읽은 것)`,
+    fragileSites >= 40)
+  check(`e2e 중단 취약면: 주석이 적은 수(${fragClaimed})와 실측(${fragileSites})이 같다 (늘어난 것을 아무도 모르면 주석만 낡는다)`,
+    fragClaimed === fragileSites)
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
