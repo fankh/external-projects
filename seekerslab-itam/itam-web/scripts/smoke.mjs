@@ -3023,20 +3023,19 @@ try {
   //  — 모델명(라틴)과 사용자·부서명(한글)이 섞인 이 앱의 목록은 정확히 이 차이에 걸린다.
   //  클라이언트 컴포넌트(대장·발견 자산·계약 표)에서는 SSR 로 그린 순서와 브라우저가 다시 그린 순서가
   //  어긋나고, 서버 전용 자리에서는 컨테이너 로케일이 리포트·인쇄 문서의 행 순서를 정하게 된다.
+  const NL_RE = new RegExp(String.fromCharCode(92) + 'r?' + String.fromCharCode(92) + 'n')
   const sortBare = []
   let sortPinned = 0
   for (const f of numFiles) {
-    const body = readFileSync(f, "utf8")
     const rel = path.relative(ROOT, f).split(path.sep).join("/")
-    if (rel === "lib/dates.ts") continue // 상수를 정하는 곳(주석에 예시가 있다)
-    body.split(/?
-/).forEach((line, li) => {
+    if (rel === "lib/dates.ts") continue // 상수를 정하는 곳(주석에 실측 예시가 있다)
+    readFileSync(f, "utf8").split(NL_RE).forEach((line, li) => {
       if (line.trim().startsWith("*") || line.trim().startsWith("//")) return
       const calls = line.split("localeCompare(").length - 1
       if (!calls) return
-      const pinnedHere = line.split("SORT_LOCALE").length - 1
-      sortPinned += Math.min(calls, pinnedHere)
-      if (pinnedHere < calls) sortBare.push(`${rel}:${li + 1}`)
+      const here = line.split("SORT_LOCALE").length - 1
+      sortPinned += Math.min(calls, here)
+      if (here < calls) sortBare.push(rel + ":" + (li + 1))
     })
   }
   check(`정렬 비교: ${sortPinned}곳이 로케일을 고정(lib/dates SORT_LOCALE) · 기본 로케일 의존 0곳`,
@@ -3046,7 +3045,7 @@ try {
   //  규칙이 된다. 한글·라틴이 섞인 목록을 두 로케일로 정렬해 서로 다른지, 고정 로케일은 늘 같은지 본다.
   const sortSample = ["ThinkPad", "김민준", "Dell 모니터", "박자산"]
   const byLocale = (loc) => [...sortSample].sort((x, y) => x.localeCompare(y, loc)).join("|")
-  check(`정렬 비교 양성 대조: 로케일에 따라 순서가 실제로 갈린다(ko≠en) · 고정 로케일은 항상 같다`,
+  check('정렬 비교 양성 대조: 로케일에 따라 순서가 실제로 갈린다(ko≠en) · 고정 로케일은 항상 같다',
     byLocale("ko-KR") !== byLocale("en-US") && byLocale("ko-KR") === byLocale("ko-KR"))
 
   // HTML 문서 라우트의 이스케이프 단일 출처 가드 — 인쇄용 문서(자산 카드·계약 카드·인수인계서·검수 확인서·
