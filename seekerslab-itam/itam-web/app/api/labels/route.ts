@@ -1,3 +1,4 @@
+import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { appendAudit, forbidden } from '@/lib/audit'
 import { barcodeSvg, qrSvg } from '@/lib/label'
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
 
   appendAudit({ actor: session.name, action: `자산 라벨 일괄 인쇄 (${found.length}건)`, target: '자산 대장' })
 
+  const toolbar = await printToolbar(`자산 라벨 일괄 인쇄 — ${found.length}건${found.length < nos.length ? ` (요청 ${nos.length}건 중 ${found.length}건 확인)` : ''}`)
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>자산 라벨 일괄 인쇄 (${found.length}건)</title>
 <style>
@@ -68,11 +70,7 @@ export async function GET(req: Request) {
   }
 </style></head>
 <body>
-  <div class="toolbar">
-    <button class="pri" onclick="window.print()">인쇄</button>
-    <button onclick="window.close()">닫기</button>
-    <span class="cap">자산 라벨 일괄 인쇄 — ${found.length}건${found.length < nos.length ? ` (요청 ${nos.length}건 중 ${found.length}건 확인)` : ''}</span>
-  </div>
+  ${toolbar}
   <div class="sheet">${cards.join('')}</div>
 </body></html>`
 

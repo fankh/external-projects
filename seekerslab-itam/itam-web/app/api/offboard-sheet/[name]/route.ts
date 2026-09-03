@@ -1,3 +1,4 @@
+import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { appendAudit, forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
@@ -52,6 +53,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ name: s
         : '<tr><td></td><td colspan="3" class="dim">해당 없음</td></tr>'
     }</tbody></table>`
 
+  const toolbar = await printToolbar(`오프보딩 명세서 — ${esc(name)}`)
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>오프보딩 명세서 — ${esc(name)}</title>
 <style>
@@ -81,11 +83,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ name: s
   @media print { .toolbar { display: none; } body { background: #fff; } .sheet { border: 0; margin: 0; max-width: none; } @page { margin: 12mm; } }
 </style></head>
 <body>
-  <div class="toolbar">
-    <button class="pri" onclick="window.print()">인쇄</button>
-    <button onclick="window.close()">닫기</button>
-    <span class="cap">오프보딩 명세서 — ${esc(name)}</span>
-  </div>
+  ${toolbar}
   <div class="sheet">
     <div class="hd">
       <div class="brand">SEEKERSLAB · ASSET OFFBOARDING CHECKLIST</div>

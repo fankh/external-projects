@@ -1,3 +1,4 @@
+import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { daysUntil, fmtAmount } from '@/lib/dates'
@@ -42,6 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const dLabel = l.expiry === '-' ? '-' : d === null ? '-' : d < 0 ? `만료 경과 ${-d}일` : `D-${d}`
   const row = (k: string, v: string) => `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>`
 
+  const toolbar = await printToolbar(`라이선스 컴플라이언스 카드 — ${esc(l.id)}`)
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>라이선스 카드 ${esc(l.id)}</title>
 <style>
@@ -67,11 +69,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   @media print { .toolbar { display: none; } body { background: #fff; } .sheet { border: 0; margin: 0; max-width: none; } @page { margin: 12mm; } }
 </style></head>
 <body>
-  <div class="toolbar">
-    <button class="pri" onclick="window.print()">인쇄</button>
-    <button onclick="window.close()">닫기</button>
-    <span class="cap">라이선스 컴플라이언스 카드 — ${esc(l.id)}</span>
-  </div>
+  ${toolbar}
   <div class="sheet">
     <div class="hd">
       <div class="brand">SEEKERSLAB · SW LICENSE COMPLIANCE</div>

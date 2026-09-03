@@ -1,3 +1,4 @@
+import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { barcodeSvg, qrSvg } from '@/lib/label'
@@ -26,6 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const qr = await qrSvg(a.assetNo, 132)
   const barcode = barcodeSvg(a.assetNo, 300, 52)
 
+  const toolbar = await printToolbar(`자산 라벨 재발행 — ${esc(a.assetNo)}`)
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>자산 라벨 ${esc(a.assetNo)}</title>
 <style>
@@ -53,11 +55,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   }
 </style></head>
 <body>
-  <div class="toolbar">
-    <button class="pri" onclick="window.print()">인쇄</button>
-    <button onclick="window.close()">닫기</button>
-    <span class="cap">자산 라벨 재발행 — ${esc(a.assetNo)}</span>
-  </div>
+  ${toolbar}
   <div class="sheet">
     <div class="label">
       <div class="qr">${qr}</div>

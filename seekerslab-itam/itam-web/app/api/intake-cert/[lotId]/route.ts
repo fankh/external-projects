@@ -1,3 +1,4 @@
+import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
@@ -33,6 +34,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ lotId: 
     ? lot.issued.map((no) => `<span class="tag">${esc(no)}</span>`).join(' ')
     : '<span class="dim">채번 자산 없음</span>'
 
+  const toolbar = await printToolbar(`검수 확인서 — ${esc(lot.id)}`)
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>검수 확인서 — ${esc(lot.id)}</title>
 <style>
@@ -65,11 +67,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ lotId: 
   @media print { .toolbar { display: none; } body { background: #fff; } .sheet { border: 0; margin: 0; max-width: none; } @page { margin: 12mm; } }
 </style></head>
 <body>
-  <div class="toolbar">
-    <button class="pri" onclick="window.print()">인쇄</button>
-    <button onclick="window.close()">닫기</button>
-    <span class="cap">검수 확인서 — ${esc(lot.id)}</span>
-  </div>
+  ${toolbar}
   <div class="sheet">
     <div class="hd">
       <div class="brand">SEEKERSLAB · GOODS ACCEPTANCE (검수 확인서)</div>

@@ -1,3 +1,4 @@
+import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { assetDependencies } from '@/lib/cmdb'
@@ -120,6 +121,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     .flatMap((l) => (l.seats ?? []).filter((st) => st.assetNo === a.assetNo).map((st) => ({ lic: l.name, vendor: l.vendor, at: st.at })))
   const seatsRows = seats.map((st) => `<tr><td>${esc(st.lic)}</td><td>${esc(st.vendor)}</td><td class="d">${esc(st.at)}</td></tr>`).join('')
 
+  const toolbar = await printToolbar(`자산 카드 — ${esc(a.assetNo)}`)
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>자산 카드 ${esc(a.assetNo)}</title>
 <style>
@@ -151,11 +153,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   @media print { .toolbar { display: none; } body { background: #fff; } .sheet { border: 0; margin: 0; max-width: none; } @page { margin: 12mm; } }
 </style></head>
 <body>
-  <div class="toolbar">
-    <button class="pri" onclick="window.print()">인쇄</button>
-    <button onclick="window.close()">닫기</button>
-    <span class="cap">자산 카드 — ${esc(a.assetNo)}</span>
-  </div>
+  ${toolbar}
   <div class="sheet">
     <div class="hd">
       <div class="qr">${qr}</div>
