@@ -1423,6 +1423,23 @@ try {
     rejectCount >= 500)
   check(`거부 사유: 사유 없이 거부하는 액션이 없다 (버튼이 아무 반응 없이 죽는다)`,
     silentRejects.length === 0, `사유 없음: ${silentRejects.join(', ')}`)
+
+  // ── 하루 두 번 보내지 않는다는 규약이 한 곳에 모여 있는가 ──
+  //  발송 액션은 80개인데 중복 차단은 액션 본문에 없다 — 대상을 산출하는 lib/reminders 가 '오늘 이미
+  //  보낸 대상'을 미리 뺀다(sentTodayRefs). 그래서 액션만 훑으면 21개가 '중복 차단 없음'으로 걸리는데
+  //  전부 거짓이다(상태 전이형은 상태 검사가 막고, 독촉형은 이 헬퍼가 막는다). 검사할 자리는 액션이
+  //  아니라 이 단일 근원이다.
+  //  이 규약이 사라지면 화면 건수와 발송 로직이 갈려 '유령 컨트롤'이 된다 — 버튼은 N건이라 적혀 있는데
+  //  누르면 '오늘 발송분 제외 — 대상이 없습니다'로 끝난다. lib/reminders 주석이 그 사고를 기록한다.
+  const remindDedupSrc = readFileSync(path.join(ROOT, 'lib', 'reminders.ts'), 'utf8')
+  const expiryDedupSrc = readFileSync(path.join(ROOT, 'lib', 'expiry.ts'), 'utf8')
+  const dedupUses = remindDedupSrc.split('sentTodayRefs(').length - 2   // 정의 1회를 뺀 사용처
+  check(`중복 발송 차단: 대상 산출이 단일 헬퍼를 ${dedupUses}곳에서 쓴다 (양성 대조 — 0곳이면 규약이 흩어진 것)`,
+    dedupUses >= 10)
+  check(`중복 발송 차단: 헬퍼가 오늘 발송분을 실제로 제외한다 (같은 대상에 하루 두 번 보내지 않는다)`,
+    remindDedupSrc.includes('function sentTodayRefs(') && remindDedupSrc.includes("m.at.startsWith(t)"))
+  check(`중복 발송 차단: 만료 임박 통지도 같은 규약을 따른다 (lib/expiry — 액션이 아니라 대상 산출에서 뺀다)`,
+    expiryDedupSrc.includes('오늘 미발송'))
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
