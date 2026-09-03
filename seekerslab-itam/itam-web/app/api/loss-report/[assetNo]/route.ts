@@ -3,7 +3,7 @@ import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { acquisitionCostOf, bookValueOf } from '@/lib/cost'
 import { hasHolder } from '@/lib/quality'
-import { today } from '@/lib/dates'
+import { today, NUM_LOCALE } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
 import { getStore } from '@/lib/store'
@@ -31,8 +31,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const circumstance = detail.replace(/^(분실|도난) 신고 — /, '').replace(/ \(최종 보유 [^)]*\)$/, '') || '-'
   const holder = hasHolder(a.owner) ? `${a.owner} · ${a.dept}` : a.dept
   const t = today()
-  const book = acquisitionCostOf(a) > 0 ? bookValueOf(a, t).toLocaleString() : '-'
-  const acq = acquisitionCostOf(a) > 0 ? acquisitionCostOf(a).toLocaleString() : '-'
+  const book = acquisitionCostOf(a) > 0 ? bookValueOf(a, t).toLocaleString(NUM_LOCALE) : '-'
+  const acq = acquisitionCostOf(a) > 0 ? acquisitionCostOf(a).toLocaleString(NUM_LOCALE) : '-'
 
   const row = (k: string, v?: string) => (v && v !== '-') ? `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>` : `<div class="f"><dt>${k}</dt><dd class="dim">-</dd></div>`
 

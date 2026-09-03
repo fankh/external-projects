@@ -3,7 +3,7 @@ import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { assetDependencies } from '@/lib/cmdb'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
-import { daysUntil, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today, warrantyState } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today, warrantyState, NUM_LOCALE } from '@/lib/dates'
 import { qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -68,11 +68,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('정기 점검 예정', a.maintenanceDue && !NON_OPERATIONAL_STATUSES.includes(a.status)
       ? `${a.maintenanceDue}${isMaintenanceOverdue(a) ? ' · 점검 경과(미시행)' : isMaintenanceDue(a, getStore().opsPolicy.maintenanceWindowDays) ? ' · 점검 도래' : ''}`
       : undefined),
-    row('수리 의뢰', a.repair ? `${a.repair.vendor}${a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}${a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}` : undefined),
-    row('누적 수리비', repairTotalOf(a) > 0 ? `${repairTotalOf(a).toLocaleString()}원 (${a.repairCosts!.filter((c) => !c.warrantyClaimed).length}건 · 자사 부담)` : undefined),
-    row('취득가', acquisitionCostOf(a) > 0 ? `${acquisitionCostOf(a).toLocaleString()}원${a.acquisitionCost === undefined ? ' (표준 단가)' : ''}` : undefined),
-    row('TCO(취득+수리)', acquisitionCostOf(a) > 0 ? `${assetTco(a).toLocaleString()}원` : undefined),
-    row('잔존가치(장부가)', acquisitionCostOf(a) > 0 ? `${bookValueOf(a, today()).toLocaleString()}원 · 정액법 상각 ${depreciationPct(a, today())}%` : undefined),
+    row('수리 의뢰', a.repair ? `${a.repair.vendor}${a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}${a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString(NUM_LOCALE)}원` : ''}` : undefined),
+    row('누적 수리비', repairTotalOf(a) > 0 ? `${repairTotalOf(a).toLocaleString(NUM_LOCALE)}원 (${a.repairCosts!.filter((c) => !c.warrantyClaimed).length}건 · 자사 부담)` : undefined),
+    row('취득가', acquisitionCostOf(a) > 0 ? `${acquisitionCostOf(a).toLocaleString(NUM_LOCALE)}원${a.acquisitionCost === undefined ? ' (표준 단가)' : ''}` : undefined),
+    row('TCO(취득+수리)', acquisitionCostOf(a) > 0 ? `${assetTco(a).toLocaleString(NUM_LOCALE)}원` : undefined),
+    row('잔존가치(장부가)', acquisitionCostOf(a) > 0 ? `${bookValueOf(a, today()).toLocaleString(NUM_LOCALE)}원 · 정액법 상각 ${depreciationPct(a, today())}%` : undefined),
     row('상위 의존 (CMDB)', deps.upstream.length ? deps.upstream.map(nameOf).join(', ') : undefined),
     row('영향 범위 (blast radius)', deps.blastRadius.length ? `${deps.blastRadius.length}대 — ${deps.blastRadius.map(nameOf).join(', ')}` : undefined),
     row('⚠ 저하된 상위', deps.degradedUpstream.length ? `${deps.degradedUpstream.map(nameOf).join(', ')} — 상위 장애·이탈로 이 자산 위험` : undefined),

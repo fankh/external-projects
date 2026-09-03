@@ -1,7 +1,7 @@
 import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
-import { daysUntil, fmtAmount } from '@/lib/dates'
+import { daysUntil, fmtAmount, NUM_LOCALE } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
 import { getStore } from '@/lib/store'
@@ -39,7 +39,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     <h2>SLA</h2><div class="sla">${c.sla ? esc(c.sla) : '<span class="empty">미설정</span>'}</div>
     <h2>비용 이력${(c.costs ?? []).length ? ` · 누계 ${fmtAmount((c.costs ?? []).reduce((n, x) => n + x.amount, 0))}원` : ''}</h2>
     ${(c.costs ?? []).length
-      ? `<table><thead><tr><th>일자</th><th>항목</th><th class="r">금액</th></tr></thead><tbody>${[...c.costs!].sort((x, y) => y.date.localeCompare(x.date)).map((ct) => `<tr><td class="d">${esc(ct.date)}</td><td>${esc(ct.item)}</td><td class="r">${ct.amount.toLocaleString()}원</td></tr>`).join('')}</tbody></table>`
+      ? `<table><thead><tr><th>일자</th><th>항목</th><th class="r">금액</th></tr></thead><tbody>${[...c.costs!].sort((x, y) => y.date.localeCompare(x.date)).map((ct) => `<tr><td class="d">${esc(ct.date)}</td><td>${esc(ct.item)}</td><td class="r">${ct.amount.toLocaleString(NUM_LOCALE)}원</td></tr>`).join('')}</tbody></table>`
       : '<div class="empty">등록된 비용 이력이 없습니다.</div>'}` : ''
 
   const renewalsHtml = (c.renewals ?? []).length

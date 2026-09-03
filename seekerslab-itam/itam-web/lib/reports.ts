@@ -10,7 +10,7 @@ import { buildMaintenance } from './maintenance'
 import { buildProcurement } from './procurement'
 import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
-import { ratioPct, addDays, addYears, dormantDaysOf, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct } from './dates'
+import { ratioPct, addDays, addYears, dormantDaysOf, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct, NUM_LOCALE } from './dates'
 import { ACQ_COST, USEFUL_LIFE_YEARS, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf, isEolTarget } from './eol'
 import { assetDataIssues, cmdbAccuracyPct, deptOfOwner, hasDataIssue } from './quality'
@@ -148,7 +148,7 @@ export function replacementCandidates() {
       if (aged) reasons.push('내용연수 초과')
       if (warr) reasons.push('보증 경과')
       // 누계는 자사 부담분만(repairTotalOf) — 무상 보증 청구분(제조사 부담)은 제외해 월간 리포트·TCO 와 정합. 빈도(repairs.length)는 자사 부담 무관하게 고장 신호이므로 전체 건수 유지.
-      if (failing) reasons.push(`잦은 장애(수리 ${repairs.length}회·누계 ${repairTotalOf(a).toLocaleString()}원)`)
+      if (failing) reasons.push(`잦은 장애(수리 ${repairs.length}회·누계 ${repairTotalOf(a).toLocaleString(NUM_LOCALE)}원)`)
       return { a, why: reasons.join(' · '), book: bookValueOf(a, t) }
     })
     .filter((x) => x.why)
@@ -253,14 +253,14 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const totalRepair = repaired.reduce((n, a) => n + sumRepair(a), 0)
     // 보증 절감 — 무상 보증 청구로 자사가 부담하지 않은 수리비. 자사 수리비 총계에서 빠진 금액을 리더십 보고에 명시(비용 회피 가시화·숫자 투명성).
     const totalWarrantySaved = s.assets.reduce((n, a) => n + warrantySavingsOf(a), 0)
-    const savedNote = totalWarrantySaved > 0 ? ` · 보증 절감 ${totalWarrantySaved.toLocaleString()}원(무상 보증 청구)` : ''
+    const savedNote = totalWarrantySaved > 0 ? ` · 보증 절감 ${totalWarrantySaved.toLocaleString(NUM_LOCALE)}원(무상 보증 청구)` : ''
     const repairSection: ReportSection = repaired.length === 0
-      ? { title: '유지보수(수리) 비용 현황', bullets: [totalWarrantySaved > 0 ? `자사 부담 수리 비용 없음 · 보증 절감 ${totalWarrantySaved.toLocaleString()}원(무상 보증 청구)` : '등록된 수리 비용 이력이 없습니다.'] }
+      ? { title: '유지보수(수리) 비용 현황', bullets: [totalWarrantySaved > 0 ? `자사 부담 수리 비용 없음 · 보증 절감 ${totalWarrantySaved.toLocaleString(NUM_LOCALE)}원(무상 보증 청구)` : '등록된 수리 비용 이력이 없습니다.'] }
       : {
           title: '유지보수(수리) 비용 현황',
-          note: `누적 수리비 총 ${totalRepair.toLocaleString()}원 · 수리 이력 자산 ${repaired.length}대${savedNote}`,
+          note: `누적 수리비 총 ${totalRepair.toLocaleString(NUM_LOCALE)}원 · 수리 이력 자산 ${repaired.length}대${savedNote}`,
           columns: ['자산번호', '모델', '수리 건수', '누적 수리비'],
-          rows: repaired.map((a) => [a.assetNo, a.model, String(a.repairCosts!.length), `${sumRepair(a).toLocaleString()}원`]),
+          rows: repaired.map((a) => [a.assetNo, a.model, String(a.repairCosts!.length), `${sumRepair(a).toLocaleString(NUM_LOCALE)}원`]),
         }
     // 자산 처분 실적 — 완료 폐기의 물리 처분 방식·매각 대금 회수(수리 비용의 반대편 = 가치 회수). 회계·ESG 보고.
     const disposed = s.disposals.filter((d) => d.status === '완료' && d.disposition)
@@ -269,9 +269,9 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       ? { title: '자산 처분 실적 (불용 처리)', bullets: ['완료된 자산 처분 실적이 없습니다.'] }
       : {
           title: '자산 처분 실적 (불용 처리)',
-          note: `완료 처분 ${disposed.length}건 · 매각 대금 회수 총 ${totalProceeds.toLocaleString()}원`,
+          note: `완료 처분 ${disposed.length}건 · 매각 대금 회수 총 ${totalProceeds.toLocaleString(NUM_LOCALE)}원`,
           columns: ['폐기번호', '자산번호', '모델', '처분 방식', '매각 대금'],
-          rows: disposed.map((d) => [d.id, d.assetNo, d.model, d.disposition ?? '', d.proceeds ? `${d.proceeds.toLocaleString()}원` : '-']),
+          rows: disposed.map((d) => [d.id, d.assetNo, d.model, d.disposition ?? '', d.proceeds ? `${d.proceeds.toLocaleString(NUM_LOCALE)}원` : '-']),
         }
     // 폐기 진행 현황 — 완료 전 파이프라인(대상 선정·결재 대기·소거 대기). 장기 유휴·분실·EOL 등에서 편입된 폐기 대상이 어느 단계에 있는지 드러낸다.
     const inProcess = s.disposals.filter(disposalInProcess)
@@ -470,7 +470,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: '교체 대상 자산',
         note: `총 ${cands.length}대 — 보증 경과 ${warrN} · 내용연수 초과 ${agedN} · 잦은 장애 ${failingN} · 잔여 장부가 ${fmtAmount(residualBook)}원`,
         columns: ['자산번호', '유형', '모델', '도입일', '보증만료', '잔존가치', '교체 사유'],
-        rows: cands.map((x) => [x.a.assetNo, x.a.category, x.a.model, x.a.purchaseDate, x.a.warrantyEnd, `${x.book.toLocaleString()}원`, x.why]),
+        rows: cands.map((x) => [x.a.assetNo, x.a.category, x.a.model, x.a.purchaseDate, x.a.warrantyEnd, `${x.book.toLocaleString(NUM_LOCALE)}원`, x.why]),
       },
       {
         title: '유형별 교체 수요 · 예산 추정',
@@ -784,8 +784,8 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const baseTerminatedR = (l: (typeof loR.active)[number]) => !!l.contractId && s.contracts.some((c) => c.id === l.contractId && c.status === '해지')
     const recosR = loR.active.map((l) => {
       const reco = baseTerminatedR(l) ? '근거 계약 해지 → 이관·재계약'
-        : l.used > l.purchased ? `추가 구매(트루업) +${l.used - l.purchased}석 · 약 ${((l.used - l.purchased) * l.unitCost).toLocaleString()}원`
-        : l.used / l.purchased < 0.6 ? `감축 갱신 -${l.purchased - l.used}석 · 절감 약 ${((l.purchased - l.used) * l.unitCost).toLocaleString()}원`
+        : l.used > l.purchased ? `추가 구매(트루업) +${l.used - l.purchased}석 · 약 ${((l.used - l.purchased) * l.unitCost).toLocaleString(NUM_LOCALE)}원`
+        : l.used / l.purchased < 0.6 ? `감축 갱신 -${l.purchased - l.used}석 · 절감 약 ${((l.purchased - l.used) * l.unitCost).toLocaleString(NUM_LOCALE)}원`
         : '현행 갱신'
       return [l.name, `${l.used}/${l.purchased}`, reco]
     })
@@ -794,7 +794,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: '갱신 예정 (만료 180일 이내)',
         note: `갱신 예정 ${upcomingR.length}종 · 예상 갱신액 ${fmtAmount(upcomingR.reduce((n, l) => n + l.purchased * l.unitCost, 0))}원`,
         columns: ['라이선스', '만료일', 'D-day', '보유', '사용', '예상 갱신액'],
-        rows: upcomingR.length ? upcomingR.map((l) => [l.name, l.expiry, ddayR(l) < 0 ? `경과 ${-ddayR(l)}일` : `D-${ddayR(l)}`, String(l.purchased), String(l.used), `${(l.purchased * l.unitCost).toLocaleString()}원`]) : [['-', '만료 임박 라이선스 없음', '-', '-', '-', '-']],
+        rows: upcomingR.length ? upcomingR.map((l) => [l.name, l.expiry, ddayR(l) < 0 ? `경과 ${-ddayR(l)}일` : `D-${ddayR(l)}`, String(l.purchased), String(l.used), `${(l.purchased * l.unitCost).toLocaleString(NUM_LOCALE)}원`]) : [['-', '만료 임박 라이선스 없음', '-', '-', '-', '-']],
       },
       {
         title: '트루업 권고',
@@ -952,7 +952,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       const endBook = bookAtEnd(y)
       const annual = Math.max(0, prevBook - endBook)
       const doneCount = dep.filter((a) => bookValueOf(a, yearEnd(y - 1)) > 0 && bookValueOf(a, yearEnd(y)) === 0).length
-      years.push([String(y), prevBook.toLocaleString(), annual.toLocaleString(), endBook.toLocaleString(), String(doneCount)])
+      years.push([String(y), prevBook.toLocaleString(NUM_LOCALE), annual.toLocaleString(NUM_LOCALE), endBook.toLocaleString(NUM_LOCALE), String(doneCount)])
       futureDep += annual
       prevBook = endBook
     }
@@ -964,12 +964,12 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       const acq = arr.reduce((n, a) => n + acquisitionCostOf(a), 0)
       const book = arr.reduce((n, a) => n + bookValueOf(a, t), 0)
       const pct = ratioPct(acq - book, acq)
-      return [c, String(arr.length), acq.toLocaleString(), Math.round(acq / USEFUL_LIFE_YEARS).toLocaleString(), book.toLocaleString(), `${pct}%`]
+      return [c, String(arr.length), acq.toLocaleString(NUM_LOCALE), Math.round(acq / USEFUL_LIFE_YEARS).toLocaleString(NUM_LOCALE), book.toLocaleString(NUM_LOCALE), `${pct}%`]
     })
     return [
       {
         title: `연도별 감가상각 명세 (정액법 · 내용연수 ${USEFUL_LIFE_YEARS}년)`,
-        note: `운영 실물 자산 ${dep.length}대 · 총 취득가 ${totalAcq.toLocaleString()}원 · 현재 잔존가(장부가) ${nowBook.toLocaleString()}원 — 향후 ${USEFUL_LIFE_YEARS + 1}개 연도 전개(연말 기준)`,
+        note: `운영 실물 자산 ${dep.length}대 · 총 취득가 ${totalAcq.toLocaleString(NUM_LOCALE)}원 · 현재 잔존가(장부가) ${nowBook.toLocaleString(NUM_LOCALE)}원 — 향후 ${USEFUL_LIFE_YEARS + 1}개 연도 전개(연말 기준)`,
         columns: ['연도', '연초 장부가', '연간 상각액', '연말 장부가', '상각 완료 대수'],
         rows: years,
       },
@@ -982,12 +982,12 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       {
         title: '요약 · 회계 활용',
         bullets: [
-          `운영 실물 자산 ${dep.length}대의 총 취득가는 ${totalAcq.toLocaleString()}원, 현재 잔존가(장부가)는 ${nowBook.toLocaleString()}원입니다(누적 상각 ${(totalAcq - nowBook).toLocaleString()}원).`,
+          `운영 실물 자산 ${dep.length}대의 총 취득가는 ${totalAcq.toLocaleString(NUM_LOCALE)}원, 현재 잔존가(장부가)는 ${nowBook.toLocaleString(NUM_LOCALE)}원입니다(누적 상각 ${(totalAcq - nowBook).toLocaleString(NUM_LOCALE)}원).`,
           // 연간 상각액은 회계 관행대로 연초(전년말) 기준이고, 잔여 상각액은 오늘 기준이다 — 두 기준을 한 문장에
           //  섞어 '향후 총 상각액'으로 연초 기준 합계를 적으면, 올해 이미 계상된 몫만큼 남은 예산을 부풀린다
           //  (시드 기준 4,007만원 vs 실제 잔여 3,173만원 — 26% 과대). 기준을 각각 밝히고 오늘 기준 잔여를 함께 적는다.
-          `${curY}년 연간 상각액은 ${years[0]?.[2] ?? '0'}원입니다(연초 장부가 기준 · 이 중 오늘까지 ${bookedYtd.toLocaleString()}원 계상, 연말까지 ${remainThisYear.toLocaleString()}원 잔여).`,
-          `오늘 기준 잔여 상각액 총계는 ${nowBook.toLocaleString()}원이며, 향후 ${USEFUL_LIFE_YEARS + 1}개 연도에 걸쳐 상각됩니다(연초 기준 전개 합계 ${futureDep.toLocaleString()}원).`,
+          `${curY}년 연간 상각액은 ${years[0]?.[2] ?? '0'}원입니다(연초 장부가 기준 · 이 중 오늘까지 ${bookedYtd.toLocaleString(NUM_LOCALE)}원 계상, 연말까지 ${remainThisYear.toLocaleString(NUM_LOCALE)}원 잔여).`,
+          `오늘 기준 잔여 상각액 총계는 ${nowBook.toLocaleString(NUM_LOCALE)}원이며, 향후 ${USEFUL_LIFE_YEARS + 1}개 연도에 걸쳐 상각됩니다(연초 기준 전개 합계 ${futureDep.toLocaleString(NUM_LOCALE)}원).`,
           '연도별 상각액은 감가상각비 예산·고정자산 명세에, 상각 완료(잔존가 0) 시점은 재취득(교체) 예산 타이밍의 근거로 활용합니다. 자산별 상세는 대장 엑셀 내보내기(잔존가치 열)로 확인합니다.',
         ],
       },
@@ -1031,9 +1031,9 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           : `향후 8개 분기 갱신 예상 총액 ${fmtAmount(totalHorizon)}원 — 갱신 예산·현금흐름 계획`,
         columns: ['분기', '만료 계약', '예상 갱신액', '유지보수', '구매'],
         rows: [
-          ...bucketList.map((b) => [b.label, String(b.count), b.amount.toLocaleString(), b.maint.toLocaleString(), b.purch.toLocaleString()]),
+          ...bucketList.map((b) => [b.label, String(b.count), b.amount.toLocaleString(NUM_LOCALE), b.maint.toLocaleString(NUM_LOCALE), b.purch.toLocaleString(NUM_LOCALE)]),
           // 합계 행 — 분기별 갱신 예산의 지평 총액을 표 안에서 바로 확인(예산 계획용). 금액은 네이티브 숫자 셀로 반출돼 회계가 합산·검산 가능.
-          ['합계', String(bucketList.reduce((n, b) => n + b.count, 0)), totalHorizon.toLocaleString(), bucketList.reduce((n, b) => n + b.maint, 0).toLocaleString(), bucketList.reduce((n, b) => n + b.purch, 0).toLocaleString()],
+          ['합계', String(bucketList.reduce((n, b) => n + b.count, 0)), totalHorizon.toLocaleString(NUM_LOCALE), bucketList.reduce((n, b) => n + b.maint, 0).toLocaleString(NUM_LOCALE), bucketList.reduce((n, b) => n + b.purch, 0).toLocaleString(NUM_LOCALE)],
         ],
       },
       {
@@ -1043,7 +1043,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           : '향후 8개 분기 내 만료 예정 계약이 없습니다',
         columns: ['계약', '구분', '공급사', '만료일', 'D-day', '갱신 예상액'],
         rows: soon.length
-          ? soon.map((c) => [`${c.name} (${c.id})`, c.kind, c.vendor, c.end, `D-${daysUntil(c.end) ?? '-'}`, c.amount.toLocaleString()])
+          ? soon.map((c) => [`${c.name} (${c.id})`, c.kind, c.vendor, c.end, `D-${daysUntil(c.end) ?? '-'}`, c.amount.toLocaleString(NUM_LOCALE)])
           : [['-', '-', '-', '-', '-', '해당 없음']],
       },
       {
@@ -1265,7 +1265,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   if (kind === '재물조사 결과 요약') {
     const cur = s.inventoryRounds.find((r) => r.status === '진행중')
     return cur
-      ? `${cur.name}가 진행 중이며 진행률은 ${roundProgressPct(cur)}% (${cur.scanned.toLocaleString()}/${cur.planned.toLocaleString()})입니다. `
+      ? `${cur.name}가 진행 중이며 진행률은 ${roundProgressPct(cur)}% (${cur.scanned.toLocaleString(NUM_LOCALE)}/${cur.planned.toLocaleString(NUM_LOCALE)})입니다. `
         + `현재까지 차이 항목 ${cur.mismatched}건이 확인되어 조정 결재 대상이며, 기한은 ${cur.dueDate}입니다.`
       : '진행 중인 재물조사가 없습니다.'
   }

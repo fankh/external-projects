@@ -2999,18 +2999,18 @@ try {
   //  168만 원이 1.68원으로 읽힐 수 있고, 엑셀 반출(#,##0)과도 표기가 갈린다.
   //  React 19 는 이 텍스트 차이를 조용히 덮어써 콘솔에 남기지 않는다 — 어떤 스위트도 보지 못했다.
   //  로케일 값은 lib/dates 의 NUM_LOCALE 한 곳에서 정하고, 화면은 그것만 쓴다.
-  const numTsxFiles = sourceFiles.filter((f) => f.endsWith(".tsx"))
+  const numFiles = sourceFiles
   const bareLocale = []
   let pinned = 0
-  for (const f of numTsxFiles) {
+  for (const f of numFiles) {
     const body = readFileSync(f, "utf8")
     const rel = path.relative(ROOT, f).split(path.sep).join("/")
     const bare = body.split(".toLocaleString()").length - 1
     if (bare > 0) bareLocale.push(`${rel}:${bare}곳`)
     pinned += body.split(".toLocaleString(NUM_LOCALE)").length - 1
   }
-  check(`숫자 표기: 화면 ${pinned}곳이 로케일을 고정(lib/dates NUM_LOCALE) · 기본 로케일 의존 0곳(.tsx ${numTsxFiles.length}개 검사)`,
-    bareLocale.length === 0 && pinned >= 36, `기본 로케일 의존=${bareLocale.join(", ") || "없음"} · 고정=${pinned}`)
+  check(`숫자 표기: 화면·문서·리포트 ${pinned}곳이 로케일을 고정(lib/dates NUM_LOCALE) · 기본 로케일 의존 0곳(소스 ${numFiles.length}개 검사)`,
+    bareLocale.length === 0 && pinned >= 100, `기본 로케일 의존=${bareLocale.join(", ") || "없음"} · 고정=${pinned}`)
 
   // 양성 대조 — 인자 없는 호출을 실제로 잡는지, 로케일을 준 호출은 오탐하지 않는지 본다.
   //  (0곳이라는 결과는 패턴이 아무것도 못 잡을 때도 나온다.)

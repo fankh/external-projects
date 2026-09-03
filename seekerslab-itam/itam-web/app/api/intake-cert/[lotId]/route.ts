@@ -4,7 +4,7 @@ import { forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
 import { getStore } from '@/lib/store'
-import { today } from '@/lib/dates'
+import { today, NUM_LOCALE } from '@/lib/dates'
 
 /** 검수 확인서 — 입고 검수를 마친 로트의 공급사·계약·수량·체크리스트 결과·판정·채번 자산을 한 장의 인쇄용 문서로.
  *  물품 인수·검수 증적(대금 지급·감사 대응). 도입·검수 로트(로3·27·43)의 문서 산출물. 자산담당·Admin.
@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ lotId: 
   const verdict = lot.status === '검수 반려' ? '검수 반려 (반품·재검수 대상)' : lot.status === '반품 완료' ? '반품 완료' : lot.issued.length > 0 ? '검수 완료 · 채번' : '검수 진행'
   const vClass = lot.status === '검수 반려' ? 'err' : lot.issued.length > 0 ? 'ok' : 'neutral'
   const passN = lot.checklist.filter((c) => c.checked).length
-  const total = lot.unitCost ? (lot.unitCost * lot.qty).toLocaleString() : '-'
+  const total = lot.unitCost ? (lot.unitCost * lot.qty).toLocaleString(NUM_LOCALE) : '-'
   const row = (k: string, v?: string) => (v && v !== '-') ? `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>` : ''
   const checkRows = lot.checklist.map((c) => `<tr><td class="ck">${c.checked ? '☑' : '☐'}</td><td>${esc(c.item)}</td><td class="dim">${esc(c.note ?? '')}</td></tr>`).join('')
   const issuedRows = lot.issued.length
@@ -80,7 +80,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ lotId: 
       ${row('공급사', lot.vendor)}${row('근거 계약', contract ? `${lot.contractId} · ${contract.name}` : lot.contractId)}
       ${row('유형', lot.category)}${row('수량', `${lot.qty}대`)}
       ${row('입고일', lot.arrivedAt)}${row('검수자', lot.inspector)}
-      ${row('SR·발주', lot.srNo)}${row('단가', lot.unitCost ? `${lot.unitCost.toLocaleString()}원` : undefined)}
+      ${row('SR·발주', lot.srNo)}${row('단가', lot.unitCost ? `${lot.unitCost.toLocaleString(NUM_LOCALE)}원` : undefined)}
       ${row('금액(단가×수량)', total === '-' ? undefined : `${total}원`)}${row('발급일', today())}
     </div>
     <h2>검수 체크리스트 (통과 ${passN}/${lot.checklist.length})</h2>
