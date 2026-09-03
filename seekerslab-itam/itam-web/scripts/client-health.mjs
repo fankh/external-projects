@@ -275,6 +275,25 @@ try {
   await checkRoutes(ASSET_MGR, routesFor('ASSET_MGR'), 'ASSET_MGR')
   await checkRoutes(SEC_MGR, routesFor('SEC_MGR'), 'SEC_MGR')
   await checkRoutes(USER, routesFor('USER'), 'USER')
+  // 숫자 표기가 보는 사람의 로케일에 흔들리지 않는가 — 인자 없는 toLocaleString() 은 브라우저의 기본
+  //  로케일을 쓴다. 클라이언트 컴포넌트는 SSR 로 한 번 그려지고 브라우저에서 다시 그려지므로, 로케일이
+  //  다르면 같은 금액이 화면에서 바뀐다 — 실측으로 de-DE 브라우저에서 취득가가 1,680,000원 대신
+  //  1.680.000원 으로 찍혔다. 한국어 화면에서 마침표는 소수점으로 읽혀 168만 원이 1.68원이 된다.
+  //  React 19 는 이 텍스트 차이를 조용히 덮어써 콘솔 오류로도 남지 않는다 — 이 스위트가 오류만 보고
+  //  통과시킨 이유다. 그래서 오류가 아니라 화면에 찍힌 글자를 직접 읽는다.
+  const ctxDe = await browser.newContext({ locale: "de-DE" })
+  await ctxDe.addCookies([cookie(ASSET_MGR)])
+  const pDe = await ctxDe.newPage()
+  await pDe.goto(`${BASE}/assets/register`, { waitUntil: "networkidle", timeout: 20000 })
+  await pDe.locator("tbody tr.clickable").first().click()
+  await pDe.waitForTimeout(800)
+  const deBody = (await pDe.textContent("body")) || ""
+  const deMoney = deBody.match(/[0-9][0-9.,]{5,}원/g) || []
+  const deDots = deMoney.filter((m) => /[0-9].[0-9]{3}/.test(m))
+  const deOk = deMoney.length > 0 && deDots.length === 0
+  deOk ? pass++ : fail++
+  console.log(`${deOk ? "✓" : "✗"} [de-DE] 숫자 표기가 보는 사람의 로케일에 흔들리지 않는다(금액 ${deMoney.length}곳 · 독일식 구분 ${deDots.length}곳)${deOk ? "" : " — " + deDots.slice(0, 3).join(", ")}`)
+  await ctxDe.close()
   await browser.close()
 } catch (err) {
   fail++

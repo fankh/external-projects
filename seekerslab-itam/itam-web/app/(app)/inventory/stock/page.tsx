@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { acquisitionCostOf, bookValueOf } from '@/lib/cost'
-import { ratioPct, today } from '@/lib/dates'
+import { ratioPct, today, NUM_LOCALE } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { getStore } from '@/lib/store'
 import { availableAssets, lowStockCategories } from '@/lib/stock'
@@ -54,7 +54,7 @@ export default async function StockPage() {
     .filter((x) => x.count > 0)
   const totalAcq = valueByCat.reduce((n, x) => n + x.acq, 0)
   const totalBook = valueByCat.reduce((n, x) => n + x.book, 0)
-  const fmt = (v: number) => v.toLocaleString()
+  const fmt = (v: number) => v.toLocaleString(NUM_LOCALE)
 
   return (
     <>
@@ -140,7 +140,7 @@ export default async function StockPage() {
                   <tr key={r.id}>
                     <td className="strong">{r.name}</td>
                     <td className="mute">{r.scope}</td>
-                    <td className="num tnum">{r.scanned.toLocaleString()}/{r.planned.toLocaleString()}</td>
+                    <td className="num tnum">{r.scanned.toLocaleString(NUM_LOCALE)}/{r.planned.toLocaleString(NUM_LOCALE)}</td>
                     <td className="num tnum">{r.mismatched}</td>
                     <td className="tnum">{r.dueDate}</td>
                     <td className="c">

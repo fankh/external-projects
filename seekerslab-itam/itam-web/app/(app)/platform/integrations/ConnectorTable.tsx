@@ -1,4 +1,5 @@
 'use client'
+import { NUM_LOCALE } from '@/lib/dates'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { DEGRADED_CONNECTOR_STATUSES, type Integration } from '@/lib/types'
@@ -52,7 +53,7 @@ export function ConnectorTable({ integrations, canManage, degradedOnly: degraded
                 <td className="c"><Chip tone={i.role === '수집' ? 'neutral' : 'info'} bare>{i.role}</Chip></td>
                 <td className="c"><Chip tone={STATUS_TONE[i.status]}>{i.status}</Chip></td>
                 <td className="tnum mute">{i.lastSync}</td>
-                <td className="num tnum">{i.volume24h.toLocaleString()}</td>
+                <td className="num tnum">{i.volume24h.toLocaleString(NUM_LOCALE)}</td>
                 {canManage && (
                   <td className="c">
                     <button className={`btn sm ${i.status === '정상' ? 'ghost' : ''}`} disabled={pending}

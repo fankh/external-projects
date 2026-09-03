@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
 import { assetDependenciesFrom } from '@/lib/cmdb-graph'
 import { TopologyDiagram } from './TopologyDiagram'
-import { warrantyState } from '@/lib/dates'
+import { warrantyState, NUM_LOCALE } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, notifyDependencyImpact, notifyEolUpgrade, reassignAsset, reassignAssetMany, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, releaseQuarantine, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, requestReturn, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
@@ -705,17 +705,17 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 <>
                   <dt>취득가</dt>
                   <dd className="tnum">
-                    {acquisitionCostOf(sel).toLocaleString()}원{sel.acquisitionCost === undefined && <span className="mut" style={{ fontSize: 11 }}> · 표준 단가</span>}
+                    {acquisitionCostOf(sel).toLocaleString(NUM_LOCALE)}원{sel.acquisitionCost === undefined && <span className="mut" style={{ fontSize: 11 }}> · 표준 단가</span>}
                   </dd>
                   <dt>TCO(취득+수리)</dt>
-                  <dd className="tnum strong">{assetTco(sel).toLocaleString()}원</dd>
+                  <dd className="tnum strong">{assetTco(sel).toLocaleString(NUM_LOCALE)}원</dd>
                   {props.today && (() => {
                     const pct = depreciationPct(sel, props.today!)
                     return (
                       <>
                         <dt>잔존가치(장부가)</dt>
                         <dd className="hstack" style={{ gap: 6 }}>
-                          <span className="tnum">{bookValueOf(sel, props.today!).toLocaleString()}원</span>
+                          <span className="tnum">{bookValueOf(sel, props.today!).toLocaleString(NUM_LOCALE)}원</span>
                           {pct >= 100 ? <Chip tone="neutral" bare>상각 완료</Chip> : <span className="mut" style={{ fontSize: 11 }}>정액법 · 상각 {pct}%</span>}
                         </dd>
                       </>
@@ -824,7 +824,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                         <span className="strong">{sel.repair.vendor}</span>
                         {sel.repair.eta && <span className="tnum dim">예상반환 {sel.repair.eta}</span>}
                         {props.today && sel.repair.eta && sel.repair.eta < props.today && <Chip tone="err" bare>반환 지연</Chip>}
-                        {sel.repair.estCost ? <span className="dim">· 견적 {sel.repair.estCost.toLocaleString()}원</span> : null}
+                        {sel.repair.estCost ? <span className="dim">· 견적 {sel.repair.estCost.toLocaleString(NUM_LOCALE)}원</span> : null}
                       </>
                     ) : (
                       <>
@@ -937,14 +937,14 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <dt>수리 비용 이력</dt>
                   <dd className="vstack" style={{ gap: 3, alignItems: 'stretch' }}>
                     <div className="hstack" style={{ gap: 6 }}>
-                      <span className="strong tnum">누계 {repairTotalOf(sel).toLocaleString()}원</span>
+                      <span className="strong tnum">누계 {repairTotalOf(sel).toLocaleString(NUM_LOCALE)}원</span>
                       <span className="mut" style={{ fontSize: 11 }}>· {sel.repairCosts!.length}건 (자사 부담)</span>
                     </div>
                     {[...sel.repairCosts!].sort((a, b) => b.date.localeCompare(a.date)).map((c) => (
                       <div key={c.id} className="hstack" style={{ gap: 8, fontSize: 12 }}>
                         <span className="tnum mut" style={{ minWidth: 76 }}>{c.date}</span>
                         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.item}{c.warrantyClaimed && <span className="mut"> · 무상 보증 청구</span>}</span>
-                        <span className="tnum" style={{ minWidth: 78, textAlign: 'right', color: c.warrantyClaimed ? 'var(--mut)' : undefined }}>{c.warrantyClaimed ? `절감 ${c.amount.toLocaleString()}` : `${c.amount.toLocaleString()}원`}</span>
+                        <span className="tnum" style={{ minWidth: 78, textAlign: 'right', color: c.warrantyClaimed ? 'var(--mut)' : undefined }}>{c.warrantyClaimed ? `절감 ${c.amount.toLocaleString(NUM_LOCALE)}` : `${c.amount.toLocaleString(NUM_LOCALE)}원`}</span>
                       </div>
                     ))}
                   </dd>

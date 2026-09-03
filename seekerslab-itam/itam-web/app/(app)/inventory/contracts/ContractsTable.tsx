@@ -2,7 +2,7 @@
 import { Fragment, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { missingContractDocs } from '@/lib/contract'
-import { fmtAmount } from '@/lib/dates'
+import { fmtAmount, NUM_LOCALE } from '@/lib/dates'
 import { CONTRACT_DOC_TYPES, type Contract, type ContractDocType } from '@/lib/types'
 import { addContract, addContractCost, addContractDoc, removeContractCost, removeContractDoc, renewContract, setContractSla, terminateContract } from './actions'
 
@@ -269,7 +269,7 @@ export function ContractsTable({ rows, sel, canEdit, expiryWindowDays, canExport
                               <div key={ct.id} className="hstack" style={{ gap: 10, fontSize: 12.5 }}>
                                 <span className="tnum mut" style={{ minWidth: 82 }}>{ct.date}</span>
                                 <span className="strong" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ct.item}</span>
-                                <span className="tnum" style={{ minWidth: 90, textAlign: 'right' }}>{ct.amount.toLocaleString()}원</span>
+                                <span className="tnum" style={{ minWidth: 90, textAlign: 'right' }}>{ct.amount.toLocaleString(NUM_LOCALE)}원</span>
                                 <span className="mut" style={{ fontSize: 11 }}>{ct.addedBy}</span>
                                 {canEdit && <button className="btn sm ghost" disabled={pending} onClick={() => removeCost(c.id, ct.id)} title="비용 항목 삭제">삭제</button>}
                               </div>

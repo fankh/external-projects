@@ -1,4 +1,5 @@
 'use client'
+import { NUM_LOCALE } from '@/lib/dates'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { SaasUsage } from '@/lib/types'
@@ -42,7 +43,7 @@ export function ConsolidationCard({ rows, canDecide }: { rows: Row[]; canDecide:
                   </span>
                 </td>
                 <td className="num tnum">{r.services.length}</td>
-                <td className="num tnum">{r.users.toLocaleString()}</td>
+                <td className="num tnum">{r.users.toLocaleString(NUM_LOCALE)}</td>
                 <td className="dim">
                   {r.sanctioned
                     ? `인가 ${r.sanctioned.service} 기준 통합 검토 — 미인가 ${r.shadowN}종 정리`

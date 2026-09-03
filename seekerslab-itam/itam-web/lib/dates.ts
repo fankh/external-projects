@@ -201,6 +201,17 @@ export function roundProgressPct(r: { scanned: number; planned: number }): numbe
   return Math.min(100, ratioPct(r.scanned, r.planned))
 }
 
+/** 숫자 표기 로케일 — 천 단위 구분 표기를 못박는다.
+ *
+ *  인자 없는 toLocaleString() 은 실행 환경의 기본 로케일을 쓴다. 서버는 컨테이너의 로케일,
+ *  브라우저는 보는 사람의 로케일이다. 클라이언트 컴포넌트는 SSR 로 한 번 그려지고 브라우저에서
+ *  다시 그려지므로 둘이 다르면 같은 금액이 화면에서 바뀐다 — 실측으로 브라우저 로케일이 de-DE 이면
+ *  취득가가 1,680,000원 대신 1.680.000원 으로 찍혔다. 독일식 표기에서 마침표는 천 단위지만
+ *  한국어 화면에서 마침표는 소수점으로 읽힌다: 168만 원이 1.68원으로 읽힐 수 있다. 화면과
+ *  엑셀 반출(네이티브 숫자 + #,##0 서식)도 서로 다른 표기를 내놓게 된다.
+ *  React 19 는 이 텍스트 차이를 조용히 덮어써서 콘솔에 남지 않는다 — 스위트가 보지 못한 이유다.
+ *  날짜를 Intl.DateTimeFormat 에 로케일을 박아 고정한 것과 같은 규약이다(이 파일 위쪽 dateFmt). */
+export const NUM_LOCALE = 'ko-KR'
 export function fmtAmount(n: number): string {
   if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}억`
   const man = Math.round(n / 10_000)

@@ -2992,6 +2992,32 @@ try {
     !dpLineHit("  if (inDisposalProcess(s.disposals, assetNo)) return") &&
     !dpLineHit("  if (d.status !== '완료') return { ok: false }"))
 
+  // 숫자 표기 로케일 가드 — 인자 없는 toLocaleString() 은 실행 환경의 기본 로케일을 쓴다. 서버는
+  //  컨테이너의 로케일, 브라우저는 보는 사람의 로케일이라, SSR 후 하이드레이션되는 클라이언트
+  //  컴포넌트에서는 같은 금액이 화면에서 바뀐다 — 실측으로 브라우저 로케일이 de-DE 이면 취득가가
+  //  1,680,000원 대신 1.680.000원 으로 찍혔다. 한국어 화면에서 마침표는 소수점으로 읽히므로
+  //  168만 원이 1.68원으로 읽힐 수 있고, 엑셀 반출(#,##0)과도 표기가 갈린다.
+  //  React 19 는 이 텍스트 차이를 조용히 덮어써 콘솔에 남기지 않는다 — 어떤 스위트도 보지 못했다.
+  //  로케일 값은 lib/dates 의 NUM_LOCALE 한 곳에서 정하고, 화면은 그것만 쓴다.
+  const numTsxFiles = sourceFiles.filter((f) => f.endsWith(".tsx"))
+  const bareLocale = []
+  let pinned = 0
+  for (const f of numTsxFiles) {
+    const body = readFileSync(f, "utf8")
+    const rel = path.relative(ROOT, f).split(path.sep).join("/")
+    const bare = body.split(".toLocaleString()").length - 1
+    if (bare > 0) bareLocale.push(`${rel}:${bare}곳`)
+    pinned += body.split(".toLocaleString(NUM_LOCALE)").length - 1
+  }
+  check(`숫자 표기: 화면 ${pinned}곳이 로케일을 고정(lib/dates NUM_LOCALE) · 기본 로케일 의존 0곳(.tsx ${numTsxFiles.length}개 검사)`,
+    bareLocale.length === 0 && pinned >= 36, `기본 로케일 의존=${bareLocale.join(", ") || "없음"} · 고정=${pinned}`)
+
+  // 양성 대조 — 인자 없는 호출을 실제로 잡는지, 로케일을 준 호출은 오탐하지 않는지 본다.
+  //  (0곳이라는 결과는 패턴이 아무것도 못 잡을 때도 나온다.)
+  const bareHit = (t) => (t.split(".toLocaleString()").length - 1) > 0
+  check('숫자 표기 양성 대조: 인자 없는 호출은 잡고, 로케일을 준 호출은 오탐하지 않는다',
+    bareHit("{n.toLocaleString()}") && !bareHit("{n.toLocaleString(NUM_LOCALE)}"))
+
   // HTML 문서 라우트의 이스케이프 단일 출처 가드 — 인쇄용 문서(자산 카드·계약 카드·인수인계서·검수 확인서·
   //  라벨·라벨 묶음·라이선스 카드·대여 확인서·분실 신고서·오프보딩 명세서)는 사람이 넣은 모델명·비고·사유를
   //  그대로 HTML 에 꽂는다. 이 라우트들은 저마다 똑같은 esc 한 줄을 복사해 두고 있었다 — 열 벌이 다 같아도

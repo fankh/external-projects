@@ -1,4 +1,5 @@
 'use client'
+import { NUM_LOCALE } from '@/lib/dates'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import type { SaasUsage } from '@/lib/types'
@@ -82,8 +83,8 @@ export function ShadowSaasTable({ rows, canDecide, depts = [], blockedServices =
                 <td className="strong">{x.service}</td>
                 <td className="mute">{x.category}</td>
                 <td>{x.dept}</td>
-                <td className="num tnum">{x.users.toLocaleString()}</td>
-                <td className="num tnum">{x.monthlyVisits.toLocaleString()}</td>
+                <td className="num tnum">{x.users.toLocaleString(NUM_LOCALE)}</td>
+                <td className="num tnum">{x.monthlyVisits.toLocaleString(NUM_LOCALE)}</td>
                 <td className="c">{x.sanctioned ? <Chip tone="ok">인가</Chip> : blocked.has(x.service) ? <Chip tone="neutral">차단 판정</Chip> : <Chip tone="err">미인가</Chip>}</td>
                 <td className="c"><RiskChip risk={x.risk} /></td>
                 {canDecide && (

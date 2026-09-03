@@ -1,3 +1,4 @@
+import { NUM_LOCALE } from '@/lib/dates'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { getStore } from '@/lib/store'
@@ -31,7 +32,7 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
 
       <div className="stat-row">
         <Stat value={`${live.length}/${s.integrations.length}`} label="연동 커넥터" tone="ok" delta={{ text: '표준 커넥터 (REST · 로그 · DB · SAML)', dir: 'flat' }} />
-        <Stat value={total24h.toLocaleString()} label="24시간 수집 건수" />
+        <Stat value={total24h.toLocaleString(NUM_LOCALE)} label="24시간 수집 건수" />
         <Stat value={degraded.length} label="저하 커넥터 — 지연 · 오류" tone={degraded.length ? 'warn' : 'ok'}
           delta={{ text: degraded.length ? `${DEGRADED_CONNECTOR_STATUSES.map((st) => `${st} ${degraded.filter((i) => i.status === st).length}`).join(' · ')} — 재연동 대상` : '수집 지연·오류 없음', dir: degraded.length ? 'up' : 'flat' }} />
         <Stat value={s.integrations.filter((i) => i.role !== '수집').length} label="조치 채널 겸용" tone="accent" delta={{ text: '발견 ↔ 조치 양방향', dir: 'flat' }} />

@@ -1,6 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
-import { roundProgressPct } from '@/lib/dates'
+import { roundProgressPct, NUM_LOCALE } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { GONE_STATUSES } from '@/lib/types'
@@ -62,7 +62,7 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
       />
 
       <div className="stat-row">
-        <Stat value={`${progress}%`} label={`진행률 — ${round.scanned.toLocaleString()} / ${round.planned.toLocaleString()}`} tone="ok" />
+        <Stat value={`${progress}%`} label={`진행률 — ${round.scanned.toLocaleString(NUM_LOCALE)} / ${round.planned.toLocaleString(NUM_LOCALE)}`} tone="ok" />
         <Stat value={scans.filter((x) => x.result === '일치').length} label="이번 세션 일치 확인" />
         <Stat value={diffs.length} label="차이 항목" tone={diffs.length ? 'warn' : 'ok'} />
         <Stat value={pendingDiffs.length} label="조정 미상신" tone={pendingDiffs.length ? 'err' : 'ok'} delta={{ text: '차이 조정은 필수 결재', dir: 'flat' }} />
