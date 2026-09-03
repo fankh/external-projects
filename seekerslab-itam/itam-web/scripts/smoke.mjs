@@ -198,6 +198,20 @@ try {
   check('CSP 양성 대조: nonce 가 요청마다 달라진다(상수 nonce 면 CSP 가 무력화된다)',
     Boolean(cspA) && Boolean(cspB) && cspA !== cspB, `A=${(cspA || '').slice(0, 8)} B=${(cspB || '').slice(0, 8)}`)
 
+  // HSTS — 세션 쿠키의 secure 와 짝이다. secure 는 "쿠키를 평문으로 보내지 마라"이고, HSTS 는
+  //  "이 출처에는 애초에 평문으로 붙지 마라"다. 둘이 있어야 첫 요청이 http:// 로 시작해 리다이렉트되는
+  //  그 한 번의 왕복까지 없어진다.
+  //  평문 배포(README 기본 절차의 3390)에 붙이면 브라우저가 그 호스트를 https 전용으로 기억해 버려
+  //  평문으로는 다시 접속할 수 없다 — 되돌리려면 사용자가 브라우저 설정을 뒤져야 한다. 그래서 조건부다.
+  //  양방향으로 잰다 — 붙는 쪽만 보면 "항상 붙이는" 구현도 통과하고, 그건 평문 배포를 되돌릴 수 없게 만든다.
+  const hstsPlain = (await get('/login')).headers.get('strict-transport-security')
+  const hstsTls = (await fetch(`${BASE}/login`, { redirect: 'manual', headers: { 'x-forwarded-proto': 'https' } }))
+    .headers.get('strict-transport-security')
+  check(`HSTS: 평문 요청에는 없고(${hstsPlain ?? '없음'}) https 요청에만 붙는다(${hstsTls ?? '없음'})`,
+    hstsPlain === null && (hstsTls || '').includes('max-age=31536000') && (hstsTls || '').includes('includeSubDomains'))
+  check('HSTS: preload 를 넣지 않는다(브라우저 목록 등재는 앱이 아니라 운영자가 도메인 단위로 결정할 일)',
+    !(hstsTls || '').includes('preload'))
+
   console.log('\n[권한 매트릭스 — 라우트 × 권한그룹]')
   for (const [route, allowed] of Object.entries(ROUTES)) {
     for (const role of Object.keys(ACCOUNTS)) {
