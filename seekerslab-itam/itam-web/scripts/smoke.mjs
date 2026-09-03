@@ -1507,6 +1507,27 @@ try {
     drillMgr > 0 && drillSec > 0)
   check(`대시보드 드릴다운: 링크 수가 기준선과 같다 (늘면 정합 검사도 함께 늘려야 한다)`,
     drillMgr === 32 && drillSec === 21, `자산담당 ${drillMgr}(기준 32) · 보안담당 ${drillSec}(기준 21)`)
+
+  //  양성 대조의 수도 문서가 적는다 — 그 수가 늘어도 아무도 세지 않았다. 18곳이라 적힌 채 58곳이 됐다
+  //  (이 세션에서 40곳을 더하는 동안 문서는 그대로였다). 주석의 40→73(#833), 문서의 2512→2595(#818)와
+  //  같은 자리다: 개별 값은 검사되는데 그 값들이 몇 개인지는 주인이 없다.
+  const pcSmoke = readFileSync(path.join(ROOT, 'scripts', 'smoke.mjs'), 'utf8').split('양성 대조').length - 1
+  const pcE2e = readFileSync(path.join(ROOT, 'scripts', 'e2e-findings.mjs'), 'utf8').split('양성 대조').length - 1
+  const pcReadme = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+  const pcLine = pcReadme.split(String.fromCharCode(10)).find((l) => l.includes('라고 이름 붙은 검사가 있다')) || ''
+  const pcNums = []
+  {
+    let cur = ''
+    for (const ch of pcLine) {
+      if (ch >= '0' && ch <= '9') cur += ch
+      else { if (cur) pcNums.push(Number(cur)); cur = '' }
+    }
+    if (cur) pcNums.push(Number(cur))
+  }
+  check(`양성 대조 수: 스모크 ${pcSmoke}곳 · e2e ${pcE2e}곳을 세었다 (양성 대조 — 0곳이면 세는 쪽이 깨진 것)`,
+    pcSmoke > 0 && pcE2e > 0)
+  check(`양성 대조 수: 문서가 적은 수(${pcNums.join(' · ')})와 실측(${pcSmoke} · ${pcE2e})이 같다`,
+    pcNums.includes(pcSmoke) && pcNums.includes(pcE2e), `문서=${pcNums.join(',')} 실측=${pcSmoke},${pcE2e}`)
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
