@@ -212,6 +212,25 @@ try {
   check('HSTS: preload 를 넣지 않는다(브라우저 목록 등재는 앱이 아니라 운영자가 도메인 단위로 결정할 일)',
     !(hstsTls || '').includes('preload'))
 
+  // 인도 문서가 적은 보안 헤더 = 서버가 실제로 내보내는 헤더 — 고객 보안 검토가 읽는 표라, 여기 적힌
+  //  헤더 이름이 실제 응답에 없으면 문서가 사실이 아닌 것을 약속한 셈이 된다. 반대로 앱이 헤더를 하나
+  //  빼도 표는 그대로 남아 조용히 낡는다. 표에 등장하는 헤더 이름을 뽑아 실제 응답과 양방향으로 맞춘다
+  //  (커넥터·채널 수 대조와 같은 규약 — 문서에만 적어 두면 조용히 낡는다).
+  const secDocSrc = readFileSync(path.join(ROOT, "..", "docs", "구축_요약.md"), "utf8")
+  const DOC_HEADERS = ["X-Frame-Options", "X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy", "Content-Security-Policy"]
+  const docNames = DOC_HEADERS.filter((h) => secDocSrc.includes("`" + h + "`"))
+  const liveRes = await get('/dashboard', 'ADMIN')
+  const liveMissing = docNames.filter((h) => liveRes.headers.get(h.toLowerCase()) === null)
+  const docMissing = DOC_HEADERS.filter((h) => liveRes.headers.get(h.toLowerCase()) !== null && !docNames.includes(h))
+  check(`인도 문서 보안 표: 적힌 헤더 ${docNames.length}종이 모두 실제 응답에 있고, 응답에 있는 것이 표에 빠지지도 않았다`,
+    docNames.length === DOC_HEADERS.length && liveMissing.length === 0 && docMissing.length === 0,
+    `문서에만=${liveMissing.join(",") || "없음"} · 응답에만=${docMissing.join(",") || "없음"}`)
+
+  // 양성 대조 — 표에서 이름을 뽑는 일이 정말 동작하는가. 표에 없는 이름은 뽑히지 않아야 하고,
+  //  실제 응답 조회도 없는 헤더에는 null 을 돌려줘야 한다(둘 중 하나라도 늘 참이면 위 검사는 헛돈다).
+  check('인도 문서 보안 표 양성 대조: 표에 없는 이름은 뽑히지 않고, 없는 헤더 조회는 null 이다',
+    !secDocSrc.includes("`X-Itam-Not-A-Header`") && liveRes.headers.get("x-itam-not-a-header") === null)
+
   console.log('\n[권한 매트릭스 — 라우트 × 권한그룹]')
   for (const [route, allowed] of Object.entries(ROUTES)) {
     for (const role of Object.keys(ACCOUNTS)) {
