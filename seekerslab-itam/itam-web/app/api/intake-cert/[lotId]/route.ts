@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -21,7 +22,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ lotId: 
   if (!lot) return new Response('Not Found', { status: 404 })
   if (!lot.inspector && lot.issued.length === 0) return new Response('검수 이력이 없는 로트입니다 (도입 예정·입고 대기).', { status: 400 })
 
-  const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const contract = s.contracts.find((c) => c.id === lot.contractId)
   const verdict = lot.status === '검수 반려' ? '검수 반려 (반품·재검수 대상)' : lot.status === '반품 완료' ? '반품 완료' : lot.issued.length > 0 ? '검수 완료 · 채번' : '검수 진행'
   const vClass = lot.status === '검수 반려' ? 'err' : lot.issued.length > 0 ? 'ok' : 'neutral'

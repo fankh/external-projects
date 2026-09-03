@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { barcodeSvg, qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
@@ -24,7 +25,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
 
   const qr = await qrSvg(a.assetNo, 132)
   const barcode = barcodeSvg(a.assetNo, 300, 52)
-  const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
 
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>자산 라벨 ${esc(a.assetNo)}</title>

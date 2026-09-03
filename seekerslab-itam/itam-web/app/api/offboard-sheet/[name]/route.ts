@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { appendAudit, forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -30,7 +31,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ name: s
   //  (다른 데이터 반출과 같은 규약 — 단건 카드·라벨 인쇄는 화면 조회에 가까워 제외).
   appendAudit({ actor: session.name, action: `오프보딩 명세서 반출 — ${name} (${dept})`, target: name })
 
-  const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const inUse = s.assets.filter((a) => a.owner === name && a.status === '사용중')
   const loaned = s.assets.filter((a) => a.owner === name && a.status === '대여중')
   const seats = s.licenses

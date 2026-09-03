@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { assetDependencies } from '@/lib/cmdb'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
@@ -33,7 +34,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   // 진행 중 폐기 절차 단계(완료 제외) — 재고 가용·불출 가드가 쓰는 판정과 같은 원천(스토어 폐기 대장).
   const disposalStage = getStore().disposals.find((d) => d.assetNo === a.assetNo && d.status !== '완료')?.status
   const nameOf = (no: string) => { const x = asById.get(no); return x ? `${no}(${x.model})` : no }
-  const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const row = (k: string, v?: string) => (v && v !== '-') ? `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>` : ''
   const fields = [
     row('유형', a.category), row('시리얼', a.serial), row('상태', a.status),

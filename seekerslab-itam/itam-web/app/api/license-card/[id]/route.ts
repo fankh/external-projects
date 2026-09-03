@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { daysUntil, fmtAmount } from '@/lib/dates'
 import { getSession } from '@/lib/session'
@@ -19,7 +20,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const l = getStore().licenses.find((x) => x.id === id)
   if (!l) return new Response('Not Found', { status: 404 })
 
-  const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   const retired = l.status === '해지'
   const gap = l.used - l.purchased
   // 판정은 화면·리포트·대시보드 큐와 같은 lib/reports licenseVerdict — 카드가 규칙을 다시 적으면

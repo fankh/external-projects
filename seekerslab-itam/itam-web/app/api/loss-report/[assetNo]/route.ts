@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { acquisitionCostOf, bookValueOf } from '@/lib/cost'
 import { hasHolder } from '@/lib/quality'
@@ -22,7 +23,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   if (!a) return new Response('Not Found', { status: 404 })
   if (a.status !== '분실') return new Response('분실·도난 신고된 자산이 아닙니다.', { status: 400 })
 
-  const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   // 분실 신고 이력에서 유형·정황·신고자·신고일을 추출한다(reportLostStolen 이 기록한 '{유형} 신고 — {정황} (최종 보유 …)').
   const lossEv = [...a.history].reverse().find((h) => h.kind === '분실')
   const detail = lossEv?.detail ?? ''

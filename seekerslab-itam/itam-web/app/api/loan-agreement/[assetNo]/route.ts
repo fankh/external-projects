@@ -1,3 +1,4 @@
+import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
 import { getSession } from '@/lib/session'
 import { can } from '@/lib/perm'
@@ -20,7 +21,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   if (!a) return new Response('Not Found', { status: 404 })
   if (a.status !== '대여중') return new Response('대여 중인 자산이 아닙니다.', { status: 400 })
 
-  const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
   // 대여 시작 이벤트 — 연장 승인·반려·취소도 kind '대여'를 재사용하므로, 연장 이벤트를 건너뛰고(현 대여 회차의) 최초 대여 이벤트를 찾는다.
   // reverse().find('대여')만 쓰면 대여일이 최신 연장 조치일로 흘러 확인서에 잘못된 대여일이 찍힌다.
   const loanEv = [...a.history].reverse().find((h) => h.kind === '대여' && !h.detail.includes('연장'))
