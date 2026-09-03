@@ -4707,6 +4707,16 @@ try {
   check(`배포 이미지: 빌드 캐시를 남기지 않는다 (.next/cache 는 실행에 안 쓰이고 실측 215MB 였다)`,
     dockerSrc.includes('npm run build && rm -rf .next/cache'))
 
+  //  헬스 체크 — README 의 배포 명령은 `--restart unless-stopped` 를 쓰는데, 그 정책은 프로세스가
+  //  죽었을 때만 재시작한다. 살아 있으면서 응답하지 않는 상태(이벤트 루프 정지·핸들 고갈)는 도커가
+  //  '정상'으로 보고 아무것도 하지 않는다. 응답 여부로 판정할 프로브를 준다.
+  //  프로브를 node 로 부른다 — 이미지에 curl 이 없고 busybox wget 은 옵션이 달라 조용히 실패한다.
+  //  실물로 확인했다: 정상 포트 프로브 → 종료 0 · healthy, 닫힌 포트 → 종료 1(unhealthy 로 이어진다).
+  check(`배포 이미지: 헬스 체크가 있다 (--restart 는 죽은 프로세스만 살린다 — 멈춘 프로세스는 못 본다)`,
+    dockerSrc.includes('HEALTHCHECK'))
+  check(`배포 이미지: 헬스 프로브를 node 로 부른다 (이미지에 curl 이 없고 busybox wget 은 옵션이 다르다)`,
+    dockerSrc.includes('CMD node -e') && dockerSrc.includes('/login'))
+
   // ── 이미지 제외 목록이 커밋 제외 목록을 따라가는가 ──
   //  Dockerfile 은 COPY . . 로 빌드 컨텍스트 전체를 담는다. .gitignore 가 막는 산출물을
   //  .dockerignore 가 빠뜨리면 커밋에는 안 들어가지만 이미지에는 들어간다 — 로컬 파일 영속화
