@@ -1,5 +1,5 @@
 import { Card, ScreenHeader } from '@/components/ui'
-import { today } from '@/lib/dates'
+import { today, SORT_LOCALE } from '@/lib/dates'
 import { inNoticeAudience } from '@/lib/notice'
 import { noticeRemindTargets } from '@/lib/reminders'
 import { getSession } from '@/lib/session'
@@ -20,7 +20,7 @@ export default async function NoticesPage({ searchParams }: { searchParams: Prom
     // 대상 부서 공지 — 비관리자는 자기 부서(또는 전사) 공지만 본다. 관리자는 전 공지를 관리 목적으로 본다.
     .filter((p) => p.kind === '공지' && (isAdmin || !p.publishAt || p.publishAt <= t))
     .filter((p) => isAdmin || inNoticeAudience(p, session?.dept))
-    .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.createdAt.localeCompare(a.createdAt))
+    .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.createdAt.localeCompare(a.createdAt, SORT_LOCALE))
   const depts = [...new Set(s.users.map((u) => u.dept))].sort()
   // 공지별 '오늘 보낼 미확인자 수' — 버튼 건수와 액션이 같은 집합을 보게 한다(lib/reminders 단일 소스).
   const remindPending: Record<string, number> = {}

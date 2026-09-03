@@ -3,7 +3,7 @@
  *  외부 노출 CVE·EOL OS 자산·미인가 SW·크리덴셜 노출을 한 축으로 모아 P1/P2/P3 로 순위화한다.
  *  읽기 전용 합성 뷰 — 각 항목은 기존 조치 화면(loops)으로 연결된다. */
 import { NON_OPERATIONAL_STATUSES } from './types'
-import { today } from './dates'
+import { today, SORT_LOCALE } from './dates'
 import { eolOsOf, isEolTarget } from './eol'
 import { getStore } from './store'
 import type { Asset, BizCriticality, RiskLevel } from './types'
@@ -138,7 +138,7 @@ export function buildVulnPriority(): VulnPriority {
   }
 
   // 점수 내림차순 — 동점이면 P1 우선(tier), 그다음 source 안정 정렬
-  items.sort((a, b) => b.score - a.score || a.source.localeCompare(b.source))
+  items.sort((a, b) => b.score - a.score || a.source.localeCompare(b.source, SORT_LOCALE))
 
   const SOURCES: VulnSource[] = ['외부 노출 CVE', 'EOL OS', '미인가 SW', '크리덴셜 노출']
   return {

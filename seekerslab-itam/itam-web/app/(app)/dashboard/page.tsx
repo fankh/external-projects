@@ -3,7 +3,7 @@ import { DEGRADED_CONNECTOR_STATUSES, isUserRequestKind, isApprovalVisibleToUser
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isWarrantyExpiring, isQnaOverdue, isRepairOverdue, nowMinute, roundProgressPct, today, NUM_LOCALE } from '@/lib/dates'
+import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isWarrantyExpiring, isQnaOverdue, isRepairOverdue, nowMinute, roundProgressPct, today, NUM_LOCALE, SORT_LOCALE } from '@/lib/dates'
 import { isEasmRescanOverdue } from '@/lib/easm'
 import { criticalDependencies } from '@/lib/cmdb'
 import { UPCOMING_WINDOW_DAYS, upcomingSchedule } from '@/lib/upcoming'
@@ -78,7 +78,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const recentNotices = [...s.posts]
     // 부서 지정 공지는 대상 부서(+Admin)에게만 — 게시판·전역 검색과 동일 스코핑. 안 걸면 대상 밖 사용자 랜딩에 제목이 유출된다(unackedNotices·검색 라우트와 정합).
     .filter((p) => p.kind === '공지' && (!p.publishAt || p.publishAt <= today()) && (session.role === 'ADMIN' || inNoticeAudience(p, session.dept)))
-    .sort((a, b) => (Number(!!b.pinned) - Number(!!a.pinned)) || (b.publishAt ?? b.createdAt).localeCompare(a.publishAt ?? a.createdAt))
+    .sort((a, b) => (Number(!!b.pinned) - Number(!!a.pinned)) || (b.publishAt ?? b.createdAt).localeCompare(a.publishAt ?? a.createdAt, SORT_LOCALE))
     .slice(0, 5)
   // 우리 부서 소유자 확인 요청 — 발견 자산이 우리 부서 자산인지 묻는 대기 건. 응답자(해당 부서)가 로그인 시 챙기게 한다
   // (Discovery 소유자 확인 루프(로12)의 응답자 측 — 결재함까지 가지 않아도 대시보드에서 드러난다). 미지정 부서 요청은 전사 공지·격리 경로라 제외.
@@ -240,7 +240,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const round = s.inventoryRounds.find((r) => r.status === '진행중')
   const topInsights = s.insights.filter((i) => i.status === '제안').slice(0, 3)
   // 최근 활동 — 감사 로그 최신 6건(관리자·담당자 한정, 감사 로그 접근 권한과 동일). 랜딩에서 변경 상황 훑기.
-  const recentAudit = [...s.auditLogs].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 6)
+  const recentAudit = [...s.auditLogs].sort((a, b) => b.at.localeCompare(a.at, SORT_LOCALE)).slice(0, 6)
 
   return (
     <>
