@@ -3048,6 +3048,43 @@ try {
   check('정렬 비교 양성 대조: 로케일에 따라 순서가 실제로 갈린다(ko≠en) · 고정 로케일은 항상 같다',
     byLocale("ko-KR") !== byLocale("en-US") && byLocale("ko-KR") === byLocale("ko-KR"))
 
+  // AI 모델 정책이 실제 호출에 쓰이는가 — 운영·거버넌스 구성에서 Admin 이 모델 ID 를 바꾸면 화면·감사로그·
+  //  AI 거버넌스 리포트가 그 값을 말한다. 그런데 호출부는 환경변수와 리터럴을 직접 읽고 있어, 정책을 바꿔도
+  //  호출은 옛 모델 그대로였다 — 리포트가 "이 모델을 썼다"고 적는 값과 실제로 답한 모델이 달랐다
+  //  (선언된 정책이 강제되지 않는 계열 — 필수 결재·권한 매트릭스 칸과 같은 문제).
+  //  호출부는 aiPolicy.modelId 만 쓰고, 모델 리터럴은 시드(초기 정책) 한 곳에만 남는다.
+  const aiCallFiles = ["app/(app)/ai/assistant/actions.ts", "lib/reports.ts"]
+  const modelBad = []
+  let modelPolicyUses = 0
+  for (const rel of aiCallFiles) {
+    const body = readFileSync(path.join(ROOT, rel), "utf8")
+    body.split(NL_RE).forEach((line, li) => {
+      if (!line.includes("model:")) return
+      if (line.includes("aiPolicy.modelId")) { modelPolicyUses += 1; return }
+      modelBad.push(`${rel}:${li + 1}`)
+    })
+  }
+  //  시드 외의 모델 리터럴은 없어야 한다 — 리터럴이 흩어지면 정책이 다시 무력해진다.
+  const modelLiteral = []
+  for (const f of numFiles) {
+    const rel = path.relative(ROOT, f).split(path.sep).join("/")
+    if (rel === "lib/store.ts") continue // 초기 정책(시드)을 정하는 곳
+    readFileSync(f, "utf8").split(NL_RE).forEach((line, li) => {
+      if (line.trim().startsWith("*") || line.trim().startsWith("//")) return
+      if (line.includes("placeholder=")) return // 입력칸의 예시 문구 — 호출이 아니다
+      if (line.includes("claude-opus-5")) modelLiteral.push(`${rel}:${li + 1}`)
+    })
+  }
+  check(`AI 모델 정책: 호출부 ${modelPolicyUses}곳이 aiPolicy.modelId 를 쓴다 · 시드 밖 모델 리터럴 0곳`,
+    modelBad.length === 0 && modelPolicyUses >= 2 && modelLiteral.length === 0,
+    `정책 미사용=${modelBad.join(", ") || "없음"} · 리터럴=${modelLiteral.join(", ") || "없음"}`)
+
+  // 양성 대조 — 시드가 환경변수를 초기값으로 받는가. 그래야 배포가 env 로 지정한 모델이 화면·리포트에도
+  //  그대로 보이고, 호출과 표기가 처음부터 같다(시드가 리터럴로 고정이면 env 배포에서 둘이 갈린다).
+  const seedModelSrc = readFileSync(path.join(ROOT, "lib", "store.ts"), "utf8")
+  check('AI 모델 정책 양성 대조: 초기 정책이 ANTHROPIC_MODEL_ID 를 받는다(env 배포에서도 표기=호출)',
+    seedModelSrc.includes("modelId: process.env.ANTHROPIC_MODEL_ID"))
+
   // HTML 문서 라우트의 이스케이프 단일 출처 가드 — 인쇄용 문서(자산 카드·계약 카드·인수인계서·검수 확인서·
   //  라벨·라벨 묶음·라이선스 카드·대여 확인서·분실 신고서·오프보딩 명세서)는 사람이 넣은 모델명·비고·사유를
   //  그대로 HTML 에 꽂는다. 이 라우트들은 저마다 똑같은 esc 한 줄을 복사해 두고 있었다 — 열 벌이 다 같아도

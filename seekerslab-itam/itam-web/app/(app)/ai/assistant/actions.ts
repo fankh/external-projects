@@ -1007,7 +1007,10 @@ async function answerAssistant(question: string): Promise<ChatMessage> {
     const safeContext = deidentify(buildContext(session.name, isUser, session.role === 'ASSET_MGR' || session.role === 'ADMIN'), egressPersonNames(getStore().users, getStore().assets))
     const response = await client.messages.create({
       // claude-opus-5는 thinking 기본 on — max_tokens가 thinking+응답 합산 상한이라 여유를 둔다
-      model: process.env.ANTHROPIC_MODEL_ID || 'claude-opus-5',
+      // 모델은 AI 정책(운영·거버넌스 구성)이 정한다 — 그전에는 여기서 환경변수·리터럴을 직접 읽어,
+      //  Admin 이 정책 화면에서 모델을 바꿔도 호출은 옛 모델 그대로였다. 화면·감사로그·AI 거버넌스
+      //  리포트는 새 모델을 말하는데 실제로는 다른 모델이 답한 셈이라, 컴플라이언스 증적이 사실과 달랐다.
+      model: getStore().aiPolicy.modelId,
       max_tokens: 8192,
       system:
         `당신은 SEEKERSLAB ITAM 플랫폼의 AI 자산 어시스턴트입니다. ` +
