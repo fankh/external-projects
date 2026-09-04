@@ -628,7 +628,9 @@ function seed(): Store {
     saasCatalog: seedSaasCatalog(),
     aiPolicy: {
       deployment: '온프레미스 LLM',
-      modelId: 'claude-opus-5',
+      // 배포가 ANTHROPIC_MODEL_ID 로 모델을 지정하면 그 값이 초기 정책이 된다 — 그래야 화면·거버넌스
+      //  리포트가 말하는 모델과 실제로 호출하는 모델이 처음부터 같다. 이후에는 Admin 이 정책 화면에서 바꾼다.
+      modelId: process.env.ANTHROPIC_MODEL_ID || 'claude-opus-5',
       promptVersion: 'v3.2 (2026-07-19)',
       classifyAccuracy: 92.4,
       auditRetentionDays: 365,

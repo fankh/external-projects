@@ -1416,7 +1416,9 @@ export async function createReport(kind: ReportKind, by: string): Promise<string
       const { default: Anthropic } = await import('@anthropic-ai/sdk')
       const client = new Anthropic({ apiKey })
       const response = await client.messages.create({
-        model: process.env.ANTHROPIC_MODEL_ID || 'claude-opus-5',
+        // 모델은 AI 정책이 정한다(어시스턴트와 같은 규약) — 리포트 본문이 "이 모델을 썼다"고 적는
+        //  바로 그 값으로 호출해야 서술과 실행이 어긋나지 않는다.
+        model: s.aiPolicy.modelId,
         max_tokens: 4096,
         system:
           'IT 자산관리 리포트의 요약 서술을 작성합니다. 아래 표 데이터에 있는 수치만 사용하고 ' +
