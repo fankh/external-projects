@@ -61,6 +61,17 @@ if (!REMOTE) {
   }
 }
 
+// 한 문서 안에서 같은 id 가 두 번 쓰였는가 — 화면·인쇄 문서·양성 대조가 이 한 판정을 공유한다.
+//  판정을 세 곳에 적으면 양성 대조가 '자기 사본만' 검증하게 되어, 정작 화면을 재는 쪽이 고장나도 통과한다.
+const dupIdsOn = (page) => page.evaluate(() => {
+  const seen = new Map()
+  for (const el of document.querySelectorAll('[id]')) {
+    const id = el.getAttribute('id')
+    if (id) seen.set(id, (seen.get(id) || 0) + 1)
+  }
+  return [...seen.entries()].filter(([, n]) => n > 1).map(([id, n]) => id + ' ×' + n)
+})
+
 let pass = 0, fail = 0
 const cookie = (acct) => ({ name: 'itam_session', value: encodeURIComponent(JSON.stringify(acct)), url: BASE })
 
@@ -73,6 +84,8 @@ try {
     const unnamed = []
     const unlabeled = []
     const notFocusable = []
+    const dupIds = []
+    let idScreens = 0
     const seenApi = new Set()
     // 한 화면에서 링크 두 종류를 함께 본다 — 화면 링크는 라우트 권한, API 링크는 실제 응답으로 판정한다.
     const htmlDocLinks = new Set()
@@ -126,6 +139,16 @@ try {
         const rows = await page.$$eval('tr.clickable', (els) => els.filter((e) => !e.hasAttribute('tabindex')).length)
         if (rows > 0) notFocusable.push(`${label} → 초점 불가 행 ${rows}개`)
       } catch (e) { notFocusable.push(`${label} → 행 초점 확인 실패: ${e.message}`) }
+      // 한 문서 안에서 같은 id 가 두 번 — 조용히 기능이 어긋나는 자리다. label[for] 는 첫 번째 요소에만 붙어
+      //  두 번째 입력이 이름을 잃고(위의 '입력 이름' 검사는 querySelector 가 첫 번째를 찾아 주므로 통과한다),
+      //  getElementById 는 첫 번째만 돌려주며(인쇄 문서의 인쇄·닫기 버튼이 이 방식이다), aria-describedby 도
+      //  엉뚱한 곳을 가리킨다. 어느 것도 오류를 내지 않으므로 크래시 검사·이름 검사로는 보이지 않는다.
+      //  화면을 이미 열어 두었으므로 같은 순회에서 함께 센다.
+      try {
+        const dups = await dupIdsOn(page)
+        idScreens += 1
+        for (const d of dups) dupIds.push(`${label} → ${d}`)
+      } catch (e) { dupIds.push(`${label} → 중복 id 확인 실패: ${e.message}`) }
     }
     const ctx = await browser.newContext()
     await ctx.addCookies([cookie(acct)])
@@ -248,6 +271,7 @@ try {
         await btn.click({ timeout: 5000 })
         await dp.waitForTimeout(250)
         if ((await dp.evaluate(() => window.__printed)) === 0) docBad.push(`${href} (인쇄 버튼이 동작하지 않음)`)
+        for (const d of await dupIdsOn(dp)) docBad.push(`${href} (중복 id ${d})`)
         if (derr.length) docBad.push(`${href} — ${derr[0]}`)
       } catch (e) { docBad.push(`${href} — ${e.message.slice(0, 80)}`) }
       await dp.close()
@@ -266,6 +290,29 @@ try {
     const focusOk = notFocusable.length === 0
     focusOk ? pass++ : fail++
     console.log(`${focusOk ? '✓' : '✗'} [${tag}] 행 선택 키보드 접근 — 클릭 전용 행 없음${focusOk ? '' : ' — ' + [...new Set(notFocusable)].slice(0, 6).join(', ')}`)
+    // 0건은 '중복이 없다'로도, '아무 화면도 못 열었다'로도 나온다 — 센 DOM 수를 조건에 넣는다.
+    //  라우트 수와 같지 않다 — 이 순회는 라우트 페이지 외에 상세 패널을 연 상태와 필터를 켠 상태도 훑기 때문에
+    //  화면 수보다 많이 센다(ADMIN 30 라우트에 53 회). '라우트당 정확히 한 번'으로 조건을 걸었다가 실측에서
+    //  53/30 으로 어긋난 자리다 — 재는 면을 코드가 아니라 실행으로 확인해야 했다. 하한만 건다.
+    const dupOk = dupIds.length === 0 && idScreens >= routes.length
+    dupOk ? pass++ : fail++
+    console.log(`${dupOk ? '✓' : '✗'} [${tag}] 문서 내 중복 id 없음(DOM ${idScreens}회 · 라우트 ${routes.length}개 이상)${dupOk ? '' : ' — ' + ([...new Set(dupIds)].slice(0, 6).join(', ') || `센 DOM ${idScreens} < 라우트 ${routes.length}`)}`)
+    // 양성 대조 — 0건이라는 결과는 판정이 아무것도 못 볼 때도 나온다. 중복 id 를 일부러 넣고 잡는지 본다.
+    //  주입 전 0건 · 주입 후 정확히 그 id 만 잡히는지까지 봐야, 판정이 '항상 참'도 '항상 거짓'도 아님이 확인된다.
+    if (acct.role === 'ADMIN') {
+      const pp = await ctx.newPage()
+      let before = ['확인 실패'], after = ['확인 실패']
+      try {
+        await pp.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded', timeout: 20000 })
+        before = await dupIdsOn(pp)
+        await pp.evaluate(() => { for (let i = 0; i < 2; i += 1) { const e = document.createElement('div'); e.id = 'probe-dup'; document.body.appendChild(e) } })
+        after = await dupIdsOn(pp)
+      } catch { /* 아래 판정에서 실패로 잡힌다 */ }
+      await pp.close()
+      const pcOk = before.length === 0 && after.length === 1 && after[0] === 'probe-dup ×2'
+      pcOk ? pass++ : fail++
+      console.log(`${pcOk ? '✓' : '✗'} [${tag}] 중복 id 양성 대조: 주입한 중복을 잡고 그 외는 잡지 않는다${pcOk ? '' : ` — 주입 전=${before.join(',') || '없음'} 주입 후=${after.join(',') || '없음'}`}`)
+    }
     if (acct.role === 'ADMIN' || acct.role === 'ASSET_MGR') await checkQueueParity()
     await ctx.close()
   }
