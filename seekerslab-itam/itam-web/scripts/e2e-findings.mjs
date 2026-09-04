@@ -2303,13 +2303,20 @@ try {
   await p3.goto(`${BASE}/board/notices`, { waitUntil: 'networkidle' })
   await p3.locator('button', { hasText: /^공지 등록$/ }).click()
   await p3.waitForTimeout(200)
-  await p3.locator('input[placeholder="공지 제목"]').fill('e2e 마케팅팀 전용 필독 공지')
-  await p3.locator('textarea[placeholder="공지 내용"]').fill('마케팅팀만 볼 내용 — e2e')
+  // 대상 부서는 실행 시점의 옵션에서 고른다 — 부서명을 박아 두면 시드가 바뀔 때 selectOption 이
+  //  '옵션 없음'으로 무한 재시도하다 스위트를 통째로 멈춘다(실제로 '마케팅팀'을 박았다가 그렇게 됐다.
+  //  그 부서는 자산에만 있고 사용자가 없어 드롭다운에 오르지 않는다 — 공지 대상은 사용자 부서로 만든다).
+  const audSel = p3.locator('select[title^="공지 대상"]')
+  const audOpts = await audSel.locator('option').evaluateAll((os) => os.map((o) => o.value))
+  const audDept = audOpts.find((v) => v !== '전사' && v !== '플랫폼개발팀') || ''
+  ok('부서 전용 공지 검사 준비: USER 부서가 아닌 대상 부서를 옵션에서 골랐다(0개면 이 검사가 공허하다)', audDept.length > 0)
+  await p3.locator('input[placeholder="공지 제목"]').fill(`e2e ${audDept} 전용 필독 공지`)
+  await p3.locator('textarea[placeholder="공지 내용"]').fill('대상 부서만 볼 내용 — e2e')
   await p3.locator('label', { hasText: '상단 고정 (필독)' }).locator('input[type="checkbox"]').check()
-  await p3.locator('select[title^="공지 대상"]').selectOption('마케팅팀')
+  await audSel.selectOption(audDept)
   await p3.locator('button', { hasText: /^등록$/ }).click()
   await p3.waitForTimeout(800)
-  const audRow = p3.locator('tr', { has: p3.locator('td', { hasText: 'e2e 마케팅팀 전용 필독 공지' }) }).first()
+  const audRow = p3.locator('tr', { has: p3.locator('td', { hasText: `e2e ${audDept} 전용 필독 공지` }) }).first()
   ok('부서 전용 필독 공지: 관리자에게는 보인다(양성 대조 — 아래 USER 검사가 공허하지 않다)', (await audRow.count()) > 0)
   await audRow.click()
   await p3.waitForTimeout(400)
@@ -2321,8 +2328,8 @@ try {
   const pNA = await ctxNA.newPage()
   await pNA.goto(`${BASE}/board/notices?sel=${audId}`, { waitUntil: 'networkidle' })
   const naBody = (await pNA.locator('body').textContent()) || ''
-  ok('부서 전용 필독 공지: 대상 밖 사용자(플랫폼개발팀)에게 딥링크로도 제목이 안 보인다', !naBody.includes('e2e 마케팅팀 전용 필독 공지'))
-  ok('부서 전용 필독 공지: 대상 밖 사용자에게 본문이 안 보인다', !naBody.includes('마케팅팀만 볼 내용'))
+  ok('부서 전용 필독 공지: 대상 밖 사용자(플랫폼개발팀)에게 딥링크로도 제목이 안 보인다', !naBody.includes(`e2e ${audDept} 전용 필독 공지`))
+  ok('부서 전용 필독 공지: 대상 밖 사용자에게 본문이 안 보인다', !naBody.includes('대상 부서만 볼 내용'))
   ok('부서 전용 필독 공지: 대상 밖 사용자에게 읽음 확인 버튼이 없다', (await pNA.locator('button', { hasText: /^읽음 확인$/ }).count()) === 0)
   // 양성 대조 — 같은 사용자가 전사 필독 공지(NTC-01)는 딥링크로 열 수 있어야 한다. 위 3건이 '공지 화면이
   //  통째로 안 열려서' 통과한 것이 아님을 보인다.
@@ -5314,7 +5321,7 @@ try {
 
 //  실행한 검사 수가 문서가 적은 수와 같은가 — 스위트가 중간에 멈추면 남은 검사는 '실패'가 아니라 아예 실행되지
 //   않아 로그에는 '1건 실패'로만 남는다(실제로는 수백 건이 돌지 않았다). 컨트롤 전제가 깨진 자리에서 클릭·
-//   innerText 가 던지면 그 지점에서 끝나는데, 그런 자리가 74곳 있다(존재 단언 직후 그 대상을 무조건
+//   innerText 가 던지면 그 지점에서 끝나는데, 그런 자리가 75곳 있다(존재 단언 직후 그 대상을 무조건
 //   조작하는 자리 — 스모크가 센다). 자리마다 막는 대신 중단 자체를 드러낸다. 그 수가 늘면 취약면이 넓어진
 //   것이고, 주석에만 적어 두면 조용히 낡는다 — 실제로 40곳이라 적힌 채 74곳이 됐다.
 //   스모크의 문서 대조와 같은 규약이다. 검사를 늘리면 README·구축 요약의 수도 함께 고친다.
