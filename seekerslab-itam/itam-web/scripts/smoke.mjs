@@ -3032,6 +3032,44 @@ try {
   const ackGated = (body) => body.includes('inNoticeAudience(') && body.includes('publishAt') && body.includes('post.pinned')
   check('필독 확인 저장: 대상 부서·발행일·필독 세 게이트를 모두 통과해야 확인이 남는다',
     ackBody.length > 0 && ackGated(ackBody), ackBody.length === 0 ? 'acknowledgeNotice 를 찾지 못함' : `게이트 누락 — 본문 ${ackBody.length}자`)
+  // 공지 쓰기 접점은 둘이다 — 읽음 확인(acknowledgeNotice)과 조회수 증가(recordPostView).
+  //  앞의 것만 막았을 때 뒤의 것이 그대로 열려 있었다: 대상 밖 사용자가 못 보는 공지·발행 전 공지의
+  //  조회수를 올릴 수 있었고, 관리자 목록의 '조회' 열이 아무도 열어 볼 수 없던 공지에 수를 그렸다.
+  //  불변식을 정확히 적는다 — "공지를 바꾸는 액션은 모두 가시성 게이트를 지난다"가 아니다.
+  //  등록·수정·삭제·고정은 Admin 전용이고, 관리자는 예약·부서 공지를 다 본다. 거기에 대상 부서 게이트를
+  //  걸면 오히려 틀린다. 게이트가 필요한 것은 'Admin 게이트가 없는' 쓰기, 즉 사용자가 부르는 쓰기다.
+  //  (처음엔 '공지를 바꾸는 액션 전부'로 적었다가 실측에서 Admin 전용 넷을 잘못 잡고 정작
+  //   acknowledgeNotice 는 놓쳤다 — post.acks.push 가 패턴에 안 걸렸다. 재 보고 고친 판정이다.)
+  const boardWrite = new RegExp([
+    'post' + '\\' + '.' + '\\' + 'w+ = ',
+    'post' + '\\' + '.' + '\\' + 'w+' + '\\' + '.push' + '\\' + '(',
+    'post' + '\\' + '.' + '\\' + 'w+ ' + '\\' + '?' + '\\' + '?= ',
+    'posts' + '\\' + '.(unshift|push)' + '\\' + '(',
+    's' + '\\' + '.posts = ',
+  ].join('|'))
+  const noticeWriters = []
+  for (const m of boardSrc.matchAll(/export async function (\w+)/g)) {
+    const st = m.index
+    const nl = boardSrc.indexOf(String.fromCharCode(10) + 'export ', st + 1)
+    const body = boardSrc.slice(st, nl === -1 ? undefined : nl)
+    if (!boardWrite.test(body)) continue
+    if (body.includes("session.role !== 'ADMIN'")) continue // 관리 액션 — 관리자는 전 공지를 본다
+    if (!body.includes("'공지'")) continue                  // QnA 전용 쓰기는 대상 부서·발행일 개념이 없다
+    noticeWriters.push({ name: m[1], gated: body.includes('inNoticeAudience(') && body.includes('publishAt') })
+  }
+  const openWriters = noticeWriters.filter((w) => !w.gated).map((w) => w.name)
+  check(`공지 쓰기 접점: 사용자가 부르는 ${noticeWriters.length}곳이 모두 대상 부서·발행일 게이트를 지난다`,
+    noticeWriters.length >= 2 && openWriters.length === 0,
+    noticeWriters.length < 2 ? `접점을 ${noticeWriters.length}곳밖에 못 찾음 — 패턴이 낡았다` : `게이트 없음 — ${openWriters.join(', ')}`)
+  // 양성 대조 — 분류가 실제로 갈리는지. Admin 전용 관리 액션은 게이트 없이도 정상이어야 하고,
+  //  게이트 없는 사용자 쓰기는 걸려야 한다. 한쪽만 보면 '전부 통과'로도 '전부 탈락'으로도 통과한다.
+  const gateOf = (body) => body.includes('inNoticeAudience(') && body.includes('publishAt')
+  check('공지 쓰기 접점 양성 대조: 게이트 없는 사용자 쓰기는 걸리고, Admin 전용 관리 액션은 대상이 아니다',
+    !gateOf('post.views = (post.views ?? 0) + 1') &&
+    gateOf("if (!inNoticeAudience(post, session.dept)) return NOPE" + String.fromCharCode(10) + "  if (post.publishAt) return NOPE") &&
+    boardSrc.includes("export async function postNotice") &&
+    noticeWriters.every((w) => w.name !== 'postNotice' && w.name !== 'toggleNoticePin'))
+
   // 양성 대조 — 이 판정이 게이트 없는 옛 본문을 실제로 걸러 내는지. 통과(참)만 확인하면 '항상 참'인
   //  판정도 통과하고, 그러면 게이트를 지워도 이 검사는 아무 말을 하지 않는다.
   check('필독 확인 게이트 양성 대조: 게이트 없는 옛 본문은 걸리고, 지금 본문은 통과한다',
