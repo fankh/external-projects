@@ -3105,6 +3105,41 @@ try {
   check(`영속화 서술: 인도 문서가 종료 flush 미실행을 밝힌다(README 와 같은 말)`,
     summaryFlush && readmeFlush, `요약=${summaryFlush} · README=${readmeFlush}`)
 
+  // 명도 대비 — 본문 크기 텍스트는 배경 대비 4.5:1 이상이어야 한다(WCAG 2.1 AA · KWCAG 2.1 명도 대비).
+  //  어느 스위트도 이걸 재지 않았다. layout 은 넘침을, health 는 컨트롤 이름을 볼 뿐 색은 보지 않는다.
+  //  실측해 보니 15쌍 중 4쌍이 미달이었다 — 흐림 텍스트(3.02:1 · 2.79:1)와 정상·주의 상태 칩(4.36:1 · 4.21:1).
+  //  보조 설명·빈 상태 안내가 흐림 색이고 칩 글자는 상태 그 자체라, 둘 다 정보를 나르는 텍스트다.
+  //  값은 globals.css 에서 읽는다 — 팔레트가 단일 출처이고, 여기 색을 다시 적으면 조용히 갈린다.
+  const cssSrc = readFileSync(path.join(ROOT, "app", "globals.css"), "utf8")
+  const cssVar = (name) => (cssSrc.match(new RegExp("--" + name + ": (#[0-9a-fA-F]{6})")) || [])[1]
+  const srgb = (c) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
+  const lum = (h) => { const n = parseInt(h.slice(1), 16); return 0.2126 * srgb((n >> 16) & 255) + 0.7152 * srgb((n >> 8) & 255) + 0.0722 * srgb(n & 255) }
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) }
+  const CONTRAST_PAIRS = [
+    ["본문/패널", "ink", "panel"], ["본문/캔버스", "ink", "canvas"],
+    ["보조/패널", "dim", "panel"], ["보조/캔버스", "dim", "canvas"],
+    ["흐림/패널", "mute", "panel"], ["흐림/캔버스", "mute", "canvas"],
+    ["링크/패널", "accent", "panel"], ["링크/캔버스", "accent", "canvas"],
+    ["사이드/사이드배경", "side-txt", "side-bg"],
+    ["정상칩", "ok", "ok-bg"], ["주의칩", "warn", "warn-bg"], ["오류칩", "err", "err-bg"],
+  ]
+  const contrastBad = []
+  let contrastRead = 0
+  for (const [label, fg, bg] of CONTRAST_PAIRS) {
+    const f = cssVar(fg), b = cssVar(bg)
+    if (!f || !b) { contrastBad.push(`${label}(색 못 읽음)`); continue }
+    contrastRead += 1
+    const r = contrast(f, b)
+    if (r < 4.5) contrastBad.push(`${label} ${r.toFixed(2)}:1`)
+  }
+  check(`명도 대비: 본문·칩 ${contrastRead}쌍이 모두 4.5:1 이상(WCAG 2.1 AA · KWCAG 2.1)`,
+    contrastBad.length === 0 && contrastRead === CONTRAST_PAIRS.length, `미달=${contrastBad.join(", ") || "없음"}`)
+
+  // 양성 대조 — 계산이 실제로 낮은 대비를 잡는가. 잡지 못하면 위 검사는 무엇이든 통과한다.
+  //  회색(#8b95a7)은 흰 배경에서 3.02:1 로 미달이고, 검정은 21:1 로 통과해야 한다.
+  check(`명도 대비 양성 대조: 낮은 대비를 잡고 높은 대비는 통과시킨다`,
+    contrast("#8b95a7", "#ffffff") < 4.5 && contrast("#000000", "#ffffff") > 20)
+
   // HTML 문서 라우트의 이스케이프 단일 출처 가드 — 인쇄용 문서(자산 카드·계약 카드·인수인계서·검수 확인서·
   //  라벨·라벨 묶음·라이선스 카드·대여 확인서·분실 신고서·오프보딩 명세서)는 사람이 넣은 모델명·비고·사유를
   //  그대로 HTML 에 꽂는다. 이 라우트들은 저마다 똑같은 esc 한 줄을 복사해 두고 있었다 — 열 벌이 다 같아도

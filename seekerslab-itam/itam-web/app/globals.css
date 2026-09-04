@@ -11,7 +11,10 @@
   --ink: #101828;
   --ink-2: #344054;
   --dim: #5d6b82;
-  --mute: #8b95a7;
+  /* 명도 대비 — 본문 크기 텍스트는 배경 대비 4.5:1 이상이어야 한다(WCAG 2.1 AA · KWCAG 2.1 명도 대비).
+     mute 는 #8b95a7 이었고 흰 패널에서 3.02:1, 캔버스에서 2.79:1 로 기준 미달이었다 — 보조 설명·빈 상태
+     안내가 이 색이라 읽기 어려운 글자가 화면 곳곳에 있었다. 색상(hue)은 그대로 두고 명도만 낮춘다. */
+  --mute: #6a717f;
   --canvas: #f4f6f9;
   --panel: #ffffff;
   --line: #e4e8ef;
@@ -25,8 +28,9 @@
   --side-line: #223047;
   --side-txt: #94a3bb;
   --side-txt-hi: #e8edf5;
-  --ok: #12805c;  --ok-bg: #e4f5ee;  --ok-line: #b6e3d0;
-  --warn: #b25e09; --warn-bg: #fdf2e0; --warn-line: #f0d7ac;
+  /* 상태 칩의 글자도 정보다 — 칩 배경 대비 4.5:1 을 맞춘다(정상 4.36:1, 주의 4.21:1 이었다). */
+  --ok: #127d5a;  --ok-bg: #e4f5ee;  --ok-line: #b6e3d0;
+  --warn: #ab5a09; --warn-bg: #fdf2e0; --warn-line: #f0d7ac;
   --err: #c23934;  --err-bg: #fdecea;  --err-line: #f4c7c3;
   --mono: 'Cascadia Code', Consolas, 'SF Mono', monospace;
   --shadow-1: 0 1px 2px rgba(16, 24, 40, .05);
