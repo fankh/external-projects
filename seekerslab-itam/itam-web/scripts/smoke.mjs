@@ -3140,6 +3140,29 @@ try {
   check(`명도 대비 양성 대조: 낮은 대비를 잡고 높은 대비는 통과시킨다`,
     contrast("#8b95a7", "#ffffff") < 4.5 && contrast("#000000", "#ffffff") > 20)
 
+  // 페이지 언어 선언 — 화면 낭독기는 lang 으로 발음 언어를 고른다(WCAG 3.1.1, Level A). 없으면 한국어
+  //  본문을 영어 음성으로 읽는다. 앱 화면은 루트 레이아웃 하나가 덮지만 인쇄 문서는 라우트마다 <html>
+  //  을 직접 조립하므로 새 문서가 빠뜨리기 쉽다 — 지금은 전부 선언돼 있고, 그 사실을 고정한다.
+  const langRoutes = escRouteFiles.filter((f) => readFileSync(f, "utf8").includes('text/html'))
+  const langMissing = langRoutes.filter((f) => !readFileSync(f, "utf8").includes('<html lang="ko"')).map(fileLabel)
+  const rootLayoutLang = readFileSync(path.join(ROOT, "app", "layout.tsx"), "utf8").includes('<html lang="ko"')
+  check(`페이지 언어: 인쇄 문서 ${langRoutes.length}곳 + 루트 레이아웃이 lang="ko" 를 선언한다(WCAG 3.1.1)`,
+    langRoutes.length >= 10 && langMissing.length === 0 && rootLayoutLang,
+    `누락=${langMissing.join(", ") || "없음"} · 루트=${rootLayoutLang}`)
+
+  // 키보드 포커스 표시 — 아웃라인을 지우는 규칙은 대체 표시를 함께 줘야 한다(WCAG 2.4.7). 전역
+  //  :focus-visible 이 기본 아웃라인을 깔고, 입력·검색창은 아웃라인 대신 테두리 색과 링으로 바꾼다.
+  //  대체 없이 지우기만 하면 키보드 사용자는 자기가 어디 있는지 볼 수 없다 — 그 자리를 막는다.
+  const focusVisible = /:focus-visibles*{[^}]*outline:/.test(cssSrc)
+  const focusStripped = []
+  cssSrc.split(NL_RE).forEach((line, li) => {
+    if (!/outline:s*(none|0)/.test(line)) return
+    if (/border-color:|box-shadow:/.test(line)) return // 대체 표시를 같은 규칙에서 준다
+    focusStripped.push(`globals.css:${li + 1}`)
+  })
+  check(`포커스 표시: 전역 :focus-visible 아웃라인 있음 · 대체 없이 지우는 규칙 0곳`,
+    focusVisible && focusStripped.length === 0, `전역=${focusVisible} · 대체 없음=${focusStripped.join(", ") || "없음"}`)
+
   // HTML 문서 라우트의 이스케이프 단일 출처 가드 — 인쇄용 문서(자산 카드·계약 카드·인수인계서·검수 확인서·
   //  라벨·라벨 묶음·라이선스 카드·대여 확인서·분실 신고서·오프보딩 명세서)는 사람이 넣은 모델명·비고·사유를
   //  그대로 HTML 에 꽂는다. 이 라우트들은 저마다 똑같은 esc 한 줄을 복사해 두고 있었다 — 열 벌이 다 같아도
