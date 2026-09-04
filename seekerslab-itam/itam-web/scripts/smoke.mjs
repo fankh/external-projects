@@ -3143,7 +3143,10 @@ try {
   // 페이지 언어 선언 — 화면 낭독기는 lang 으로 발음 언어를 고른다(WCAG 3.1.1, Level A). 없으면 한국어
   //  본문을 영어 음성으로 읽는다. 앱 화면은 루트 레이아웃 하나가 덮지만 인쇄 문서는 라우트마다 <html>
   //  을 직접 조립하므로 새 문서가 빠뜨리기 쉽다 — 지금은 전부 선언돼 있고, 그 사실을 고정한다.
-  const langRoutes = escRouteFiles.filter((f) => readFileSync(f, "utf8").includes('text/html'))
+  const langApiFiles = []
+  const walkLangApi = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, e.name); if (e.isDirectory()) walkLangApi(p); else if (e.name === "route.ts") langApiFiles.push(p) } }
+  walkLangApi(path.join(ROOT, "app", "api"))
+  const langRoutes = langApiFiles.filter((f) => readFileSync(f, "utf8").includes('text/html'))
   const langMissing = langRoutes.filter((f) => !readFileSync(f, "utf8").includes('<html lang="ko"')).map(fileLabel)
   const rootLayoutLang = readFileSync(path.join(ROOT, "app", "layout.tsx"), "utf8").includes('<html lang="ko"')
   check(`페이지 언어: 인쇄 문서 ${langRoutes.length}곳 + 루트 레이아웃이 lang="ko" 를 선언한다(WCAG 3.1.1)`,
@@ -3153,10 +3156,10 @@ try {
   // 키보드 포커스 표시 — 아웃라인을 지우는 규칙은 대체 표시를 함께 줘야 한다(WCAG 2.4.7). 전역
   //  :focus-visible 이 기본 아웃라인을 깔고, 입력·검색창은 아웃라인 대신 테두리 색과 링으로 바꾼다.
   //  대체 없이 지우기만 하면 키보드 사용자는 자기가 어디 있는지 볼 수 없다 — 그 자리를 막는다.
-  const focusVisible = /:focus-visibles*{[^}]*outline:/.test(cssSrc)
+  const focusVisible = new RegExp(":focus-visible" + String.fromCharCode(92) + "s*" + String.fromCharCode(92) + "{[^}]*outline:").test(cssSrc)
   const focusStripped = []
   cssSrc.split(NL_RE).forEach((line, li) => {
-    if (!/outline:s*(none|0)/.test(line)) return
+    if (!new RegExp("outline:" + String.fromCharCode(92) + "s*(none|0)").test(line)) return
     if (/border-color:|box-shadow:/.test(line)) return // 대체 표시를 같은 규칙에서 준다
     focusStripped.push(`globals.css:${li + 1}`)
   })
