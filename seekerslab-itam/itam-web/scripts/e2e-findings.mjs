@@ -2295,6 +2295,43 @@ try {
   const reackBody = (await p3.textContent('body')) || ''
   ok('필독 공지 내용 변경 → 읽음 확인 초기화(확인함 해제·재확인 버튼 복귀)', !reackBody.includes('읽음 확인함') && (await p3.locator('button', { hasText: /^읽음 확인$/ }).count()) > 0)
 
+  // 대상 부서 밖 사용자에게 부서 전용 필독 공지가 새지 않는가 — 목록에서 빠지는 것만으로는 부족하다.
+  //  딥링크(?sel=ID)로 곧장 열어도 제목·본문·읽음 확인 버튼이 나오면 안 된다. 확인(ack)은 컴플라이언스
+  //  증적이라, 대상 밖 사람이 남긴 확인은 수치를 흐릴 뿐 아니라 그 사람이 못 볼 공지를 봤다는 기록이 된다.
+  //  (서버의 acknowledgeNotice 는 스모크가 대상·발행일 게이트를 따로 검사한다 — 화면에 버튼이 없어도
+  //   서버 액션은 id 로 직접 부를 수 있어, 화면 검사만으로는 쓰기 경로가 덮이지 않는다.)
+  await p3.goto(`${BASE}/board/notices`, { waitUntil: 'networkidle' })
+  await p3.locator('button', { hasText: /^공지 등록$/ }).click()
+  await p3.waitForTimeout(200)
+  await p3.locator('input[placeholder="공지 제목"]').fill('e2e 마케팅팀 전용 필독 공지')
+  await p3.locator('textarea[placeholder="공지 내용"]').fill('마케팅팀만 볼 내용 — e2e')
+  await p3.locator('label', { hasText: '상단 고정 (필독)' }).locator('input[type="checkbox"]').check()
+  await p3.locator('select[title^="공지 대상"]').selectOption('마케팅팀')
+  await p3.locator('button', { hasText: /^등록$/ }).click()
+  await p3.waitForTimeout(800)
+  const audRow = p3.locator('tr', { has: p3.locator('td', { hasText: 'e2e 마케팅팀 전용 필독 공지' }) }).first()
+  ok('부서 전용 필독 공지: 관리자에게는 보인다(양성 대조 — 아래 USER 검사가 공허하지 않다)', (await audRow.count()) > 0)
+  await audRow.click()
+  await p3.waitForTimeout(400)
+  const audUrl = p3.url()
+  const audId = (audUrl.match(/sel=([A-Za-z0-9-]+)/) || [])[1] || ''
+  ok('부서 전용 필독 공지: 딥링크 id 를 얻었다(검사 대상 확보)', /^NTC-/.test(audId))
+
+  const ctxNA = await browser.newContext(); await ctxNA.addCookies([cookie(USER)])
+  const pNA = await ctxNA.newPage()
+  await pNA.goto(`${BASE}/board/notices?sel=${audId}`, { waitUntil: 'networkidle' })
+  const naBody = (await pNA.locator('body').textContent()) || ''
+  ok('부서 전용 필독 공지: 대상 밖 사용자(플랫폼개발팀)에게 딥링크로도 제목이 안 보인다', !naBody.includes('e2e 마케팅팀 전용 필독 공지'))
+  ok('부서 전용 필독 공지: 대상 밖 사용자에게 본문이 안 보인다', !naBody.includes('마케팅팀만 볼 내용'))
+  ok('부서 전용 필독 공지: 대상 밖 사용자에게 읽음 확인 버튼이 없다', (await pNA.locator('button', { hasText: /^읽음 확인$/ }).count()) === 0)
+  // 양성 대조 — 같은 사용자가 전사 필독 공지(NTC-01)는 딥링크로 열 수 있어야 한다. 위 3건이 '공지 화면이
+  //  통째로 안 열려서' 통과한 것이 아님을 보인다.
+  await pNA.goto(`${BASE}/board/notices?sel=NTC-01`, { waitUntil: 'networkidle' })
+  const naOkBody = (await pNA.locator('body').textContent()) || ''
+  ok('부서 전용 공지 검사 양성 대조: 같은 사용자가 전사 필독 공지는 열고 읽음 확인 버튼도 본다',
+    naOkBody.includes('재물조사') && (await pNA.locator('button', { hasText: /^읽음 확인$/ }).count()) > 0)
+  await ctxNA.close()
+
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const cHtml = await p3.content()
   ok('운영 정책 다운스트림: 계약 화면 만료 임박 창 60일', cHtml.includes('만료 60일 이내') && !cHtml.includes('만료 90일 이내'))
