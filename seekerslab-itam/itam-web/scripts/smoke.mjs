@@ -3014,6 +3014,31 @@ try {
     ['export function inDisposalProcess(', 'export function hasDisposalRecord(', 'export function disposalStageOf(']
       .every((n) => stockNamed.includes(n)))
 
+  // 필독 확인(ack)의 쓰기 게이트 — 공지 가시성은 대상 부서(inNoticeAudience)와 발행일(publishAt)로
+  //  정해지고, 목록·대시보드·검색 세 곳이 모두 그 게이트를 쓴다. 그런데 확인을 '저장하는' 액션만
+  //  pinned 만 보고 둘 다 보지 않았다 — 화면에 버튼이 없어도 서버 액션은 id 로 직접 부를 수 있으므로
+  //  대상 밖 사용자가 발행 전 부서 전용 공지에 확인을 남기고, 성공 응답으로 그 제목을 돌려받았다.
+  //  (바로 아래 독촉 액션 remindNoticeUnacked 는 같은 이유로 발행일 게이트를 이미 갖고 있었다 —
+  //   같은 구멍을 읽기 쪽에서만 두 번 막고 쓰기 쪽은 놓친 자리다.)
+  //  표시면 세 곳이 대상 밖 확인을 각자 걸러 내고 있어 커버리지 수치 자체는 그때도 맞았다. 그래서
+  //  화면을 보는 검사로는 잡히지 않는다 — 액션 본문을 본다.
+  const boardSrc = readFileSync(path.join(ROOT, 'app', '(app)', 'board', 'actions.ts'), 'utf8')
+  const ackBody = (() => {
+    const i = boardSrc.indexOf('export async function acknowledgeNotice')
+    if (i < 0) return ''
+    const j = boardSrc.indexOf(String.fromCharCode(10) + 'export ', i + 1)
+    return boardSrc.slice(i, j === -1 ? undefined : j)
+  })()
+  const ackGated = (body) => body.includes('inNoticeAudience(') && body.includes('publishAt') && body.includes('post.pinned')
+  check('필독 확인 저장: 대상 부서·발행일·필독 세 게이트를 모두 통과해야 확인이 남는다',
+    ackBody.length > 0 && ackGated(ackBody), ackBody.length === 0 ? 'acknowledgeNotice 를 찾지 못함' : `게이트 누락 — 본문 ${ackBody.length}자`)
+  // 양성 대조 — 이 판정이 게이트 없는 옛 본문을 실제로 걸러 내는지. 통과(참)만 확인하면 '항상 참'인
+  //  판정도 통과하고, 그러면 게이트를 지워도 이 검사는 아무 말을 하지 않는다.
+  check('필독 확인 게이트 양성 대조: 게이트 없는 옛 본문은 걸리고, 지금 본문은 통과한다',
+    !ackGated("if (!post.pinned) return { ok: false, message: '필독 공지만 대상' }" + String.fromCharCode(10) + "  post.acks ??= []") &&
+    !ackGated("if (!post.pinned) return NOPE" + String.fromCharCode(10) + "  if (post.publishAt && post.publishAt > today()) return NOPE") &&
+    ackGated(ackBody))
+
   // 숫자 표기 로케일 가드 — 인자 없는 toLocaleString() 은 실행 환경의 기본 로케일을 쓴다. 서버는
   //  컨테이너의 로케일, 브라우저는 보는 사람의 로케일이라, SSR 후 하이드레이션되는 클라이언트
   //  컴포넌트에서는 같은 금액이 화면에서 바뀐다 — 실측으로 브라우저 로케일이 de-DE 이면 취득가가

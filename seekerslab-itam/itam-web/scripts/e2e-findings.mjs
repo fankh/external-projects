@@ -2295,6 +2295,62 @@ try {
   const reackBody = (await p3.textContent('body')) || ''
   ok('필독 공지 내용 변경 → 읽음 확인 초기화(확인함 해제·재확인 버튼 복귀)', !reackBody.includes('읽음 확인함') && (await p3.locator('button', { hasText: /^읽음 확인$/ }).count()) > 0)
 
+  // 대상 부서 밖 사용자에게 부서 전용 필독 공지가 새지 않는가 — 목록에서 빠지는 것만으로는 부족하다.
+  //  딥링크(?sel=ID)로 곧장 열어도 제목·본문·읽음 확인 버튼이 나오면 안 된다. 확인(ack)은 컴플라이언스
+  //  증적이라, 대상 밖 사람이 남긴 확인은 수치를 흐릴 뿐 아니라 그 사람이 못 볼 공지를 봤다는 기록이 된다.
+  //  (서버의 acknowledgeNotice 는 스모크가 대상·발행일 게이트를 따로 검사한다 — 화면에 버튼이 없어도
+  //   서버 액션은 id 로 직접 부를 수 있어, 화면 검사만으로는 쓰기 경로가 덮이지 않는다.)
+  await p3.goto(`${BASE}/board/notices`, { waitUntil: 'networkidle' })
+  await p3.locator('button', { hasText: /^공지 등록$/ }).click()
+  await p3.waitForTimeout(200)
+  // 대상 부서는 실행 시점의 옵션에서 고른다 — 부서명을 박아 두면 시드가 바뀔 때 selectOption 이
+  //  '옵션 없음'으로 무한 재시도하다 스위트를 통째로 멈춘다(실제로 '마케팅팀'을 박았다가 그렇게 됐다.
+  //  그 부서는 자산에만 있고 사용자가 없어 드롭다운에 오르지 않는다 — 공지 대상은 사용자 부서로 만든다).
+  const audSel = p3.locator('select[title^="공지 대상"]')
+  const audOpts = await audSel.locator('option').evaluateAll((os) => os.map((o) => o.value))
+  const audDept = audOpts.find((v) => v !== '전사' && v !== '플랫폼개발팀') || ''
+  ok('부서 전용 공지 검사 준비: USER 부서가 아닌 대상 부서를 옵션에서 골랐다(0개면 이 검사가 공허하다)', audDept.length > 0)
+  await p3.locator('input[placeholder="공지 제목"]').fill(`e2e ${audDept} 전용 필독 공지`)
+  await p3.locator('textarea[placeholder="공지 내용"]').fill('대상 부서만 볼 내용 — e2e')
+  await p3.locator('label', { hasText: '상단 고정 (필독)' }).locator('input[type="checkbox"]').check()
+  await audSel.selectOption(audDept)
+  await p3.locator('button', { hasText: /^등록$/ }).click()
+  await p3.waitForTimeout(800)
+  const audRow = p3.locator('tr', { has: p3.locator('td', { hasText: `e2e ${audDept} 전용 필독 공지` }) }).first()
+  ok('부서 전용 필독 공지: 관리자에게는 보인다(양성 대조 — 아래 USER 검사가 공허하지 않다)', (await audRow.count()) > 0)
+  // 공지 id 는 URL 이 아니라 검색 API 로 얻는다 — 목록의 행 선택은 클라이언트 상태라 주소가 바뀌지 않는다
+  //  (처음엔 클릭 뒤 p3.url() 에서 sel= 를 읽으려 했고, 빈 문자열이 나와 아래 딥링크 검사가 '?sel=' 로
+  //   기본 공지를 열어 버렸다 — 제목·본문 미노출 검사가 통과했지만 그건 다른 공지를 본 결과였다).
+  //  ADMIN 검색은 예약·부서 공지까지 포함하므로 방금 만든 공지가 잡힌다.
+  const audSearch = await p3.request.get(`${BASE}/api/search?q=${encodeURIComponent(`e2e ${audDept} 전용`)}`)
+  const audJson = await audSearch.json().catch(() => ({ groups: [] }))
+  const audHref = (audJson.groups ?? []).flatMap((g) => g.items ?? []).map((i) => i.href || '').find((h) => h.includes('/board/notices?sel=NTC-')) || ''
+  const audId = decodeURIComponent((audHref.match(/sel=([^&]+)/) || [])[1] || '')
+  ok('부서 전용 필독 공지: 공지 id 를 얻었다(검사 대상 확보 — 못 얻으면 아래 딥링크 검사가 공허하다)', /^NTC-/.test(audId))
+
+  const ctxNA = await browser.newContext(); await ctxNA.addCookies([cookie(USER)])
+  const pNA = await ctxNA.newPage()
+  await pNA.goto(`${BASE}/board/notices?sel=${audId}`, { waitUntil: 'networkidle' })
+  const naBody = (await pNA.locator('body').textContent()) || ''
+  //  못 보는 공지의 sel= 는 조용히 '보이는 첫 공지'로 떨어진다(NoticeBoard 의 openId 초기화가
+  //   posts 에 없으면 posts[0] 을 연다). 그래서 여기서 '읽음 확인 버튼이 없다'를 재면 안 된다 —
+  //   대체로 열린 다른 공지의 버튼이 잡혀 원리적으로 실패한다. 재야 하는 것은 '그 공지가 안 나온다'이다.
+  ok('부서 전용 필독 공지: 대상 밖 사용자(플랫폼개발팀)에게 딥링크로도 제목이 안 보인다', !naBody.includes(`e2e ${audDept} 전용 필독 공지`))
+  ok('부서 전용 필독 공지: 대상 밖 사용자에게 본문이 안 보인다', !naBody.includes('대상 부서만 볼 내용'))
+  // 화면 밖의 두 번째 면 — 전역 검색. 화면은 목록에서 빼도 검색이 제목을 돌려주면 같은 것이 샌다
+  //  (예전에 실제로 그랬고 그때 닫았다). 대체 선택으로 흐려지지 않는 직접 검사라 위 두 건의 버팀목이 된다.
+  const naSearch = await pNA.request.get(`${BASE}/api/search?q=${encodeURIComponent(`e2e ${audDept} 전용`)}`)
+  const naJson = await naSearch.json().catch(() => ({ groups: [] }))
+  const naHrefs = (naJson.groups ?? []).flatMap((g) => g.items ?? []).map((i) => i.href || '')
+  ok('부서 전용 필독 공지: 대상 밖 사용자의 전역 검색에 잡히지 않는다', !naHrefs.some((h) => h.includes(audId)))
+  // 양성 대조 — 같은 사용자가 전사 필독 공지(NTC-01)는 딥링크로 열 수 있어야 한다. 위 3건이 '공지 화면이
+  //  통째로 안 열려서' 통과한 것이 아님을 보인다.
+  await pNA.goto(`${BASE}/board/notices?sel=NTC-01`, { waitUntil: 'networkidle' })
+  const naOkBody = (await pNA.locator('body').textContent()) || ''
+  ok('부서 전용 공지 검사 양성 대조: 같은 사용자가 전사 필독 공지는 열고 읽음 확인 버튼도 본다',
+    naOkBody.includes('재물조사') && (await pNA.locator('button', { hasText: /^읽음 확인$/ }).count()) > 0)
+  await ctxNA.close()
+
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const cHtml = await p3.content()
   ok('운영 정책 다운스트림: 계약 화면 만료 임박 창 60일', cHtml.includes('만료 60일 이내') && !cHtml.includes('만료 90일 이내'))

@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
 import { isQnaOverdue, isValidDate, qnaAgeDays, today } from '@/lib/dates'
-import { noticeTargets } from '@/lib/notice'
+import { inNoticeAudience, noticeTargets } from '@/lib/notice'
 import { noticeRemindTargets } from '@/lib/reminders'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -284,8 +284,20 @@ export async function acknowledgeNotice(postId: string) {
 
   const s = getStore()
   const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
-  if (!post) return { ok: false, message: '공지를 찾을 수 없습니다.' }
-  if (!post.pinned) return { ok: false, message: '필독(상단 고정) 공지만 읽음 확인 대상입니다.' }
+  // 거절 문구를 하나로 둔다 — '없다'와 '못 본다'를 다르게 답하면 그 차이가 공지의 존재를 알려 주는
+  //  신호가 된다(대상 부서 밖 사용자가 id 를 넣어 보며 어떤 공지가 있는지 가려낼 수 있다).
+  const NOPE = { ok: false as const, message: '읽음 확인 대상 공지가 아닙니다.' }
+  if (!post) return NOPE
+  if (!post.pinned) return NOPE
+  // 발행 전 공지는 확인 대상이 아니다 — 아직 공개되지 않은 공지를 읽었다는 증적은 그 자체로 거짓이고,
+  //  성공 응답이 제목을 돌려주므로 발행 전 공지의 제목이 대상 밖 사용자에게 새어 나간다.
+  //  바로 아래 독촉(remindNoticeUnacked)은 같은 이유로 이미 이 게이트를 갖고 있다.
+  if (post.publishAt && post.publishAt > today()) return NOPE
+  // 대상 부서 밖 사용자도 확인 대상이 아니다 — 목록·대시보드·검색은 이미 inNoticeAudience 로 가리는데
+  //  쓰기 경로만 빠져 있었다. 화면에 버튼이 없어도 서버 액션은 id 로 직접 부를 수 있다(이 저장소의 규약).
+  //  표시면 세 곳이 각자 대상 밖 확인을 걸러 내고 있어 커버리지 수치는 지금도 맞지만, 거르는 쪽이 셋이고
+  //  저장하는 쪽이 안 거르는 구조라 한 곳만 놓쳐도 컴플라이언스 수치가 틀어진다. 들어올 때 막는다.
+  if (!inNoticeAudience(post, session.dept)) return NOPE
 
   post.acks ??= []
   if (post.acks.some((a) => a.by === session.name)) {
