@@ -19,6 +19,15 @@ export async function recordPostView(postId: string) {
   const s = getStore()
   const post = s.posts.find((p) => p.id === postId)
   if (!post) return { ok: false, views: 0 }
+  // 게시글 쓰기 접점은 둘이다 — 읽음 확인(acknowledgeNotice)과 이 조회수 증가. 앞의 것만 공지 가시성
+  //  게이트를 지나고 이쪽은 pinned 도 대상 부서도 발행일도 보지 않았다. 화면에 행이 없어도 서버 액션은
+  //  id 로 직접 부를 수 있으므로, 대상 밖 사용자가 못 보는 공지·아직 발행되지 않은 공지의 조회수를 올릴 수
+  //  있었다. 관리자 목록의 '조회' 열은 아무도 열어 볼 수 없던 공지에 조회 수를 그린다 — 작지만 거짓 기록이다.
+  //  QnA 는 전 권한그룹 열람이라 게이트가 없다(공지만 대상 범위·발행일을 갖는다).
+  if (post.kind === '공지') {
+    if (post.publishAt && post.publishAt > today()) return { ok: false, views: post.views ?? 0 }
+    if (!inNoticeAudience(post, session.dept)) return { ok: false, views: post.views ?? 0 }
+  }
   post.views = (post.views ?? 0) + 1
   revalidatePath('/', 'layout')
   return { ok: true, views: post.views }
