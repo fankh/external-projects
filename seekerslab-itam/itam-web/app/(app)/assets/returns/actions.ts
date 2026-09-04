@@ -1,4 +1,5 @@
 'use server'
+import { hasDisposalRecord } from '@/lib/stock'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
 import { hasHolder } from '@/lib/quality'
@@ -45,7 +46,7 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
     asset.dept = '자산관리팀'
     // 폐기 권고는 폐기 절차로 바로 편입한다 — 폐기 대상 레코드를 만들어야 결재·소거로 이어진다
     // (그동안 상태만 폐기예정으로 바뀌고 폐기 대장에 오르지 않아 소거로 진행할 수 없었다)
-    if (!s.disposals.some((d) => d.assetNo === assetNo)) {
+    if (!hasDisposalRecord(s.disposals, assetNo)) {
       s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `반납 점검 폐기 권고${note.trim() ? ` — ${note.trim()}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
     }
   } else if (condition === '수리 필요') {
@@ -109,7 +110,7 @@ export async function receiveReturnMany(assetNos: string[], condition: ReturnCon
     if (condition === '폐기 권고') {
       asset.status = '폐기예정'
       asset.owner = '미지정'; asset.dept = '자산관리팀' // 단건 receiveReturn 과 동일 — 반납으로 보유자를 떠났으므로 소유자를 비운다(폐기 취소·반려 시 오귀속 방지)
-      if (!s.disposals.some((d) => d.assetNo === asset.assetNo)) {
+      if (!hasDisposalRecord(s.disposals, asset.assetNo)) {
         s.disposals.push({ id: nextId('DSP'), assetNo: asset.assetNo, model: asset.model, reason: `반납 점검 폐기 권고${note ? ` — ${note}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
       }
     } else if (condition === '수리 필요') {
@@ -266,7 +267,7 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   asset.faultNote = undefined // 수리 사유도 종료 시 해제
   // 수리 불가는 폐기 절차로 이어져야 한다 — 폐기 대상 레코드를 만들어 결재·소거로 진행하게 한다
   // (그동안 상태만 폐기예정으로 바뀌고 폐기 대장에 안 올라 소거로 갈 수 없었다 — v1.68 반납 건과 동일)
-  if (outcome === '수리 불가' && !s.disposals.some((d) => d.assetNo === assetNo)) {
+  if (outcome === '수리 불가' && !hasDisposalRecord(s.disposals, assetNo)) {
     s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `수리 불가 폐기${note.trim() ? ` — ${note.trim()}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
   }
   // 수리 불가 = 보유자 이탈(폐기 절차 진입) — 소유자 정리·좌석 회수를 반납·회수·폐기 등 다른 이탈 경로와 동일하게 수행한다(유휴⇒미지정 규약·로56 좌석 생애주기).

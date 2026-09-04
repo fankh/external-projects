@@ -308,7 +308,9 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
   if (a.kind === '대여' && a.refId && verdict === '승인') {
     const asset = s.assets.find((x) => x.assetNo === a.refId)
     // 요청~승인 사이 자산이 유휴에서 빠졌거나(불출·대여) 폐기 절차에 들어갔으면 집행하지 않는다(폐기 예정분 대여 방지).
-    const assetInDisposal = asset ? s.disposals.some((d) => d.assetNo === asset.assetNo) : false
+    // 폐기 절차 판정은 lib/stock 한 곳에서만 정한다 — 이 줄은 같은 파일 아래(대여 반환·이동 집행)가 쓰는
+    //  헬퍼를 바로 옆에 두고 손으로 다시 적은 사본이었고, 그 사본에는 '완료 제외'가 빠져 있었다.
+    const assetInDisposal = asset ? inDisposalProcess(s.disposals, asset.assetNo) : false
     if (asset && asset.status === '유휴' && !assetInDisposal && !asset.quarantinedAt) {
       asset.status = '대여중'
       asset.owner = a.requester

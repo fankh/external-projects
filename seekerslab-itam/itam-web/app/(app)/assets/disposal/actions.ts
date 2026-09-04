@@ -1,4 +1,5 @@
 'use server'
+import { hasDisposalRecord } from '@/lib/stock'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
 import { today, NUM_LOCALE } from '@/lib/dates'
@@ -18,7 +19,7 @@ export async function selectForDisposal(assetNo: string, reason: string): Promis
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
-  if (s.disposals.some((d) => d.assetNo === assetNo)) return { ok: false, message: `이미 폐기 절차에 있는 자산입니다 — ${assetNo}` }
+  if (hasDisposalRecord(s.disposals, assetNo)) return { ok: false, message: `이미 폐기 절차에 있는 자산입니다 — ${assetNo}` }
   // 보유자가 쥔·파이프라인 중 자산은 실물을 폐기할 수 없다 — 먼저 회수·반환·검수를 마쳐야 한다(대여중 자산 폐기 선정 → 대여 추적 유실 방지, 대여 가드(#149)의 반대편).
   if ((HELD_STATUSES as readonly string[]).includes(asset.status)) {
     return { ok: false, message: `${asset.status} 자산은 폐기 대상으로 선정할 수 없습니다 — ${assetNo} (먼저 회수·반환·검수 완료 후 유휴 상태에서 선정하세요).` }
@@ -73,7 +74,7 @@ export async function selectForDisposalMany(items: { assetNo: string; reason: st
   let skippedD = 0 // 이미 폐기 건이 있거나 보유자가 쥔 자산이라 건너뛴 선택분
   for (const it of items) {
     const asset = s.assets.find((a) => a.assetNo === it.assetNo)
-    if (!asset || s.disposals.some((x) => x.assetNo === it.assetNo)) { skippedD += 1; continue }
+    if (!asset || hasDisposalRecord(s.disposals, it.assetNo)) { skippedD += 1; continue }
     // 보유자가 쥔·파이프라인 중 자산은 건너뛴다 — 회수·반환·검수 완료(유휴)해야 폐기 선정 대상(단건 가드와 동일).
     if ((HELD_STATUSES as readonly string[]).includes(asset.status)) { skippedD += 1; continue }
     const bulkId = nextId('DSP')

@@ -1,5 +1,5 @@
 'use server'
-import { inDisposalProcess, pendingDisposalNos } from '@/lib/stock'
+import { hasDisposalRecord, inDisposalProcess, pendingDisposalNos } from '@/lib/stock'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, appendDenial, denied } from '@/lib/audit'
 import { hasHolder, isPlaceholder } from '@/lib/quality'
@@ -567,7 +567,7 @@ export async function returnLoan(assetNo: string, condition: ReturnCondition = '
     // 대여 반환으로 보유자를 떠났으므로 소유자를 비운다 — 다른 점검 결과와 동일 불변식(폐기 취소·반려로 유휴 복귀 시 오귀속 방지).
     asset.owner = '미지정'
     asset.dept = '자산관리팀'
-    if (!s.disposals.some((d) => d.assetNo === assetNo)) {
+    if (!hasDisposalRecord(s.disposals, assetNo)) {
       s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `대여 반환 점검 폐기 권고${note ? ` — ${note}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
     }
   } else if (condition === '수리 필요') {
@@ -1088,7 +1088,7 @@ export async function recoverAsset(assetNo: string, rawNote: string, condition: 
   //  검수 없이 바로 유휴 풀에 들어가 재불출되면 안 된다. 유휴 자산은 장애 신고(사용중 전용) 경로도 없어 수리 진입이 막힌다.
   if (condition === '폐기 권고') {
     asset.status = '폐기예정'
-    if (!s.disposals.some((d) => d.assetNo === assetNo)) {
+    if (!hasDisposalRecord(s.disposals, assetNo)) {
       s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `분실 회수 점검 폐기 권고${note ? ` — ${note}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
     }
   } else if (condition === '수리 필요') {

@@ -2971,7 +2971,15 @@ try {
   //  inDisposalProcess 로 모았고, 여기서 인라인 재작성이 다시 들어오지 않는지 센다.
   //  판정은 줄 단위다 — 파일 어딘가에 disposals.some 이 있고 다른 줄에 완료 비교가 있다고 재작성인 것은 아니다
   //   (폐기 화면에는 "이미 목록에 있는가"라는 더 넓은 술어와, 개별 폐기 건의 상태 비교가 각각 따로 있다).
-  const dpLineHit = (line) => (line.includes("disposals.some(") || line.includes("disposals.filter(")) && line.includes("status !== '완료'")
+  //  넓힌 이유 — 예전 판정은 disposals.some/filter 와 "status !== '완료'" 를 한 줄에서 둘 다 요구했다.
+  //  그래서 완료 비교가 '빠진' 사본은 원리적으로 볼 수 없었다: 맞게 적은 중복만 잡고 틀리게 적은 중복은 놓치는
+  //  측정면이었다. 실제로 그 사이로 9곳이 지나갔고(대여 승인 집행 가드 포함 — 그 파일은 헬퍼를 이미 import 해
+  //  둔 채였다), 그 한 곳은 완료 제외가 빠진 판정으로 자산을 통과시키고 있었다.
+  //  지금은 "disposals 에서 assetNo 로 직접 찾는 줄"을 모두 본다 — 세 질문(진행 중·레코드 존재·현재 단계)에
+  //  모두 이름이 있으므로 예외 목록은 없다. 예외 목록은 다음 사본이 숨을 자리다.
+  const dpLineHit = (line) =>
+    (line.includes("disposals.some(") || line.includes("disposals.filter(") || line.includes("disposals.find(")) &&
+    (line.includes("status !== '완료'") || new RegExp("assetNo" + "\\" + "s*===").test(line))
   const dpInline = []
   let dpUsers = 0
   for (const f of sourceFiles) {
@@ -2986,11 +2994,25 @@ try {
 
   // 양성 대조 — 인라인 재작성을 찾는 판정이 실제로 잡는지, 헬퍼를 부르는 코드는 오탐하지 않는지 본다.
   //  (0곳이라는 결과는 패턴이 아무것도 못 잡을 때도 나온다.)
-  check('폐기 절차 판정 양성 대조: 인라인 재작성은 잡고, 헬퍼 호출은 오탐하지 않는다',
+  //  둘째·셋째 양성 대조가 이번에 넓힌 형태다 — 완료 비교 없이 assetNo 로만 찾는 사본.
+  //  예전 판정은 이 두 줄을 통과시켰고, 통과시켰다는 사실이 9곳이 지나간 이유다.
+  check('폐기 절차 판정 양성 대조: 인라인 재작성은 잡고(완료 비교 없는 사본 포함), 헬퍼 호출은 오탐하지 않는다',
     dpLineHit("  if (s.disposals.some((d) => d.assetNo === x && d.status !== '완료')) return") &&
+    dpLineHit("  if (s.disposals.some((d) => d.assetNo === assetNo)) return { ok: false }") &&
+    dpLineHit("  const st = s.disposals.find((d) => d.assetNo === a.assetNo)?.status") &&
     dpLineHit("  const p = new Set(s.disposals.filter((d) => d.status !== '완료').map((d) => d.assetNo))") &&
     !dpLineHit("  if (inDisposalProcess(s.disposals, assetNo)) return") &&
+    !dpLineHit("  if (hasDisposalRecord(s.disposals, assetNo)) return") &&
+    !dpLineHit("  const st = disposalStageOf(s.disposals, assetNo)") &&
+    !dpLineHit("  const disp = s.disposals.filter((d) => hit(d.id, d.assetNo, d.model, d.reason))") &&
     !dpLineHit("  if (d.status !== '완료') return { ok: false }"))
+
+  // 세 질문이 모두 lib/stock 에 이름을 갖고 있는지 — 예외 없는 가드는 이름이 먼저 있어야 성립한다.
+  //  하나라도 빠지면 그 줄은 헬퍼 밖에 남을 수밖에 없고, 그 예외가 다음 사본이 숨을 자리가 된다.
+  const stockNamed = readFileSync(path.join(ROOT, 'lib', 'stock.ts'), 'utf8')
+  check('폐기 판정 세 질문에 각각 이름이 있다(진행 중 · 레코드 존재 · 현재 단계)',
+    ['export function inDisposalProcess(', 'export function hasDisposalRecord(', 'export function disposalStageOf(']
+      .every((n) => stockNamed.includes(n)))
 
   // 숫자 표기 로케일 가드 — 인자 없는 toLocaleString() 은 실행 환경의 기본 로케일을 쓴다. 서버는
   //  컨테이너의 로케일, 브라우저는 보는 사람의 로케일이라, SSR 후 하이드레이션되는 클라이언트
