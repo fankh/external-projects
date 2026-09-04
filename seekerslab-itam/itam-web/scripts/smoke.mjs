@@ -3085,6 +3085,26 @@ try {
   check('AI 모델 정책 양성 대조: 초기 정책이 ANTHROPIC_MODEL_ID 를 받는다(env 배포에서도 표기=호출)',
     seedModelSrc.includes("modelId: process.env.ANTHROPIC_MODEL_ID"))
 
+  // 인도 문서의 "범위 밖" 목록이 실제 구현과 어긋나지 않는가 — 목록에 적힌 항목이 실은 구현돼 있으면
+  //  고객은 있는 기능을 없다고 읽고, 반대로 빠지면 없는 기능을 기대한다. 실제로 다단계 결재선 편집이
+  //  목록에 남아 있었는데 사용자·결재선 화면에서 Admin 이 단계를 고르고 필수 여부까지 토글하고 있었다.
+  //  구현의 존재는 서버 액션으로 판정한다 — 화면 문구가 아니라 동작하는 코드가 근거다.
+  const aprLineSrc = readFileSync(path.join(ROOT, "app", "(app)", "settings", "users", "actions.ts"), "utf8")
+  const lineEditable = aprLineSrc.includes("line.steps = [") && aprLineSrc.includes("line.required = !line.required")
+  const readmeExcl = readme.split("## v1 범위 제외")[1] || ""
+  const exclSection = readmeExcl.split("## ")[0]
+  const stillExcluded = /전자결재 다단계 결재선 편집/.test(exclSection)
+  check(`범위 밖 목록: 구현된 기능(다단계 결재선 편집=${lineEditable})이 제외 목록에 남아 있지 않다`,
+    lineEditable && !stillExcluded, `구현=${lineEditable} · 목록에 남음=${stillExcluded}`)
+
+  // 종료 flush 주장 — 컨테이너에서는 실행되지 않는다는 것이 실측 결론이다(README 배포 절에 근거를 적었다).
+  //  두 문서가 다른 말을 하면 고객은 종료 시 저장을 기대하고 운영자는 아니라고 안다.
+  const summaryFlush = summary.includes("종료 flush 는 컨테이너에서 실행되지 않음")
+  //  README 는 "종료 시 flush", 요약은 "종료 flush" 로 적는다 — 표현이 아니라 사실을 대조한다.
+  const readmeFlush = readme.includes("컨테이너에서 돌지 않는다")
+  check(`영속화 서술: 인도 문서가 종료 flush 미실행을 밝힌다(README 와 같은 말)`,
+    summaryFlush && readmeFlush, `요약=${summaryFlush} · README=${readmeFlush}`)
+
   // HTML 문서 라우트의 이스케이프 단일 출처 가드 — 인쇄용 문서(자산 카드·계약 카드·인수인계서·검수 확인서·
   //  라벨·라벨 묶음·라이선스 카드·대여 확인서·분실 신고서·오프보딩 명세서)는 사람이 넣은 모델명·비고·사유를
   //  그대로 HTML 에 꽂는다. 이 라우트들은 저마다 똑같은 esc 한 줄을 복사해 두고 있었다 — 열 벌이 다 같아도
