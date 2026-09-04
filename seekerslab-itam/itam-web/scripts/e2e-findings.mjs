@@ -2318,19 +2318,31 @@ try {
   await p3.waitForTimeout(800)
   const audRow = p3.locator('tr', { has: p3.locator('td', { hasText: `e2e ${audDept} 전용 필독 공지` }) }).first()
   ok('부서 전용 필독 공지: 관리자에게는 보인다(양성 대조 — 아래 USER 검사가 공허하지 않다)', (await audRow.count()) > 0)
-  await audRow.click()
-  await p3.waitForTimeout(400)
-  const audUrl = p3.url()
-  const audId = (audUrl.match(/sel=([A-Za-z0-9-]+)/) || [])[1] || ''
-  ok('부서 전용 필독 공지: 딥링크 id 를 얻었다(검사 대상 확보)', /^NTC-/.test(audId))
+  // 공지 id 는 URL 이 아니라 검색 API 로 얻는다 — 목록의 행 선택은 클라이언트 상태라 주소가 바뀌지 않는다
+  //  (처음엔 클릭 뒤 p3.url() 에서 sel= 를 읽으려 했고, 빈 문자열이 나와 아래 딥링크 검사가 '?sel=' 로
+  //   기본 공지를 열어 버렸다 — 제목·본문 미노출 검사가 통과했지만 그건 다른 공지를 본 결과였다).
+  //  ADMIN 검색은 예약·부서 공지까지 포함하므로 방금 만든 공지가 잡힌다.
+  const audSearch = await p3.request.get(`${BASE}/api/search?q=${encodeURIComponent(`e2e ${audDept} 전용`)}`)
+  const audJson = await audSearch.json().catch(() => ({ groups: [] }))
+  const audHref = (audJson.groups ?? []).flatMap((g) => g.items ?? []).map((i) => i.href || '').find((h) => h.includes('/board/notices?sel=NTC-')) || ''
+  const audId = decodeURIComponent((audHref.match(/sel=([^&]+)/) || [])[1] || '')
+  ok('부서 전용 필독 공지: 공지 id 를 얻었다(검사 대상 확보 — 못 얻으면 아래 딥링크 검사가 공허하다)', /^NTC-/.test(audId))
 
   const ctxNA = await browser.newContext(); await ctxNA.addCookies([cookie(USER)])
   const pNA = await ctxNA.newPage()
   await pNA.goto(`${BASE}/board/notices?sel=${audId}`, { waitUntil: 'networkidle' })
   const naBody = (await pNA.locator('body').textContent()) || ''
+  //  못 보는 공지의 sel= 는 조용히 '보이는 첫 공지'로 떨어진다(NoticeBoard 의 openId 초기화가
+  //   posts 에 없으면 posts[0] 을 연다). 그래서 여기서 '읽음 확인 버튼이 없다'를 재면 안 된다 —
+  //   대체로 열린 다른 공지의 버튼이 잡혀 원리적으로 실패한다. 재야 하는 것은 '그 공지가 안 나온다'이다.
   ok('부서 전용 필독 공지: 대상 밖 사용자(플랫폼개발팀)에게 딥링크로도 제목이 안 보인다', !naBody.includes(`e2e ${audDept} 전용 필독 공지`))
   ok('부서 전용 필독 공지: 대상 밖 사용자에게 본문이 안 보인다', !naBody.includes('대상 부서만 볼 내용'))
-  ok('부서 전용 필독 공지: 대상 밖 사용자에게 읽음 확인 버튼이 없다', (await pNA.locator('button', { hasText: /^읽음 확인$/ }).count()) === 0)
+  // 화면 밖의 두 번째 면 — 전역 검색. 화면은 목록에서 빼도 검색이 제목을 돌려주면 같은 것이 샌다
+  //  (예전에 실제로 그랬고 그때 닫았다). 대체 선택으로 흐려지지 않는 직접 검사라 위 두 건의 버팀목이 된다.
+  const naSearch = await pNA.request.get(`${BASE}/api/search?q=${encodeURIComponent(`e2e ${audDept} 전용`)}`)
+  const naJson = await naSearch.json().catch(() => ({ groups: [] }))
+  const naHrefs = (naJson.groups ?? []).flatMap((g) => g.items ?? []).map((i) => i.href || '')
+  ok('부서 전용 필독 공지: 대상 밖 사용자의 전역 검색에 잡히지 않는다', !naHrefs.some((h) => h.includes(audId)))
   // 양성 대조 — 같은 사용자가 전사 필독 공지(NTC-01)는 딥링크로 열 수 있어야 한다. 위 3건이 '공지 화면이
   //  통째로 안 열려서' 통과한 것이 아님을 보인다.
   await pNA.goto(`${BASE}/board/notices?sel=NTC-01`, { waitUntil: 'networkidle' })
@@ -5321,7 +5333,7 @@ try {
 
 //  실행한 검사 수가 문서가 적은 수와 같은가 — 스위트가 중간에 멈추면 남은 검사는 '실패'가 아니라 아예 실행되지
 //   않아 로그에는 '1건 실패'로만 남는다(실제로는 수백 건이 돌지 않았다). 컨트롤 전제가 깨진 자리에서 클릭·
-//   innerText 가 던지면 그 지점에서 끝나는데, 그런 자리가 75곳 있다(존재 단언 직후 그 대상을 무조건
+//   innerText 가 던지면 그 지점에서 끝나는데, 그런 자리가 74곳 있다(존재 단언 직후 그 대상을 무조건
 //   조작하는 자리 — 스모크가 센다). 자리마다 막는 대신 중단 자체를 드러낸다. 그 수가 늘면 취약면이 넓어진
 //   것이고, 주석에만 적어 두면 조용히 낡는다 — 실제로 40곳이라 적힌 채 74곳이 됐다.
 //   스모크의 문서 대조와 같은 규약이다. 검사를 늘리면 README·구축 요약의 수도 함께 고친다.
