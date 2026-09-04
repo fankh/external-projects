@@ -1,3 +1,4 @@
+import { isAddressedTo } from '@/lib/notify'
 import { staleComposeTargets } from '@/lib/survey'
 import { DEGRADED_CONNECTOR_STATUSES, isUserRequestKind, isApprovalVisibleToUser, isOpenExposure, isReceiptPending, isUntriagedDiscovery } from '@/lib/types'
 import Link from 'next/link'
@@ -98,7 +99,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     .sort((x, y) => (x.dday ?? 99_999) - (y.dday ?? 99_999))
   // 내게 온 알림 — 나를 수신자(to)로 발송된 통지의 수신자 측 요약. 그동안 발송 이력은 관리자(플랫폼 연동 화면)만 볼 수 있어,
   //  사용자는 이메일 밖에서 자신에게 온 통지(수령 확인·대여/반납 결과·QnA 답변·결재 결과·수리 결과 등)를 앱에서 확인할 곳이 없었다. 최근 5건.
-  const myNoticesAll = s.dispatches.filter((m) => m.to === session.name)
+  //  수신자 표기 판정은 lib/notify 한 곳에서 온다 — 여기서 to === name 으로 비교하던 것이
+  //   '이름 (부서)' 형태의 개인 통지를 전부 놓쳤다(결재 결과·수령 확인·대여/반납·분실·수리 결과).
+  const myNoticesAll = s.dispatches.filter((m) => isAddressedTo(m.to, session.name))
   const myNotices = showAllNotices ? myNoticesAll : myNoticesAll.slice(0, NOTICE_TOP)
 
   // 운영 대기 — 화면마다 흩어진 담당 처리 대기열을 역할에 맞게 한 곳에 모은다

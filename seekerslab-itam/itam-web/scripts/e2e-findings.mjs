@@ -1620,6 +1620,25 @@ try {
   await apRemind.click()
   await p3.waitForTimeout(800)
   ok('결재 지연 → 독촉: 발송 성공', (await p3.textContent('body')).includes('결재 독촉'))
+  // 내게 온 알림 — 발송된 개인 통지가 수신자 본인 화면에 뜨는가. 개인 통지의 대다수는 수신자를
+  //  '이름 (부서)'로 적는다(결재 결과·수령 확인·대여/반납·분실·수리 결과). 대시보드가 to === name 으로
+  //  정확히 비교하던 동안 그 전부가 조용히 빠졌다 — 발송은 됐고 발송 이력에도 남는데 본인 화면에만
+  //  안 뜨는, 오류 없는 실패라 크래시·권한 검사 어느 쪽에도 걸리지 않았다.
+  //  이 스위트는 위(자산 재배정)에서 이미 김민준 앞 '수령 확인' 통지를 만들었으므로 새로 바꾸지 않고 읽기만 한다.
+  await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const dispBody = (await p3.locator('body').textContent()) || ''
+  // 전제 확인 — 이 기록이 없으면 아래 대시보드 검사는 '안 온 걸 안 보여준' 공허한 통과가 된다.
+  ok('내게 온 알림 전제: 발송 이력에 이름 (부서) 형태의 개인 통지가 실제로 있다', dispBody.includes('김민준 (플랫폼개발팀)'))
+  const ctxMN = await browser.newContext(); await ctxMN.addCookies([cookie(USER)])
+  const pMN = await ctxMN.newPage()
+  await pMN.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  const mnBody = (await pMN.locator('body').textContent()) || ''
+  ok('내게 온 알림: 이름 (부서)로 발송된 개인 통지가 수신자 대시보드에 뜬다', mnBody.includes('내게 온 알림') && mnBody.includes('수령 확인'))
+  // 양성 대조 — 남의 통지까지 끌어오지는 않는다. 이름이 접두인 다른 사람·부서 앞 통지가 섞이면
+  //  '많이 잡으면 통과'가 되어 판정이 무의미해진다.
+  ok('내게 온 알림 양성 대조: 남에게 간 통지는 섞이지 않는다', !mnBody.includes('오세훈 (인사팀)') && !mnBody.includes('[QnA 접수]'))
+  await ctxMN.close()
+
   // 폐기 반려 → 자산 원 상태 복원·폐기 대상 해제 (반려된 폐기가 폐기예정 림보에 남지 않는다). 시드 APR-2607-119(AST-2019-000218·DSP-01)
   await p3.goto(`${BASE}/workflow/approvals?sel=APR-2607-119`, { waitUntil: 'networkidle' })
   const dispApr = p3.locator('tr', { has: p3.locator('td', { hasText: 'APR-2607-119' }) }).first()
