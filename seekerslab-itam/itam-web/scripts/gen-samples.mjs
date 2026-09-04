@@ -96,10 +96,20 @@ for (const [kind, file] of REPORTS) {
   const mdPath = path.join(DOCS, `${file}.md`)
   const csvPath = path.join(DOCS, `${file}.csv`)
   if (CHECK) {
-    // 드리프트 감지 — 커밋된 샘플과 생성물을 개행 정규화 후 비교. 어긋나면 실패로 집계(파일은 건드리지 않음).
+    // 드리프트 감지 — 커밋된 샘플과 생성물을 바이트로 비교한다(파일은 건드리지 않음).
+    //  그전에는 개행을 정규화한 뒤 비교해서 줄바꿈 차이를 보지 못했다. 그 사이 커밋된 csv 17개 중
+    //  15개가 LF 로 남아 있었는데(생성기는 CRLF 를 낸다) 이 검사는 "최신"이라고 말했다 — 새로 클론하면
+    //  `-text` 속성 때문에 LF 그대로 받아 스모크의 줄바꿈 가드가 첫 스위트에서 실패하는 상태였다.
+    //  바이트로 비교하되, 원인이 내용인지 줄바꿈인지는 이름으로 밝힌다 — 고치는 사람이 무엇을 볼지 달라진다.
     const drift = []
-    try { if (norm(readFileSync(mdPath)) !== norm(mdBuf)) drift.push('md') } catch { drift.push('md(없음)') }
-    try { if (norm(readFileSync(csvPath)) !== norm(csvBuf)) drift.push('csv') } catch { drift.push('csv(없음)') }
+    const cmpSample = (label, p, buf) => {
+      let cur
+      try { cur = readFileSync(p) } catch { drift.push(`${label}(없음)`); return }
+      if (cur.equals(buf)) return
+      drift.push(norm(cur) === norm(buf) ? `${label}(줄바꿈)` : label)
+    }
+    cmpSample('md', mdPath, mdBuf)
+    cmpSample('csv', csvPath, csvBuf)
     if (drift.length) { console.error(`  ✗ ${kind}: 샘플 드리프트 (${drift.join('·')}) — gen-samples.mjs 재생성 필요`); failed++ }
     else console.log(`  ✓ ${kind}: 최신`)
   } else {
