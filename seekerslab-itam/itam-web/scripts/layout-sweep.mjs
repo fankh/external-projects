@@ -141,6 +141,51 @@ try {
     }
     await ctx.close()
   }
+  // 인쇄 문서가 A4 인쇄 영역에 들어가는가 — 이 스위트는 화면 30종만 훑고 인쇄 문서는 보지 않았다.
+  //  인쇄용이라 이름 붙인 문서인데 A4 에 들어가는지 아무도 재지 않은 자리다. 넘치면 인쇄기가 잘라내거나
+  //  축소해서, 화면에서 멀쩡하던 표가 종이에서는 오른쪽이 사라진다.
+  //  재는 폭은 A4(210mm)에서 문서 CSS 의 좌우 여백(@page margin 12mm)을 뺀 186mm = 703px(96dpi)다.
+  //  뷰포트를 A4 전체 폭(794px)으로 두고 재면 넘침이 항상 나온다 — 인쇄 엔진은 여백을 뺀 폭으로 배치한다.
+  //  대상은 화면이 내주는 문서 링크에서 모은다(여기에 id 를 적어 두면 시드가 바뀔 때 낡는다).
+  const PRINT_W = 703
+  const ctxPrint = await browser.newContext({ viewport: { width: PRINT_W, height: 1123 } })
+  await ctxPrint.addCookies([cookie(ADMIN)])
+  const docLinks = new Set()
+  for (const route of ROUTES.slice(0, 12)) {
+    const lp = await ctxPrint.newPage()
+    try {
+      await lp.goto(`${BASE}${route}`, { waitUntil: "networkidle", timeout: 20000 })
+      const row = lp.locator("tbody tr.clickable").first()
+      if (await row.count()) { await row.click(); await lp.waitForTimeout(300) }
+      for (const h of await lp.$$eval('a[href^="/api/"]', (as) => as.map((a) => a.getAttribute("href") || ""))) docLinks.add(h)
+    } catch { /* 화면이 없으면 건너뛴다 */ }
+    await lp.close()
+  }
+  let printChecked = 0
+  for (const href of docLinks) {
+    //  내려받기 응답(xlsx·확인서)은 브라우저가 탐색이 아니라 다운로드로 처리해 goto 가 던진다.
+    //   HTTP 로 먼저 종류를 보고 text/html 만 연다 — 예외를 실패로 세면 정상 반출 링크가 위반이 된다.
+    let head
+    try { head = await ctxPrint.request.get(`${BASE}${href}`) } catch { continue }
+    if (head.status() !== 200 || !(head.headers()["content-type"] || "").startsWith("text/html")) continue
+    const pp = await ctxPrint.newPage()
+    await pp.emulateMedia({ media: "print" })
+    try {
+      const res = await pp.goto(`${BASE}${href}`, { waitUntil: "networkidle", timeout: 20000 })
+      if (!res || res.status() !== 200) { await pp.close(); continue }
+      printChecked += 1
+      const over = await pp.evaluate((w) => {
+        const wide = [...document.querySelectorAll("body *")].filter((e) => e.scrollWidth > w + 2)
+        return { doc: document.documentElement.scrollWidth, n: wide.length, first: wide.slice(0, 3).map((e) => `${e.tagName.toLowerCase()}=${e.scrollWidth}`) }
+      }, PRINT_W)
+      if (over.doc > PRINT_W + 2 || over.n > 0) failures.push(`인쇄 A4: ${href} 문서폭 ${over.doc}px · 넘침 ${over.n}곳 ${over.first.join(", ")}`)
+    } catch (e) { failures.push(`인쇄 A4: ${href} — ${e.message.slice(0, 60)}`) }
+    await pp.close()
+  }
+  //  대상이 0건이면 "넘침 0"으로 통과한다 — 수를 세고 하한을 둔다.
+  checks += printChecked
+  if (printChecked < 4) failures.push(`인쇄 A4: 검사한 문서가 ${printChecked}종뿐 — 링크 수집이 헛돌았다`)
+  await ctxPrint.close()
   await browser.close()
 } catch (err) {
   failures.push(`실행 오류: ${err instanceof Error ? err.message : err}`)
