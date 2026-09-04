@@ -1,4 +1,5 @@
 'use server'
+import { hasDisposalRecord } from '@/lib/stock'
 import { DISPOSAL_STATUSES, HELD_STATUSES } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 import { appendAudit, denied } from '@/lib/audit'
@@ -109,7 +110,7 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
     //   추적이 끊긴다) 회수 단계가 통째로 생략됐다. 같은 판정을 두 경로가 다르게 하지 않는다.
     if (asset && (HELD_STATUSES as readonly string[]).includes(asset.status)) {
       action = `보유 중(${asset.status}) — 회수·반환·검수 후 폐기 선정 대상 (${asset.assetNo})`
-    } else if (asset && !DISPOSAL_STATUSES.includes(asset.status) && !s.disposals.some((d) => d.assetNo === asset.assetNo)) {
+    } else if (asset && !DISPOSAL_STATUSES.includes(asset.status) && !hasDisposalRecord(s.disposals, asset.assetNo)) {
       s.disposals.push({ id: nextId('DSP'), assetNo: asset.assetNo, model: asset.model, reason: `EOL·취약점 조치 1순위 — ${ins.title}`, status: '대상 선정', prevStatus: asset.status })
       // 직접 선정(selectForDisposal)과 같은 이력을 남긴다 — AI 제안으로 편입된 자산만 타임라인이 비면 안 된다.
       asset.history.push({ date: today(), kind: '폐기', detail: `폐기(교체) 대상 선정 — AI 제안 승인 ${ins.title} (${asset.status} → 폐기예정)`, actor: session.name })

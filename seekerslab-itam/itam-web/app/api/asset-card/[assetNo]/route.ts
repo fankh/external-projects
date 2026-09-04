@@ -1,3 +1,4 @@
+import { disposalStageOf } from '@/lib/stock'
 import { printToolbar } from '@/lib/doc-toolbar'
 import { escHtml as esc } from '@/lib/text'
 import { forbidden } from '@/lib/audit'
@@ -33,7 +34,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const deps = assetDependencies(a.assetNo)
   const asById = new Map(getStore().assets.map((x) => [x.assetNo, x]))
   // 진행 중 폐기 절차 단계(완료 제외) — 재고 가용·불출 가드가 쓰는 판정과 같은 원천(스토어 폐기 대장).
-  const disposalStage = getStore().disposals.find((d) => d.assetNo === a.assetNo && d.status !== '완료')?.status
+  const disposalStage = disposalStageOf(getStore().disposals, a.assetNo)
   const nameOf = (no: string) => { const x = asById.get(no); return x ? `${no}(${x.model})` : no }
   const row = (k: string, v?: string) => (v && v !== '-') ? `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>` : ''
   const fields = [

@@ -1,3 +1,4 @@
+import { hasDisposalRecord } from '@/lib/stock'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { canExport } from '@/lib/exports'
@@ -16,7 +17,7 @@ export default async function DisposalPage({ searchParams }: { searchParams: Pro
 
   // 폐기 후보 — 보증 만료 경과 + 현재 폐기 절차에 없는 자산
   const candidates = s.assets
-    .filter((a) => !s.disposals.some((d) => d.assetNo === a.assetNo))
+    .filter((a) => !hasDisposalRecord(s.disposals, a.assetNo))
     .filter((a) => a.status !== '폐기완료' && a.warrantyEnd !== '-')
     .map((a) => ({ asset: a, over: daysUntil(a.warrantyEnd) ?? 0 }))
     .filter((x) => x.over < 0)
