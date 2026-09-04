@@ -12,6 +12,18 @@ export function recipientOf(owner: string | undefined, dept: string): string {
   return hasHolder(o) ? `${o} (${dept})` : dept
 }
 
+/** 이 통지가 이 사람 앞으로 온 것인가 — recipientOf 의 짝(읽는 쪽)이다.
+ *  만드는 쪽은 한 함수로 모았는데 되읽는 규약이 없어서, 읽는 곳마다 표기를 각자 지어냈다.
+ *  독촉의 '오늘 보낸 사람' 집합 둘은 `${name} (${dept})` 를 손으로 다시 조립해 맞았고,
+ *  대시보드의 '내게 온 알림'은 to === name 으로 정확히 비교해 아무것도 못 잡았다 — 개인 통지의
+ *  대다수(결재 결과·수령 확인·대여/반납·분실·수리 결과)가 '이름 (부서)' 형태라 조용히 전부 빠졌다.
+ *  발송은 됐고 발송 이력에도 남는데 본인 화면에만 안 뜨는, 오류 없는 실패였다.
+ *  부서 앞 통지(수신자가 부서명뿐)는 개인 통지가 아니므로 잡지 않는다 — 그건 다른 질문이다. */
+export function isAddressedTo(to: string | undefined, userName: string): boolean {
+  const t = (to ?? '').trim()
+  return t === userName || t.startsWith(`${userName} (`)
+}
+
 /** 알림 발송 — 그룹웨어 메일·문자 채널로 나가는 통지의 단일 진입점.
  *  실제 전송은 배치·연동 서버 소관이므로 여기서는 발송 이력만 적재한다.
  *  이력을 남기지 않으면 "발송했다"는 주장을 감사에서 증명할 수 없다. */

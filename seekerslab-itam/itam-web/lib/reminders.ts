@@ -1,3 +1,4 @@
+import { isAddressedTo } from './notify'
 import { isReceiptPending } from '@/lib/types'
 import { isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceOverdue, isQnaOverdue, isRepairEtaMissing, isRepairOverdue, today } from './dates'
 import { impactSources } from './cmdb'
@@ -86,11 +87,13 @@ export function noticeRemindTargets(postId: string): { name: string; dept: strin
   if (!post || !post.pinned) return []
   if (post.publishAt && post.publishAt > today()) return []
   const acked = new Set((post.acks ?? []).map((a) => a.by))
-  const sent = new Set(
-    s.dispatches.filter((m) => m.kind === '공지 독촉' && m.ref === postId && m.at.startsWith(today())).map((m) => m.to),
-  )
+  // 표기를 손으로 다시 조립하지 않는다 — 발송 쪽이 형태를 바꾸면 이 집합이 조용히 아무도 못 걸러
+  //  같은 사람에게 하루 여러 통이 나간다. 판정은 lib/notify 한 곳(isAddressedTo)에서 온다.
+  const sent = s.dispatches
+    .filter((m) => m.kind === '공지 독촉' && m.ref === postId && m.at.startsWith(today()))
+    .map((m) => m.to)
   return noticeTargets(post, s.users)
-    .filter((u) => !acked.has(u.name) && !sent.has(`${u.name} (${u.dept})`))
+    .filter((u) => !acked.has(u.name) && !sent.some((to) => isAddressedTo(to, u.name)))
     .map((u) => ({ name: u.name, dept: u.dept }))
 }
 

@@ -3032,6 +3032,31 @@ try {
   const ackGated = (body) => body.includes('inNoticeAudience(') && body.includes('publishAt') && body.includes('post.pinned')
   check('필독 확인 저장: 대상 부서·발행일·필독 세 게이트를 모두 통과해야 확인이 남는다',
     ackBody.length > 0 && ackGated(ackBody), ackBody.length === 0 ? 'acknowledgeNotice 를 찾지 못함' : `게이트 누락 — 본문 ${ackBody.length}자`)
+  // 통지 수신자 표기의 읽는 쪽 — 만드는 쪽(recipientOf)은 lib/notify 한 곳인데 되읽는 규약이 없어서
+  //  읽는 곳마다 표기를 각자 지어냈다. 독촉의 '오늘 보낸 사람' 집합은 `이름 (부서)`를 손으로 다시
+  //  조립해 맞았고, 대시보드의 '내게 온 알림'은 to === name 으로 정확히 비교해 아무것도 못 잡았다 —
+  //  개인 통지의 대다수(결재 결과·수령 확인·대여/반납·분실·수리 결과)가 '이름 (부서)' 형태라 전부 빠졌다.
+  //  판정을 isAddressedTo 한 곳으로 모았으니, 되읽는 자리에 사본이 다시 들어오지 않는지 센다.
+  //  파일 이름을 적지 않는다 — dispatches 를 사람 이름으로 거르는 줄을 형태로 찾는다.
+  const toLineHit = (line) => line.includes('dispatches') && line.includes('.to === ')
+  const toInline = []
+  let toUsers = 0
+  for (const f of sourceFiles) {
+    const rel = path.relative(ROOT, f).split(path.sep).join('/')
+    const body = readFileSync(f, 'utf8')
+    if (body.includes('isAddressedTo(')) toUsers += 1
+    if (rel === 'lib/notify.ts') continue // 판정을 정하는 곳
+    body.split(/\r?\n/).forEach((line, li) => { if (toLineHit(line)) toInline.push(`${rel}:${li + 1}`) })
+  }
+  check(`통지 수신자 판정: lib/notify 한 곳만 정의 · 사용처 ${toUsers}곳이 그걸 부른다`,
+    toInline.length === 0 && toUsers >= 2, `인라인 비교=${toInline.join(', ') || '없음'} · 사용처=${toUsers}`)
+  // 양성 대조 — 옛 비교는 잡고, 헬퍼 호출과 다른 뜻의 비교(발송 종류·참조)는 오탐하지 않는다.
+  check('통지 수신자 판정 양성 대조: 옛 정확 비교는 잡고 헬퍼 호출은 오탐하지 않는다',
+    toLineHit('  const mine = s.dispatches.filter((m) => m.to === session.name)') &&
+    !toLineHit('  const mine = s.dispatches.filter((m) => isAddressedTo(m.to, session.name))') &&
+    !toLineHit("  const t = s.dispatches.filter((m) => m.kind === '공지 독촉' && m.ref === postId)") &&
+    !toLineHit('  const x = users.filter((u) => u.name === session.name)'))
+
   // 공지 쓰기 접점은 둘이다 — 읽음 확인(acknowledgeNotice)과 조회수 증가(recordPostView).
   //  앞의 것만 막았을 때 뒤의 것이 그대로 열려 있었다: 대상 밖 사용자가 못 보는 공지·발행 전 공지의
   //  조회수를 올릴 수 있었고, 관리자 목록의 '조회' 열이 아무도 열어 볼 수 없던 공지에 수를 그렸다.
