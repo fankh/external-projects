@@ -2,7 +2,7 @@
 import { Fragment, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { missingContractDocs } from '@/lib/contract'
-import { fmtAmount, NUM_LOCALE } from '@/lib/dates'
+import { fmtAmount, NUM_LOCALE, SORT_LOCALE } from '@/lib/dates'
 import { CONTRACT_DOC_TYPES, type Contract, type ContractDocType } from '@/lib/types'
 import { addContract, addContractCost, addContractDoc, removeContractCost, removeContractDoc, renewContract, setContractSla, terminateContract } from './actions'
 
@@ -265,7 +265,7 @@ export function ContractsTable({ rows, sel, canEdit, expiryWindowDays, canExport
                           <div className="dim" style={{ fontSize: 12, marginBottom: canEdit ? 8 : 0 }}>등록된 비용 이력이 없습니다 — 정기 유지보수료·부품 교체·긴급 출동 등을 기록하세요.</div>
                         ) : (
                           <div className="vstack" style={{ gap: 4, marginBottom: canEdit ? 10 : 0 }}>
-                            {[...c.costs!].sort((a, b) => b.date.localeCompare(a.date)).map((ct) => (
+                            {[...c.costs!].sort((a, b) => b.date.localeCompare(a.date, SORT_LOCALE)).map((ct) => (
                               <div key={ct.id} className="hstack" style={{ gap: 10, fontSize: 12.5 }}>
                                 <span className="tnum mut" style={{ minWidth: 82 }}>{ct.date}</span>
                                 <span className="strong" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ct.item}</span>

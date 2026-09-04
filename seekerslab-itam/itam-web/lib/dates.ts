@@ -212,6 +212,20 @@ export function roundProgressPct(r: { scanned: number; planned: number }): numbe
  *  React 19 는 이 텍스트 차이를 조용히 덮어써서 콘솔에 남지 않는다 — 스위트가 보지 못한 이유다.
  *  날짜를 Intl.DateTimeFormat 에 로케일을 박아 고정한 것과 같은 규약이다(이 파일 위쪽 dateFmt). */
 export const NUM_LOCALE = 'ko-KR'
+
+/** 정렬 비교 로케일 — 문자열 순서를 못박는다.
+ *
+ *  인자 없는 localeCompare() 도 실행 환경의 기본 로케일을 쓴다. 숫자 표기와 달리 이쪽은 목록의
+ *  순서 자체가 바뀐다 — 실측:
+ *
+ *    ko-KR: ㄱ테스트 가나다 김민준 맥북 Pro … 하늘 A-노트북 Dell 모니터 ThinkPad
+ *    en-US: A-노트북 Dell 모니터 ThinkPad ㄱ테스트 가나다 김민준 맥북 Pro … 하늘
+ *
+ *  한글을 라틴보다 앞에 두느냐 뒤에 두느냐가 통째로 갈린다. 이 앱의 목록은 모델명(라틴)과
+ *  사용자·부서명(한글)이 섞여 있어 정확히 이 차이에 걸린다. 클라이언트 컴포넌트(대장·발견 자산·
+ *  계약 표)에서는 SSR 로 그린 순서와 브라우저가 다시 그린 순서가 어긋나고, 서버 전용 자리에서는
+ *  컨테이너 로케일이 리포트·문서의 행 순서를 정하게 된다. NUM_LOCALE 과 같은 이유로 고정한다. */
+export const SORT_LOCALE = 'ko-KR'
 export function fmtAmount(n: number): string {
   if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}억`
   const man = Math.round(n / 10_000)

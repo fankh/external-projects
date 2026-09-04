@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct, repairTotalOf } from '@/lib/cost'
 import { assetDependenciesFrom } from '@/lib/cmdb-graph'
 import { TopologyDiagram } from './TopologyDiagram'
-import { warrantyState, NUM_LOCALE } from '@/lib/dates'
+import { warrantyState, NUM_LOCALE, SORT_LOCALE } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, notifyDependencyImpact, notifyEolUpgrade, reassignAsset, reassignAssetMany, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, releaseQuarantine, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, requestReturn, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
@@ -940,7 +940,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       <span className="strong tnum">누계 {repairTotalOf(sel).toLocaleString(NUM_LOCALE)}원</span>
                       <span className="mut" style={{ fontSize: 11 }}>· {sel.repairCosts!.length}건 (자사 부담)</span>
                     </div>
-                    {[...sel.repairCosts!].sort((a, b) => b.date.localeCompare(a.date)).map((c) => (
+                    {[...sel.repairCosts!].sort((a, b) => b.date.localeCompare(a.date, SORT_LOCALE)).map((c) => (
                       <div key={c.id} className="hstack" style={{ gap: 8, fontSize: 12 }}>
                         <span className="tnum mut" style={{ minWidth: 76 }}>{c.date}</span>
                         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.item}{c.warrantyClaimed && <span className="mut"> · 무상 보증 청구</span>}</span>

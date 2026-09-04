@@ -6,7 +6,7 @@ import { isPlaceholder } from '@/lib/quality'
 import { externalQueryAllowed, deidentify, egressPersonNames } from '@/lib/ai-egress'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
-import { ratioPct, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today, isWarrantyExpiring, NUM_LOCALE } from '@/lib/dates'
+import { ratioPct, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today, isWarrantyExpiring, NUM_LOCALE, SORT_LOCALE } from '@/lib/dates'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf, isEolTarget } from '@/lib/eol'
@@ -401,7 +401,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const scoped = s.assets
       .filter((a) => !DISPOSAL_STATUSES.includes(a.status) && a.warrantyEnd !== '-' && (!cat || a.category === cat))
       .filter((a) => !period || (a.warrantyEnd >= period.start && a.warrantyEnd <= period.end))
-      .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
+      .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd, SORT_LOCALE))
     // '임박' 판정 창은 운영 정책(만료창)을 따른다 — 화면 필터(?warranty=soon)·대시보드 큐·통지가 모두 같은 창을 쓰므로
     //  여기만 90 을 박아 두면 정책을 줄였을 때 답변의 '창 내 N건'과 연결한 필터 결과가 어긋난다.
     const wWin = s.opsPolicy.expiryWindowDays
@@ -475,8 +475,8 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const period = parsePeriodWindow(q, today())
     const win = s.opsPolicy.expiryWindowDays
     const hit = period
-      ? s.contracts.filter((c) => c.status !== '해지' && c.end >= period.start && c.end <= period.end).sort((a, b) => a.end.localeCompare(b.end))
-      : s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= win }).sort((a, b) => a.end.localeCompare(b.end))
+      ? s.contracts.filter((c) => c.status !== '해지' && c.end >= period.start && c.end <= period.end).sort((a, b) => a.end.localeCompare(b.end, SORT_LOCALE))
+      : s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= win }).sort((a, b) => a.end.localeCompare(b.end, SORT_LOCALE))
     const headline = period
       ? `${period.label} 만료 예정 계약은 ${hit.length}건입니다 (${period.start} ~ ${period.end}).`
       : `${win}일 내 만료 예정 계약은 ${hit.length}건입니다.`
@@ -726,8 +726,8 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   //  대장 필터·대시보드 큐·독촉과 같은 lib/dates 판정(isMaintenanceDue/Overdue)을 쓴다 — 어시스턴트가 별도 임계값을 만들지 않는다.
   if (canAsset && (q.includes('정기 점검') || q.includes('예방 정비') || q.includes('점검 대상') || q.includes('점검 밀린') || q.includes('점검 경과') || q.includes('정비'))) {
     const due = s.assets.filter((a) => isMaintenanceDue(a, s.opsPolicy.maintenanceWindowDays))
-    const overdue = due.filter(isMaintenanceOverdue).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? ''))
-    const soon = due.filter((a) => !isMaintenanceOverdue(a)).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? ''))
+    const overdue = due.filter(isMaintenanceOverdue).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? '', SORT_LOCALE))
+    const soon = due.filter((a) => !isMaintenanceOverdue(a)).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? '', SORT_LOCALE))
     const fmt = (a: (typeof due)[number]) => `${a.assetNo} — ${a.model} · ${a.owner} (${a.dept}) · 예정 ${a.maintenanceDue}${isMaintenanceOverdue(a) ? ` · 경과 ${-(daysUntil(a.maintenanceDue!) ?? 0)}일` : ` · D-${daysUntil(a.maintenanceDue!) ?? 0}`}`
     return {
       role: 'assistant',
@@ -837,7 +837,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   if (isUser && (q.includes('보증') || q.includes('만료') || q.includes('워런티') || q.includes('warranty'))) {
     const owned = s.assets
       .filter((a) => a.owner === userName && !DISPOSAL_STATUSES.includes(a.status) && a.warrantyEnd !== '-')
-      .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
+      .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd, SORT_LOCALE))
     const uWin = s.opsPolicy.expiryWindowDays // 담당자 답변·대장 필터와 같은 만료창(운영 정책)
     const soon = owned.filter((a) => isWarrantyExpiring(a, uWin))
     const dText = (a: (typeof owned)[number]) => {
@@ -861,7 +861,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   if (isUser && (q.includes('대여') || q.includes('반납') || q.includes('반환'))) {
     const loans = s.assets
       .filter((a) => a.status === '대여중' && a.owner === userName && a.loanDueDate)
-      .sort((a, b) => (a.loanDueDate ?? '').localeCompare(b.loanDueDate ?? ''))
+      .sort((a, b) => (a.loanDueDate ?? '').localeCompare(b.loanDueDate ?? '', SORT_LOCALE))
     const overdue = loans.filter(isLoanOverdue)
     return {
       role: 'assistant',
@@ -884,7 +884,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   //  '답변'만으로는 다른 인텐트 답변 언급과 겹치므로 문의/QnA/질문/답변 대기/미답변으로만 잡는다(바로 아래 isUser 짝과 트리거 대칭).
   if (!isUser && (q.includes('문의') || q.includes('qna') || q.includes('질문') || q.includes('답변 대기') || q.includes('미답변'))) {
     const qna = s.posts.filter((p) => p.kind === 'QnA')
-    const pending = qna.filter((p) => !p.answer).sort((a, b) => a.createdAt.localeCompare(b.createdAt)) // 등록 오래된 문의 먼저(대기 오래된 순 우선 답변)
+    const pending = qna.filter((p) => !p.answer).sort((a, b) => a.createdAt.localeCompare(b.createdAt, SORT_LOCALE)) // 등록 오래된 문의 먼저(대기 오래된 순 우선 답변)
     return {
       role: 'assistant',
       text: pending.length === 0
@@ -902,7 +902,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   if (isUser && (q.includes('문의') || q.includes('qna') || q.includes('질문') || q.includes('답변'))) {
     const myQna = s.posts
       .filter((p) => p.kind === 'QnA' && p.author === userName)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt, SORT_LOCALE))
     const answered = myQna.filter((p) => p.answer)
     return {
       role: 'assistant',

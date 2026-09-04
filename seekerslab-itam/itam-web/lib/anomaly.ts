@@ -1,6 +1,7 @@
 /** 이상 자산 행위 탐지 — 자산별 평시 프로파일(설치 SW·상태·데이터 반출 패턴) 대비 이탈을 산출한다.
  *  (제품안내서 §05 AI 기능 02: "비지도 이상탐지 — 미인가 SW 설치, 휴면 자산의 갑작스런 활동, 서버의 비정상 외부 통신")
  *  취약점 우선순위(기능 04·정적 노출도)와 달리 '행위 이탈'을 한 축으로 모은 읽기 전용 합성 뷰. 각 항목은 조치 화면으로 연결된다. */
+import { SORT_LOCALE } from './dates'
 import { DISPOSAL_STATUSES } from './types'
 import { getStore } from './store'
 import type { RiskLevel } from './types'
@@ -64,7 +65,7 @@ export function buildAnomalies(): AnomalyResult {
     items.push({ id: `AN-${u.id}`, kind: 'USB 대용량 반출', target: u.assetNo, detail: `${u.device}${u.note ? ` · ${u.note}` : ''}`, severity: u.risk, basis: `EDR 장치 제어 로그 이탈 · 최초 ${u.firstSeen}`, href: '/discovery/found' })
   }
 
-  items.sort((a, b) => W[b.severity] - W[a.severity] || a.kind.localeCompare(b.kind))
+  items.sort((a, b) => W[b.severity] - W[a.severity] || a.kind.localeCompare(b.kind, SORT_LOCALE))
   const KINDS: AnomalyKind[] = ['미인가 SW 설치', '유휴 자산 사용', '서버 비정상 외부 통신', 'USB 대용량 반출']
   return { items, byKind: KINDS.map((kind) => ({ kind, count: items.filter((i) => i.kind === kind).length })) }
 }

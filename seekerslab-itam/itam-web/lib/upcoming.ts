@@ -1,4 +1,4 @@
-import { daysUntil } from './dates'
+import { daysUntil, SORT_LOCALE } from './dates'
 import { nextRunOf } from './reports'
 import { getStore } from './store'
 import { GONE_STATUSES, NON_OPERATIONAL_STATUSES } from './types'
@@ -46,5 +46,5 @@ export function upcomingSchedule(days = UPCOMING_WINDOW_DAYS): UpcomingItem[] {
   for (const l of s.licenses) if (l.status !== '해지' && l.expiry !== '-') push(l.expiry, '라이선스 만료', `${l.id} · ${l.name}`, `/inventory/contracts?sel=${l.id}`)
   for (const r of s.inventoryRounds) if (r.status !== '완료') push(r.dueDate, '재물조사 마감', r.name, '/inventory/survey-plan')
   for (const sc of s.reportSchedules) if (sc.enabled) { const nr = nextRunOf(sc); if (nr) push(nr, '리포트 배포', sc.kind, '/ai/reports') }
-  return items.sort((a, b) => a.date.localeCompare(b.date) || a.kind.localeCompare(b.kind))
+  return items.sort((a, b) => a.date.localeCompare(b.date, SORT_LOCALE) || a.kind.localeCompare(b.kind, SORT_LOCALE))
 }

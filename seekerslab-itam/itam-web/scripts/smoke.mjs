@@ -3018,6 +3018,36 @@ try {
   check('숫자 표기 양성 대조: 인자 없는 호출은 잡고, 로케일을 준 호출은 오탐하지 않는다',
     bareHit("{n.toLocaleString()}") && !bareHit("{n.toLocaleString(NUM_LOCALE)}"))
 
+  // 정렬 비교 로케일 가드 — 인자 없는 localeCompare() 도 실행 환경의 기본 로케일을 쓴다. 숫자 표기와
+  //  달리 이쪽은 목록의 순서 자체가 바뀐다. 실측: ko-KR 은 한글을 라틴보다 앞에, en-US 는 뒤에 둔다
+  //  — 모델명(라틴)과 사용자·부서명(한글)이 섞인 이 앱의 목록은 정확히 이 차이에 걸린다.
+  //  클라이언트 컴포넌트(대장·발견 자산·계약 표)에서는 SSR 로 그린 순서와 브라우저가 다시 그린 순서가
+  //  어긋나고, 서버 전용 자리에서는 컨테이너 로케일이 리포트·인쇄 문서의 행 순서를 정하게 된다.
+  const NL_RE = new RegExp(String.fromCharCode(92) + 'r?' + String.fromCharCode(92) + 'n')
+  const sortBare = []
+  let sortPinned = 0
+  for (const f of numFiles) {
+    const rel = path.relative(ROOT, f).split(path.sep).join("/")
+    if (rel === "lib/dates.ts") continue // 상수를 정하는 곳(주석에 실측 예시가 있다)
+    readFileSync(f, "utf8").split(NL_RE).forEach((line, li) => {
+      if (line.trim().startsWith("*") || line.trim().startsWith("//")) return
+      const calls = line.split("localeCompare(").length - 1
+      if (!calls) return
+      const here = line.split("SORT_LOCALE").length - 1
+      sortPinned += Math.min(calls, here)
+      if (here < calls) sortBare.push(rel + ":" + (li + 1))
+    })
+  }
+  check(`정렬 비교: ${sortPinned}곳이 로케일을 고정(lib/dates SORT_LOCALE) · 기본 로케일 의존 0곳`,
+    sortBare.length === 0 && sortPinned >= 25, `기본 로케일 의존=${sortBare.join(", ") || "없음"} · 고정=${sortPinned}`)
+
+  // 양성 대조 — 정렬 순서가 로케일에 따라 실제로 갈리는가. 갈리지 않는다면 위 가드는 지킬 것이 없는
+  //  규칙이 된다. 한글·라틴이 섞인 목록을 두 로케일로 정렬해 서로 다른지, 고정 로케일은 늘 같은지 본다.
+  const sortSample = ["ThinkPad", "김민준", "Dell 모니터", "박자산"]
+  const byLocale = (loc) => [...sortSample].sort((x, y) => x.localeCompare(y, loc)).join("|")
+  check('정렬 비교 양성 대조: 로케일에 따라 순서가 실제로 갈린다(ko≠en) · 고정 로케일은 항상 같다',
+    byLocale("ko-KR") !== byLocale("en-US") && byLocale("ko-KR") === byLocale("ko-KR"))
+
   // HTML 문서 라우트의 이스케이프 단일 출처 가드 — 인쇄용 문서(자산 카드·계약 카드·인수인계서·검수 확인서·
   //  라벨·라벨 묶음·라이선스 카드·대여 확인서·분실 신고서·오프보딩 명세서)는 사람이 넣은 모델명·비고·사유를
   //  그대로 HTML 에 꽂는다. 이 라우트들은 저마다 똑같은 esc 한 줄을 복사해 두고 있었다 — 열 벌이 다 같아도

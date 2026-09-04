@@ -10,7 +10,7 @@ import { buildMaintenance } from './maintenance'
 import { buildProcurement } from './procurement'
 import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
-import { ratioPct, addDays, addYears, dormantDaysOf, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct, NUM_LOCALE } from './dates'
+import { ratioPct, addDays, addYears, dormantDaysOf, nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isStaleVerify, isRepairOverdue, roundProgressPct, NUM_LOCALE, SORT_LOCALE } from './dates'
 import { ACQ_COST, USEFUL_LIFE_YEARS, acquisitionCostOf, bookValueOf, repairTotalOf, warrantySavingsOf } from './cost'
 import { eolOsOf, isEolTarget } from './eol'
 import { assetDataIssues, cmdbAccuracyPct, deptOfOwner, hasDataIssue } from './quality'
@@ -316,7 +316,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         columns: ['계약번호', '계약명', '공급사', '만료일', '잔여'],
         rows: s.contracts
           .filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= s.opsPolicy.expiryWindowDays })
-          .sort((a, b) => a.end.localeCompare(b.end))
+          .sort((a, b) => a.end.localeCompare(b.end, SORT_LOCALE))
           .map((c) => [c.id, c.name, c.vendor, c.end, (daysUntil(c.end) ?? 0) < 0 ? '경과' : `${daysUntil(c.end)}일`]),
       },
       {
@@ -326,7 +326,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         columns: ['자산번호', '모델', '대여자', '부서', '반환 기한', '상태'],
         rows: s.assets
           .filter((a) => a.status === '대여중')
-          .sort((a, b) => (a.loanDueDate ?? '').localeCompare(b.loanDueDate ?? ''))
+          .sort((a, b) => (a.loanDueDate ?? '').localeCompare(b.loanDueDate ?? '', SORT_LOCALE))
           .map((a) => {
             const d = a.loanDueDate ? daysUntil(a.loanDueDate) : null
             const st = isLoanOverdue(a) ? `연체 ${d !== null ? -d : ''}일` : isLoanDueSoon(a) ? `반환 임박 D-${d}` : '정상'
@@ -1020,7 +1020,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     // 표는 기한 임박순 15건까지만 싣지만, 문구는 전체 건수를 말해야 한다 — 자른 뒤의 배열 길이를 그대로 적으면
     //  40건이 만료 예정인데 '만료 예정 15건'으로 읽히는, 예산 계획 문서에 틀린 수가 실리는 자리가 된다.
     const SOON_TOP = 15
-    const soonAll = live2.filter((c) => c.end >= t && qKey(c.end) <= horizonEnd).sort((a, b) => a.end.localeCompare(b.end))
+    const soonAll = live2.filter((c) => c.end >= t && qKey(c.end) <= horizonEnd).sort((a, b) => a.end.localeCompare(b.end, SORT_LOCALE))
     const soon = soonAll.slice(0, SOON_TOP)
     const peak = bucketList.reduce((mx, b) => (b.amount > mx.amount ? b : mx), bucketList[0])
     return [

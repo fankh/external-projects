@@ -1,6 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
-import { today, NUM_LOCALE } from '@/lib/dates'
+import { today, NUM_LOCALE, SORT_LOCALE } from '@/lib/dates'
 import { staleComposeBlocked, staleComposeTargets, staleVerifyAssets, unconfirmedComposeTargets, unconfirmedGhosts } from '@/lib/survey'
 import { getStore } from '@/lib/store'
 import { PlanView } from './PlanView'
@@ -32,7 +32,7 @@ export default async function SurveyPlanPage() {
   const planned = rounds.filter((r) => r.status === '계획')
   const overdue = rounds.filter((r) => r.status !== '완료' && r.dueDate < t)
   // 완료 회차 이력 — 지난 재물조사의 실적(대상·실사·차이)을 남겨 감사 추적에 쓴다. 그동안 완료 회차는 조사 화면·계획 화면 어디에도 안 보였다.
-  const completed = rounds.filter((r) => r.status === '완료').sort((a, b) => b.dueDate.localeCompare(a.dueDate))
+  const completed = rounds.filter((r) => r.status === '완료').sort((a, b) => b.dueDate.localeCompare(a.dueDate, SORT_LOCALE))
 
   return (
     <>

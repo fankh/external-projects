@@ -3,7 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireView } from '@/lib/authz'
 import { canExport } from '@/lib/exports'
 import { missingContractDocs } from '@/lib/contract'
-import { ratioPct, daysUntil, fmtAmount } from '@/lib/dates'
+import { ratioPct, daysUntil, fmtAmount, SORT_LOCALE } from '@/lib/dates'
 import { expiryNoticeTargets } from '@/lib/expiry'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { buildMaintenance } from '@/lib/maintenance'
@@ -33,7 +33,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
     return d !== null && d <= s.opsPolicy.expiryWindowDays
   }
   const s = getStore()
-  const contractsAll = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
+  const contractsAll = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end, SORT_LOCALE))
   const contracts = expiryPick ? contractsAll.filter((c) => c.status !== '해지' && inWindow(c.end)) : contractsAll
   const usage = buildLicenseUsage()
   const maint = buildMaintenance()

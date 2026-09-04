@@ -1,5 +1,5 @@
 import { ScreenHeader, Stat } from '@/components/ui'
-import { QNA_SLA_DAYS, isQnaOverdue, qnaAgeDays } from '@/lib/dates'
+import { QNA_SLA_DAYS, isQnaOverdue, qnaAgeDays, SORT_LOCALE } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { qnaRemindTargets } from '@/lib/reminders'
@@ -12,7 +12,7 @@ export default async function QnaPage({ searchParams }: { searchParams: Promise<
   // status=대기 · overdue=1 — 대시보드 QnA 큐(답변 대기 · SLA 경과)의 드릴다운. 큐가 센 집합으로 목록을 연다.
   const { sel, status, overdue } = await searchParams
   const s = getStore()
-  const qna = s.posts.filter((p) => p.kind === 'QnA').sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const qna = s.posts.filter((p) => p.kind === 'QnA').sort((a, b) => b.createdAt.localeCompare(a.createdAt, SORT_LOCALE))
   const waiting = qna.filter((p) => !p.answer)
   // 미답변 SLA 경과 — 등록 후 QNA_SLA_DAYS(기본 3일)를 넘긴 미답변 문의. 지연 표기·답변 독촉 대상. 대시보드 담당 큐와 같은 판정.
   const overdueDays: Record<string, number> = {}
